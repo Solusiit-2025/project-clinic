@@ -1,0 +1,153 @@
+'use client'
+
+import { motion } from 'framer-motion'
+import Link from 'next/link'
+import { FiArrowRight, FiPlay, FiCheckCircle } from 'react-icons/fi'
+import { useSettingsStore } from '@/lib/store/useSettingsStore'
+
+export default function HeroSection() {
+  const { settings } = useSettingsStore()
+  const hero = settings.hero
+
+  return (
+    <section id="home" className="relative pt-32 pb-20 md:pt-40 md:pb-32 bg-gradient-to-b from-blue-50 via-white to-white overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-b from-primary/10 to-transparent rounded-full blur-3xl -z-10"></div>
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-t from-secondary/10 to-transparent rounded-full blur-3xl -z-10"></div>
+
+      <div className="container-custom">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          {/* Left Content */}
+          <motion.div
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8 }}
+            className="z-10"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary font-bold text-xs uppercase tracking-widest mb-6 border border-primary/20"
+            >
+              <FiPlay className="w-3 h-3" />
+              {hero.preTitle}
+            </motion.div>
+            <motion.h1
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.25 }}
+              className="text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-[1.1] mb-8 text-gray-900"
+            >
+              {hero.title} <span className="relative inline-block">
+                <span className="relative z-10 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">{hero.highlight}</span>
+                <span className="absolute bottom-2 left-0 w-full h-3 bg-primary/10 -z-1 order-1"></span>
+              </span>
+            </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+              className="text-xl text-gray-600 mb-10 leading-relaxed max-w-xl"
+            >
+              {hero.description}
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.6 }}
+              className="flex flex-col sm:flex-row gap-5"
+            >
+              <Link
+                href={hero.primaryHref}
+                className="btn-primary px-8 py-4 rounded-2xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/20 hover:shadow-primary/40 transform hover:-translate-y-1 transition-all text-lg"
+              >
+                {hero.primaryCta}
+                <FiArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </Link>
+              <Link
+                href={hero.secondaryHref}
+                className="px-8 py-4 bg-white border-2 border-gray-100 rounded-2xl font-bold text-gray-700 hover:border-primary hover:text-primary transition-all flex items-center justify-center gap-3 shadow-sm hover:shadow-xl"
+              >
+                {hero.secondaryCta}
+              </Link>
+            </motion.div>
+
+            {/* Stats */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.8, delay: 0.8 }}
+              className="flex flex-wrap gap-10 mt-16"
+            >
+              {hero.stats.map((stat: any, index: number) => (
+                <div key={index} className="flex flex-col">
+                  <span className={`text-4xl font-extrabold tracking-tight ${stat.color} mb-1`}>{stat.value}</span>
+                  <span className="text-gray-500 font-medium text-sm">{stat.label}</span>
+                </div>
+              ))}
+            </motion.div>
+          </motion.div>
+
+          {/* Right - Premium Medical Image */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, rotate: 2 }}
+            animate={{ opacity: 1, scale: 1, rotate: 0 }}
+            transition={{ duration: 1, delay: 0.3 }}
+            className="relative hidden lg:block"
+          >
+            <div className="relative z-10 rounded-[3rem] overflow-hidden shadow-2xl shadow-gray-400 group">
+              <img 
+                src="https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&q=80&w=1000" 
+                alt="Medical Professional" 
+                className="w-full h-[600px] object-cover group-hover:scale-105 transition-transform duration-[2s]"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-primary/40 to-transparent opacity-60"></div>
+              
+              {/* Floating Cards */}
+              <motion.div
+                animate={{ y: [0, -15, 0], x: [0, 5, 0] }}
+                transition={{ duration: 5, repeat: Infinity }}
+                className="absolute top-12 -left-12 bg-white/80 backdrop-blur-md rounded-2xl shadow-2xl p-6 border border-white/50 w-64"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg">
+                    <FiCheckCircle className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-tighter">Status Terverifikasi</p>
+                    <p className="text-sm font-bold text-gray-900">Klinik Terakreditasi A</p>
+                  </div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                animate={{ y: [0, 15, 0], x: [0, -10, 0] }}
+                transition={{ duration: 6, repeat: Infinity, delay: 1 }}
+                className="absolute bottom-12 -right-12 bg-white rounded-2xl shadow-2xl p-6 border border-gray-100 w-72"
+              >
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="flex -space-x-3">
+                    {[1,2,3].map(i => (
+                      <div key={i} className="w-10 h-10 rounded-full border-2 border-white bg-gray-200 overflow-hidden">
+                        <img src={`https://i.pravatar.cc/100?img=${i+10}`} alt="Patient" />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-xs font-bold text-gray-900">+50k Pasien</div>
+                </div>
+                <p className="text-sm font-medium text-gray-700">"Pelayanan dokter sangat ramah dan profesional!"</p>
+              </motion.div>
+            </div>
+
+            {/* Decorative Elements */}
+            <div className="absolute -top-10 -right-10 w-64 h-64 bg-secondary/10 rounded-full blur-3xl opacity-60 -z-1"></div>
+            <div className="absolute -bottom-10 -left-10 w-96 h-96 bg-primary/10 rounded-full blur-3xl opacity-60 -z-1"></div>
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  )
+}

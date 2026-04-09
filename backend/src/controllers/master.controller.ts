@@ -1,0 +1,1434 @@
+import { Request, Response } from 'express'
+import { PrismaClient, Role } from '@prisma/client'
+import bcrypt from 'bcrypt'
+import sharp from 'sharp'
+import path from 'path'
+import fs from 'fs/promises'
+
+const prisma = new PrismaClient()
+
+// ==================== USERS ====================
+export const getUsers = async (req: Request, res: Response) => {
+  try {
+    const { search, role, isActive } = req.query
+    const currentUser = (req as any).user
+    const currentClinicId = (req as any).clinicId
+    
+    // Check if user is Super Admin or Admin of Pusat (K001)
+    let isAdminView = currentUser.role === 'SUPER_ADMIN'
+    
+    if (!isAdminView && currentUser.role === 'ADMIN') {
+      const currentClinic = await prisma.clinic.findUnique({ where: { id: currentClinicId } })
+      if (currentClinic?.isMain) {
+        isAdminView = true // Pusat Admin can see everyone
+      }
+    }
+
+    const users = await prisma.user.findMany({
+      where: {
+        ...(search ? {
+          OR: [
+            { name: { contains: String(search), mode: 'insensitive' } },
+            { email: { contains: String(search), mode: 'insensitive' } },
+            { username: { contains: String(search), mode: 'insensitive' } },
+          ]
+        } : {}),
+        ...(role ? { role: role as Role } : {}),
+        ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
+        // Filter by clinic only if NOT an admin view
+        ...(!isAdminView ? { clinics: { some: { clinicId: currentClinicId } } } : {})
+      },
+      select: {
+        id: true, email: true, username: true, name: true,
+        phone: true, role: true, isActive: true, lastLogin: true,
+        createdAt: true, updatedAt: true,
+        clinics: {
+          select: {
+            clinic: {
+              select: { id: true, name: true, code: true }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+    res.json(users)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const createUser = async (req: Request, res: Response) => {
+  try {
+    const { email, username, password, name, phone, role, clinicIds } = req.body
+    const hashed = await bcrypt.hash(password, 10)
+    
+    // Default clinic if none provided (fall back to current context)
+    const targetClinicIds = (clinicIds && Array.isArray(clinicIds) && clinicIds.length > 0) 
+      ? clinicIds 
+      : [(req as any).clinicId]
+
+    const user = await prisma.user.create({
+      data: { 
+        email, username, password: hashed, name, phone, role: role as Role,
+        clinics: {
+          create: targetClinicIds.map((id: string) => ({ clinicId: id }))
+        }
+      },
+      include: {
+        clinics: { include: { clinic: true } }
+      }
+    })
+    
+    const { password: _, ...userNoPass } = user
+    res.status(201).json(userNoPass)
+  } catch (e: any) {
+    if (e.code === 'P2002') return res.status(400).json({ message: 'Email atau username sudah digunakan' })
+    res.status(500).json({ message: e.message })
+  }
+}
+
+export const updateUser = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { email, username, password, name, phone, role, isActive, clinicIds } = req.body
+    const data: any = { email, username, name, phone, role: role as Role, isActive }
+    if (password) data.password = await bcrypt.hash(password, 10)
+    
+    // Sync clinics if provided
+    if (clinicIds && Array.isArray(clinicIds)) {
+      await prisma.userClinic.deleteMany({ where: { userId: id } })
+      data.clinics = {
+        create: clinicIds.map((cid: string) => ({ clinicId: cid }))
+      }
+    }
+
+    const user = await prisma.user.update({
+      where: { id },
+      data,
+      include: {
+        clinics: { include: { clinic: true } }
+      }
+    })
+    
+    const { password: _, ...userNoPass } = user
+    res.json(userNoPass)
+  } catch (e: any) {
+    res.status(500).json({ message: e.message })
+  }
+}
+
+export const deleteUser = async (req: Request, res: Response) => {
+  try {
+    await prisma.user.delete({ where: { id: req.params.id } })
+    res.json({ message: 'User berhasil dihapus' })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const getUnlinkedDoctorUsers = async (req: Request, res: Response) => {
+  try {
+    const currentClinicId = (req as any).clinicId
+    const currentUser = (req as any).user
+
+    // Check if Pusat Admin or Super Admin
+    let isAdminView = currentUser.role === 'SUPER_ADMIN'
+    if (!isAdminView && currentUser.role === 'ADMIN') {
+      const currentClinic = await prisma.clinic.findUnique({ where: { id: currentClinicId } })
+      if (currentClinic?.isMain) {
+        isAdminView = true
+      }
+    }
+
+    const users = await prisma.user.findMany({
+      where: {
+        role: 'DOCTOR',
+        doctor: null, // Filter for users NOT yet in doctors table
+        ...(!isAdminView ? { clinics: { some: { clinicId: currentClinicId } } } : {})
+      },
+      select: { id: true, name: true, username: true }
+    })
+    res.json(users)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+// Recursive helper function for hierarchical department sorting
+const flattenDepartments = (depts: any[], parentId: string | null = null): any[] => {
+  let result: any[] = []
+  const currentLevel = depts.filter(d => d.parentId === parentId)
+  
+  // Sort siblings by sortOrder then name
+  currentLevel.sort((a, b) => (a.sortOrder - b.sortOrder) || a.name.localeCompare(b.name))
+
+  for (const dept of currentLevel) {
+    result.push(dept)
+    const children = flattenDepartments(depts, dept.id)
+    result = [...result, ...children]
+  }
+  return result
+}
+
+export const getDepartments = async (req: Request, res: Response) => {
+  try {
+    const { search, parentId } = req.query
+    const currentClinicId = (req as any).clinicId
+    const currentUser = (req as any).user
+
+    // Check if Pusat Admin or Super Admin
+    let isAdminView = currentUser.role === 'SUPER_ADMIN'
+    if (!isAdminView && currentUser.role === 'ADMIN') {
+      const currentClinic = await prisma.clinic.findUnique({ where: { id: currentClinicId } })
+      if (currentClinic?.isMain) {
+        isAdminView = true
+      }
+    }
+
+    // Fetch all needed data
+    let departments = await prisma.department.findMany({
+      where: {
+        ...(!isAdminView ? { clinicId: currentClinicId } : {}),
+        ...(search ? { name: { contains: String(search), mode: 'insensitive' } } : {}),
+        ...(parentId !== undefined && parentId !== 'all' ? { parentId: parentId === 'null' ? null : String(parentId) } : {}),
+      },
+      include: {
+        clinic: { select: { id: true, name: true, code: true } },
+        parent: { select: { id: true, name: true } },
+        _count: { select: { children: true } }
+      }
+    })
+
+    // If not searching, sort hierarchically
+    if (!search && (parentId === undefined || parentId === 'all')) {
+      departments = flattenDepartments(departments)
+    } else {
+      // Basic sort for searched results
+      departments.sort((a, b) => a.level - b.level || a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+    }
+
+    res.json(departments)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const createDepartment = async (req: Request, res: Response) => {
+  try {
+    const { name, description, isActive, parentId, sortOrder } = req.body
+    
+    let level = 0
+    if (parentId) {
+      const parent = await prisma.department.findUnique({ where: { id: parentId } })
+      if (parent) level = parent.level + 1
+    }
+
+    const dept = await prisma.department.create({ 
+      data: { 
+        name, description, isActive, parentId, level, 
+        sortOrder: sortOrder || 0,
+        clinicId: (req as any).clinicId
+      } 
+    })
+    res.status(201).json(dept)
+  } catch (e: any) {
+    res.status(500).json({ message: e.message })
+  }
+}
+
+export const updateDepartment = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { name, description, isActive, parentId, sortOrder } = req.body
+    
+    let level = 0
+    if (parentId) {
+      const parent = await prisma.department.findUnique({ where: { id: parentId } })
+      if (parent) level = parent.level + 1
+    }
+
+    const dept = await prisma.department.update({ 
+      where: { id }, 
+      data: { name, description, isActive, parentId, level, sortOrder: sortOrder || 0 } 
+    })
+    res.json(dept)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const deleteDepartment = async (req: Request, res: Response) => {
+  try {
+    await prisma.department.delete({ where: { id: req.params.id } })
+    res.json({ message: 'Departemen berhasil dihapus' })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+// ==================== DOCTORS ====================
+export const getDoctors = async (req: Request, res: Response) => {
+  try {
+    const { search, specialization, isActive, departmentId } = req.query
+    const currentClinicId = (req as any).clinicId
+    const currentUser = (req as any).user
+
+    // Check if Pusat Admin or Super Admin
+    let skipClinicFilter = currentUser.role === 'SUPER_ADMIN'
+    if (!skipClinicFilter && currentUser.role === 'ADMIN') {
+      const currentClinic = await prisma.clinic.findUnique({ where: { id: currentClinicId } })
+      if (currentClinic?.isMain) {
+        skipClinicFilter = true
+      }
+    }
+
+    const doctors = await prisma.doctor.findMany({
+      where: {
+        ...(search ? {
+          OR: [
+            { name: { contains: String(search), mode: 'insensitive' } },
+            { specialization: { contains: String(search), mode: 'insensitive' } },
+            { licenseNumber: { contains: String(search), mode: 'insensitive' } },
+          ]
+        } : {}),
+        ...(specialization ? { specialization: { contains: String(specialization), mode: 'insensitive' } } : {}),
+        ...(departmentId ? { departmentId: String(departmentId) } : {
+          // Filter by clinicId unless we skip it for Pusat/SuperAdmin
+          ...(!skipClinicFilter ? { department: { clinicId: currentClinicId } } : {})
+        }),
+        ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
+      },
+      include: {
+        department: { include: { clinic: true } },
+        user: { select: { id: true, username: true } }
+      },
+      orderBy: { name: 'asc' },
+    })
+    res.json(doctors)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+// Helper to process and save doctor photo as WebP
+const processDoctorPhoto = async (file: Express.Multer.File): Promise<string> => {
+  const fileName = `doctor-${Date.now()}.webp`
+  const uploadDir = path.join(__dirname, '../../public/uploads/doctors')
+  
+  // Ensure directory exists
+  await fs.mkdir(uploadDir, { recursive: true })
+  
+  const filePath = path.join(uploadDir, fileName)
+  
+  await sharp(file.buffer)
+    .resize(500, 500, { fit: 'cover' })
+    .webp({ quality: 80 })
+    .toFile(filePath)
+    
+  return `/uploads/doctors/${fileName}`
+}
+
+export const createDoctor = async (req: Request, res: Response) => {
+  try {
+    const { userId, licenseNumber, name, email, phone, specialization, departmentId, bio, yearsOfExperience, isActive } = req.body
+    
+    let profilePicture = null
+    if (req.file) {
+      profilePicture = await processDoctorPhoto(req.file)
+    }
+
+    const doctor = await prisma.doctor.create({ 
+      data: { 
+        userId, licenseNumber, name, email, phone, specialization, departmentId, bio, profilePicture,
+        yearsOfExperience: yearsOfExperience ? Number(yearsOfExperience) : undefined, 
+        isActive: isActive === 'true' || isActive === true 
+      } 
+    })
+    res.status(201).json(doctor)
+  } catch (e: any) {
+    if (e.code === 'P2002') return res.status(400).json({ message: 'Nomor SIP atau email dokter sudah terdaftar' })
+    res.status(500).json({ message: e.message })
+  }
+}
+
+export const updateDoctor = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { licenseNumber, name, email, phone, specialization, departmentId, bio, yearsOfExperience, isActive } = req.body
+    
+    let updateData: any = { 
+      licenseNumber, name, email, phone, specialization, departmentId, bio, 
+      yearsOfExperience: yearsOfExperience ? Number(yearsOfExperience) : undefined, 
+      isActive: isActive === 'true' || isActive === true 
+    }
+
+    if (req.file) {
+      updateData.profilePicture = await processDoctorPhoto(req.file)
+    }
+
+    const doctor = await prisma.doctor.update({ 
+      where: { id }, 
+      data: updateData 
+    })
+    res.json(doctor)
+  } catch (e: any) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const deleteDoctor = async (req: Request, res: Response) => {
+  try {
+    await prisma.doctor.delete({ where: { id: req.params.id } })
+    res.json({ message: 'Dokter berhasil dihapus' })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+// ==================== DOCTOR SCHEDULES ====================
+export const getSchedules = async (req: Request, res: Response) => {
+  try {
+    const { doctorId } = req.query
+    const schedules = await prisma.doctorSchedule.findMany({
+      where: {
+        clinicId: (req as any).clinicId,
+        ...(doctorId ? { doctorId: String(doctorId) } : {}),
+      },
+      include: { doctor: { select: { name: true, specialization: true } } },
+      orderBy: { dayOfWeek: 'asc' },
+    })
+    res.json(schedules)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const createSchedule = async (req: Request, res: Response) => {
+  try {
+    const schedule = await prisma.doctorSchedule.create({
+      data: {
+        ...req.body,
+        clinicId: (req as any).clinicId
+      },
+      include: { doctor: { select: { name: true, specialization: true } } },
+    })
+    res.status(201).json(schedule)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const updateSchedule = async (req: Request, res: Response) => {
+  try {
+    const schedule = await prisma.doctorSchedule.update({
+      where: { id: req.params.id },
+      data: {
+        ...req.body,
+        clinicId: (req as any).clinicId
+      },
+      include: { doctor: { select: { name: true, specialization: true } } },
+    })
+    res.json(schedule)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const deleteSchedule = async (req: Request, res: Response) => {
+  try {
+    await prisma.doctorSchedule.delete({ where: { id: req.params.id } })
+    res.json({ message: 'Jadwal berhasil dihapus' })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+// ==================== SERVICES ====================
+export const getServices = async (req: Request, res: Response) => {
+  try {
+    const { search, categoryId, isActive } = req.query
+    const services = await prisma.service.findMany({
+      where: {
+        clinicId: (req as any).clinicId,
+        ...(search ? {
+          OR: [
+            { serviceName: { contains: String(search), mode: 'insensitive' } },
+            { serviceCode: { contains: String(search), mode: 'insensitive' } },
+          ]
+        } : {}),
+        ...(categoryId ? { categoryId: String(categoryId) } : {}),
+        ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
+      },
+      include: { serviceCategory: true },
+      orderBy: { serviceName: 'asc' },
+    })
+    res.json(services)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const createService = async (req: Request, res: Response) => {
+  try {
+    const service = await prisma.service.create({ 
+      data: { 
+        ...req.body,
+        clinicId: (req as any).clinicId
+      } 
+    })
+    res.status(201).json(service)
+  } catch (e: any) {
+    if (e.code === 'P2002') return res.status(400).json({ message: 'Kode layanan sudah ada' })
+    res.status(500).json({ message: e.message })
+  }
+}
+
+export const updateService = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const service = await prisma.service.update({ where: { id }, data: req.body })
+    res.json(service)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const deleteService = async (req: Request, res: Response) => {
+  try {
+    await prisma.service.delete({ where: { id: req.params.id } })
+    res.json({ message: 'Layanan berhasil dihapus' })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const getNextServiceCode = async (req: Request, res: Response) => {
+  try {
+    const lastService = await prisma.service.findFirst({
+      where: { clinicId: (req as any).clinicId },
+      orderBy: { serviceCode: 'desc' },
+    })
+
+    let nextNumber = 1
+    if (lastService && lastService.serviceCode) {
+      const match = lastService.serviceCode.match(/(\d+)$/)
+      if (match) {
+        nextNumber = parseInt(match[1], 10) + 1
+      }
+    }
+
+    const nextCode = `SVC-${nextNumber.toString().padStart(4, '0')}`
+    res.json({ nextCode })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+// ==================== SERVICE CATEGORIES ====================
+export const getServiceCategories = async (req: Request, res: Response) => {
+  try {
+    const { search } = req.query
+    const cats = await prisma.serviceCategory.findMany({
+      where: search ? { categoryName: { contains: String(search), mode: 'insensitive' } } : {},
+      include: { 
+        _count: { 
+          select: { services: { where: { clinicId: (req as any).clinicId } } } 
+        } 
+      },
+      orderBy: { categoryName: 'asc' },
+    })
+    res.json(cats)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const createServiceCategory = async (req: Request, res: Response) => {
+  try {
+    const cat = await prisma.serviceCategory.create({ data: req.body })
+    res.status(201).json(cat)
+  } catch (e: any) {
+    if (e.code === 'P2002') return res.status(400).json({ message: 'Nama kategori sudah ada' })
+    res.status(500).json({ message: e.message })
+  }
+}
+
+export const updateServiceCategory = async (req: Request, res: Response) => {
+  try {
+    const cat = await prisma.serviceCategory.update({ where: { id: req.params.id }, data: req.body })
+    res.json(cat)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const deleteServiceCategory = async (req: Request, res: Response) => {
+  try {
+    await prisma.serviceCategory.delete({ where: { id: req.params.id } })
+    res.json({ message: 'Kategori berhasil dihapus' })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+// ==================== MEDICINES ====================
+// Helper to process and save medicine photo as WebP
+const processMedicinePhoto = async (file: Express.Multer.File): Promise<string> => {
+  const fileName = `medicine-${Date.now()}.webp`
+  const uploadDir = path.join(__dirname, '../../public/uploads/medicines')
+  
+  // Ensure directory exists
+  await fs.mkdir(uploadDir, { recursive: true })
+  
+  const filePath = path.join(uploadDir, fileName)
+  
+  await sharp(file.buffer)
+    .resize(500, 500, { fit: 'cover' })
+    .webp({ quality: 80 })
+    .toFile(filePath)
+    
+  return `/uploads/medicines/${fileName}`
+}
+
+export const getMedicines = async (req: Request, res: Response) => {
+  try {
+    const { search, isActive } = req.query
+    const medicines = await prisma.medicine.findMany({
+      where: {
+        ...(search ? {
+          OR: [
+            { medicineName: { contains: String(search), mode: 'insensitive' } },
+            { genericName: { contains: String(search), mode: 'insensitive' } },
+            { description: { contains: String(search), mode: 'insensitive' } },
+          ]
+        } : {}),
+        ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
+      },
+      include: { productMaster: true },
+      orderBy: { medicineName: 'asc' },
+    })
+    res.json(medicines)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const createMedicine = async (req: Request, res: Response) => {
+  try {
+    const { isActive, ...rest } = req.body
+    
+    let image = null
+    if (req.file) {
+      image = await processMedicinePhoto(req.file)
+    }
+
+    const med = await prisma.medicine.create({ 
+      data: { 
+        ...rest, 
+        image,
+        isActive: isActive === 'true' || isActive === true 
+      } 
+    })
+    
+    // AUTO-SYNC: Create Product Master entry for this medicine
+    try {
+      // 1. Ensure "Medicine" category exists
+      let category = await prisma.productCategory.findUnique({ where: { categoryName: 'Medicine' } })
+      if (!category) {
+        category = await prisma.productCategory.create({ 
+          data: { categoryName: 'Medicine', description: 'Kategori otomatis untuk obat-obatan klinis' } 
+        })
+      }
+
+      // 2. Create the Master entry
+      await prisma.productMaster.create({
+        data: {
+          masterCode: `MED-${Date.now().toString().slice(-6)}`, // Short unique code
+          masterName: med.medicineName,
+          description: med.description,
+          image: med.image,
+          categoryId: category.id,
+          medicineId: med.id,
+          isActive: med.isActive
+        }
+      })
+    } catch (syncError) {
+      console.error('Failed to sync medicine to product master:', syncError)
+    }
+
+    res.status(201).json(med)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const updateMedicine = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { isActive, ...rest } = req.body
+    
+    let image = req.body.image
+    if (req.file) {
+      image = await processMedicinePhoto(req.file)
+    }
+
+    const med = await prisma.medicine.update({ 
+      where: { id }, 
+      data: {
+        ...rest,
+        image,
+        isActive: isActive === 'true' || isActive === true
+      } 
+    })
+
+    // AUTO-SYNC: Update linked Product Master
+    try {
+      await prisma.productMaster.updateMany({
+        where: { medicineId: id },
+        data: {
+          masterName: med.medicineName,
+          description: med.description,
+          image: med.image,
+          isActive: med.isActive
+        }
+      })
+    } catch (syncError) {
+      console.error('Failed to sync medicine update:', syncError)
+    }
+
+    res.json(med)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const deleteMedicine = async (req: Request, res: Response) => {
+  try {
+    await prisma.medicine.delete({ where: { id: req.params.id } })
+    res.json({ message: 'Obat berhasil dihapus' })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+// ==================== EXPENSE CATEGORIES ====================
+export const getExpenseCategories = async (req: Request, res: Response) => {
+  try {
+    const { search } = req.query
+    const cats = await prisma.expenseCategory.findMany({
+      where: search ? { categoryName: { contains: String(search), mode: 'insensitive' } } : {},
+      include: { 
+        _count: { 
+          select: { expenses: { where: { clinicId: (req as any).clinicId } } } 
+        } 
+      },
+      orderBy: { categoryName: 'asc' },
+    })
+    res.json(cats)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const createExpenseCategory = async (req: Request, res: Response) => {
+  try {
+    const cat = await prisma.expenseCategory.create({ data: req.body })
+    res.status(201).json(cat)
+  } catch (e: any) {
+    if (e.code === 'P2002') return res.status(400).json({ message: 'Nama kategori sudah ada' })
+    res.status(500).json({ message: e.message })
+  }
+}
+
+export const updateExpenseCategory = async (req: Request, res: Response) => {
+  try {
+    const cat = await prisma.expenseCategory.update({ where: { id: req.params.id }, data: req.body })
+    res.json(cat)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const deleteExpenseCategory = async (req: Request, res: Response) => {
+  try {
+    await prisma.expenseCategory.delete({ where: { id: req.params.id } })
+    res.json({ message: 'Kategori berhasil dihapus' })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+// ==================== PRODUCT MASTER ====================
+export const getProductMasters = async (req: Request, res: Response) => {
+  try {
+    const { search, categoryId, isActive } = req.query
+    const products = await prisma.productMaster.findMany({
+      where: {
+        ...(search ? {
+          OR: [
+            { masterName: { contains: String(search), mode: 'insensitive' } },
+            { masterCode: { contains: String(search), mode: 'insensitive' } },
+          ]
+        } : {}),
+        ...(categoryId ? { categoryId: String(categoryId) } : {}),
+        ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
+      },
+      include: { 
+        productCategory: true,
+        _count: { 
+          select: { 
+            products: { where: { clinicId: (req as any).clinicId } },
+            assets: { where: { clinicId: (req as any).clinicId } }
+          } 
+        },
+        medicine: true,
+      },
+      orderBy: { masterName: 'asc' },
+    })
+    res.json(products)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const createProductMaster = async (req: Request, res: Response) => {
+  try {
+    const product = await prisma.productMaster.create({ 
+      data: req.body,
+      include: { productCategory: true }
+    })
+    res.status(201).json(product)
+  } catch (e: any) {
+    if (e.code === 'P2002') return res.status(400).json({ message: 'Kode master sudah ada' })
+    res.status(500).json({ message: e.message })
+  }
+}
+
+export const updateProductMaster = async (req: Request, res: Response) => {
+  try {
+    const product = await prisma.productMaster.update({ 
+      where: { id: req.params.id }, 
+      data: req.body,
+      include: { productCategory: true }
+    })
+    res.json(product)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const deleteProductMaster = async (req: Request, res: Response) => {
+  try {
+    await prisma.productMaster.delete({ where: { id: req.params.id } })
+    res.json({ message: 'Master produk berhasil dihapus' })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+// ==================== CLINICS (BRANCHES) ====================
+export const getClinics = async (req: Request, res: Response) => {
+  try {
+    const { search, isActive } = req.query
+    const clinics = await prisma.clinic.findMany({
+      where: {
+        ...(search ? {
+          OR: [
+            { name: { contains: String(search), mode: 'insensitive' } },
+            { code: { contains: String(search), mode: 'insensitive' } },
+            { address: { contains: String(search), mode: 'insensitive' } },
+          ]
+        } : {}),
+        ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
+      },
+      include: {
+        _count: {
+          select: {
+            users: true,
+            departments: true,
+          }
+        }
+      },
+      orderBy: { code: 'asc' }
+    })
+    res.json(clinics)
+  } catch (e: any) {
+    res.status(500).json({ message: e.message })
+  }
+}
+
+export const createClinic = async (req: Request, res: Response) => {
+  try {
+    const { code } = req.body
+    const existing = await prisma.clinic.findUnique({ where: { code } })
+    if (existing) {
+      return res.status(400).json({ message: `Kode Cabang "${code}" sudah digunakan.` })
+    }
+
+    const clinic = await prisma.clinic.create({ data: req.body })
+
+    // CLONE DEPARTMENTS: Use the first clinic as template
+    try {
+      const templateClinic = await prisma.clinic.findFirst({
+        where: { id: { not: clinic.id } },
+        orderBy: { createdAt: 'asc' }
+      })
+
+      if (templateClinic) {
+        const templateDepts = await prisma.department.findMany({
+          where: { clinicId: templateClinic.id },
+          orderBy: { level: 'asc' }
+        })
+
+        const idMap = new Map<string, string>()
+        
+        for (const dept of templateDepts) {
+          const newDept = await prisma.department.create({
+            data: {
+              name: dept.name,
+              description: dept.description,
+              isActive: dept.isActive,
+              sortOrder: dept.sortOrder,
+              level: dept.level,
+              clinicId: clinic.id,
+              parentId: dept.parentId ? idMap.get(dept.parentId) : null
+            }
+          })
+          idMap.set(dept.id, newDept.id)
+        }
+      }
+    } catch (cloneError) {
+      console.error('Failed to clone departments for new clinic:', cloneError)
+      // We don't return 500 here because the clinic was already created successfully
+    }
+
+    res.status(201).json(clinic)
+  } catch (e: any) {
+    res.status(500).json({ message: e.message })
+  }
+}
+
+export const updateClinic = async (req: Request, res: Response) => {
+  try {
+    const { code, isMain } = req.body
+    
+    if (code) {
+      const existing = await prisma.clinic.findFirst({
+        where: { code, NOT: { id: req.params.id } }
+      })
+      if (existing) {
+        return res.status(400).json({ message: `Kode Cabang "${code}" sudah digunakan oleh cabang lain.` })
+      }
+    }
+
+    // If setting as Main Clinic, unset others
+    if (isMain) {
+      await prisma.clinic.updateMany({
+        where: { NOT: { id: req.params.id } },
+        data: { isMain: false }
+      })
+    }
+
+    const clinic = await prisma.clinic.update({
+      where: { id: req.params.id },
+      data: req.body
+    })
+    res.json(clinic)
+  } catch (e: any) {
+    res.status(500).json({ message: e.message })
+  }
+}
+
+export const deleteClinic = async (req: Request, res: Response) => {
+  try {
+    // Check for departments first
+    const deptCount = await prisma.department.count({ where: { clinicId: req.params.id } })
+    if (deptCount > 0) {
+      return res.status(400).json({ message: 'Tidak dapat menghapus cabang yang masih memiliki departemen aktif.' })
+    }
+
+    await prisma.clinic.delete({ where: { id: req.params.id } })
+    res.json({ message: 'Cabang berhasil dihapus' })
+  } catch (e: any) {
+    res.status(500).json({ message: e.message })
+  }
+}
+
+// ==================== ASSETS ====================
+// Helper to process and save asset photo as WebP
+const processAssetPhoto = async (file: Express.Multer.File): Promise<string> => {
+  const fileName = `asset-${Date.now()}.webp`
+  const uploadDir = path.join(__dirname, '../../public/uploads/assets')
+  
+  // Ensure directory exists
+  await fs.mkdir(uploadDir, { recursive: true })
+  
+  const filePath = path.join(uploadDir, fileName)
+  
+  await sharp(file.buffer)
+    .resize(500, 500, { fit: 'cover' })
+    .webp({ quality: 80 })
+    .toFile(filePath)
+    
+  return `/uploads/assets/${fileName}`
+}
+
+export const getAssets = async (req: Request, res: Response) => {
+  try {
+    const { search, category, status, clinicId } = req.query
+    const requestingClinicId = (req as any).clinicId
+
+    // Check if the requesting clinic is the Main Branch (Pusat)
+    const currentClinic = await prisma.clinic.findUnique({
+      where: { id: requestingClinicId }
+    })
+
+    const isPusat = currentClinic?.isMain
+
+    // Security: If not Pusat, always force the user's clinicId
+    const targetClinicId = isPusat 
+      ? (clinicId ? String(clinicId) : undefined) 
+      : requestingClinicId
+
+    const assets = await prisma.asset.findMany({
+      where: {
+        ...(targetClinicId ? { clinicId: targetClinicId } : {}),
+        ...(search ? {
+          OR: [
+            { assetName: { contains: String(search), mode: 'insensitive' } },
+            { assetCode: { contains: String(search), mode: 'insensitive' } },
+            { manufacturer: { contains: String(search), mode: 'insensitive' } },
+          ]
+        } : {}),
+        ...(category ? { category: String(category) } : {}),
+        ...(status ? { status: String(status) } : {}),
+      },
+      include: {
+        clinic: {
+          select: { name: true, code: true }
+        },
+        masterProduct: {
+          select: { id: true, masterName: true, masterCode: true, categoryId: true }
+        }
+      },
+      orderBy: { assetCode: 'asc' },
+    })
+    res.json(assets)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const createAsset = async (req: Request, res: Response) => {
+  try {
+    const { purchasePrice, purchaseDate, currentValue, clinic, masterProduct, id, createdAt, updatedAt, ...otherData } = req.body
+    
+    let image = null
+    if (req.file) {
+      image = await processAssetPhoto(req.file)
+    }
+
+    const data = { 
+      ...otherData,
+      image,
+      purchasePrice: purchasePrice ? Number(purchasePrice) : 0,
+      currentValue: currentValue ? Number(currentValue) : undefined,
+      purchaseDate: purchaseDate ? new Date(purchaseDate) : new Date(),
+      clinicId: req.body.clinicId || (req as any).clinicId 
+    }
+    const asset = await prisma.asset.create({ 
+      data,
+      include: { masterProduct: true, clinic: true }
+    })
+    res.status(201).json(asset)
+  } catch (e: any) {
+    if (e.code === 'P2002') return res.status(400).json({ message: 'Kode aset sudah ada' })
+    res.status(500).json({ message: e.message })
+  }
+}
+
+export const updateAsset = async (req: Request, res: Response) => {
+  try {
+    const { purchasePrice, purchaseDate, currentValue, clinic, masterProduct, id, createdAt, updatedAt, clinicId, ...otherData } = req.body
+    
+    let image = req.body.image
+    if (req.file) {
+      image = await processAssetPhoto(req.file)
+    }
+
+    const asset = await prisma.asset.update({ 
+      where: { id: req.params.id }, 
+      data: {
+        ...otherData,
+        image,
+        clinicId: clinicId || undefined,
+        purchasePrice: purchasePrice ? Number(purchasePrice) : undefined,
+        currentValue: currentValue ? Number(currentValue) : undefined,
+        purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
+      },
+      include: { masterProduct: true, clinic: true }
+    })
+    res.json(asset)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const deleteAsset = async (req: Request, res: Response) => {
+  try {
+    await prisma.asset.delete({ where: { id: req.params.id } })
+    res.json({ message: 'Aset berhasil dihapus' })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+// ==================== PRODUCT CATEGORIES ====================
+export const getProductCategories = async (req: Request, res: Response) => {
+  try {
+    const { search } = req.query
+    const cats = await prisma.productCategory.findMany({
+      where: search ? { categoryName: { contains: String(search), mode: 'insensitive' } } : {},
+      include: { 
+        _count: { 
+          select: { productMasters: true } 
+        } 
+      },
+      orderBy: { categoryName: 'asc' },
+    })
+    res.json(cats)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const createProductCategory = async (req: Request, res: Response) => {
+  try {
+    const cat = await prisma.productCategory.create({ data: req.body })
+    res.status(201).json(cat)
+  } catch (e: any) {
+    if (e.code === 'P2002') return res.status(400).json({ message: 'Nama kategori sudah ada' })
+    res.status(500).json({ message: e.message })
+  }
+}
+
+export const updateProductCategory = async (req: Request, res: Response) => {
+  try {
+    const cat = await prisma.productCategory.update({ where: { id: req.params.id }, data: req.body })
+    res.json(cat)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const deleteProductCategory = async (req: Request, res: Response) => {
+  try {
+    await prisma.productCategory.delete({ where: { id: req.params.id } })
+    res.json({ message: 'Kategori berhasil dihapus' })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+// ==================== INVENTORY (PRODUCTS) ====================
+export const getInventoryProducts = async (req: Request, res: Response) => {
+  try {
+    const { search, categoryId, clinicId, isActive } = req.query
+    const currentClinicId = (req as any).clinicId
+    const currentUser = (req as any).user
+
+    // Check if Pusat Admin or Super Admin
+    let isAdminView = currentUser.role === 'SUPER_ADMIN'
+    if (!isAdminView && currentUser.role === 'ADMIN') {
+      const currentClinic = await prisma.clinic.findUnique({ where: { id: currentClinicId } })
+      if (currentClinic?.isMain) isAdminView = true
+    }
+
+    // Filter by clinic: If not admin, force current clinic. If admin, optional clinicId filter.
+    const targetClinicId = isAdminView 
+      ? (clinicId ? String(clinicId) : undefined) 
+      : currentClinicId
+
+    const products = await prisma.product.findMany({
+      where: {
+        ...(targetClinicId ? { clinicId: targetClinicId } : {}),
+        ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
+        ...(categoryId || search ? {
+          masterProduct: {
+            is: {
+              ...(categoryId ? { categoryId: String(categoryId) } : {}),
+              ...(search ? {
+                OR: [
+                  { masterName: { contains: String(search), mode: 'insensitive' } },
+                  { masterCode: { contains: String(search), mode: 'insensitive' } },
+                ]
+              } : {})
+            }
+          }
+        } : {}),
+        ...(search ? {
+          OR: [
+            { productName: { contains: String(search), mode: 'insensitive' } },
+            { productCode: { contains: String(search), mode: 'insensitive' } },
+            { sku: { contains: String(search), mode: 'insensitive' } },
+          ]
+        } : {})
+      },
+      include: {
+        masterProduct: {
+          include: { 
+            productCategory: true,
+            medicine: true,
+            assets: {
+              select: { image: true },
+              take: 1
+            }
+          }
+        },
+        clinic: {
+          select: { id: true, name: true, code: true }
+        }
+      },
+      orderBy: { productName: 'asc' },
+    })
+    res.json(products)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+// Helper for inventory product image processing
+const processProductPhoto = async (file: Express.Multer.File): Promise<string> => {
+  const fileName = `product-${Date.now()}.webp`
+  const uploadDir = path.join(__dirname, '../../public/uploads/products')
+  await fs.mkdir(uploadDir, { recursive: true })
+  const filePath = path.join(uploadDir, fileName)
+  await sharp(file.buffer).resize(500, 500, { fit: 'cover' }).webp({ quality: 80 }).toFile(filePath)
+  return `/uploads/products/${fileName}`
+}
+
+export const createInventoryProduct = async (req: Request, res: Response) => {
+  try {
+    const { clinicIds, sku, productCode, ...rest } = req.body
+    
+    // Process image if uploaded
+    let imagePath = null
+    if (req.file) {
+      imagePath = await processProductPhoto(req.file)
+      
+      // Update ProductMaster image
+      if (rest.masterProductId) {
+        const pm = await prisma.productMaster.update({
+          where: { id: rest.masterProductId },
+          data: { image: imagePath },
+          include: { medicine: true }
+        })
+        
+        // If linked to medicine, update medicine image too
+        if (pm.medicineId) {
+          await prisma.medicine.update({
+            where: { id: pm.medicineId },
+            data: { image: imagePath }
+          })
+        }
+      }
+    }
+    
+    // helper to prepare data with branch suffixes
+    const prepareData = async (cid: string) => {
+      const clinic = await prisma.clinic.findUnique({ where: { id: cid }, select: { code: true } })
+      const suffix = clinic?.code || ''
+      return {
+        ...rest,
+        clinicId: cid,
+        sku: sku.includes(`-${suffix}`) ? sku : `${sku}-${suffix}`,
+        productCode: productCode.includes(`-${suffix}`) ? productCode : `${productCode}-${suffix}`
+      }
+    }
+
+    if (Array.isArray(clinicIds) && clinicIds.length > 0) {
+      // Bulk creation for multiple clinics
+      const products = await Promise.all(clinicIds.map(async (cid) => {
+        const data = await prepareData(cid)
+        return prisma.product.create({
+          data,
+          include: { masterProduct: true, clinic: true }
+        })
+      }))
+      return res.status(201).json(products[0])
+    }
+
+    // Single creation
+    const cid = req.body.clinicId || (req as any).clinicId
+    const data = await prepareData(cid)
+    const product = await prisma.product.create({ 
+      data,
+      include: { 
+        masterProduct: true,
+        clinic: true
+      }
+    })
+    res.status(201).json(product)
+  } catch (e: any) {
+    if (e.code === 'P2002') return res.status(400).json({ message: 'Kode produk atau SKU sudah ada di cabang ini' })
+    res.status(500).json({ message: e.message })
+  }
+}
+
+export const updateInventoryProduct = async (req: Request, res: Response) => {
+  try {
+    const { clinicIds, masterProduct, clinic, ...rest } = req.body
+    
+    // Process image if uploaded
+    if (req.file) {
+      const imagePath = await processProductPhoto(req.file)
+      
+      // Find the master product id
+      const currentProduct = await prisma.product.findUnique({
+        where: { id: req.params.id },
+        select: { masterProductId: true }
+      })
+      
+      if (currentProduct?.masterProductId) {
+        const pm = await prisma.productMaster.update({
+          where: { id: currentProduct.masterProductId },
+          data: { image: imagePath },
+          include: { medicine: true }
+        })
+        
+        // Sync to medicine if linked
+        if (pm.medicineId) {
+          await prisma.medicine.update({
+            where: { id: pm.medicineId },
+            data: { image: imagePath }
+          })
+        }
+      }
+    }
+
+    const product = await prisma.product.update({ 
+      where: { id: req.params.id }, 
+      data: rest,
+      include: { 
+        masterProduct: true,
+        clinic: true
+      }
+    })
+    res.json(product)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const deleteInventoryProduct = async (req: Request, res: Response) => {
+  try {
+    await prisma.product.delete({ where: { id: req.params.id } })
+    res.json({ message: 'Item inventaris berhasil dihapus' })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+// ==================== PATIENTS ====================
+export const getPatients = async (req: Request, res: Response) => {
+  try {
+    const { search, isActive } = req.query
+    const patients = await prisma.patient.findMany({
+      where: {
+        ...(search ? {
+          OR: [
+            { name: { contains: String(search), mode: 'insensitive' } },
+            { medicalRecordNo: { contains: String(search), mode: 'insensitive' } },
+            { phone: { contains: String(search), mode: 'insensitive' } },
+            { identityNumber: { contains: String(search), mode: 'insensitive' } },
+          ]
+        } : {}),
+        ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+    res.json(patients)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const getNextMRNo = async (req: Request, res: Response) => {
+  try {
+    const today = new Date()
+    const prefix = `RM-${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`
+    
+    const count = await prisma.patient.count({
+      where: { medicalRecordNo: { startsWith: prefix } }
+    })
+    
+    const nextCode = `${prefix}-${(count + 1).toString().padStart(4, '0')}`
+    res.json({ nextCode })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const createPatient = async (req: Request, res: Response) => {
+  try {
+    const { dateOfBirth, ...rest } = req.body
+    
+    // Safer date parsing to prevent Prisma errors
+    let dob = null
+    if (dateOfBirth && dateOfBirth !== '') {
+      const parsedDate = new Date(dateOfBirth)
+      if (!isNaN(parsedDate.getTime())) {
+        dob = parsedDate
+      }
+    }
+
+    const patient = await prisma.patient.create({
+      data: {
+        ...rest,
+        dateOfBirth: dob
+      }
+    })
+    res.status(201).json(patient)
+  } catch (e: any) {
+    if (e.code === 'P2002') return res.status(400).json({ message: 'Nomor Rekam Medis atau nomor identitas sudah ada' })
+    res.status(500).json({ message: e.message })
+  }
+}
+
+export const updatePatient = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { dateOfBirth, ...rest } = req.body
+
+    // Safer date parsing
+    let dob = null
+    if (dateOfBirth && dateOfBirth !== '') {
+      const parsedDate = new Date(dateOfBirth)
+      if (!isNaN(parsedDate.getTime())) {
+        dob = parsedDate
+      }
+    }
+
+    const patient = await prisma.patient.update({
+      where: { id },
+      data: {
+        ...rest,
+        dateOfBirth: dob
+      }
+    })
+    res.json(patient)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const deletePatient = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    await prisma.patient.delete({ where: { id } })
+    res.json({ message: 'Data pasien berhasil dihapus' })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}

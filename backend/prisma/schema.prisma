@@ -1,0 +1,793 @@
+// This is your Prisma schema file for Clinic Management System
+// Database schema lengkap untuk sistem manajemen klinik
+// Menggunakan UUID untuk semua ID fields
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  DOCTOR
+  RECEPTIONIST
+  FARMASI
+  ACCOUNTING
+  LOGISTIC
+  STAFF
+}
+
+// ==================== CLINIC & BRANCHES ====================
+
+model Clinic {
+  id              String   @id @default(uuid())
+  name            String
+  code            String   @unique // e.g., "K001"
+  address         String?
+  phone           String?
+  email           String?
+  logo            String?
+  isActive        Boolean  @default(true)
+  isMain          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  users           UserClinic[]
+  departments     Department[]
+  registrations   Registration[]
+  appointments    Appointment[]
+  queueNumbers    QueueNumber[]
+  medicalRecords  MedicalRecord[]
+  inventories     Inventory[]
+  products        Product[]
+  assets          Asset[]
+  invoices        Invoice[]
+  expenses        Expense[]
+  financialReports FinancialReport[]
+  siteSettings    SiteSetting[]
+  services        Service[]
+  doctorSchedules DoctorSchedule[]
+
+  @@map("clinics")
+}
+
+model UserClinic {
+  id        String   @id @default(uuid())
+  userId    String
+  clinicId  String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clinic    Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clinicId])
+  @@map("user_clinics")
+}
+
+// ==================== USER & AUTH ====================
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  username      String   @unique
+  password      String
+  name          String
+  phone         String?
+  role          Role     @default(STAFF)
+  isActive      Boolean  @default(true)
+  image         String?
+  lastLogin     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  doctor        Doctor?
+  activityLogs  ActivityLog[]
+  clinics       UserClinic[]
+
+  @@map("users")
+}
+
+// ==================== PATIENT & REGISTRATION ====================
+
+model Patient {
+  id                String  @id @default(uuid())
+  medicalRecordNo   String  @unique
+  name              String
+  email             String?
+  phone             String
+  address           String?
+  city              String?
+  province          String?
+  zipCode           String?
+  dateOfBirth       DateTime?
+  gender            String? // M, F
+  bloodType         String?
+  identityType      String? // KTP, SIM, Passport
+  identityNumber    String?
+  emergencyContact  String?
+  emergencyPhone    String?
+  allergies         String?
+  bpjsNumber        String?
+  insuranceName     String?
+  isActive          Boolean @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  registrations     Registration[]
+  appointments      Appointment[]
+  medicalRecords    MedicalRecord[]
+  prescriptions     Prescription[]
+  invoices          Invoice[]
+  queueNumbers      QueueNumber[]
+
+  @@index([medicalRecordNo])
+  @@index([phone])
+  @@map("patients")
+}
+
+model Registration {
+  id              String  @id @default(uuid())
+  patientId       String
+  registrationNo  String
+  registrationDate DateTime
+  status          String  @default("completed") // completed, cancelled
+  visitType       String  // outpatient, inpatient
+  referralDocument String?
+  referralFrom    String?
+  clinicId        String?
+  doctorId        String?
+  departmentId    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  patient         Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  clinic          Clinic? @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+  doctor          Doctor? @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+  department      Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  @@index([patientId])
+  @@index([clinicId])
+  @@unique([registrationNo, clinicId])
+  @@map("registrations")
+}
+
+// ==================== DOCTOR & SCHEDULE ====================
+
+model Doctor {
+  id                  String  @id @default(uuid())
+  userId              String  @unique
+  licenseNumber       String  @unique
+  name                String
+  email               String? @unique
+  phone               String
+  specialization      String
+  departmentId        String?
+  bio                 String?
+  profilePicture      String?
+  yearsOfExperience   Int?
+  isActive            Boolean @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user                User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department          Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  schedules           DoctorSchedule[]
+  appointments        Appointment[]
+  medicalRecords      MedicalRecord[]
+  prescriptions       Prescription[]
+  registrations       Registration[]
+  queueNumbers        QueueNumber[]    @relation("QueueDoctor")
+
+  @@index([specialization])
+  @@index([departmentId])
+  @@map("doctors")
+}
+
+model DoctorSchedule {
+  id          String  @id @default(uuid())
+  doctorId    String
+  dayOfWeek   String  // Monday, Tuesday, etc or specific date (YYYY-MM-DD)
+  startTime   String  // HH:mm format
+  endTime     String  // HH:mm format
+  clinicId    String?
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  doctor      Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  clinic      Clinic? @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+
+  @@index([doctorId])
+  @@index([clinicId])
+  @@map("doctor_schedules")
+}
+
+model Department {
+  id          String      @id @default(uuid())
+  name        String
+  description String?
+  isActive    Boolean     @default(true)
+  parentId    String?     // null = top-level department, filled = sub-department
+  level       Int         @default(0) // 0 = root, 1 = sub, 2 = sub-sub
+  sortOrder   Int         @default(0)
+  clinicId    String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  clinic      Clinic?      @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+  parent      Department?  @relation("DeptHierarchy", fields: [parentId], references: [id])
+  children    Department[] @relation("DeptHierarchy")
+  doctors     Doctor[]
+  registrations Registration[]
+  queueNumbers  QueueNumber[] @relation("QueueDept")
+
+  @@index([parentId])
+  @@map("departments")
+}
+
+// ==================== APPOINTMENT & QUEUE ====================
+
+model Appointment {
+  id              String  @id @default(uuid())
+  appointmentNo   String  @unique
+  patientId       String
+  doctorId        String
+  appointmentDate DateTime
+  appDurationMin  Int @default(30) // durasi appointment dalam menit
+  status          String  @default("scheduled") // scheduled, ongoing, completed, cancelled
+  notes           String?
+  cancelReason    String?
+  cancelledAt     DateTime?
+  clinicId        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  patient         Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor          Doctor @relation(fields: [doctorId], references: [id])
+  clinic          Clinic? @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+  medicalRecords  MedicalRecord[]
+  services        AppointmentService[]
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([appointmentDate])
+  @@index([status])
+  @@map("appointments")
+}
+
+model QueueNumber {
+  id              String  @id @default(uuid())
+  queueNo         String
+  patientId       String
+  appointmentId   String?
+  queueDate       DateTime
+  estimatedTime   DateTime?
+  actualCallTime  DateTime?
+  status          String  @default("waiting") // waiting, called, ongoing, completed, no-show
+  notes           String?
+  clinicId        String?
+  doctorId        String?
+  departmentId    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  patient         Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  clinic          Clinic? @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+  doctor          Doctor? @relation("QueueDoctor", fields: [doctorId], references: [id], onDelete: SetNull)
+  department      Department? @relation("QueueDept", fields: [departmentId], references: [id], onDelete: SetNull)
+
+  @@index([patientId])
+  @@index([queueDate])
+  @@index([status])
+  @@unique([queueNo, clinicId, queueDate])
+  @@map("queue_numbers")
+}
+
+// ==================== MEDICAL & DIAGNOSIS ====================
+
+model MedicalRecord {
+  id              String  @id @default(uuid())
+  recordNo        String  @unique
+  appointmentId   String
+  patientId       String
+  doctorId        String
+  chiefComplaint  String
+  diagnosis       String
+  treatmentPlan   String?
+  notes           String?
+  recordDate      DateTime @default(now())
+  clinicId        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  appointment     Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  patient         Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor          Doctor @relation(fields: [doctorId], references: [id])
+  clinic          Clinic? @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+  vitals          VitalSign[]
+  prescriptions   Prescription[]
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@map("medical_records")
+}
+
+model VitalSign {
+  id              String  @id @default(uuid())
+  medicalRecordId String
+  temperature     Float? // Celcius
+  bloodPressure   String? // 120/80
+  heartRate       Int? // bpm
+  respiratoryRate Int? // bpm
+  weight          Float? // kg
+  height          Float? // cm
+  bloodOxygen     Float? // %
+  notes           String?
+  recordedAt      DateTime @default(now())
+
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+
+  @@index([medicalRecordId])
+  @@map("vital_signs")
+}
+
+model Prescription {
+  id              String  @id @default(uuid())
+  prescriptionNo  String  @unique
+  medicalRecordId String
+  patientId       String
+  doctorId        String
+  prescriptionDate DateTime
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+  patient         Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor          Doctor @relation(fields: [doctorId], references: [id])
+  items           PrescriptionItem[]
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@map("prescriptions")
+}
+
+model PrescriptionItem {
+  id              String  @id @default(uuid())
+  prescriptionId  String
+  medicineId      String
+  quantity        Int
+  dosage          String // e.g., "500mg"
+  frequency       String // e.g., "3x sehari"
+  duration        String // e.g., "7 hari"
+  instructions    String?
+
+  prescription    Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  medicine        Medicine @relation(fields: [medicineId], references: [id])
+
+  @@index([prescriptionId])
+  @@map("prescription_items")
+}
+
+model Medicine {
+  id              String  @id @default(uuid())
+  medicineName    String
+  genericName     String?
+  description     String?
+  dosageForm      String? // tablet, capsule, liquid, injection
+  strength        String?
+  manufacturer    String?
+  batchNumber     String?
+  expiryDate      DateTime?
+  image           String?
+  isActive        Boolean @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  prescriptionItems PrescriptionItem[]
+  inventoryItems    Inventory[]
+  productMaster     ProductMaster?
+
+  @@index([medicineName])
+  @@map("medicines")
+}
+
+// ==================== SERVICES & TREATMENTS ====================
+
+model Service {
+  id              String  @id @default(uuid())
+  serviceCode     String  @unique
+  serviceName     String
+  description     String?
+  category        String? // consultation, treatment, test, procedure (Legacy)
+  categoryId      String?
+  unit            String? // session, item, package
+  price           Float
+  clinicId        String?
+  isActive        Boolean @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  clinic              Clinic?              @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+  serviceCategory     ServiceCategory?     @relation(fields: [categoryId], references: [id])
+  appointmentServices AppointmentService[]
+  invoiceItems        InvoiceItem[]
+
+  @@index([serviceCode])
+  @@index([categoryId])
+  @@map("services")
+}
+
+model ServiceCategory {
+  id              String  @id @default(uuid())
+  categoryName    String  @unique
+  description     String?
+  isActive        Boolean @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  services        Service[]
+
+  @@map("service_categories")
+}
+
+model AppointmentService {
+  id              String  @id @default(uuid())
+  appointmentId   String
+  serviceId       String
+  quantity        Int @default(1)
+  price           Float
+  discount        Float @default(0)
+  subtotal        Float
+
+  appointment     Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  service         Service @relation(fields: [serviceId], references: [id])
+
+  @@index([appointmentId])
+  @@map("appointment_services")
+}
+
+// ==================== INVENTORY & STOCK ====================
+
+model Inventory {
+  id                  String  @id @default(uuid())
+  itemCode            String  @unique
+  medicineId          String?
+  itemName            String
+  description         String?
+  category            String  // medicine, supplies, equipment
+  unit                String  // tablet, box, pcs, ml
+  quantity            Int
+  minimumStock        Int
+  reorderQuantity     Int
+  purchasePrice       Float
+  sellingPrice        Float?
+  supplier            String?
+  lastPurchaseDate    DateTime?
+  expiryDate          DateTime?
+  location            String? // storage location
+  clinicId            String?
+  isActive            Boolean @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  medicine            Medicine? @relation(fields: [medicineId], references: [id])
+  clinic              Clinic?   @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+  transactions        InventoryTransaction[]
+  adjustments         InventoryAdjustment[]
+
+  @@index([itemCode])
+  @@index([category])
+  @@map("inventory")
+}
+
+model InventoryTransaction {
+  id              String  @id @default(uuid())
+  inventoryId     String
+  transactionType String  // in (pembelian), out (penggunaan), return, adjustment
+  quantity        Int
+  referenceNo     String?
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  inventory       Inventory @relation(fields: [inventoryId], references: [id])
+
+  @@index([inventoryId])
+  @@index([transactionType])
+  @@map("inventory_transactions")
+}
+
+model InventoryAdjustment {
+  id              String  @id @default(uuid())
+  inventoryId     String
+  adjustmentType  String  // add, reduce
+  quantity        Int
+  reason          String
+  notes           String?
+  approvedBy      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  inventory       Inventory @relation(fields: [inventoryId], references: [id])
+
+  @@index([inventoryId])
+  @@map("inventory_adjustments")
+}
+
+// ==================== PRODUCT ====================
+
+model ProductMaster {
+  id              String  @id @default(uuid())
+  masterCode      String  @unique
+  masterName      String
+  description     String?
+  image           String?
+  categoryId      String?
+  isActive        Boolean @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  medicineId      String?  @unique
+  medicine        Medicine? @relation(fields: [medicineId], references: [id])
+
+  productCategory ProductCategory? @relation(fields: [categoryId], references: [id])
+  products        Product[]
+  assets          Asset[]
+
+  @@index([masterCode])
+  @@index([categoryId])
+  @@map("product_masters")
+}
+
+model ProductCategory {
+  id              String  @id @default(uuid())
+  categoryName    String  @unique
+  description     String?
+  isActive        Boolean @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  productMasters  ProductMaster[]
+
+  @@map("product_categories")
+}
+
+model Product {
+  id              String  @id @default(uuid())
+  masterProductId String
+  productCode     String
+  sku             String // Stock Keeping Unit
+  productName     String
+  description     String?
+  unit            String  // tablet, box, pcs, ml, etc
+  purchaseUnit    String  // unit saat pembelian (e.g., "box", "carton", "pcs")
+  storageUnit     String  // unit saat penyimpanan (e.g., "tablet", "ml", "pcs")
+  usedUnit        String  // unit saat digunakan (e.g., "tablet", "ml", "pcs")
+  quantity        Int
+  minimumStock    Int
+  reorderQuantity Int
+  purchasePrice   Float
+  sellingPrice    Float
+  supplier        String?
+  lastPurchaseDate DateTime?
+  expiryDate      DateTime?
+  clinicId        String?
+  isActive        Boolean @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  masterProduct   ProductMaster @relation(fields: [masterProductId], references: [id], onDelete: Cascade)
+  clinic          Clinic?       @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+
+  @@unique([productCode, clinicId])
+  @@unique([sku, clinicId])
+  @@index([productCode])
+  @@index([sku])
+  @@index([masterProductId])
+  @@map("products")
+}
+
+// ==================== ASSET ====================
+
+model Asset {
+  id              String  @id @default(uuid())
+  assetCode       String  @unique
+  assetName       String
+  assetType       String  // equipment, furniture, vehicle, computer, etc
+  category        String
+  description     String?
+  serialNumber    String?
+  manufacturer    String?
+  model           String?
+  purchaseDate    DateTime
+  purchasePrice   Float
+  currentValue    Float?
+  condition       String  @default("good") // excellent, good, fair, poor
+  location        String? // storage location
+  supplier        String?
+  warrantyExpiry  DateTime?
+  maintenanceSchedule String? // e.g., "monthly", "quarterly"
+  lastMaintenanceDate DateTime?
+  status          String  @default("active") // active, inactive, maintenance, retired
+  image           String?
+  notes           String?
+  attachmentUrl   String?
+  clinicId        String?
+  masterProductId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  clinic          Clinic?  @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+  masterProduct   ProductMaster? @relation(fields: [masterProductId], references: [id])
+
+  @@index([assetCode])
+  @@index([category])
+  @@index([status])
+  @@index([masterProductId])
+  @@map("assets")
+}
+
+// ==================== FINANCE & BILLING ====================
+
+model Invoice {
+  id              String  @id @default(uuid())
+  invoiceNo       String  @unique
+  appointmentId   String?
+  patientId       String
+  invoiceDate     DateTime
+  dueDate         DateTime?
+  subtotal        Float   @default(0)
+  discount        Float   @default(0)
+  tax             Float   @default(0)
+  total           Float
+  amountPaid      Float   @default(0)
+  status          String  @default("unpaid") // unpaid, partial, paid, cancelled
+  notes           String?
+  clinicId        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  patient         Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  clinic          Clinic? @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+  items           InvoiceItem[]
+  payments        Payment[]
+
+  @@index([patientId])
+  @@index([status])
+  @@index([invoiceDate])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id              String  @id @default(uuid())
+  invoiceId       String
+  serviceId       String
+  description     String
+  quantity        Int
+  price           Float
+  discount        Float @default(0)
+  subtotal        Float
+
+  invoice         Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  service         Service @relation(fields: [serviceId], references: [id])
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+model Payment {
+  id              String  @id @default(uuid())
+  paymentNo       String  @unique
+  invoiceId       String
+  paymentDate     DateTime
+  amount          Float
+  paymentMethod   String  // cash, card, bank_transfer, cheque
+  transactionRef  String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  invoice         Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([paymentDate])
+  @@map("payments")
+}
+
+model Expense {
+  id              String  @id @default(uuid())
+  expenseNo       String  @unique
+  categoryId      String
+  description     String
+  amount          Float
+  expenseDate     DateTime
+  paymentMethod   String? // cash, card, bank_transfer
+  approvedBy      String?
+  status          String  @default("approved") // pending, approved, rejected
+  notes           String?
+  attachmentUrl   String?
+  clinicId        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  category        ExpenseCategory @relation(fields: [categoryId], references: [id])
+  clinic          Clinic?         @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+
+  @@index([categoryId])
+  @@index([expenseDate])
+  @@map("expenses")
+}
+
+model ExpenseCategory {
+  id              String  @id @default(uuid())
+  categoryName    String  @unique
+  description     String?
+  isActive        Boolean @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  expenses        Expense[]
+
+  @@map("expense_categories")
+}
+
+model FinancialReport {
+  id              String  @id @default(uuid())
+  reportDate      DateTime
+  reportType      String  // daily, weekly, monthly, yearly
+  totalRevenue    Float   @default(0)
+  totalExpense    Float   @default(0)
+  totalProfit     Float   @default(0)
+  totalPatients   Int     @default(0)
+  totalAppointments Int   @default(0)
+  createdBy       String?
+  clinicId        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  clinic          Clinic? @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+
+  @@index([reportDate])
+  @@map("financial_reports")
+}
+
+// ==================== ACTIVITY LOGS ====================
+
+model ActivityLog {
+  id              String  @id @default(uuid())
+  userId          String
+  action          String
+  module          String
+  description     String?
+  changedData     String? // JSON format
+  ipAddress       String?
+  userAgent       String?
+  createdAt       DateTime @default(now())
+
+  user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+// ==================== SITE SETTINGS ====================
+
+model SiteSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique // e.g., "hero_content", "clinic_stats", "services_list"
+  value       Json     // Stores structured content for the section
+  description String?  // Optional description for admin info
+  clinicId    String?
+  updatedAt   DateTime @updatedAt
+
+  clinic      Clinic?  @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+
+  @@map("site_settings")
+}
