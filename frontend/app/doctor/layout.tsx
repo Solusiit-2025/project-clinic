@@ -53,10 +53,10 @@ export default function DoctorLayout({
       <DoctorSidebar />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className="flex-1 flex flex-col min-h-screen lg:ml-64 transition-all duration-300">
         <DoctorNavbar />
         
-        <main className="p-1.5 flex-1 pt-16 lg:pt-4 sm:pt-4">
+        <main className="p-4 flex-1 pt-24 lg:pt-28">
           <AnimatePresence mode="wait">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -69,7 +69,7 @@ export default function DoctorLayout({
           </AnimatePresence>
         </main>
 
-        <footer className="px-10 py-8 border-t border-gray-100 bg-white text-gray-400 text-xs font-medium flex justify-between items-center">
+        <footer className="px-6 py-6 border-t border-gray-100 bg-white text-gray-400 text-[10px] font-bold flex flex-col sm:flex-row justify-between items-center gap-4">
           <p>&copy; 2026 Klinik Yasfina. Medical Management System.</p>
           <div className="flex gap-6">
             <a href="#" className="hover:text-primary transition-colors">Help</a>

@@ -287,10 +287,12 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
       }
 
       // 4. Update Queue Status to 'completed' (Only if Final)
-      await tx.queueNumber.update({
-        where: { id: queueId },
-        data: { status: 'completed' }
-      })
+      if (isFinal) {
+        await tx.queueNumber.update({
+          where: { id: queueId },
+          data: { status: 'completed' }
+        })
+      }
 
       return mr
     })

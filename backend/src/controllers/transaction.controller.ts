@@ -205,14 +205,8 @@ export const getQueues = async (req: Request, res: Response) => {
           gte: targetDate,
           lt: nextDay
         },
-        // Filter by doctor if the user is a doctor and not an admin
-        // Allow seeing unassigned patients (null) + assigned to current doctor
-        ...(isDoctor && !isAdminView && doctorId ? { 
-           OR: [
-             { doctorId },
-             { doctorId: null }
-           ]
-        } : {})
+        // STRICT Doctor filter: Only see patients assigned to THIS doctor
+        ...(isDoctor && !isAdminView && doctorId ? { doctorId } : {})
       },
       include: {
         patient: {

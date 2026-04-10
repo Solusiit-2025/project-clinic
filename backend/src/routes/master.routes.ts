@@ -14,7 +14,7 @@ import {
   getAssets, createAsset, updateAsset, deleteAsset,
   getProductCategories, createProductCategory, updateProductCategory, deleteProductCategory,
   getInventoryProducts, createInventoryProduct, updateInventoryProduct, deleteInventoryProduct,
-  getPatients, getNextMRNo, createPatient, updatePatient, deletePatient
+  getPatients, getPatientById, getNextMRNo, createPatient, updatePatient, deletePatient
 } from '../controllers/master.controller'
 
 import { upload } from '../middleware/upload.middleware'
@@ -107,6 +107,7 @@ masterRoutes.delete('/inventory/:id', deleteInventoryProduct)
 // Patients
 masterRoutes.get('/patients', getPatients)
 masterRoutes.get('/patients/next-mr', getNextMRNo)
+masterRoutes.get('/patients/:id', getPatientById)
 masterRoutes.post('/patients', createPatient)
 masterRoutes.put('/patients/:id', updatePatient)
 masterRoutes.delete('/patients/:id', deletePatient)

@@ -164,7 +164,7 @@ export default function QueueDashboard() {
                     <div className="flex-1 min-w-0">
                       <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1 leading-none">{q.department?.name || 'POLI UMUM'}</p>
                       <h4 className="text-base font-black uppercase truncate tracking-tight mb-0.5">{q.patient.name}</h4>
-                      <p className="text-[9px] font-bold opacity-80 flex items-center gap-1"><FiUser className="w-2.5 h-2.5" /> {q.doctor?.name || 'Dokter Jaga'}</p>
+                      <p className="text-[9px] font-bold opacity-80 flex items-center gap-1"><FiUser className="w-2.5 h-2.5" /> {q.doctor?.name ? (q.doctor.name.toLowerCase().startsWith('dr') ? q.doctor.name : `Dr. ${q.doctor.name}`) : 'Dokter Jaga'}</p>
                     </div>
                   </div>
                   <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between relative z-10">
@@ -219,7 +219,12 @@ export default function QueueDashboard() {
                     
                     <div className="space-y-1">
                        <h4 className="text-base font-black text-gray-900 uppercase truncate tracking-tight">{q.patient.name}</h4>
-                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{q.department?.name || 'POLI UMUM'}</p>
+                       <div className="flex flex-col gap-1 mt-1">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none">{q.department?.name || 'POLI UMUM'}</p>
+                          <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest flex items-center gap-1">
+                             <FiUser className="w-2.5 h-2.5" /> {q.doctor?.name ? (q.doctor.name.toLowerCase().startsWith('dr') ? q.doctor.name : `Dr. ${q.doctor.name}`) : 'DOKTER JAGA'}
+                          </p>
+                       </div>
                     </div>
 
                     {q.status === 'triage' ? (
@@ -327,7 +332,11 @@ export default function QueueDashboard() {
                          </div>
                          <div>
                             <p className="text-xs font-black text-gray-900 leading-none">{q.patient.name}</p>
-                            <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase">{q.department?.name || 'Umum'}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                               <p className="text-[9px] font-bold text-gray-400 uppercase">{q.department?.name || 'Umum'}</p>
+                               <span className="text-[9px] text-gray-300">•</span>
+                               <p className="text-[9px] font-bold text-indigo-400 uppercase">{q.doctor?.name ? (q.doctor.name.toLowerCase().startsWith('dr') ? q.doctor.name : `Dr. ${q.doctor.name}`) : 'Jaga'}</p>
+                            </div>
                          </div>
                       </div>
                       <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />

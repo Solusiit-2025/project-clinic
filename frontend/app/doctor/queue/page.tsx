@@ -1,56 +1,50 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   FiActivity, FiUsers, FiClock, FiCheckCircle, FiArrowRight, 
-  FiRefreshCw, FiAlertCircle, FiEdit3, FiClipboard, FiSearch, FiHome
+  FiRefreshCw, FiAlertCircle, FiEdit3, FiClipboard, FiSearch, FiCalendar, FiZap,
+  FiChevronRight, FiFilter, FiUser, FiInfo, FiLock
 } from 'react-icons/fi'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/store/useAuthStore'
-
-const API_TRANSACTIONS = process.env.NEXT_PUBLIC_API_URL + '/api/transactions'
+import { format } from 'date-fns'
+import { id } from 'date-fns/locale'
+import { toast } from 'react-hot-toast'
 
 interface Queue {
   id: string
-  patientId: string
-  clinicId: string
-  doctorId: string | null
-  registrationId: string | null
   queueNo: string
+  patient: { 
+    name: string; 
+    medicalRecordNo: string; 
+    gender: string 
+  }
   status: 'waiting' | 'called' | 'triage' | 'ready' | 'ongoing' | 'completed' | 'no-show'
-  patient: { name: string; medicalRecordNo: string; gender: string }
-  doctor: { name: string; specialization: string } | null
   department: { name: string } | null
-  hasMedicalRecord: boolean
+  createdAt: string
 }
 
 export default function DoctorQueue() {
   const router = useRouter()
-  const { user, token, activeClinicId } = useAuthStore()
+  const { user } = useAuthStore()
   const [queues, setQueues] = useState<Queue[]>([])
-  const [allQueues, setAllQueues] = useState<Queue[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [filter, setFilter] = useState<'all' | 'ongoing' | 'completed'>('ongoing')
-
-  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
+  const [filter, setFilter] = useState<'all' | 'ongoing' | 'completed' | 'ready'>('ready')
 
   const fetchQueues = useCallback(async () => {
-    if (!token || !activeClinicId) return
     try {
-      const { data } = await axios.get(`${API_TRANSACTIONS}/queues`, { 
-        headers, 
-        params: { clinicId: activeClinicId } 
-      })
-      setAllQueues(data)
+      const { data } = await api.get('transactions/queues?today=true')
+      setQueues(data || [])
     } catch (e) {
-      console.error(e)
+      console.error('Failed to fetch queues', e)
     } finally {
       setLoading(false)
     }
-  }, [token, activeClinicId, headers])
+  }, [])
 
   useEffect(() => {
     fetchQueues()
@@ -58,239 +52,305 @@ export default function DoctorQueue() {
     return () => clearInterval(interval)
   }, [fetchQueues])
 
-  // Filter queues based on search, status and filter
   const filteredQueues = useMemo(() => {
-    let filtered = allQueues
+    let result = queues
 
     if (filter === 'ongoing') {
-      filtered = filtered.filter(q => q.status === 'ongoing')
+      result = result.filter(q => q.status === 'ongoing' || q.status === 'called')
     } else if (filter === 'completed') {
-      filtered = filtered.filter(q => q.status === 'completed')
+      result = result.filter(q => q.status === 'completed')
+    } else if (filter === 'ready') {
+      result = result.filter(q => q.status === 'ready' || q.status === 'waiting' || q.status === 'triage')
     }
 
     if (searchTerm) {
-      filtered = filtered.filter(q =>
-        q.patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        q.queueNo.includes(searchTerm) ||
-        q.patient.medicalRecordNo.includes(searchTerm)
+      const lowerSearch = searchTerm.toLowerCase()
+      result = result.filter(q =>
+        q.patient.name.toLowerCase().includes(lowerSearch) ||
+        q.queueNo.toLowerCase().includes(lowerSearch) ||
+        q.patient.medicalRecordNo.toLowerCase().includes(lowerSearch)
       )
     }
 
-    return filtered
-  }, [allQueues, searchTerm, filter])
+    return result
+  }, [queues, searchTerm, filter])
 
-  // Stats
   const stats = {
-    waiting: allQueues.filter(q => q.status === 'waiting' || q.status === 'called').length,
-    ready: allQueues.filter(q => q.status === 'ready').length,
-    ongoing: allQueues.filter(q => q.status === 'ongoing').length,
-    completed: allQueues.filter(q => q.status === 'completed').length,
+    waiting: queues.filter(q => q.status === 'waiting' || q.status === 'called' || q.status === 'triage').length,
+    ready: queues.filter(q => q.status === 'ready').length,
+    ongoing: queues.filter(q => q.status === 'ongoing').length,
+    completed: queues.filter(q => q.status === 'completed').length,
+  }
+
+  const handleNavigation = (q: Queue) => {
+    const isRestricted = ['waiting', 'called', 'triage', 'no-show'].includes(q.status)
+    
+    if (isRestricted) {
+      toast.error('Pasien belum siap. Tunggu hingga perawat menyelesaikan input tanda vital.', {
+        icon: '🔒',
+        id: 'workflow-lock'
+      })
+      return
+    }
+
+    router.push(`/doctor/queue/${q.id}`)
+  }
+
+  const statCards = [
+    { label: 'Triage', value: stats.waiting, icon: FiActivity, color: 'text-amber-500', bg: 'bg-amber-50 shadow-amber-100/20' },
+    { label: 'Siap Periksa', value: stats.ready, icon: FiZap, color: 'text-emerald-500', bg: 'bg-emerald-50 shadow-emerald-100/20' },
+    { label: 'Sedang Periksa', value: stats.ongoing, icon: FiUsers, color: 'text-indigo-500', bg: 'bg-indigo-50 shadow-indigo-100/20' },
+    { label: 'Selesai', value: stats.completed, icon: FiCheckCircle, color: 'text-slate-500', bg: 'bg-slate-50 shadow-slate-100/20' },
+  ]
+
+  const StatusPill = ({ status }: { status: string }) => {
+    const map: any = {
+      waiting: { label: 'MENUNGGU TRIAGE', cls: 'bg-slate-100 text-slate-500 border-slate-200 opacity-60' },
+      called: { label: 'DI FRONT OFFICE', cls: 'bg-slate-100 text-slate-500 border-slate-200' },
+      triage: { label: 'SEDANG TRIAGE', cls: 'bg-amber-50 text-amber-600 border-amber-200 animate-pulse font-black' },
+      ready: { label: 'SIAP PERIKSA', cls: 'bg-emerald-50 text-emerald-600 border-emerald-200 font-bold' },
+      ongoing: { label: 'DALAM RUANGAN', cls: 'bg-indigo-600 text-white border-transparent shadow-md font-black' },
+      completed: { label: 'SELESAI', cls: 'bg-slate-50 text-slate-400 border-slate-100' },
+    }
+    const s = map[status] || map.waiting
+    return (
+      <span className={`text-[9px] font-black px-3 py-1.5 rounded-xl border uppercase tracking-widest flex items-center gap-1.5 w-fit ${s.cls}`}>
+        {['waiting', 'called', 'triage'].includes(status) && <FiLock className="w-2.5 h-2.5" />}
+        {s.label}
+      </span>
+    )
   }
 
   return (
-    <div className="space-y-6 lg:ml-64">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-xl"><FiClock className="text-blue-600 w-6 h-6" /></div>
-            Antrian Pasien
-          </h1>
-          <p className="text-sm text-gray-500 font-medium mt-2">Kelola antrian dan konsultasi medis Anda</p>
+    <div className="space-y-6 pb-20">
+      {/* Premium Header */}
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative overflow-hidden bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 rounded-[2.5rem] p-8 text-white shadow-xl shadow-indigo-900/20"
+      >
+        <div className="absolute top-0 right-0 w-80 h-80 bg-primary/20 blur-[120px] rounded-full -mr-40 -mt-40"></div>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-[10px] font-black tracking-widest uppercase text-indigo-200">
+              <FiZap className="w-3 h-3 text-amber-400 fill-amber-400" />
+              Doctor Workstation
+            </div>
+            <h1 className="text-3xl font-black tracking-tight">
+              Dashboard <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 to-white">Antrian Pasien</span>
+            </h1>
+            <p className="text-indigo-100/60 font-medium max-w-md text-sm">
+              Kelola sesi konsultasi Anda secara efisien dengan pemantauan antrian real-time.
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="hidden lg:flex flex-col items-end text-right">
+              <div className="flex items-center gap-2 text-indigo-100 font-bold text-sm mb-1">
+                <FiCalendar className="w-4 h-4" />
+                {format(new Date(), 'EEEE, d MMMM yyyy', { locale: id })}
+              </div>
+              <p className="text-indigo-100/30 text-[9px] font-black uppercase tracking-[0.3em]">Live Clinic Sync</p>
+            </div>
+            <button 
+              onClick={fetchQueues} 
+              className="p-4 bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl text-white hover:bg-white/20 transition-all active:scale-95 shadow-lg"
+            >
+              <FiRefreshCw className={loading ? 'animate-spin' : 'w-5 h-5'} />
+            </button>
+          </div>
         </div>
-        <button 
-          onClick={fetchQueues} 
-          className="p-3 bg-white border border-gray-200 rounded-xl text-gray-400 hover:text-primary transition-all shadow-sm self-start"
-        >
-          <FiRefreshCw className={loading ? 'animate-spin' : ''} />
-        </button>
+      </motion.div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {statCards.map((stat, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: i * 0.05 }}
+            className={`bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-lg transition-all group overflow-hidden relative`}
+          >
+             <div className="absolute -bottom-2 -right-2 w-16 h-16 bg-slate-50 rounded-full blur-2xl group-hover:scale-150 transition-all opacity-40" />
+            <div className="flex items-center gap-4 relative z-10">
+              <div className={`w-12 h-12 rounded-2xl ${stat.bg} ${stat.color} flex items-center justify-center shadow-inner group-hover:rotate-12 transition-transform`}>
+                <stat.icon className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{stat.label}</p>
+                <p className="text-2xl font-black text-slate-900 tracking-tight">{stat.value}</p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center text-amber-500 mb-3">
-            <FiClock className="w-5 h-5" />
-          </div>
-          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Menunggu</p>
-          <p className="text-3xl font-black text-gray-900">{stats.waiting}</p>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white p-5 rounded-2xl border border-blue-100 shadow-sm">
-          <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 mb-3">
-            <FiAlertCircle className="w-5 h-5" />
-          </div>
-          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Siap Diperiksa</p>
-          <p className="text-3xl font-black text-gray-900">{stats.ready}</p>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white p-5 rounded-2xl border border-indigo-100 shadow-sm">
-          <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600 mb-3">
-            <FiActivity className="w-5 h-5" />
-          </div>
-          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Sedang Diperiksa</p>
-          <p className="text-3xl font-black text-gray-900">{stats.ongoing}</p>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-5 rounded-2xl shadow-lg shadow-emerald-600/20 text-white">
-          <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center mb-3">
-            <FiCheckCircle className="w-5 h-5" />
-          </div>
-          <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest mb-1">Selesai Hari Ini</p>
-          <p className="text-3xl font-black">{stats.completed}</p>
-        </motion.div>
-      </div>
-
-      {/* Filter & Search */}
-      <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center">
-        <div className="flex-1 relative">
-          <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-          <input
-            type="text"
-            placeholder="Cari nama pasien, nomor antrian, atau nomor rekam medis..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-medium text-sm"
-          />
-        </div>
-
-        <div className="flex gap-2 bg-white p-1 rounded-xl border border-gray-200">
-          <button
-            onClick={() => setFilter('ongoing')}
-            className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${
-              filter === 'ongoing'
-                ? 'bg-primary text-white shadow-md shadow-primary/20'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Sedang Berjalan
-          </button>
-          <button
-            onClick={() => setFilter('completed')}
-            className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${
-              filter === 'completed'
-                ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Selesai
-          </button>
-          <button
-            onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${
-              filter === 'all'
-                ? 'bg-gray-600 text-white shadow-md shadow-gray-600/20'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Semua
-          </button>
-        </div>
-      </div>
-
-      {/* Queue List */}
-      <div className="space-y-3">
-        {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 bg-gray-100 rounded-2xl animate-pulse" />
-            ))}
-          </div>
-        ) : filteredQueues.length > 0 ? (
-          <AnimatePresence>
-            {filteredQueues.map((q, i) => (
-              <motion.div
-                key={q.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ delay: i * 0.05 }}
-                className={`bg-white p-5 rounded-2xl border-2 transition-all ${
-                  q.status === 'ongoing'
-                    ? 'border-indigo-500 shadow-md ring-4 ring-indigo-50 hover:shadow-lg'
-                    : 'border-gray-100 shadow-sm hover:shadow-md opacity-70'
+      {/* Active Work Area */}
+      <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+        {/* Table Filters & Search */}
+        <div className="p-6 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-slate-50/20">
+          <div className="flex p-1.5 bg-white border border-slate-200 rounded-2xl shadow-sm min-w-fit self-start">
+            {[
+              { id: 'ready', label: 'Antrian', color: 'bg-amber-500' },
+              { id: 'ongoing', label: 'Berjalan', color: 'bg-indigo-600' },
+              { id: 'completed', label: 'Selesai', color: 'bg-emerald-500' },
+              { id: 'all', label: 'Semua', color: 'bg-slate-700' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setFilter(tab.id as any)}
+                className={`px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                  filter === tab.id
+                    ? `${tab.color} text-white shadow-lg shadow-black/5`
+                    : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'
                 }`}
               >
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  {/* Left: Queue Info */}
-                  <div className="flex items-start gap-4 flex-1">
-                    {/* Queue Number */}
-                    <div className="w-16 h-16 bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl flex flex-col items-center justify-center font-black text-indigo-600 border-2 border-indigo-100 flex-shrink-0">
-                      <p className="text-[9px] opacity-60 uppercase tracking-widest leading-none">No</p>
-                      <p className="text-2xl leading-none">{q.queueNo}</p>
-                    </div>
-
-                    {/* Patient Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        {q.status === 'ongoing' && (
-                          <span className="text-[9px] font-black px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 uppercase tracking-tighter border border-indigo-200">
-                            Sedang Diperiksa
-                          </span>
-                        )}
-                        {q.status === 'completed' && (
-                          <span className="text-[9px] font-black px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 uppercase tracking-tighter border border-emerald-200">
-                            ✓ Selesai
-                          </span>
-                        )}
-                      </div>
-                      <p className="font-black text-gray-900 text-base truncate">{q.patient.name}</p>
-                      <div className="flex flex-wrap gap-3 mt-2 text-xs">
-                        <span className="text-gray-500 font-medium flex items-center gap-1">
-                          <FiHome className="w-3 h-3" />
-                          {q.department?.name || 'UMUM'}
-                        </span>
-                        <span className="text-primary font-bold">RM: {q.patient.medicalRecordNo}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right: Action Buttons */}
-                  <div className="flex gap-2 flex-shrink-0 md:flex-col lg:flex-row">
-                    {q.status === 'ongoing' ? (
-                      <button
-                        onClick={() => router.push(`/doctor/queue/${q.id}`)}
-                        className="px-5 py-2.5 bg-indigo-600 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-md shadow-indigo-600/20 whitespace-nowrap"
-                      >
-                        <FiEdit3 className="w-4 h-4" />
-                        <span className="hidden sm:inline">Buka Medis</span>
-                        <span className="sm:hidden">Buka</span>
-                      </button>
-                    ) : q.status === 'completed' ? (
-                      <button
-                        onClick={() => router.push(`/doctor/queue/${q.id}`)}
-                        className="px-5 py-2.5 bg-gray-100 text-gray-600 font-black rounded-xl text-xs flex items-center justify-center gap-2 hover:bg-gray-200 transition-all whitespace-nowrap"
-                      >
-                        <FiClipboard className="w-4 h-4" />
-                        <span className="hidden sm:inline">Lihat Riwayat</span>
-                        <span className="sm:hidden">Lihat</span>
-                      </button>
-                    ) : (
-                      <div className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
-                        Menunggu Triage
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        ) : (
-          <div className="py-16 text-center bg-gray-50/80 rounded-2xl border-2 border-dashed border-gray-200">
-            <FiUsers className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-            <p className="text-gray-400 font-bold text-sm">
-              {searchTerm ? 'Pasien tidak ditemukan' : 'Tidak ada antrian'}
-            </p>
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="mt-4 text-primary font-bold text-sm flex items-center gap-2 justify-center mx-auto"
-              >
-                Hapus Filter <FiArrowRight className="w-4 h-4" />
+                {tab.label}
               </button>
-            )}
+            ))}
           </div>
-        )}
+
+          <div className="relative group max-w-md w-full">
+            <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5 group-focus-within:text-primary transition-colors" />
+            <input
+              type="text"
+              placeholder="Cari nama pasien, No. Antrian, atau RM..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-black text-[11px] shadow-sm tracking-wide"
+            />
+          </div>
+        </div>
+
+        {/* High-Density Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-100 bg-white">
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">No</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Pasien</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">ID Rekam Medis</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Departemen</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Waktu Masuk</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-20 text-center">
+                    <FiRefreshCw className="w-10 h-10 text-slate-200 animate-spin mx-auto mb-4" />
+                    <p className="text-xs font-black text-slate-300 uppercase tracking-widest">Memuat Data Antrian...</p>
+                  </td>
+                </tr>
+              ) : filteredQueues.length > 0 ? (
+                filteredQueues.map((q) => {
+                  const isLocked = ['waiting', 'called', 'triage', 'no-show'].includes(q.status)
+                  return (
+                    <tr 
+                      key={q.id} 
+                      onClick={() => handleNavigation(q)}
+                      className={`group transition-all ${isLocked ? 'cursor-not-allowed bg-slate-50/30' : 'hover:bg-slate-50 cursor-pointer'}`}
+                    >
+                      <td className="px-6 py-5">
+                        <div className={`min-w-[3.5rem] w-fit px-3 h-10 rounded-xl flex items-center justify-center font-black text-sm border ${
+                          q.status === 'ongoing' ? 'bg-indigo-600 text-white border-transparent shadow-lg shadow-indigo-200' : 
+                          isLocked ? 'bg-white text-slate-300 border-slate-100' : 'bg-slate-50 text-slate-700 border-slate-100'
+                        }`}>
+                          {q.id.includes('temp') ? '-' : q.queueNo}
+                        </div>
+                      </td>
+                      <td className="px-6 py-5">
+                        <div className="space-y-0.5">
+                          <p className={`text-sm font-black transition-colors ${isLocked ? 'text-slate-400' : 'text-slate-900 group-hover:text-primary'}`}>{q.patient.name}</p>
+                          <p className={`text-[10px] font-bold uppercase tracking-widest ${isLocked ? 'text-slate-300' : 'text-slate-400'}`}>{q.patient.gender === 'Laki-laki' ? 'PRIA' : 'WANITA'}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5">
+                        <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg border uppercase tracking-tighter ${isLocked ? 'bg-slate-50 text-slate-300 border-slate-100' : 'bg-indigo-50 text-primary border-indigo-100'}`}>
+                          {q.patient.medicalRecordNo}
+                        </span>
+                      </td>
+                      <td className="px-6 py-5">
+                         <div className="flex justify-center">
+                            <StatusPill status={q.status} />
+                         </div>
+                      </td>
+                      <td className="px-6 py-5">
+                        <p className={`text-[10px] font-black uppercase tracking-widest ${isLocked ? 'text-slate-300' : 'text-slate-500'}`}>{q.department?.name || 'POLI UMUM'}</p>
+                      </td>
+                      <td className="px-6 py-5">
+                        <div className={`flex items-center gap-2 ${isLocked ? 'text-slate-300' : 'text-slate-500'}`}>
+                          <FiClock className="w-3.5 h-3.5" />
+                          <span className="text-xs font-bold">{format(new Date(q.createdAt), 'HH:mm')}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5 text-right">
+                        {filter === 'ready' && isLocked ? (
+                          <div className="flex justify-end pr-4 text-slate-200">
+                             <FiLock className="w-5 h-5" />
+                          </div>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleNavigation(q);
+                            }}
+                            className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                              q.status === 'ongoing' || q.status === 'called'
+                                ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-200'
+                                : q.status === 'completed'
+                                ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                : isLocked
+                                ? 'bg-slate-50 text-slate-300 cursor-not-allowed'
+                                : 'bg-primary text-white hover:bg-primary/90 shadow-md shadow-primary/10'
+                            }`}
+                          >
+                            {q.status === 'completed' ? (
+                              <><FiClipboard /> Buka Riwayat</>
+                            ) : isLocked ? (
+                              <><FiLock /> Antrean</>
+                            ) : (
+                              <><FiEdit3 /> {q.status === 'ongoing' ? 'Lanjutkan' : 'Mulai Periksa'}</>
+                            )}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })
+              ) : (
+                <tr>
+                  <td colSpan={7} className="px-6 py-32 text-center bg-slate-50/10">
+                    <div className="max-w-xs mx-auto">
+                      <div className="w-20 h-20 bg-slate-100/50 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <FiUsers className="w-10 h-10 text-slate-300" />
+                      </div>
+                      <h4 className="text-lg font-black text-slate-900 mb-2 tracking-tight">Tidak Ada Pasien</h4>
+                      <p className="text-[10px] text-slate-400 font-bold leading-relaxed uppercase tracking-wider">
+                        Daftar {filter} saat ini sedang kosong. Klik tombol refresh untuk memuat data terbaru.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        
+        {/* Footer Guidance */}
+        <div className="p-6 bg-slate-50 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+               <FiInfo className="text-indigo-500 w-4 h-4" /> 
+               Pasien harus melewati tahap Triage sebelum dokter dapat memulai pemeriksaan medis.
+            </p>
+            <div className="flex flex-wrap items-center gap-4">
+               <span className="flex items-center gap-1.5 text-[9px] font-black text-slate-400"><FiLock className="text-slate-300" /> TERKUNCI (TRIAGE)</span>
+               <span className="flex items-center gap-1.5 text-[9px] font-black text-emerald-500"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> SIAP PERIKSA</span>
+               <span className="flex items-center gap-1.5 text-[9px] font-black text-indigo-600"><div className="w-2 h-2 rounded-full bg-indigo-600" /> AKTIF</span>
+            </div>
+        </div>
       </div>
     </div>
   )

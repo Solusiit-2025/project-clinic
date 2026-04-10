@@ -1328,6 +1328,49 @@ export const deleteInventoryProduct = async (req: Request, res: Response) => {
 }
 
 // ==================== PATIENTS ====================
+export const getPatientById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const currentUser = (req as any).user
+    const isAdminView = (req as any).isAdminView
+    const isDoctor = currentUser?.role === 'DOCTOR'
+    const doctorProfileId = currentUser?.doctor?.id
+
+    const patient = await prisma.patient.findUnique({
+      where: { id },
+    })
+
+    if (!patient) return res.status(404).json({ message: 'Pasien tidak ditemukan' })
+
+    // Security Filter: Doctors only see their own patients
+    if (isDoctor && !isAdminView) {
+      if (!doctorProfileId) {
+        return res.status(403).json({ message: 'Akses ditolak: Profil dokter tidak ditemukan' })
+      }
+
+      const hasAccess = await prisma.patient.findFirst({
+        where: {
+          id,
+          OR: [
+            { medicalRecords: { some: { doctorId: doctorProfileId } } },
+            { queueNumbers: { some: { doctorId: doctorProfileId } } },
+            { registrations: { some: { doctorId: doctorProfileId } } },
+            { appointments: { some: { doctorId: doctorProfileId } } }
+          ]
+        }
+      })
+
+      if (!hasAccess) {
+        return res.status(403).json({ message: 'Akses ditolak: Anda tidak memiliki akses ke data pasien ini' })
+      }
+    }
+
+    res.json(patient)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
 export const getPatients = async (req: Request, res: Response) => {
   try {
     const { search, isActive } = req.query
@@ -1339,45 +1382,78 @@ export const getPatients = async (req: Request, res: Response) => {
     const isDoctor = currentUser?.role === 'DOCTOR'
     const doctorProfileId = currentUser?.doctor?.id
 
-    console.log(`[getPatients] User: ${currentUser?.email}, Role: ${currentUser?.role}, DoctorID: ${doctorProfileId}, IsAdminView: ${isAdminView}`)
+    // Fallback security: If user is a DOCTOR but has no Doctor profile, return empty
+    if (isDoctor && !isAdminView && !doctorProfileId) {
+      console.warn(`[getPatients] Doctor ${currentUser?.email} has no doctor profile record. Blocking patient access.`)
+      return res.json([])
+    }
+
+    const page = req.query.page ? Number(req.query.page) : undefined
+    const limit = req.query.limit ? Number(req.query.limit) : 10
+    const skip = page ? (page - 1) * limit : undefined
+
+    const where = {
+      AND: [
+        // Clinic filter: Non-admins only see patients related to their clinic
+        ...(!isAdminView ? [{
+          OR: [
+            { registrations: { some: { clinicId: currentClinicId } } },
+            { medicalRecords: { some: { clinicId: currentClinicId } } },
+            { appointments: { some: { clinicId: currentClinicId } } },
+            { queueNumbers: { some: { clinicId: currentClinicId } } }
+          ]
+        }] : []),
+        
+        // STRICT Doctor filter: Doctors further restricted to their own assignments
+        ...(isDoctor && !isAdminView && doctorProfileId ? [{
+          OR: [
+            { medicalRecords: { some: { doctorId: doctorProfileId } } },
+            { queueNumbers: { some: { doctorId: doctorProfileId } } },
+            { registrations: { some: { doctorId: doctorProfileId } } },
+            { appointments: { some: { doctorId: doctorProfileId } } }
+          ]
+        }] : []),
+        
+        // Other filters
+        ...(isActive !== undefined ? [{ isActive: isActive === 'true' }] : []),
+        ...(search ? [{
+          OR: [
+            { name: { contains: String(search), mode: 'insensitive' as any } },
+            { medicalRecordNo: { contains: String(search), mode: 'insensitive' as any } },
+            { phone: { contains: String(search), mode: 'insensitive' as any } },
+            { identityNumber: { contains: String(search), mode: 'insensitive' as any } },
+          ]
+        }] : [])
+      ]
+    }
+
+    if (page) {
+      const [total, patients] = await Promise.all([
+        prisma.patient.count({ where }),
+        prisma.patient.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' }
+        })
+      ])
+
+      return res.json({
+        data: patients,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit)
+        }
+      })
+    }
 
     const patients = await prisma.patient.findMany({
-      where: {
-        AND: [
-          // Clinic filter: Non-admins only see patients related to their clinic
-          ...(!isAdminView ? [{
-            OR: [
-              { registrations: { some: { clinicId: currentClinicId } } },
-              { medicalRecords: { some: { clinicId: currentClinicId } } },
-              { appointments: { some: { clinicId: currentClinicId } } },
-              { queueNumbers: { some: { clinicId: currentClinicId } } }
-            ]
-          }] : []),
-          // Doctor filter: Doctors further restricted to their own assignments
-          ...(isDoctor && !isAdminView ? [{
-            OR: [
-              { medicalRecords: { some: { doctorId: doctorProfileId } } },
-              { queueNumbers: { some: { doctorId: doctorProfileId } } },
-              { registrations: { some: { doctorId: doctorProfileId } } },
-              { appointments: { some: { doctorId: doctorProfileId } } }
-            ]
-          }] : []),
-          // Other filters
-          ...(isActive !== undefined ? [{ isActive: isActive === 'true' }] : []),
-          ...(search ? [{
-            OR: [
-              { name: { contains: String(search), mode: 'insensitive' as any } },
-              { medicalRecordNo: { contains: String(search), mode: 'insensitive' as any } },
-              { phone: { contains: String(search), mode: 'insensitive' as any } },
-              { identityNumber: { contains: String(search), mode: 'insensitive' as any } },
-            ]
-          }] : [])
-        ]
-      },
+      where,
       orderBy: { createdAt: 'desc' },
     })
     
-    console.log(`[getPatients] Found ${patients.length} patients for user ${currentUser?.email}`)
     res.json(patients)
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })
