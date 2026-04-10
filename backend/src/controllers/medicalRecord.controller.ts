@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Prisma } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
@@ -119,7 +119,8 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
         labResults,
         notes,
         services, // [{ serviceId, price, quantity }]
-        prescriptions // [{ medicineId, quantity, dosage, frequency, duration, instructions }]
+        prescriptions, // [{ medicineId, quantity, dosage, frequency, duration, instructions }]
+        isFinal = true // Default to true for backward compatibility
     } = req.body
 
     const result = await prisma.$transaction(async (tx) => {
@@ -132,18 +133,38 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
           labNotes,
           labResults,
           notes,
-          doctorId: (req as any).user.doctor?.id || null // Ensure the practitioner ID is set correctly
+          consultationDraft: !isFinal ? { services, prescriptions } : Prisma.DbNull,
+          doctorId: (req as any).user.doctor?.id || null 
         },
-        include: { patient: true }
+        include: { patient: true, services: true }
       })
 
-      // 2. Handle Prescriptions
+      // 1.1 Handle Clinical Services (Tindakan) - Record them to MedicalRecord
+      if (isFinal && services && Array.isArray(services)) {
+        await tx.medicalRecordService.deleteMany({ where: { medicalRecordId: mr.id } })
+        for (const s of services) {
+          await tx.medicalRecordService.create({
+            data: {
+              medicalRecordId: mr.id,
+              serviceId: s.serviceId,
+              quantity: s.quantity || 1,
+              price: s.price,
+              notes: s.notes || ''
+            }
+          })
+        }
+      }
+
+      // If it's just a draft, we stop here. We don't close queue, don't bill, don't RX.
+      if (!isFinal) {
+        return mr
+      }
+
+      // 2. Handle Prescriptions (Only if Final)
       if (prescriptions && Array.isArray(prescriptions) && prescriptions.length > 0) {
-        // Filter out any items that don't have a valid medicineId
         const validPrescriptions = prescriptions.filter((item: any) => item.medicineId)
 
         if (validPrescriptions.length > 0) {
-          // Verify all medicineIds actually exist in the medicines table
           const medicineIds = [...new Set(validPrescriptions.map((item: any) => item.medicineId))]
           const existingMedicines = await tx.medicine.findMany({
             where: { id: { in: medicineIds } },
@@ -179,8 +200,7 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
         }
       }
 
-      // 3. Update Invoice with Services & Medicines
-      // Find the existing invoice for this registration
+      // 3. Update Invoice with Services & Medicines (Only if Final)
       const invoice = await tx.invoice.findFirst({
         where: { patientId: mr.patientId, clinicId: mr.clinicId, status: 'unpaid' },
         orderBy: { createdAt: 'desc' }
@@ -189,7 +209,7 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
       if (invoice) {
         let additionalTotal = 0
 
-        // Add Services to Invoice
+        // Add Services
         if (services && Array.isArray(services)) {
           for (const s of services) {
             const serviceData = await tx.service.findUnique({ where: { id: s.serviceId } })
@@ -211,7 +231,7 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
           }
         }
 
-        // Add Medicines to Invoice
+        // Add Medicines
         if (prescriptions && Array.isArray(prescriptions)) {
           for (const p of prescriptions) {
             const medicine = await tx.medicine.findUnique({ 
@@ -223,16 +243,10 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
               const itemPrice = invItem?.sellingPrice || 0
               const subtotal = itemPrice * parseInt(p.quantity)
               
-              // We'll use a placeholder serviceId for medicines if needed, 
-              // or handle it as a generic item. The schema says InvoiceItem needs a serviceId.
-              // I'll look for a "Farmasi" or "Obat" service.
               let obatService = await tx.service.findFirst({
                 where: { 
                   serviceName: { contains: 'Obat', mode: 'insensitive' },
-                  OR: [
-                    { clinicId: mr.clinicId },
-                    { clinic: { isMain: true } }
-                  ]
+                  OR: [ { clinicId: mr.clinicId }, { clinic: { isMain: true } } ]
                 }
               })
               
@@ -263,7 +277,6 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
           }
         }
 
-        // Update Invoice Total
         await tx.invoice.update({
           where: { id: invoice.id },
           data: {
@@ -273,7 +286,7 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
         })
       }
 
-      // 4. Update Queue Status to 'completed'
+      // 4. Update Queue Status to 'completed' (Only if Final)
       await tx.queueNumber.update({
         where: { id: queueId },
         data: { status: 'completed' }
@@ -295,6 +308,9 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
 export const getMedicalRecordByRegistration = async (req: Request, res: Response) => {
     try {
         const { id } = req.params
+        const isAdminView = (req as any).isAdminView
+        const user = (req as any).user
+        
         console.log(`[DEBUG] Fetching Medical Record for Registration: ${id}`)
         
         const mr = await prisma.medicalRecord.findUnique({
@@ -302,6 +318,7 @@ export const getMedicalRecordByRegistration = async (req: Request, res: Response
             include: {
                 vitals: { orderBy: { recordedAt: 'desc' }, take: 1 },
                 prescriptions: { include: { items: { include: { medicine: true } } } },
+                services: { include: { service: true } },
                 patient: true,
                 doctor: true
             }
@@ -309,11 +326,50 @@ export const getMedicalRecordByRegistration = async (req: Request, res: Response
         
         if (!mr) {
             console.warn(`[DEBUG] No Medical Record found for Registration ID: ${id}`)
-        } else {
-            console.log(`[DEBUG] Medical Record found: ${mr.id}, Vitals count: ${mr.vitals?.length || 0}`)
+            return res.json(null)
+        }
+
+        // Access Control: If user is a DOCTOR and NOT in admin view, check if they are the assigned doctor
+        if (user.role === 'DOCTOR' && !isAdminView) {
+            if (mr.doctorId && mr.doctorId !== user.doctor?.id) {
+                return res.status(403).json({ message: 'Akses ditolak: Anda bukan dokter yang ditugaskan untuk rekam medis ini' })
+            }
         }
         
+        console.log(`[DEBUG] Medical Record found: ${mr.id}, Vitals count: ${mr.vitals?.length || 0}`)
         res.json(mr)
+    } catch (e) {
+        res.status(500).json({ message: (e as Error).message })
+    }
+}
+/**
+ * Get all Medical Records for a specific patient (Medical History)
+ */
+export const getMedicalRecordsByPatient = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params // patientId
+        
+        const history = await prisma.medicalRecord.findMany({
+            where: { patientId: id },
+            include: {
+                vitals: { orderBy: { recordedAt: 'desc' } },
+                services: { include: { service: true } },
+                prescriptions: { 
+                  include: { 
+                    items: { 
+                      include: { 
+                        medicine: true 
+                      } 
+                    } 
+                  } 
+                },
+                doctor: true,
+                clinic: true
+            },
+            orderBy: { recordDate: 'desc' }
+        })
+        
+        res.json(history)
     } catch (e) {
         res.status(500).json({ message: (e as Error).message })
     }

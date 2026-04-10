@@ -312,7 +312,7 @@ const processDoctorPhoto = async (file: Express.Multer.File): Promise<string> =>
 
 export const createDoctor = async (req: Request, res: Response) => {
   try {
-    const { userId, licenseNumber, name, email, phone, specialization, departmentId, bio, yearsOfExperience, isActive } = req.body
+    const { userId, licenseNumber, name, email, phone, specialization, departmentId, bio, yearsOfExperience, isActive, queueCode } = req.body
     
     let profilePicture = null
     if (req.file) {
@@ -323,7 +323,8 @@ export const createDoctor = async (req: Request, res: Response) => {
       data: { 
         userId, licenseNumber, name, email, phone, specialization, departmentId, bio, profilePicture,
         yearsOfExperience: yearsOfExperience ? Number(yearsOfExperience) : undefined, 
-        isActive: isActive === 'true' || isActive === true 
+        isActive: isActive === 'true' || isActive === true,
+        queueCode
       } 
     })
     res.status(201).json(doctor)
@@ -336,12 +337,13 @@ export const createDoctor = async (req: Request, res: Response) => {
 export const updateDoctor = async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { licenseNumber, name, email, phone, specialization, departmentId, bio, yearsOfExperience, isActive } = req.body
+    const { licenseNumber, name, email, phone, specialization, departmentId, bio, yearsOfExperience, isActive, queueCode } = req.body
     
     let updateData: any = { 
       licenseNumber, name, email, phone, specialization, departmentId, bio, 
       yearsOfExperience: yearsOfExperience ? Number(yearsOfExperience) : undefined, 
-      isActive: isActive === 'true' || isActive === true 
+      isActive: isActive === 'true' || isActive === true,
+      queueCode
     }
 
     if (req.file) {
@@ -585,15 +587,17 @@ const processMedicinePhoto = async (file: Express.Multer.File): Promise<string> 
 
 export const getMedicines = async (req: Request, res: Response) => {
   try {
-    const { search, isActive } = req.query
+    const { search, isActive, clinicId } = req.query
     const currentClinicId = (req as any).clinicId
     const isAdminView = (req as any).isAdminView
 
+    const targetClinicId = isAdminView
+      ? (clinicId === 'all' ? undefined : (clinicId ? String(clinicId) : currentClinicId))
+      : currentClinicId
+
     const medicines = await prisma.medicine.findMany({
       where: {
-        ...(!isAdminView ? {
-          products: { some: { clinicId: currentClinicId } }
-        } : {}),
+        ...(targetClinicId ? { clinicId: targetClinicId } : {}),
         ...(search ? {
           OR: [
             { medicineName: { contains: String(search), mode: 'insensitive' } },
@@ -603,7 +607,16 @@ export const getMedicines = async (req: Request, res: Response) => {
         } : {}),
         ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
       },
-      include: { productMaster: true },
+      include: { 
+        productMaster: {
+          include: {
+            products: {
+              where: { clinicId: targetClinicId },
+              include: { clinic: true }
+            }
+          }
+        } 
+      },
       orderBy: { medicineName: 'asc' },
     })
     res.json(medicines)
@@ -614,7 +627,7 @@ export const getMedicines = async (req: Request, res: Response) => {
 
 export const createMedicine = async (req: Request, res: Response) => {
   try {
-    const { isActive, ...rest } = req.body
+    const { isActive, masterProductId, ...rest } = req.body
     
     let image = null
     if (req.file) {
@@ -625,34 +638,41 @@ export const createMedicine = async (req: Request, res: Response) => {
       data: { 
         ...rest, 
         image,
-        isActive: isActive === 'true' || isActive === true 
+        isActive: isActive === 'true' || isActive === true,
+        clinicId: req.body.clinicId || (req as any).clinicId
       } 
     })
     
-    // AUTO-SYNC: Create Product Master entry for this medicine
+    // LINK TO MASTER: If masterProductId is provided, link it. Otherwise create one.
     try {
-      // 1. Ensure "Medicine" category exists
-      let category = await prisma.productCategory.findUnique({ where: { categoryName: 'Medicine' } })
-      if (!category) {
-        category = await prisma.productCategory.create({ 
-          data: { categoryName: 'Medicine', description: 'Kategori otomatis untuk obat-obatan klinis' } 
+      if (masterProductId) {
+        await prisma.productMaster.update({
+          where: { id: masterProductId },
+          data: { medicineId: med.id }
+        })
+      } else {
+        // Fallback: Create Product Master entry for this medicine if none provided
+        let category = await prisma.productCategory.findUnique({ where: { categoryName: 'Medicine' } })
+        if (!category) {
+          category = await prisma.productCategory.create({ 
+            data: { categoryName: 'Medicine', description: 'Kategori otomatis untuk obat-obatan klinis' } 
+          })
+        }
+
+        await prisma.productMaster.create({
+          data: {
+            masterCode: `MED-${Date.now().toString().slice(-6)}`,
+            masterName: med.medicineName,
+            description: med.description,
+            image: med.image,
+            categoryId: category.id,
+            medicineId: med.id,
+            isActive: med.isActive
+          }
         })
       }
-
-      // 2. Create the Master entry
-      await prisma.productMaster.create({
-        data: {
-          masterCode: `MED-${Date.now().toString().slice(-6)}`, // Short unique code
-          masterName: med.medicineName,
-          description: med.description,
-          image: med.image,
-          categoryId: category.id,
-          medicineId: med.id,
-          isActive: med.isActive
-        }
-      })
     } catch (syncError) {
-      console.error('Failed to sync medicine to product master:', syncError)
+      console.error('Failed to link/sync medicine to product master:', syncError)
     }
 
     res.status(201).json(med)
@@ -664,7 +684,16 @@ export const createMedicine = async (req: Request, res: Response) => {
 export const updateMedicine = async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { isActive, ...rest } = req.body
+    const { 
+      isActive, 
+      masterProductId, 
+      medicineCode, // Strip 
+      clinic, 
+      productMaster, 
+      createdAt, 
+      updatedAt, 
+      ...rest 
+    } = req.body
     
     let image = req.body.image
     if (req.file) {
@@ -985,9 +1014,10 @@ export const getAssets = async (req: Request, res: Response) => {
     const currentClinicId = (req as any).clinicId
     const isAdminView = (req as any).isAdminView
 
-    // Security: If not Pusat/Global view, always force the user's clinicId
-    const targetClinicId = isAdminView 
-      ? (clinicId ? String(clinicId) : undefined) 
+    // 'all' means show everything (only for admins).
+    // If clinicId is not provided, default to currentClinicId (sidebar).
+    const targetClinicId = isAdminView
+      ? (clinicId === 'all' ? undefined : (clinicId ? String(clinicId) : currentClinicId))
       : currentClinicId
 
     const assets = await prisma.asset.findMany({
@@ -1034,7 +1064,8 @@ export const createAsset = async (req: Request, res: Response) => {
       purchasePrice: purchasePrice ? Number(purchasePrice) : 0,
       currentValue: currentValue ? Number(currentValue) : undefined,
       purchaseDate: purchaseDate ? new Date(purchaseDate) : new Date(),
-      clinicId: req.body.clinicId || (req as any).clinicId 
+      clinicId: req.body.clinicId || (req as any).clinicId,
+      masterProductId: req.body.masterProductId || undefined
     }
     const asset = await prisma.asset.create({ 
       data,
@@ -1137,54 +1168,24 @@ export const getInventoryProducts = async (req: Request, res: Response) => {
     const currentClinicId = (req as any).clinicId
     const isAdminView = (req as any).isAdminView
 
-    // Filter by clinic: If not admin, force current clinic. If admin, optional clinicId filter.
-    const targetClinicId = isAdminView 
-      ? (clinicId ? String(clinicId) : undefined) 
-      : currentClinicId
-
-    const products = await prisma.product.findMany({
+    const masters = await prisma.productMaster.findMany({
       where: {
-        ...(targetClinicId ? { clinicId: targetClinicId } : {}),
-        ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
-        ...(categoryId || search ? {
-          masterProduct: {
-            is: {
-              ...(categoryId ? { categoryId: String(categoryId) } : {}),
-              ...(search ? {
-                OR: [
-                  { masterName: { contains: String(search), mode: 'insensitive' } },
-                  { masterCode: { contains: String(search), mode: 'insensitive' } },
-                ]
-              } : {})
-            }
-          }
-        } : {}),
+        ...(categoryId ? { categoryId: String(categoryId) } : {}),
         ...(search ? {
           OR: [
-            { productName: { contains: String(search), mode: 'insensitive' } },
-            { productCode: { contains: String(search), mode: 'insensitive' } },
-            { sku: { contains: String(search), mode: 'insensitive' } },
+            { masterName: { contains: String(search), mode: 'insensitive' } },
+            { masterCode: { contains: String(search), mode: 'insensitive' } },
           ]
-        } : {})
+        } : {}),
+        ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
       },
       include: {
-        masterProduct: {
-          include: { 
-            productCategory: true,
-            medicine: true,
-            assets: {
-              select: { image: true },
-              take: 1
-            }
-          }
-        },
-        clinic: {
-          select: { id: true, name: true, code: true }
-        }
+        productCategory: true,
+        medicine: true,
       },
-      orderBy: { productName: 'asc' },
+      orderBy: { masterName: 'asc' },
     })
-    res.json(products)
+    res.json(masters)
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })
   }

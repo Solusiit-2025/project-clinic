@@ -119,6 +119,16 @@ export default function NurseStation() {
       setForm(defaultForm)
     }
 
+    // Set status to 'triage' when opening the modal so the dashboard knows they are with the nurse
+    if (q.status !== 'ready' && q.status !== 'triage') {
+        try {
+            await axios.patch(`${API}/queues/${q.id}/status`, { status: 'triage' }, { headers })
+            fetchQueues()
+        } catch (err) {
+            console.error('Failed to update status to triage', err)
+        }
+    }
+
     setModalOpen(true)
   }
 

@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios'
-import { FiPackage, FiAlertCircle, FiUpload, FiX, FiCamera } from 'react-icons/fi'
+import { FiPackage, FiAlertCircle, FiUpload, FiX, FiCamera, FiSearch } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
 import PageHeader from '@/components/admin/master/PageHeader'
 import MasterModal from '@/components/admin/master/MasterModal'
+import SearchableSelect from '@/components/admin/master/SearchableSelect'
 import { StatusBadge } from '@/components/admin/master/StatusBadge'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -22,6 +23,8 @@ const EMPTY = {
   batchNumber: '', 
   expiryDate: '', 
   isActive: true,
+  clinicId: '',
+  masterProductId: '',
   image: null as File | string | null
 }
 
@@ -29,7 +32,19 @@ type Medicine = {
   id: string; medicineName: string; genericName?: string; description?: string; dosageForm?: string
   strength?: string; manufacturer?: string; batchNumber?: string; expiryDate?: string; isActive: boolean;
   image?: string;
-  productMaster?: any
+  clinicId?: string;
+  clinic?: { name: string; code: string };
+  productMaster?: {
+    products: {
+      id: string;
+      quantity: number;
+      sellingPrice: number;
+      usedUnit: string;
+      unit: string;
+      clinicId: string;
+      isActive: boolean;
+    }[]
+  }
 }
 
 export default function MedicinesPage() {
@@ -42,6 +57,9 @@ export default function MedicinesPage() {
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [filterClinic, setFilterClinic] = useState('')
+  const [clinics, setClinics] = useState<{id: string, name: string, code: string}[]>([])
+  const [productMasters, setProductMasters] = useState<{id: string, masterName: string, masterCode: string, description?: string}[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
 
@@ -50,12 +68,29 @@ export default function MedicinesPage() {
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const { data } = await axios.get(`${API}/medicines`, { headers, params: search ? { search } : {} })
+      const params: any = {}
+      if (search) params.search = search
+      if (filterClinic) params.clinicId = filterClinic
+      const { data } = await axios.get(`${API}/medicines`, { headers, params })
       setData(data)
     } finally { setLoading(false) }
-  }, [search, token, activeClinicId])
+  }, [search, token, filterClinic, activeClinicId])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  const fetchClinics = useCallback(async () => {
+    try {
+      const [{ data: cData }, { data: pData }] = await Promise.all([
+        axios.get(`${API}/clinics`, { headers }),
+        axios.get(`${API}/products`, { headers }) // Actually getProducts returns ProductMaster list
+      ])
+      setClinics(cData)
+      setProductMasters(pData)
+    } catch { }
+  }, [token])
+
+  useEffect(() => { 
+    fetchData()
+    fetchClinics()
+  }, [fetchData, fetchClinics])
 
   const openAdd = () => { 
     setEditing(null)
@@ -77,6 +112,8 @@ export default function MedicinesPage() {
       batchNumber: r.batchNumber || '', 
       expiryDate: r.expiryDate ? r.expiryDate.substring(0, 10) : '', 
       isActive: r.isActive,
+      clinicId: r.clinicId || '',
+      masterProductId: r.productMaster?.id || '',
       image: r.image || null
     })
     setImagePreview(r.image ? process.env.NEXT_PUBLIC_API_URL + r.image : null)
@@ -192,7 +229,38 @@ export default function MedicinesPage() {
       </span>
     )},
     { key: 'strength', label: 'Dosis', mobileHide: true, render: (r) => <span className="text-[11px] font-bold text-gray-600 tracking-tight">{r.strength || '—'}</span> },
-    { key: 'manufacturer', label: 'Produsen', mobileHide: true, render: (r) => <span className="text-[11px] font-bold text-gray-400 uppercase tracking-tight">{r.manufacturer || '—'}</span> },
+    { key: 'stock', label: 'STOK', render: (r) => {
+      const inv = r.productMaster?.products?.[0]
+      if (!inv) return (
+        <div className="flex flex-col opacity-40">
+           <span className="text-sm font-black text-gray-400">0</span>
+           <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Katalog</span>
+        </div>
+      )
+      return (
+        <div className="flex flex-col">
+          <div className="flex items-baseline gap-1">
+            <span className={`text-sm font-black ${inv.quantity <= 10 ? 'text-rose-600 animate-pulse' : 'text-gray-900'}`}>
+              {inv.quantity}
+            </span>
+            <span className="text-[10px] font-bold text-gray-400 lowercase">{inv.usedUnit || inv.unit}</span>
+          </div>
+          {inv.quantity <= 10 && <span className="text-[9px] font-black text-rose-500 uppercase tracking-tighter">Running Low</span>}
+        </div>
+      )
+    }},
+    { key: 'price', label: 'HARGA JUAL', render: (r) => {
+      const inv = r.productMaster?.products?.[0]
+      if (!inv) return <span className="text-[10px] font-bold text-gray-300 italic">Belum Set</span>
+      return (
+        <div className="flex flex-col">
+          <span className="text-sm font-black text-emerald-700">
+            Rp {inv.sellingPrice.toLocaleString('id-ID')}
+          </span>
+          <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Per {inv.unit}</span>
+        </div>
+      )
+    }},
     { key: 'expiryDate', label: 'Kadaluarsa', mobileHide: true, render: (r) => {
       if (!r.expiryDate) return <span className="text-gray-300">—</span>
       const exp = new Date(r.expiryDate)
@@ -204,23 +272,17 @@ export default function MedicinesPage() {
         </div>
       )
     }},
-    { key: 'isActive', label: 'Status', render: (r) => <StatusBadge active={r.isActive} /> },
+    { key: 'isActive', label: 'HASIL RX', render: (r) => {
+       const inv = r.productMaster?.products?.[0]
+       return <StatusBadge active={inv ? inv.isActive : false} />
+    }},
     { 
-      key: 'productMaster', 
-      label: 'SIAP JUAL', 
+      key: 'clinic', 
+      label: 'Cabang', 
       render: (r) => (
-        <div className="flex items-center gap-2">
-          {r.productMaster ? (
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 border border-emerald-100 rounded-xl group">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[9px] font-black text-emerald-700 tracking-tight uppercase">Ready for Rx</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 border border-gray-100 rounded-xl opacity-60">
-              <div className="w-1.5 h-1.5 rounded-full bg-gray-300" />
-              <span className="text-[9px] font-bold text-gray-500 tracking-tight uppercase tracking-widest text-[8px]">Katalog Only</span>
-            </div>
-          )}
+        <div className="flex flex-col">
+            <span className="text-[10px] font-black text-gray-700 uppercase tracking-tight truncate max-w-[100px]">{r.clinic?.name || 'Local'}</span>
+            <span className="text-[9px] font-bold text-gray-400">{r.clinic?.code || 'BASE'}</span>
         </div>
       )
     },
@@ -254,6 +316,17 @@ export default function MedicinesPage() {
         }}
         searchValue={search} onSearchChange={setSearch}
         searchPlaceholder="Cari nama obat, generik, atau produsen..."
+        extraFilters={
+          <select 
+            value={filterClinic} 
+            onChange={(e) => setFilterClinic(e.target.value)}
+            className="px-4 py-2 text-xs border border-gray-100 rounded-xl focus:outline-none focus:border-primary bg-white font-black text-gray-600 shadow-sm transition-all text-primary"
+          >
+            <option value="">Cabang Aktif (Sidebar)</option>
+            <option value="all">Seluruh Cabang</option>
+            {clinics.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        }
         onEdit={openEdit} onDelete={handleDelete}
         emptyText="Database obat masih kosong."
       />
@@ -272,6 +345,44 @@ export default function MedicinesPage() {
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="sm:col-span-2">
+              <SearchableSelect 
+                label="Pilih dari Katalog Master Produk"
+                placeholder="Cari nama atau kode produk (ex: Sanmol)..."
+                options={productMasters.map(m => ({
+                  id: m.id,
+                  label: m.masterName,
+                  code: m.masterCode,
+                  description: m.description
+                }))}
+                value={form.masterProductId}
+                onChange={(id, opt) => {
+                  setForm(p => ({
+                    ...p,
+                    masterProductId: id,
+                    medicineName: opt?.label || '',
+                    description: opt?.description || p.description
+                  }))
+                }}
+                helperText="Jika produk belum ada, daftarkan dulu di menu Katalog Master."
+                required
+              />
+            </div>
+
+            <div className="sm:col-span-2 p-5 bg-indigo-50/50 border-2 border-indigo-100/50 rounded-[2rem]">
+              <label className="block text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-2.5">Unit Penanggung Jawab Obat *</label>
+              <select 
+                value={form.clinicId} 
+                onChange={(e) => setForm(p => ({...p, clinicId: e.target.value}))}
+                className="w-full px-4 py-3 text-sm border border-indigo-100 rounded-2xl focus:outline-none focus:border-primary bg-white font-black text-indigo-700 shadow-sm"
+              >
+                <option value="">Pilih Cabang (Default ke Sidebar)...</option>
+                {clinics.map(c => (
+                  <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
+                ))}
+              </select>
+            </div>
+
             {/* Image Upload Section */}
             <div className="sm:col-span-2">
                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2.5">Foto Produk Obat (Opsional)</label>
@@ -314,7 +425,15 @@ export default function MedicinesPage() {
                 </div>
             </div>
 
-            <div className="sm:col-span-2">{inp('Nama Produk Obat *', 'medicineName', 'text', 'cth: Paracetamol Forte 500mg')}</div>
+            <div className="sm:col-span-2">
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Nama Produk Obat (Sesuai Katalog)</label>
+              <input 
+                type="text" value={form.medicineName} 
+                readOnly
+                placeholder="Pilih dari produk master di atas..."
+                className="w-full px-4 py-3 text-sm border border-gray-100 bg-gray-100/50 rounded-2xl focus:outline-none font-black text-gray-400 cursor-not-allowed uppercase" 
+              />
+            </div>
             {inp('Komposisi / Nama Generik', 'genericName', 'text', 'cth: Acetaminophen')}
             
             <div>

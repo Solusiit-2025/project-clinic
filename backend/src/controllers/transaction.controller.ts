@@ -31,23 +31,45 @@ export const createRegistration = async (req: Request, res: Response) => {
     })
     const registrationNo = `REG-${dateStr}-${(regCount + 1).toString().padStart(4, '0')}`
 
-    // 2. Determine Queue Prefix based on Department
-    let prefix = 'A' // Default
-    if (departmentId) {
-      const dept = await prisma.department.findUnique({ where: { id: departmentId } })
-      if (dept) {
-        prefix = dept.name.charAt(0).toUpperCase()
+    // 2. Determine Queue Prefix and sequence based on Doctor (or fallback)
+    let prefix = 'A'
+    let queueCount = 0
+
+    if (doctorId) {
+      // Get doctor details to retrieve queueCode
+      const doctor = await prisma.doctor.findUnique({ where: { id: doctorId } })
+      if (doctor) {
+        // Use queueCode if set, or just first letter of name (skipping 'dr.')
+        const rawName = doctor.name.toLowerCase().startsWith('dr.') ? doctor.name.slice(3).trim() : doctor.name
+        prefix = doctor.queueCode || rawName.charAt(0).toUpperCase()
       }
+      
+      // Count sequences for THIS SPECIFIC DOCTOR today
+      queueCount = await prisma.queueNumber.count({
+        where: { 
+          clinicId,
+          doctorId,
+          queueDate: { gte: today, lt: nextDay }
+        }
+      })
+    } else {
+      // Fallback: Determine Queue Prefix based on Department
+      if (departmentId) {
+        const dept = await prisma.department.findUnique({ where: { id: departmentId } })
+        if (dept) {
+          prefix = dept.name.charAt(0).toUpperCase()
+        }
+      }
+      // Count sequences for THIS PREFIX today in the clinic
+      queueCount = await prisma.queueNumber.count({
+        where: { 
+          clinicId,
+          queueDate: { gte: today, lt: nextDay },
+          queueNo: { startsWith: prefix }
+        }
+      })
     }
 
-    // 3. Generate Queue Number (X-001) per Clinic and Date
-    const queueCount = await prisma.queueNumber.count({
-      where: { 
-        clinicId,
-        queueDate: { gte: today, lt: nextDay },
-        queueNo: { startsWith: prefix }
-      }
-    })
     const queueNo = `${prefix}-${(queueCount + 1).toString().padStart(3, '0')}`
 
     // 4. Create Transaction
@@ -172,13 +194,25 @@ export const getQueues = async (req: Request, res: Response) => {
        ? (clinicId ? String(clinicId) : undefined)
        : currentClinicId
 
+    const user = (req as any).user
+    const isDoctor = user?.role === 'DOCTOR'
+    const doctorId = user?.doctor?.id
+
     const queues = await prisma.queueNumber.findMany({
       where: {
         clinicId: finalClinicId,
         queueDate: {
           gte: targetDate,
           lt: nextDay
-        }
+        },
+        // Filter by doctor if the user is a doctor and not an admin
+        // Allow seeing unassigned patients (null) + assigned to current doctor
+        ...(isDoctor && !isAdminView && doctorId ? { 
+           OR: [
+             { doctorId },
+             { doctorId: null }
+           ]
+        } : {})
       },
       include: {
         patient: {
@@ -255,12 +289,28 @@ export const updateQueueStatus = async (req: Request, res: Response) => {
       where: { id },
       data,
       include: {
-        patient: true,
-        doctor: true
+        patient: {
+           select: { id: true, name: true, medicalRecordNo: true, gender: true }
+        },
+        doctor: {
+           select: { id: true, name: true, specialization: true }
+        },
+        department: {
+           select: { id: true, name: true }
+        }
       }
     })
 
-    res.json(queue)
+    // Add hasMedicalRecord flag to prevent UI flicker in frontend
+    const mr = queue.registrationId ? await prisma.medicalRecord.findUnique({
+      where: { registrationId: queue.registrationId },
+      select: { id: true }
+    }) : null
+
+    res.json({
+      ...queue,
+      hasMedicalRecord: !!mr
+    })
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })
   }
@@ -272,11 +322,18 @@ export const updateQueueStatus = async (req: Request, res: Response) => {
 export const getQueueById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params
+    const isAdminView = (req as any).isAdminView
+    const userRole = (req as any).user?.role
+    const doctorProfileId = (req as any).user?.doctor?.id
+
     const queue = await prisma.queueNumber.findUnique({
-      where: { id },
+      where: { 
+        id,
+        ...(userRole === 'DOCTOR' && !isAdminView && doctorProfileId ? { doctorId: doctorProfileId } : {})
+      },
       include: {
         patient: {
-          select: { id: true, name: true, medicalRecordNo: true, gender: true }
+           select: { id: true, name: true, medicalRecordNo: true, gender: true }
         },
         doctor: {
            select: { id: true, name: true, specialization: true }

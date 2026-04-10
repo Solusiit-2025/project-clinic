@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios'
-import { FiUserCheck, FiAlertCircle, FiLock, FiCamera, FiX, FiUser, FiEye, FiPhone, FiMail, FiBriefcase, FiCalendar, FiMapPin, FiEdit2 } from 'react-icons/fi'
+import { FiUserCheck, FiAlertCircle, FiLock, FiCamera, FiX, FiUser, FiEye, FiPhone, FiMail, FiBriefcase, FiCalendar, FiMapPin, FiEdit2, FiArrowRight } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
 import PageHeader from '@/components/admin/master/PageHeader'
@@ -11,18 +11,18 @@ import { StatusBadge } from '@/components/admin/master/StatusBadge'
 
 const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
 const UPLOADS_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
-const EMPTY = { userId: '', licenseNumber: '', name: '', email: '', phone: '', specialization: '', departmentId: '', bio: '', yearsOfExperience: '', isActive: true, clinicId: '' }
+const EMPTY = { userId: '', licenseNumber: '', name: '', email: '', phone: '', specialization: '', departmentId: '', bio: '', yearsOfExperience: '', isActive: true, clinicId: '', queueCode: '' }
 
 type Doctor = {
-  id: string; 
-  name: string; 
-  email?: string; 
-  phone: string; 
+  id: string;
+  name: string;
+  email?: string;
+  phone: string;
   licenseNumber: string
-  specialization: string; 
+  specialization: string;
   departmentId?: string;
-  department?: { 
-    id: string; 
+  department?: {
+    id: string;
     name: string;
     clinic?: { id: string; name: string; code: string }
   };
@@ -30,20 +30,21 @@ type Doctor = {
   userId: string;
   profilePicture?: string;
   bio?: string;
-  yearsOfExperience?: number; 
-  isActive: boolean; 
+  yearsOfExperience?: number;
+  isActive: boolean;
+  queueCode?: string;
   createdAt: string
 }
 
-type Dept = { 
-  id: string; 
-  name: string; 
+type Dept = {
+  id: string;
+  name: string;
   level: number;
   clinic?: { id: string; name: string; code: string }
 }
 type UnlinkedUser = { id: string; name: string; username: string }
 
-const SPECIALIZATIONS = ['Umum','Gigi','Anak','Kandungan','Bedah','Dalam','Saraf','Mata','THT','Kulit','Jantung','Orthopedi','Radiologi','Anestesi','Jiwa','Rehab Medik','Gizi Klinik']
+const SPECIALIZATIONS = ['Umum', 'Gigi', 'Anak', 'Kandungan', 'Bedah', 'Dalam', 'Saraf', 'Mata', 'THT', 'Kulit', 'Jantung', 'Orthopedi', 'Radiologi', 'Anestesi', 'Jiwa', 'Rehab Medik', 'Gizi Klinik']
 
 export default function DoctorsPage() {
   const { token, activeClinicId } = useAuthStore()
@@ -62,7 +63,7 @@ export default function DoctorsPage() {
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  
+
   // Photo states
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -103,43 +104,44 @@ export default function DoctorsPage() {
     } finally { setLoading(false) }
   }, [search, specFilter, deptFilter, token, activeClinicId])
 
-  useEffect(() => { 
+  useEffect(() => {
     fetchData()
     fetchDepts()
     fetchClinics()
     fetchUnlinked()
   }, [fetchData, fetchDepts, fetchClinics, fetchUnlinked])
 
-  const openAdd = () => { 
-    setEditing(null); 
-    setForm({ ...EMPTY, clinicId: activeClinicId || '' }); 
+  const openAdd = () => {
+    setEditing(null);
+    setForm({ ...EMPTY, clinicId: activeClinicId || '' });
     setPreviewUrl(null);
     setSelectedFile(null);
-    setError(''); 
-    setModalOpen(true) 
+    setError('');
+    setModalOpen(true)
   }
 
   const openEdit = (r: Doctor) => {
     setEditing(r)
-    setForm({ 
-      userId: r.userId, 
-      licenseNumber: r.licenseNumber, 
-      name: r.name, 
-      email: r.email || '', 
-      phone: r.phone, 
-      specialization: r.specialization, 
-      departmentId: r.departmentId || '', 
+    setForm({
+      userId: r.userId,
+      licenseNumber: r.licenseNumber,
+      name: r.name,
+      email: r.email || '',
+      phone: r.phone,
+      specialization: r.specialization,
+      departmentId: r.departmentId || '',
       clinicId: r.department?.clinic?.id || '',
-      bio: r.bio || '', 
-      yearsOfExperience: String(r.yearsOfExperience || ''), 
-      isActive: r.isActive 
+      bio: r.bio || '',
+      yearsOfExperience: String(r.yearsOfExperience || ''),
+      isActive: r.isActive,
+      queueCode: r.queueCode || ''
     })
     setPreviewUrl(r.profilePicture ? `${UPLOADS_URL}${r.profilePicture}` : null)
     setSelectedFile(null)
-    setError(''); 
+    setError('');
     setModalOpen(true)
   }
-  
+
   const openView = (r: Doctor) => {
     setViewingDoctor(r)
     setViewModalOpen(true)
@@ -167,13 +169,13 @@ export default function DoctorsPage() {
         formData.append('photo', selectedFile)
       }
 
-      if (editing) await axios.put(`${API}/doctors/${editing.id}`, formData, { 
-        headers: { ...headers, 'Content-Type': 'multipart/form-data' } 
+      if (editing) await axios.put(`${API}/doctors/${editing.id}`, formData, {
+        headers: { ...headers, 'Content-Type': 'multipart/form-data' }
       })
-      else await axios.post(`${API}/doctors`, formData, { 
-        headers: { ...headers, 'Content-Type': 'multipart/form-data' } 
+      else await axios.post(`${API}/doctors`, formData, {
+        headers: { ...headers, 'Content-Type': 'multipart/form-data' }
       })
-      
+
       setModalOpen(false); fetchData(); fetchUnlinked()
     } catch (e: any) { setError(e.response?.data?.message || 'Terjadi kesalahan') }
     finally { setSaving(false) }
@@ -185,52 +187,78 @@ export default function DoctorsPage() {
   }
 
   const columns: Column<Doctor>[] = [
-    { key: 'name', label: 'Dokter', render: (r) => (
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden border border-gray-100 shadow-sm flex items-center justify-center">
-          {r.profilePicture ? (
-            <img src={`${UPLOADS_URL}${r.profilePicture}`} alt={r.name} className="w-full h-full object-cover" />
-          ) : (
-            <FiUser className="w-5 h-5 text-gray-300" />
-          )}
-        </div>
-        <div>
-          <p className="text-sm font-bold text-gray-900">dr. {r.name}</p>
-          <div className="flex items-center gap-1.5 text-[10px] text-gray-400 font-medium">
-            <FiLock className="w-2.5 h-2.5" />
-            <span>@{r.user?.username || 'no-account'}</span>
-            <span className="text-gray-200">|</span>
-            <span>SIP: {r.licenseNumber}</span>
+    {
+      key: 'name', label: 'Dokter', render: (r) => (
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden border border-gray-100 shadow-sm flex items-center justify-center">
+            {r.profilePicture ? (
+              <img src={`${UPLOADS_URL}${r.profilePicture}`} alt={r.name} className="w-full h-full object-cover" />
+            ) : (
+              <FiUser className="w-5 h-5 text-gray-300" />
+            )}
+          </div>
+          <div>
+            <p className="text-sm font-bold text-gray-900">dr. {r.name}</p>
+            <div className="flex items-center gap-1.5 text-[10px] text-gray-400 font-medium">
+              <FiLock className="w-2.5 h-2.5" />
+              <span>@{r.user?.username || 'no-account'}</span>
+              <span className="text-gray-200">|</span>
+              <span>SIP: {r.licenseNumber}</span>
+            </div>
           </div>
         </div>
-      </div>
-    )},
-    { key: 'specialization', label: 'Spesialisasi', render: (r) => (
-      <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg uppercase tracking-tight">Poli {r.specialization}</span>
-    )},
-    { key: 'department', label: 'Unit / Departemen', mobileHide: true, render: (r) => (
-      <span className="text-xs font-semibold text-gray-600">
-        {r.department?.name || <span className="text-gray-300 italic">Belum diset</span>}
-      </span>
-    )},
-    { key: 'clinic', label: 'Cabang', mobileHide: true, render: (r) => {
-      const clinic = r.department?.clinic;
-      if (!clinic) return <span className="text-gray-300 text-xs">—</span>;
-      
-      const isPusat = clinic.code === 'K001';
-      const isBekasi = clinic.code === 'K002';
-      const badgeClass = isPusat 
-        ? "bg-indigo-50 text-indigo-600 border-indigo-100" 
-        : isBekasi 
-          ? "bg-amber-50 text-amber-600 border-amber-100"
-          : "bg-gray-50 text-gray-400 border-gray-200";
-
-      return (
-        <span className={`inline-block text-[10px] font-bold px-2 py-1 rounded uppercase tracking-widest border ${badgeClass}`}>
-          {clinic.code} - {clinic.name}
-        </span>
       )
-    }},
+    },
+    {
+      key: 'queueCode', label: 'Initial', render: (r) => (
+        <div className="flex flex-col items-center">
+          <span className="text-xs font-black bg-orange-600 text-white px-3 py-1.5 rounded-xl shadow-sm border border-orange-500/20 tracking-widest min-w-[40px] text-center">
+            {r.queueCode || r.name.charAt(0).toUpperCase()}
+          </span>
+          <span className="text-[9px] font-black text-gray-300 mt-1 uppercase tracking-tighter">Prefix Antrean</span>
+        </div>
+      )
+    },
+    {
+      key: 'specialization', label: 'Spesialisasi', render: (r) => (
+        <div>
+          <p className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg uppercase tracking-tight inline-block mb-1">Poli {r.specialization}</p>
+          <p className="text-[10px] font-bold text-gray-300 flex items-center gap-1">
+            <FiBriefcase className="w-2.5 h-2.5" /> {r.yearsOfExperience || 0} th Pengalaman
+          </p>
+        </div>
+      )
+    },
+    {
+      key: 'phone', label: 'Kontak', mobileHide: true, render: (r) => (
+        <div className="space-y-1">
+          <p className="text-xs font-bold text-gray-700 flex items-center gap-1.5 tracking-tight">
+            <FiPhone className="w-3 h-3 text-green-500" /> {r.phone}
+          </p>
+          <p className="text-[10px] font-medium text-gray-400 flex items-center gap-1.5 lowercase italic tracking-tight">
+            <FiMail className="w-3 h-3" /> {r.email || '—'}
+          </p>
+        </div>
+      )
+    },
+    {
+      key: 'department', label: 'Unit & Cabang', mobileHide: true, render: (r) => {
+        const clinic = r.department?.clinic;
+        return (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-bold text-gray-600 truncate max-w-[150px]">
+              {r.department?.name || <span className="text-gray-300 italic font-medium">Internal</span>}
+            </span>
+            {clinic && (
+              <span className={`inline-block text-[9px] font-black px-2 py-0.5 rounded-md border w-fit uppercase tracking-widest ${clinic.code === 'K001' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-amber-50 text-amber-600 border-amber-100'
+                }`}>
+                {clinic.code} - {clinic.name}
+              </span>
+            )}
+          </div>
+        )
+      }
+    },
     { key: 'isActive', label: 'Status', render: (r) => <StatusBadge active={r.isActive} /> },
   ]
 
@@ -279,12 +307,12 @@ export default function DoctorsPage() {
         title={editing ? 'Edit Profil Dokter' : 'Registrasi Dokter Baru'} size="lg">
         <div className="space-y-6">
           {error && <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-xs font-medium text-red-700"><FiAlertCircle className="w-4 h-4 flex-shrink-0" />{error}</div>}
-          
+
           {/* Photo Upload Section */}
           <div className="flex flex-col items-center justify-center p-6 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200 hover:border-primary/30 transition-all group relative overflow-hidden">
             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
             <div className="relative z-10 flex flex-col items-center">
-              <div 
+              <div
                 onClick={() => fileInputRef.current?.click()}
                 className="w-24 h-24 rounded-2xl bg-white shadow-xl shadow-gray-200/50 flex items-center justify-center overflow-hidden cursor-pointer hover:scale-105 transition-transform border-4 border-white"
               >
@@ -297,7 +325,7 @@ export default function DoctorsPage() {
                   </div>
                 )}
               </div>
-              <button 
+              <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="mt-3 px-4 py-1.5 bg-white border border-gray-200 rounded-full text-[10px] font-bold text-gray-500 hover:text-primary hover:border-primary transition-all shadow-sm"
@@ -305,7 +333,7 @@ export default function DoctorsPage() {
                 {previewUrl ? 'Ubah Foto' : 'Unggah Foto'}
               </button>
               {previewUrl && (
-                <button 
+                <button
                   onClick={() => { setPreviewUrl(null); setSelectedFile(null) }}
                   className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors"
                 >
@@ -321,8 +349,8 @@ export default function DoctorsPage() {
               <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center gap-1.5">
                 <FiLock className="w-3.5 h-3.5" /> Akun Login (User) *
               </label>
-              <select 
-                value={form.userId} 
+              <select
+                value={form.userId}
                 onChange={(e) => setForm(p => ({ ...p, userId: e.target.value }))}
                 disabled={!!editing}
                 className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary bg-white font-medium shadow-sm transition-all disabled:bg-gray-50 disabled:text-gray-400"
@@ -343,9 +371,10 @@ export default function DoctorsPage() {
 
             <div className="sm:col-span-2">{field('Nama Lengkap (dengan gelar) *', 'name', 'text', 'cth: dr. Ahmad Fauzi, Sp.PD')}</div>
             {field('Nomor SIP (Lisensi) *', 'licenseNumber', 'text', 'SIP/12345/2024')}
+            {field('Kode Antrean (Inisial) *', 'queueCode', 'text', 'cth: AD, AI, B (Digunakan untuk Prefix No Antrean)')}
             {field('No. Telepon / WhatsApp *', 'phone', 'tel', '08xxxxxxxxxx')}
             {field('Email Profesional', 'email', 'email', 'dokter@klinik.com')}
-            
+
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1.5">Spesialisasi *</label>
               <select value={form.specialization} onChange={(e) => setForm(p => ({ ...p, specialization: e.target.value }))}
@@ -375,10 +404,10 @@ export default function DoctorsPage() {
                 {departments
                   .filter(d => d.clinic?.id === form.clinicId)
                   .map(d => (
-                  <option key={d.id} value={d.id}>
-                    {'-'.repeat(d.level)} {d.name}
-                  </option>
-                ))}
+                    <option key={d.id} value={d.id}>
+                      {'-'.repeat(d.level)} {d.name}
+                    </option>
+                  ))}
               </select>
               {form.clinicId && departments.filter(d => d.clinic?.id === form.clinicId).length === 0 && (
                 <p className="mt-1 text-[10px] text-orange-500 font-medium italic">Belum ada unit terdaftar di cabang ini.</p>
@@ -386,7 +415,7 @@ export default function DoctorsPage() {
             </div>
 
             {field('Pengalaman Kerja (tahun)', 'yearsOfExperience', 'number', '5')}
-            
+
             <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-2xl">
               <button type="button" onClick={() => setForm(p => ({ ...p, isActive: !p.isActive }))} className={`relative w-12 h-6 rounded-full transition-colors ${form.isActive ? 'bg-primary' : 'bg-gray-300'}`}>
                 <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.isActive ? 'translate-x-6' : ''}`} />
@@ -410,7 +439,7 @@ export default function DoctorsPage() {
 
       {/* Profile Detail Modal - Ultra Premium Luxury Redesign */}
       <MasterModal
-        isOpen={viewModalOpen} 
+        isOpen={viewModalOpen}
         onClose={() => setViewModalOpen(false)}
         title=""
         size="lg"
@@ -418,28 +447,28 @@ export default function DoctorsPage() {
         {viewingDoctor && (
           <div className="space-y-0 overflow-hidden -m-4 sm:-m-6 bg-[#fcfcfd]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
             {/* Header: Dynamic Holographic Mesh */}
-            <div className="h-40 sm:h-48 relative bg-slate-900" 
-                 style={{ 
-                   backgroundImage: `
+            <div className="h-40 sm:h-48 relative bg-slate-900"
+              style={{
+                backgroundImage: `
                      radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.45) 0px, transparent 50%), 
                      radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.45) 0px, transparent 50%),
                      radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.25) 0px, transparent 50%),
                      radial-gradient(at 50% 50%, rgba(59, 130, 246, 0.2) 0px, transparent 50%)
-                   ` 
-                 }}>
+                   `
+              }}>
               <div className="absolute inset-0 bg-white/5 backdrop-blur-[1px]" />
-              
+
               {/* Profile Image & Status Glow */}
               <div className="absolute -bottom-14 left-8 sm:left-12">
                 <div className="relative group">
                   {/* Subtle Glow Backdrop */}
                   <div className="absolute -inset-1 bg-gradient-to-tr from-primary to-purple-500 rounded-[2.5rem] blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-700" />
-                  
+
                   <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-[2.5rem] bg-white p-2 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.15)] ring-1 ring-black/5">
                     <div className="w-full h-full rounded-[2rem] bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-100">
                       {viewingDoctor.profilePicture ? (
-                        <img src={`${UPLOADS_URL}${viewingDoctor.profilePicture}`} alt={viewingDoctor.name} 
-                             className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" />
+                        <img src={`${UPLOADS_URL}${viewingDoctor.profilePicture}`} alt={viewingDoctor.name}
+                          className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" />
                       ) : (
                         <FiUser className="w-16 h-16 text-slate-200" />
                       )}
@@ -469,22 +498,21 @@ export default function DoctorsPage() {
                   <h3 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-[-0.04em] leading-tight">dr. {viewingDoctor.name}</h3>
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-bold ring-1 ring-slate-200/50">
-                       <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
-                       Poli Spesialis {viewingDoctor.specialization}
+                      <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                      Poli Spesialis {viewingDoctor.specialization}
                     </div>
 
                     {viewingDoctor.department?.clinic && (
-                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold ring-1 ${
-                        viewingDoctor.department.clinic.code === 'K001' ? 'bg-indigo-50 text-indigo-700 ring-indigo-100' : 'bg-amber-50 text-amber-700 ring-amber-100'
-                      }`}>
-                         <FiMapPin className="w-3 h-3" />
-                         {viewingDoctor.department.clinic.name}
+                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold ring-1 ${viewingDoctor.department.clinic.code === 'K001' ? 'bg-indigo-50 text-indigo-700 ring-indigo-100' : 'bg-amber-50 text-amber-700 ring-amber-100'
+                        }`}>
+                        <FiMapPin className="w-3 h-3" />
+                        {viewingDoctor.department.clinic.name}
                       </div>
                     )}
                   </div>
                 </div>
-                <button onClick={() => { setViewModalOpen(false); openEdit(viewingDoctor); }} 
-                        className="group relative flex items-center gap-3 px-6 py-3 bg-slate-900 hover:bg-black text-white text-[10px] font-black rounded-2xl transition-all duration-300 shadow-xl shadow-slate-200 active:scale-95 uppercase tracking-widest overflow-hidden">
+                <button onClick={() => { setViewModalOpen(false); openEdit(viewingDoctor); }}
+                  className="group relative flex items-center gap-3 px-6 py-3 bg-slate-900 hover:bg-black text-white text-[10px] font-black rounded-2xl transition-all duration-300 shadow-xl shadow-slate-200 active:scale-95 uppercase tracking-widest overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                   <FiEdit2 className="w-3.5 h-3.5" />
                   <span>Update Profile Data</span>
@@ -501,7 +529,7 @@ export default function DoctorsPage() {
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Years of Practice</p>
                   <p className="text-lg font-black text-slate-900 tracking-tight">{viewingDoctor.yearsOfExperience || 0} Years+</p>
                 </div>
-                
+
                 <div className="group relative bg-white/40 backdrop-blur-3xl p-5 rounded-3xl border border-white/60 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.04)] hover:shadow-2xl hover:bg-white/60 transition-all duration-500 ring-1 ring-slate-100/50">
                   <div className="w-10 h-10 rounded-xl bg-purple-50/80 text-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
                     <FiLock className="w-5 h-5" />
@@ -509,7 +537,15 @@ export default function DoctorsPage() {
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Certification</p>
                   <p className="text-lg font-black text-slate-900 tracking-tight leading-tight">{viewingDoctor.licenseNumber}</p>
                 </div>
- 
+
+                <div className="group relative bg-white/40 backdrop-blur-3xl p-5 rounded-3xl border border-white/60 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.04)] hover:shadow-2xl hover:bg-white/60 transition-all duration-500 ring-1 ring-slate-100/50">
+                  <div className="w-10 h-10 rounded-xl bg-orange-50/80 text-orange-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
+                    <FiArrowRight className="w-5 h-5" />
+                  </div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Queue Code</p>
+                  <p className="text-lg font-black text-slate-900 tracking-tight leading-tight">{viewingDoctor.queueCode || viewingDoctor.name.charAt(0).toUpperCase()}</p>
+                </div>
+
                 <div className="group relative bg-white/40 backdrop-blur-3xl p-5 rounded-3xl border border-white/60 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.04)] hover:shadow-2xl hover:bg-white/60 transition-all duration-500 ring-1 ring-slate-100/50">
                   <div className="w-10 h-10 rounded-xl bg-rose-50/80 text-rose-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
                     <FiMapPin className="w-5 h-5" />
@@ -535,21 +571,21 @@ export default function DoctorsPage() {
 
                 {/* Contact Strip: Floating Style */}
                 <div className="lg:col-span-4 space-y-4">
-                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Direct Channel</h4>
-                   <div className="space-y-3">
-                      <div className="flex items-center gap-4 p-4 rounded-[1.5rem] bg-white border border-slate-100 shadow-sm hover:border-green-200 hover:shadow-md transition-all group">
-                         <div className="w-10 h-10 rounded-xl bg-green-50 text-green-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <FiPhone className="w-5 h-5" />
-                         </div>
-                         <p className="text-sm font-black text-slate-800 tracking-tight">{viewingDoctor.phone}</p>
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Direct Channel</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-4 p-4 rounded-[1.5rem] bg-white border border-slate-100 shadow-sm hover:border-green-200 hover:shadow-md transition-all group">
+                      <div className="w-10 h-10 rounded-xl bg-green-50 text-green-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <FiPhone className="w-5 h-5" />
                       </div>
-                      <div className="flex items-center gap-4 p-4 rounded-[1.5rem] bg-white border border-slate-100 shadow-sm hover:border-blue-200 hover:shadow-md transition-all group">
-                         <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <FiMail className="w-5 h-5" />
-                         </div>
-                         <p className="text-sm font-black text-slate-800 tracking-tight truncate max-w-[150px]">{viewingDoctor.email || '—'}</p>
+                      <p className="text-sm font-black text-slate-800 tracking-tight">{viewingDoctor.phone}</p>
+                    </div>
+                    <div className="flex items-center gap-4 p-4 rounded-[1.5rem] bg-white border border-slate-100 shadow-sm hover:border-blue-200 hover:shadow-md transition-all group">
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <FiMail className="w-5 h-5" />
                       </div>
-                   </div>
+                      <p className="text-sm font-black text-slate-800 tracking-tight truncate max-w-[150px]">{viewingDoctor.email || '—'}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

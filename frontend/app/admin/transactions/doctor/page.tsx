@@ -26,6 +26,7 @@ interface Queue {
   patient: { name: string; medicalRecordNo: string; gender: string }
   doctor: { name: string; specialization: string } | null
   department: { name: string } | null
+  hasMedicalRecord: boolean
 }
 
 interface Medicine {
@@ -46,6 +47,7 @@ export default function DoctorStation() {
   const router = useRouter()
   const { user, token, activeClinicId } = useAuthStore()
   const [queues, setQueues] = useState<Queue[]>([])
+  const [medicines, setMedicines] = useState<Medicine[]>([])
   const [loading, setLoading] = useState(true)
 
   const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
@@ -57,8 +59,7 @@ export default function DoctorStation() {
         headers, 
         params: { clinicId: activeClinicId } 
       })
-      // Show patients: ready for doctor, currently being examined, and recently completed
-      setQueues(data.filter((q: Queue) => ['ready', 'ongoing', 'completed'].includes(q.status)))
+      setQueues(data)
     } catch (e) {
       console.error(e)
     } finally {
@@ -66,52 +67,16 @@ export default function DoctorStation() {
     }
   }, [token, activeClinicId, headers])
 
-  const fetchMedicines = useCallback(async () => {
-    try {
-      const { data } = await axios.get(`${API_MASTER}/products`, { headers, params: { isActive: true } })
-      // We now show all products from master list, prioritizing those with medicine data
-      setMedicines(data)
-    } catch (e) { console.error(e) }
-  }, [headers])
-
   useEffect(() => {
     fetchQueues()
-    fetchMedicines()
     const interval = setInterval(fetchQueues, 30000)
     return () => clearInterval(interval)
-  }, [fetchQueues, fetchMedicines])
+  }, [fetchQueues])
 
-  const announceQueue = (queueNo: string, name: string) => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-      const utterance = new SpeechSynthesisUtterance(`Nomor antrian, ${queueNo.replace('-', ' ')}, atas nama ${name}, silakan menuju ruang periksa.`)
-      const voices = window.speechSynthesis.getVoices()
-      const idVoice = voices.find(v => v.lang.startsWith('id') && (v.name.includes('Gadis') || v.name.includes('Andini') || v.name.toLowerCase().includes('female'))) || voices.find(v => v.lang.startsWith('id'))
-      if (idVoice) utterance.voice = idVoice
-      utterance.lang = 'id-ID'
-      utterance.rate = 0.9
-      utterance.pitch = 1.1
-      window.speechSynthesis.speak(utterance)
-    }
-  }
-
-  const handleUpdateStatus = async (id: string, status: string, announce = false) => {
-    try {
-      const { data } = await axios.patch(`${API_TRANSACTIONS}/queues/${id}/status`, { status }, { headers })
-      setQueues(prev => prev.map(q => q.id === id ? data : q))
-      if (announce) announceQueue(data.queueNo, data.patient.name)
-      return data
-    } catch (e) {
-      alert('Gagal memperbarui status antrean')
-    }
-  }
-
-  const startConsultation = async (q: Queue) => {
-    // 1. Update status to ongoing
-    await handleUpdateStatus(q.id, 'ongoing')
-    // 2. Redirect
-    router.push(`/admin/transactions/doctor/${q.id}`)
-  }
+  // Stats
+  const awaitingTriage = queues.filter(q => (q.status === 'waiting' || q.status === 'called') && !q.hasMedicalRecord).length
+  const readyForDoctor = queues.filter(q => q.status === 'ready' || (q.status === 'called' && q.hasMedicalRecord)).length
+  const completedToday = queues.filter(q => q.status === 'completed').length
 
   return (
     <div className="p-6 mx-auto pb-20 w-full">
@@ -128,8 +93,42 @@ export default function DoctorStation() {
         </button>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500">
+            <FiUsers className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-tight">Menunggu Pra-Pemeriksaan</p>
+            <p className="text-xl font-black text-gray-900">{awaitingTriage} Pasien</p>
+          </div>
+        </div>
+        
+        <div className="bg-white p-5 rounded-[2rem] border border-emerald-100 shadow-sm flex items-center gap-4 ring-4 ring-emerald-50/50">
+          <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
+            <FiActivity className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest leading-tight">Siap Diperiksa Dokter</p>
+            <p className="text-xl font-black text-gray-900">{readyForDoctor} Pasien</p>
+          </div>
+        </div>
+
+        <div className="bg-indigo-600 p-5 rounded-[2rem] shadow-lg shadow-indigo-600/20 flex items-center gap-4 text-white">
+          <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md">
+            <FiCheckCircle className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black opacity-60 uppercase tracking-widest leading-none mb-1">Total Selesai Hari Ini</p>
+            <p className="text-xl font-black leading-none">{completedToday}</p>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 max-w-4xl">
-        {queues.map((q, i) => (
+        <h3 className="font-black text-xs uppercase tracking-[0.2em] text-gray-400 px-2 mb-2">Daftar Antrian Aktif Dokter</h3>
+        
+        {queues.filter(q => ['ongoing', 'completed'].includes(q.status)).map((q, i) => (
           <motion.div 
             key={q.id}
             initial={{ opacity: 0, y: 10 }}
@@ -137,8 +136,7 @@ export default function DoctorStation() {
             transition={{ delay: i * 0.05 }}
             className={`bg-white p-5 rounded-3xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 ${
               q.status === 'ongoing' ? 'border-indigo-500 shadow-md ring-4 ring-indigo-50' : 
-              q.status === 'completed' ? 'border-gray-100 shadow-sm opacity-60' :
-              'border-gray-100 shadow-sm hover:shadow-md'
+              'border-gray-100 shadow-sm opacity-60'
             }`}
           >
             <div className="flex items-center gap-5">
@@ -149,8 +147,6 @@ export default function DoctorStation() {
               
               <div className="space-y-1">
                 <div className="flex items-center gap-2 mb-1">
-                   {q.status === 'ready' && <span className="text-[10px] font-black px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-600 border-emerald-100 uppercase">SIAP DIPERIKSA</span>}
-                   {q.status === 'called' && <span className="text-[10px] font-black px-2 py-0.5 rounded-full border bg-blue-50 text-blue-600 border-blue-100 uppercase">DIPANGGIL</span>}
                    {q.status === 'ongoing' && <span className="text-[10px] font-black px-2 py-0.5 rounded-full border bg-indigo-50 text-indigo-600 border-indigo-100 uppercase tracking-tighter">SEDANG DIPERIKSA</span>}
                    {q.status === 'completed' && <span className="text-[10px] font-black px-2 py-0.5 rounded-full border bg-gray-100 text-gray-400 border-gray-200 uppercase tracking-tighter">✓ SELESAI</span>}
                 </div>
@@ -167,44 +163,41 @@ export default function DoctorStation() {
             </div>
 
             <div className="flex gap-2">
-               {(q.status === 'ready' || q.status === 'called') && (
-                 <button 
-                   onClick={() => handleUpdateStatus(q.id, 'called', true)}
-                   className="px-6 py-3.5 bg-white border border-indigo-200 text-indigo-600 font-black rounded-2xl text-xs flex items-center justify-center gap-2 hover:bg-indigo-50 transition-all shadow-sm"
-                 >
-                    <FiVolume2 className="w-4 h-4" /> {q.status === 'called' ? 'PANGGIL ULANG' : 'PANGGIL PASIEN'}
-                 </button>
-               )}
-               {q.status !== 'completed' && (
-                 <button 
-                   onClick={() => startConsultation(q)}
-                   className={`px-6 py-3.5 text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 transition-all shadow-lg ${
-                      q.status === 'ongoing' ? 'bg-indigo-600 shadow-indigo-600/20' : 'bg-emerald-500 shadow-emerald-500/20 translate-x-1 hover:translate-x-0'
-                   }`}
-                 >
-                    <FiArrowRight /> {q.status === 'ongoing' ? 'LANJUTKAN PEMERIKSAAN' : 'MULAI PEMERIKSAAN'}
-                 </button>
-               )}
-               {q.status === 'completed' && (
-                 <button 
-                   onClick={() => router.push(`/admin/transactions/doctor/${q.id}`)}
-                   className="px-6 py-3.5 bg-gray-100 text-gray-500 font-black rounded-2xl text-xs flex items-center justify-center gap-2 hover:bg-gray-200 transition-all"
-                 >
-                    <FiClipboard className="w-4 h-4" /> LIHAT REKAM MEDIS
-                 </button>
+               {(user?.role === 'DOCTOR' || user?.role === 'SUPER_ADMIN') ? (
+                 <>
+                   {q.status === 'ongoing' && (
+                     <button 
+                       onClick={() => router.push(`/admin/transactions/doctor/${q.id}`)}
+                       className="px-6 py-3.5 bg-indigo-600 text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20"
+                     >
+                        <FiEdit3 className="w-4 h-4" /> BUKA REKAM MEDIS
+                     </button>
+                   )}
+                   {q.status === 'completed' && (
+                     <button 
+                       onClick={() => router.push(`/admin/transactions/doctor/${q.id}`)}
+                       className="px-6 py-3.5 bg-gray-100 text-gray-500 font-black rounded-2xl text-xs flex items-center justify-center gap-2 hover:bg-gray-200 transition-all"
+                     >
+                        <FiClipboard className="w-4 h-4" /> LIHAT RIWAYAT MEDIS
+                     </button>
+                   )}
+                 </>
+               ) : (
+                 <div className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold text-slate-400 italic">
+                   Akses Terbatas (Hanya Dokter)
+                 </div>
                )}
             </div>
           </motion.div>
         ))}
 
-        {queues.length === 0 && !loading && (
+        {queues.filter(q => ['ongoing', 'completed'].includes(q.status)).length === 0 && !loading && (
           <div className="py-20 text-center bg-gray-50/50 rounded-3xl border border-dashed border-gray-200">
             <FiUsers className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-            <p className="text-gray-400 font-bold">Tidak ada pasien yang siap diperiksa saat ini</p>
+            <p className="text-gray-400 font-bold">Belum ada pasien yang masuk pemeriksaan</p>
           </div>
         )}
       </div>
-
     </div>
   )
 }

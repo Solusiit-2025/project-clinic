@@ -7,7 +7,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { 
   FiActivity, FiCheckCircle, FiRefreshCw, FiUser, 
   FiHome, FiAlertCircle, FiClipboard, FiHeart, FiThermometer, FiWind,
-  FiEdit3, FiTrash2, FiSearch, FiPackage, FiInfo, FiArrowLeft, FiSave
+  FiEdit3, FiTrash2, FiSearch, FiPackage, FiInfo, FiArrowLeft, FiSave, FiRotateCcw
 } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 
@@ -57,6 +57,7 @@ export default function DoctorConsultationPage() {
   const [queue, setQueue] = useState<Queue | null>(null)
   const [loading, setLoading] = useState(true)
   const [medicines, setMedicines] = useState<Medicine[]>([])
+  const [history, setHistory] = useState<any[]>([])
   const [saving, setSaving] = useState(false)
   
   // Consultation State
@@ -69,7 +70,7 @@ export default function DoctorConsultationPage() {
   const [prescriptionItems, setPrescriptionItems] = useState<any[]>([])
   const [serviceItems, setServiceItems] = useState<any[]>([])
   const [services, setServices] = useState<Service[]>([])
-  const [activeSegment, setActiveSegment] = useState<'nurse' | 'diag' | 'tindakan' | 'lab' | 'rx'>('nurse')
+  const [activeSegment, setActiveSegment] = useState<'nurse' | 'diag' | 'tindakan' | 'lab' | 'rx' | 'history'>('nurse')
   const [searchMed, setSearchMed] = useState('')
   const [searchService, setSearchService] = useState('')
 
@@ -113,6 +114,20 @@ export default function DoctorConsultationPage() {
             )
             setPrescriptionItems(savedItems)
           }
+
+          // [NEW] Restore Consultation Draft if exists
+          if (data.consultationDraft) {
+             const draft = data.consultationDraft;
+             if (draft.prescriptions) setPrescriptionItems(draft.prescriptions);
+             if (draft.services) setServiceItems(draft.services);
+          }
+        }
+
+        // [NEW] Fetch patient medical history - Move outside if(data) to always load history
+        if (qData.patientId) {
+          const historyRes = await axios.get(`${API_TRANSACTIONS}/medical-records/patient/${qData.patientId}`, { headers })
+          // Filter out current session's record if it exists
+          setHistory(historyRes.data.filter((h: any) => h.id !== data?.id))
         }
       }
 
@@ -172,7 +187,7 @@ export default function DoctorConsultationPage() {
     setServiceItems(serviceItems.filter((_, i) => i !== index))
   }
 
-  const handleSaveConsultation = async () => {
+  const handleSaveConsultation = async (isFinal: boolean = true) => {
     if (!queue || !medicalRecord) return
     setSaving(true)
     try {
@@ -185,12 +200,17 @@ export default function DoctorConsultationPage() {
         labResults,
         notes,
         services: serviceItems.map(s => ({ serviceId: s.serviceId, quantity: s.quantity, price: s.price })),
-        prescriptions: prescriptionItems
+        prescriptions: prescriptionItems,
+        isFinal
       }, { headers })
       
-      router.push('/admin/transactions/doctor')
+      if (isFinal) {
+        router.push('/admin/transactions/doctor')
+      } else {
+        alert('Draft pemeriksaan berhasil disimpan.')
+      }
     } catch (e) {
-      alert('Gagal menyimpan hasil konsultasi')
+      alert(isFinal ? 'Gagal menyimpan hasil konsultasi' : 'Gagal menyimpan draft')
     } finally {
       setSaving(false)
     }
@@ -267,14 +287,24 @@ export default function DoctorConsultationPage() {
                  ✓ KONSULTASI SELESAI — Hanya Baca
                </span>
              ) : (
-               <button 
-                 onClick={handleSaveConsultation}
-                 disabled={saving}
-                 className="flex items-center gap-2 px-8 py-3.5 bg-indigo-600 text-white rounded-2xl text-[11px] font-black tracking-widest uppercase shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50"
-               >
-                 {saving ? <FiRefreshCw className="animate-spin" /> : <FiSave className="w-4 h-4" />}
-                 SIMPAN HASIL KONSULTASI
-               </button>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => handleSaveConsultation(false)}
+                  disabled={saving}
+                  className="flex items-center gap-2 px-6 py-3.5 bg-white border border-slate-200 text-slate-600 rounded-2xl text-[11px] font-black tracking-widest uppercase hover:bg-slate-50 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <FiRotateCcw className={`w-4 h-4 ${saving ? 'animate-spin' : ''}`} />
+                  SIMPAN DRAFT
+                </button>
+                <button 
+                  onClick={() => handleSaveConsultation(true)}
+                  disabled={saving}
+                  className="flex items-center gap-2 px-8 py-3.5 bg-indigo-600 text-white rounded-2xl text-[11px] font-black tracking-widest uppercase shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {saving ? <FiRefreshCw className="animate-spin" /> : <FiSave className="w-4 h-4" />}
+                  SIMPAN HASIL KONSULTASI
+                </button>
+              </div>
              )}
           </div>
         </div>
@@ -286,6 +316,7 @@ export default function DoctorConsultationPage() {
            {/* SEGMENT NAVIGATION */}
            <div className="bg-white p-3 rounded-[2.5rem] border border-slate-200 shadow-sm sticky top-28">
               {[
+                { id: 'history', label: 'Riwayat Pasien', icon: <FiRotateCcw /> },
                 { id: 'nurse', label: 'Nurse Handover', icon: <FiClipboard /> },
                 { id: 'diag', label: 'Diagnosa & SOAP', icon: <FiActivity /> },
                 { id: 'tindakan', label: 'Tindakan Medis', icon: <FiCheckCircle /> },
@@ -773,6 +804,176 @@ export default function DoctorConsultationPage() {
                            </div>
                          )}
                       </div>
+                   </div>
+                </motion.div>
+              )}
+
+              {activeSegment === 'history' && (
+                <motion.div 
+                   key="history" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                   className="space-y-10 text-left"
+                >
+                   <div className="flex items-center justify-between px-4">
+                      <h3 className="text-sm font-black text-slate-800 uppercase tracking-[0.2em] flex items-center gap-4">
+                         <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 border border-indigo-100"><FiRotateCcw /></div>
+                         Arsip Riwayat Medis Pasien
+                      </h3>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-white px-4 py-2 rounded-xl border border-slate-100 italic">
+                         {history.length} Kunjungan Sebelumnya Ditemukan
+                      </p>
+                   </div>
+
+                   <div className="relative pl-8 space-y-12 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gradient-to-b before:from-indigo-200 before:via-slate-100 before:to-transparent">
+                      {history.map((h, i) => (
+                        <motion.div 
+                          key={h.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.1 }}
+                          className="relative group"
+                        >
+                           {/* Timeline Indicator */}
+                           <div className="absolute -left-[30px] top-4 w-4 h-4 rounded-full bg-white border-4 border-indigo-500 shadow-[0_0_10px_rgba(79,70,229,0.3)] z-10 group-hover:scale-125 transition-transform" />
+                           
+                           <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm hover:shadow-xl hover:border-indigo-100 transition-all duration-500 overflow-hidden relative">
+                              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/30 rounded-full -mr-16 -mt-16 blur-3xl" />
+                              
+                              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 border-b border-slate-50 pb-6">
+                                 <div>
+                                    <div className="flex items-center gap-3 mb-1">
+                                       <p className="text-xs font-black text-indigo-600 uppercase tracking-widest">
+                                          {new Date(h.recordDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                       </p>
+                                       <span className="text-[10px] font-bold text-slate-300">•</span>
+                                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{h.recordNo}</p>
+                                    </div>
+                                    <h4 className="text-base font-black text-slate-900 group-hover:text-indigo-600 transition-colors flex items-center gap-2">
+                                       <FiUser className="text-slate-300" /> {h.doctor?.name || 'Dokter Umum'}
+                                    </h4>
+                                 </div>
+                                 <div className="flex flex-wrap gap-2">
+                                    <span className="px-4 py-1.5 bg-slate-50 text-slate-500 rounded-full text-[10px] font-black border border-slate-100">
+                                       BP: {h.vitals?.[0]?.bloodPressure || '-'}
+                                    </span>
+                                    <span className="px-4 py-1.5 bg-slate-50 text-slate-500 rounded-full text-[10px] font-black border border-slate-100">
+                                       Suhu: {h.vitals?.[0]?.temperature || '-'}°C
+                                    </span>
+                                 </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                 <div className="space-y-6">
+                                    <div className="space-y-4">
+                                       <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-2">
+                                          <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full" /> Diagnosis & Terapi
+                                       </p>
+                                       <div className="space-y-4 bg-slate-50/50 p-6 rounded-3xl border border-slate-100/50">
+                                          <div>
+                                             <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-1.5">Diagnosa Dokter:</p>
+                                             <p className="text-sm font-bold text-slate-800 leading-relaxed">{h.diagnosis || <span className="text-slate-300 italic">Belum ada diagnosa dokter.</span>}</p>
+                                          </div>
+                                          {h.treatmentPlan && (
+                                            <div className="pt-4 border-t border-slate-100">
+                                               <p className="text-[9px] font-black text-rose-600 uppercase tracking-widest mb-1.5">Rencana Terapi:</p>
+                                               <p className="text-sm font-bold text-slate-800 leading-relaxed">{h.treatmentPlan}</p>
+                                            </div>
+                                          )}
+                                          <div className="pt-4 border-t border-slate-100">
+                                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Keluhan Utama (Nurse Check):</p>
+                                             <p className="text-xs font-semibold text-slate-500 italic">"{h.chiefComplaint || 'Tidak ada catatan keluhan.'}"</p>
+                                          </div>
+                                       </div>
+                                    </div>
+
+                                    {/* Laboratorium Section in History */}
+                                    {(h.labNotes || h.labResults) && (
+                                       <div className="space-y-4">
+                                          <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-2">
+                                             <div className="w-1.5 h-1.5 bg-orange-400 rounded-full" /> Pemeriksaan Laboratorium
+                                          </p>
+                                          <div className="bg-orange-50/30 p-6 rounded-3xl border border-orange-100/50 space-y-4">
+                                             {h.labNotes && (
+                                               <div>
+                                                  <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest mb-1">Instrumen/Permintaan:</p>
+                                                  <p className="text-xs font-bold text-slate-700 leading-relaxed">{h.labNotes}</p>
+                                               </div>
+                                             )}
+                                             {h.labResults && (
+                                               <div className={h.labNotes ? "pt-4 border-t border-orange-100/50" : ""}>
+                                                  <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1">Hasil & Interpretasi:</p>
+                                                  <p className="text-xs font-black text-slate-900 leading-relaxed">{h.labResults}</p>
+                                               </div>
+                                             )}
+                                          </div>
+                                       </div>
+                                    )}
+
+                                    {h.notes && (
+                                       <div className="pt-2">
+                                          <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                             <FiEdit3 className="w-3 h-3" /> Catatan Tambahan Dokter
+                                          </p>
+                                          <p className="text-[11px] font-medium text-slate-500 italic bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">{h.notes}</p>
+                                       </div>
+                                    )}
+                                 </div>
+
+                                 <div className="space-y-6">
+                                    {/* Resep Obat Section */}
+                                    <div className="space-y-3">
+                                       <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-2">
+                                          <div className="w-1.5 h-1.5 bg-rose-400 rounded-full" /> Resep Obat (Rx)
+                                       </p>
+                                       <div className="grid grid-cols-1 gap-2">
+                                          {h.prescriptions?.flatMap((p: any) => p.items).map((item: any, idx: number) => (
+                                             <div key={idx} className="flex items-center gap-3 p-3 bg-rose-50/30 rounded-2xl border border-rose-100/50">
+                                                <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center text-[10px] font-black shadow-sm">R/</div>
+                                                <div>
+                                                   <p className="text-[11px] font-black text-slate-800 leading-none">{item.medicine?.medicineName || 'Obat'}</p>
+                                                   <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">{item.frequency} • {item.dosage} • {item.duration}</p>
+                                                </div>
+                                             </div>
+                                          ))}
+                                          {(!h.prescriptions || h.prescriptions.length === 0 || h.prescriptions.flatMap((p: any) => p.items).length === 0) && (
+                                             <div className="py-4 text-center border border-dashed border-slate-100 rounded-2xl bg-slate-50/30">
+                                                <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Tidak Ada Resep</p>
+                                             </div>
+                                          )}
+                                       </div>
+                                    </div>
+
+                                    {/* Tindakan Section */}
+                                    <div className="space-y-3">
+                                       <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-2">
+                                          <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" /> Tindakan Medis
+                                       </p>
+                                       <div className="flex flex-wrap gap-2">
+                                          {h.services?.map((s: any, idx: number) => (
+                                             <div key={idx} className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-100">
+                                                <FiActivity className="w-3 h-3" />
+                                                <span className="text-[10px] font-black uppercase tracking-tight">{s.service?.serviceName}</span>
+                                             </div>
+                                          ))}
+                                          {(!h.services || h.services.length === 0) && (
+                                             <div className="w-full py-4 text-center border border-dashed border-slate-100 rounded-2xl bg-slate-50/30">
+                                                <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Tidak Ada Tindakan</p>
+                                             </div>
+                                          )}
+                                       </div>
+                                    </div>
+                                 </div>
+                              </div>
+                           </div>
+                        </motion.div>
+                      ))}
+
+                      {history.length === 0 && (
+                         <div className="py-24 text-center bg-white rounded-[3rem] border-4 border-dashed border-slate-100">
+                            <FiRotateCcw className="w-16 h-16 text-slate-50 mx-auto mb-6" />
+                            <p className="text-sm font-black uppercase tracking-[0.4em] text-slate-200">Tidak Ada Riwayat Medis</p>
+                            <p className="text-xs font-bold text-slate-400 mt-4">Ini mungkin merupakan kunjungan pertama pasien di klinik ini.</p>
+                         </div>
+                      )}
                    </div>
                 </motion.div>
               )}

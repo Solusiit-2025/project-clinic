@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios'
-import { FiBox, FiAlertCircle, FiUpload, FiX, FiCamera, FiTag } from 'react-icons/fi'
+import { FiBox, FiAlertCircle, FiUpload, FiX, FiCamera, FiTag, FiSearch } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
 import PageHeader from '@/components/admin/master/PageHeader'
 import MasterModal from '@/components/admin/master/MasterModal'
+import SearchableSelect from '@/components/admin/master/SearchableSelect'
 import { StatusBadge } from '@/components/admin/master/StatusBadge'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -64,12 +65,12 @@ export default function AssetsPage() {
     try {
       const params: any = {}
       if (search) params.search = search
-      if (filterClinic) params.clinicId = filterClinic
+      if (filterClinic) params.clinicId = filterClinic // Only send if not empty
       if (filterCategory) params.category = filterCategory
       const { data } = await axios.get(`${API}/assets`, { headers, params })
       setData(data)
     } finally { setLoading(false) }
-  }, [search, token, filterClinic, filterCategory])
+  }, [search, token, filterClinic, filterCategory, activeClinicId])
 
   const fetchClinics = useCallback(async () => {
     try {
@@ -196,17 +197,21 @@ export default function AssetsPage() {
       return <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-lg border shadow-sm ${colors[r.condition] || 'bg-gray-50'}`}>{r.condition}</span>
     }},
     { key: 'status', label: 'Status', render: (r) => <StatusBadge active={r.status === 'active'} /> },
-    { key: 'clinic', label: 'Pusat Bio / Penempatan', render: (r) => (
-      <div className="flex flex-col">
-        <span className="text-[10px] font-black text-primary uppercase tracking-widest leading-none truncate max-w-[140px]">
-          {r.clinic?.name || 'Central Unit'}
-        </span>
-        <div className="flex items-center gap-1.5 mt-1.5">
-            <div className="w-1 h-1 rounded-full bg-primary/30" />
-            <span className="text-[9px] font-bold text-gray-400 uppercase">{r.clinic?.code || 'BASE'}</span>
+    { 
+      key: 'clinic', 
+      label: 'CABANG / UNIT', 
+      render: (r) => (
+        <div className="flex flex-col">
+          <span className="text-[10px] font-black text-primary uppercase tracking-widest leading-none truncate max-w-[140px]">
+            {r.clinic?.name || 'Central Unit'}
+          </span>
+          <div className="flex items-center gap-1.5 mt-1.5">
+              <div className="w-1 h-1 rounded-full bg-primary/30" />
+              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">{r.clinic?.code || 'BASE'}</span>
+          </div>
         </div>
-      </div>
-    )},
+      )
+    },
   ]
 
   const categories = Array.from(new Set(data.map(item => item.category))).filter(Boolean).sort()
@@ -251,9 +256,10 @@ export default function AssetsPage() {
               <select 
                 value={filterClinic} 
                 onChange={(e) => setFilterClinic(e.target.value)}
-                className="px-4 py-2 text-xs border border-gray-100 rounded-xl focus:outline-none focus:border-primary bg-white font-black text-gray-600 shadow-sm transition-all"
+                className="px-4 py-2 text-xs border border-gray-100 rounded-xl focus:outline-none focus:border-primary bg-white font-black text-gray-600 shadow-sm transition-all text-primary"
               >
-                <option value="">Seluruh Cabang</option>
+                <option value="">Cabang Aktif (Sidebar)</option>
+                <option value="all">Seluruh Cabang</option>
                 {clinics.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             )}
@@ -340,28 +346,42 @@ export default function AssetsPage() {
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 leading-none">Sinkronisasi Katalog Master (Rekomendasi)</label>
-              <select 
-                value={form.masterProductId} 
-                onChange={(e) => {
-                  const m = masters.find(x => x.id === e.target.value)
+               <SearchableSelect 
+                label="Pilih dari Katalog Master Produk"
+                placeholder="Cari nama atau kode aset (ex: Alat Medis)..."
+                options={masters.map(m => ({
+                  id: m.id,
+                  label: m.masterName,
+                  code: m.masterCode,
+                  description: m.description
+                }))}
+                value={form.masterProductId}
+                onChange={(id, opt) => {
                   setForm(p => ({ 
                     ...p, 
-                    masterProductId: e.target.value,
-                    assetName: m ? m.masterName : p.assetName,
-                    assetCode: m ? m.masterCode + '-AST' : p.assetCode,
-                    description: m?.description || p.description,
-                    // If master has image, we could potentially auto-fill it but manual physical photo is better for assets
+                    masterProductId: id,
+                    assetName: opt?.label || p.assetName,
+                    assetCode: opt ? `${opt.code}-AST` : p.assetCode,
+                    description: opt?.description || p.description,
                   }))
                 }}
-                className="w-full px-4 py-3 text-sm border border-gray-100 rounded-2xl focus:outline-none focus:border-primary bg-gray-50/50 font-bold text-gray-700"
-              >
-                <option value="">-- Manual Input / Custom Asset --</option>
-                {masters.map(m => <option key={m.id} value={m.id}>{m.masterName} ({m.masterCode})</option>)}
-              </select>
+                helperText="Data nama dan tipe akan otomatis menyesuaikan dengan katalog terpilih."
+                required
+              />
             </div>
 
-            <div className="md:col-span-2">{inp('Identifikasi Nama Aset *', 'assetName', 'text', 'cth: USG Mindray DC-30')}</div>
+            <div className="md:col-span-2">
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Identifikasi Nama Aset (Katalog)</label>
+              <input 
+                type="text" value={form.assetName} 
+                readOnly={!!form.masterProductId}
+                onChange={(e) => setForm(p => ({...p, assetName: e.target.value}))} 
+                placeholder="Pilih dari master atau ketik manual..."
+                className={`w-full px-4 py-3 text-sm border border-gray-100 rounded-2xl focus:outline-none transition-all font-bold ${
+                  form.masterProductId ? 'bg-gray-100/50 text-gray-400 cursor-not-allowed uppercase' : 'bg-gray-50/30 border-gray-100 focus:border-primary text-gray-700'
+                }`}
+              />
+            </div>
             {inp('Kode Inventaris *', 'assetCode', 'text', 'cth: RAD-USG-2024-01')}
             
             <div>

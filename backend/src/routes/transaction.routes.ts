@@ -9,7 +9,8 @@ import {
 import { 
   saveNurseVitals, 
   saveDoctorConsultation, 
-  getMedicalRecordByRegistration 
+  getMedicalRecordByRegistration,
+  getMedicalRecordsByPatient
 } from '../controllers/medicalRecord.controller'
 
 const router = Router()
@@ -27,5 +28,6 @@ router.patch('/queues/:id/status', updateQueueStatus)
 router.post('/medical-records/nurse', saveNurseVitals)
 router.post('/medical-records/doctor', saveDoctorConsultation)
 router.get('/medical-records/registration/:id', getMedicalRecordByRegistration)
+router.get('/medical-records/patient/:id', getMedicalRecordsByPatient)
 
 export default router

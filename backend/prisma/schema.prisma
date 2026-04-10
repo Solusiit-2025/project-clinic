@@ -54,6 +54,7 @@ model Clinic {
   siteSettings    SiteSetting[]
   services        Service[]
   doctorSchedules DoctorSchedule[]
+  medicines       Medicine[]
 
   @@map("clinics")
 }
@@ -173,6 +174,7 @@ model Doctor {
   bio                 String?
   profilePicture      String?
   yearsOfExperience   Int?
+  queueCode           String?
   isActive            Boolean @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -307,6 +309,7 @@ model MedicalRecord {
   labNotes        String?
   labResults      String?
   notes           String?
+  consultationDraft Json?
   recordDate      DateTime @default(now())
   clinicId        String?
   createdAt       DateTime @default(now())
@@ -319,6 +322,7 @@ model MedicalRecord {
   clinic          Clinic? @relation(fields: [clinicId], references: [id], onDelete: SetNull)
   vitals          VitalSign[]
   prescriptions   Prescription[]
+  services        MedicalRecordService[]
 
   @@index([patientId])
   @@index([doctorId])
@@ -342,6 +346,23 @@ model VitalSign {
 
   @@index([medicalRecordId])
   @@map("vital_signs")
+}
+
+
+model MedicalRecordService {
+  id              String  @id @default(uuid())
+  medicalRecordId String
+  serviceId       String
+  quantity        Int     @default(1)
+  price           Float
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+  service         Service       @relation(fields: [serviceId], references: [id])
+
+  @@index([medicalRecordId])
+  @@map("medical_record_services")
 }
 
 model Prescription {
@@ -393,15 +414,19 @@ model Medicine {
   batchNumber     String?
   expiryDate      DateTime?
   image           String?
+  medicineCode    String? // Optional medicine-specific code
+  clinicId        String?
   isActive        Boolean @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  clinic            Clinic?  @relation(fields: [clinicId], references: [id], onDelete: SetNull)
   prescriptionItems PrescriptionItem[]
   inventoryItems    Inventory[]
   productMaster     ProductMaster?
 
   @@index([medicineName])
+  @@index([clinicId])
   @@map("medicines")
 }
 
@@ -425,6 +450,7 @@ model Service {
   serviceCategory     ServiceCategory?     @relation(fields: [categoryId], references: [id])
   appointmentServices AppointmentService[]
   invoiceItems        InvoiceItem[]
+  medicalRecordServices MedicalRecordService[]
 
   @@index([serviceCode])
   @@index([categoryId])
