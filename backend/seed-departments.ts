@@ -8,9 +8,24 @@ async function main() {
   // Clear existing departments to start fresh with the new structure
   await prisma.department.deleteMany()
 
+  const mainClinic = await prisma.clinic.findFirst({ where: { isMain: true } })
+  if (!mainClinic) {
+    throw new Error('Main clinic (isMain=true) tidak ditemukan. Seed department memerlukan klinik pusat.')
+  }
+
+  const withClinic = (dept: any) => {
+    const result: any = { ...dept, clinicId: mainClinic.id }
+    if (dept.children?.create) {
+      result.children = {
+        create: dept.children.create.map(withClinic)
+      }
+    }
+    return result
+  }
+
   // 1. Departemen Medis & Spesialisasi (Clinical Department)
   const clinical = await prisma.department.create({
-    data: {
+    data: withClinic({
       name: 'Departemen Medis & Spesialisasi (Clinical Department)',
       description: 'Layanan garis depan yang menentukan reputasi medis klinik.',
       level: 0,
@@ -63,12 +78,12 @@ async function main() {
           }
         ]
       }
-    }
+    })
   })
 
   // 2. Departemen Penunjang Medis (Diagnostic & Support)
   const diagnostic = await prisma.department.create({
-    data: {
+    data: withClinic({
       name: 'Departemen Penunjang Medis (Diagnostic & Support)',
       description: 'Bagian yang memastikan diagnosa dokter akurat 100%.',
       level: 0,
@@ -107,12 +122,12 @@ async function main() {
           }
         ]
       }
-    }
+    })
   })
 
   // 3. Departemen Gawat Darurat & Observasi (Urgent Care)
   const urgent = await prisma.department.create({
-    data: {
+    data: withClinic({
       name: 'Departemen Gawat Darurat & Observasi (Urgent Care)',
       description: 'Berfungsi 24 jam untuk kondisi mendesak.',
       level: 0,
@@ -139,12 +154,12 @@ async function main() {
           }
         ]
       }
-    }
+    })
   })
 
   // 4. Departemen Layanan Pelanggan & Administrasi (Front Office)
   const frontOffice = await prisma.department.create({
-    data: {
+    data: withClinic({
       name: 'Departemen Layanan Pelanggan & Administrasi (Front Office)',
       description: 'Wajah pertama yang ditemui pasien.',
       level: 0,
@@ -171,12 +186,12 @@ async function main() {
           }
         ]
       }
-    }
+    })
   })
 
   // 5. Departemen Operasional & Manajemen (Back Office)
   const backOffice = await prisma.department.create({
-    data: {
+    data: withClinic({
       name: 'Departemen Operasional & Manajemen (Back Office)',
       description: 'Bagian yang menjaga klinik tetap berjalan sehat.',
       level: 0,
@@ -215,7 +230,7 @@ async function main() {
           }
         ]
       }
-    }
+    })
   })
 
   console.log('Comprehensive Seeding completed!')

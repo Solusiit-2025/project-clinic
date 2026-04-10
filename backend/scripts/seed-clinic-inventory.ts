@@ -13,9 +13,23 @@ async function main() {
   }
   console.log(`Target Clinic: ${clinic.name} (${clinic.id})`)
 
+  async function getOrCreateProductCategory(categoryName: string) {
+    const category = await prisma.productCategory.upsert({
+      where: { categoryName },
+      update: {},
+      create: {
+        categoryName,
+        description: `${categoryName} category for products`,
+      }
+    })
+    return category.id
+  }
+
   // 2. Sync Existing Medicines (60 items)
   const medicines = await prisma.medicine.findMany()
   console.log(`Syncing ${medicines.length} Medicines to Product Master...`)
+
+  const medicineCategoryId = await getOrCreateProductCategory('Medicine')
 
   for (const med of medicines) {
     const masterCode = `PM-MED-${med.id.slice(0, 4).toUpperCase()}`
@@ -24,12 +38,12 @@ async function main() {
     // Create ProductMaster
     const master = await prisma.productMaster.upsert({
       where: { masterCode: masterCode },
-      update: { medicineId: med.id }, // Ensure link
+      update: { medicineId: med.id, categoryId: medicineCategoryId }, // Ensure link and category
       create: {
         masterCode: masterCode,
         masterName: med.medicineName,
         description: med.description,
-        category: 'medicine',
+        categoryId: medicineCategoryId,
         medicineId: med.id,
         isActive: true
       }
@@ -37,7 +51,7 @@ async function main() {
 
     // Create Product for Clinic
     await prisma.product.upsert({
-      where: { sku: sku },
+      where: { sku_clinicId: { sku: sku, clinicId: clinic.id } },
       update: {
         productName: med.medicineName,
         quantity: 100, // Default seed stock
@@ -87,21 +101,22 @@ async function main() {
   ]
 
   console.log(`Seeding ${supplies.length} Medical Supplies (BHP)...`)
+  const suppliesCategoryId = await getOrCreateProductCategory('Supplies')
   for (const s of supplies) {
     const code = `SUP-${s.name.replace(/\s+/g, '-').toUpperCase()}`
     const master = await prisma.productMaster.upsert({
       where: { masterCode: code },
-      update: {},
+      update: { categoryId: suppliesCategoryId },
       create: {
         masterCode: code,
         masterName: s.name,
-        category: s.cat,
+        categoryId: suppliesCategoryId,
         isActive: true
       }
     })
 
     await prisma.product.upsert({
-      where: { sku: `SKU-${code}` },
+      where: { sku_clinicId: { sku: `SKU-${code}`, clinicId: clinic.id } },
       update: { quantity: 50 },
       create: {
         masterProductId: master.id,
@@ -137,21 +152,22 @@ async function main() {
   ]
 
   console.log(`Seeding ${alkes.length} Medical Equipment (Alkes)...`)
+  const equipmentCategoryId = await getOrCreateProductCategory('Equipment')
   for (const a of alkes) {
     const code = `ALKES-${a.name.replace(/\s+/g, '-').toUpperCase()}`
     const master = await prisma.productMaster.upsert({
       where: { masterCode: code },
-      update: {},
+      update: { categoryId: equipmentCategoryId },
       create: {
         masterCode: code,
         masterName: a.name,
-        category: a.cat,
+        categoryId: equipmentCategoryId,
         isActive: true
       }
     })
 
     await prisma.product.upsert({
-      where: { sku: `SKU-${code}` },
+      where: { sku_clinicId: { sku: `SKU-${code}`, clinicId: clinic.id } },
       update: { quantity: 5 },
       create: {
         masterProductId: master.id,

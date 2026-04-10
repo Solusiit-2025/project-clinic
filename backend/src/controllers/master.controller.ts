@@ -163,7 +163,7 @@ const flattenDepartments = (depts: any[], parentId: string | null = null): any[]
 
 export const getDepartments = async (req: Request, res: Response) => {
   try {
-    const { search, parentId } = req.query
+    const { search, parentId, allClinics } = req.query
     const currentClinicId = (req as any).clinicId
     const currentUser = (req as any).user
 
@@ -176,10 +176,14 @@ export const getDepartments = async (req: Request, res: Response) => {
       }
     }
 
+    // If allClinics explicitly requested and user is admin, return all departments from all clinics
+    // Otherwise, filter by current clinic for non-admin users
+    const shouldShowAllClinics = isAdminView || (allClinics === 'true' && isAdminView)
+
     // Fetch all needed data
     let departments = await prisma.department.findMany({
       where: {
-        ...(!isAdminView ? { clinicId: currentClinicId } : {}),
+        ...(!shouldShowAllClinics ? { clinicId: currentClinicId } : {}),
         ...(search ? { name: { contains: String(search), mode: 'insensitive' } } : {}),
         ...(parentId !== undefined && parentId !== 'all' ? { parentId: parentId === 'null' ? null : String(parentId) } : {}),
       },

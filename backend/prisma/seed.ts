@@ -4,6 +4,28 @@ import bcrypt from 'bcrypt'
 const prisma = new PrismaClient()
 
 async function main() {
+  // Create clinics first
+  console.log('Seeding clinics...')
+  
+  let mainClinic = await prisma.clinic.findFirst({ where: { isMain: true } })
+  
+  if (!mainClinic) {
+    mainClinic = await prisma.clinic.create({
+      data: {
+        name: 'Klinik Yasfina Pusat',
+        code: 'K001',
+        address: 'Jl. Contoh No. 123, Jakarta',
+        phone: '021-12345678',
+        email: 'info@klinikterpadu.com',
+        isMain: true,
+        isActive: true,
+      },
+    })
+    console.log(`✅ Main clinic created: ${mainClinic.name}`)
+  } else {
+    console.log(`ℹ️ Main clinic already exists: ${mainClinic.name}`)
+  }
+
   const users = [
     {
       email: 'superadmin@clinic.com',
@@ -34,13 +56,42 @@ async function main() {
     const existing = await prisma.user.findUnique({ where: { email: u.email } })
     if (!existing) {
       const hashedPassword = await bcrypt.hash(u.password, 10)
-      await prisma.user.create({
+      const user = await prisma.user.create({
         data: { ...u, role: u.role as Role, password: hashedPassword, isActive: true }
       })
       console.log(`✅ User created: ${u.email} (${u.role})`)
       console.log(`   Password: ${u.password}`)
+      
+      // Link user to main clinic
+      await prisma.userClinic.create({
+        data: {
+          userId: user.id,
+          clinicId: mainClinic.id,
+        },
+      })
+      console.log(`   ✅ Linked to clinic: ${mainClinic.name}`)
     } else {
       console.log(`ℹ️ User already exists: ${u.email}`)
+      
+      // Check if user is linked to clinic, if not link them
+      const userClinic = await prisma.userClinic.findUnique({
+        where: {
+          userId_clinicId: {
+            userId: existing.id,
+            clinicId: mainClinic.id,
+          },
+        },
+      })
+      
+      if (!userClinic) {
+        await prisma.userClinic.create({
+          data: {
+            userId: existing.id,
+            clinicId: mainClinic.id,
+          },
+        })
+        console.log(`   ✅ Linked to clinic: ${mainClinic.name}`)
+      }
     }
   }
 }

@@ -73,7 +73,7 @@ export default function DoctorsPage() {
 
   const fetchDepts = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${API}/departments`, { headers })
+      const { data } = await axios.get(`${API}/departments?allClinics=true`, { headers })
       setDepartments(data)
     } catch { }
   }, [token, activeClinicId])
