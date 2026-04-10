@@ -28,7 +28,7 @@ export default function ServicesSection() {
 
         {/* Services Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {services.map((service, index) => (
+          {services.map((service: any, index: number) => (
             <motion.div
               key={index}
               initial={{ opacity: 0, x: index % 2 === 0 ? -50 : 50 }}

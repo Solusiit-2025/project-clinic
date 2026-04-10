@@ -26,7 +26,7 @@ export default function SettingsPage() {
 
   const fetchBackups = async () => {
     try {
-      const res = await api.get('/api/backup/list')
+      const res = await api.get('backup/list')
       setBackups(res.data)
     } catch (error) {
       console.error('Failed to fetch backups', error)
@@ -37,7 +37,7 @@ export default function SettingsPage() {
     setIsLoading(true)
     const toastId = toast.loading('Memproses backup database...')
     try {
-      const response = await api.get('/api/backup/download', {
+      const response = await api.get('backup/download', {
         responseType: 'blob'
       })
       
@@ -82,7 +82,7 @@ export default function SettingsPage() {
     formData.append('file', selectedFile)
 
     try {
-      await api.post('/api/backup/restore', formData, {
+      await api.post('backup/restore', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

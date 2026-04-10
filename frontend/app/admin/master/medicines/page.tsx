@@ -113,7 +113,7 @@ export default function MedicinesPage() {
       expiryDate: r.expiryDate ? r.expiryDate.substring(0, 10) : '', 
       isActive: r.isActive,
       clinicId: r.clinicId || '',
-      masterProductId: r.productMaster?.id || '',
+      masterProductId: '',
       image: r.image || null
     })
     setImagePreview(r.image ? process.env.NEXT_PUBLIC_API_URL + r.image : null)

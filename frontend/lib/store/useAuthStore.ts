@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import axios from 'axios'
+import api from '@/lib/api'
 
 type Role = 'SUPER_ADMIN' | 'ADMIN' | 'DOCTOR' | 'RECEPTIONIST' | 'FARMASI' | 'ACCOUNTING' | 'LOGISTIC' | 'STAFF'
 
@@ -31,8 +31,6 @@ interface AuthState {
   checkAuth: () => Promise<void>
 }
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/api'
-
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -42,26 +40,29 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
 
       setAuth: (user, token, clinicId) => {
-        const activeClinicId = clinicId || (user.clinics && user.clinics.length > 0 ? user.clinics[0].id : null)
+        const activeId = clinicId || (user.clinics && user.clinics.length > 0 ? user.clinics[0].id : null)
         
-        set({ user, token, isAuthenticated: true, activeClinicId })
-        
-        // Set axios default headers
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-        if (activeClinicId) {
-          axios.defaults.headers.common['x-clinic-id'] = activeClinicId
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('token', token)
+          if (activeId) localStorage.setItem('activeClinicId', activeId)
         }
+
+        set({ user, token, isAuthenticated: true, activeClinicId: activeId })
       },
 
       setActiveClinicId: (id) => {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('activeClinicId', id)
+        }
         set({ activeClinicId: id })
-        axios.defaults.headers.common['x-clinic-id'] = id
       },
 
       logout: () => {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('token')
+          localStorage.removeItem('activeClinicId')
+        }
         set({ user: null, token: null, activeClinicId: null, isAuthenticated: false })
-        delete axios.defaults.headers.common['Authorization']
-        delete axios.defaults.headers.common['x-clinic-id']
         window.location.href = '/login'
       },
 
@@ -73,26 +74,24 @@ export const useAuthStore = create<AuthState>()(
         }
 
         try {
-          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-          if (activeClinicId) {
-            axios.defaults.headers.common['x-clinic-id'] = activeClinicId
-          }
-          
-          const response = await axios.get(`${API_URL}/auth/me`)
+          const response = await api.get('auth/me')
           const userData = response.data
           
-          // Fix: Auto-set activeClinicId if null but clinics exist
           let currentActiveId = activeClinicId
           if (!currentActiveId && userData.clinics && userData.clinics.length > 0) {
             currentActiveId = userData.clinics[0].id
-            axios.defaults.headers.common['x-clinic-id'] = currentActiveId
+            if (typeof window !== 'undefined' && currentActiveId) {
+              localStorage.setItem('activeClinicId', currentActiveId)
+            }
           }
 
           set({ user: userData, activeClinicId: currentActiveId, isAuthenticated: true })
         } catch (error) {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('token')
+            localStorage.removeItem('activeClinicId')
+          }
           set({ user: null, token: null, activeClinicId: null, isAuthenticated: false })
-          delete axios.defaults.headers.common['Authorization']
-          delete axios.defaults.headers.common['x-clinic-id']
         }
       },
     }),

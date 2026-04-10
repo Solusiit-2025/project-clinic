@@ -1331,11 +1331,24 @@ export const deleteInventoryProduct = async (req: Request, res: Response) => {
 export const getPatients = async (req: Request, res: Response) => {
   try {
     const { search, isActive } = req.query
+    const currentUser = (req as any).user
     const currentClinicId = (req as any).clinicId
     const isAdminView = (req as any).isAdminView
 
+    // Security Filter: Doctors only see their own patients
+    const isDoctor = currentUser?.role === 'DOCTOR'
+    const doctorProfileId = currentUser?.doctor?.id
+
     const patients = await prisma.patient.findMany({
       where: {
+        ...(isDoctor ? {
+          OR: [
+            { medicalRecords: { some: { doctorId: doctorProfileId } } },
+            { queueNumbers: { some: { doctorId: doctorProfileId } } },
+            { registrations: { some: { doctorId: doctorProfileId } } },
+            { appointments: { some: { doctorId: doctorProfileId } } }
+          ]
+        } : {}),
         ...(search ? {
           OR: [
             { name: { contains: String(search), mode: 'insensitive' } },

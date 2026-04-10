@@ -62,8 +62,11 @@ export default function LoginPage() {
     setAuth(user, authToken, clinicId)
     
     // Redirect based on role
-    const staffRoles = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RECEPTIONIST', 'FARMASI', 'ACCOUNTING', 'LOGISTIC', 'STAFF']
-    if (staffRoles.includes(user.role)) {
+    if (user.role === 'DOCTOR') {
+      // Redirect doctors to doctor dashboard
+      router.push('/doctor')
+    } else if (['SUPER_ADMIN', 'ADMIN', 'RECEPTIONIST', 'FARMASI', 'ACCOUNTING', 'LOGISTIC', 'STAFF'].includes(user.role)) {
+      // Redirect other staff to admin panel
       router.push('/admin')
     } else {
       router.push('/')
