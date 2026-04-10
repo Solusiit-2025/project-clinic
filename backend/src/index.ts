@@ -7,6 +7,7 @@ import siteSettingRoutes from './routes/siteSetting.routes';
 import authRoutes from './routes/auth.routes';
 import masterRoutes from './routes/master.routes';
 import transactionRoutes from './routes/transaction.routes';
+import financeRoutes from './routes/finance.routes';
 
 // Load environment variables
 dotenv.config();
@@ -18,6 +19,12 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+// Request logger
+app.use((req, res, next) => {
+  console.log(`[Request] ${req.method} ${req.url}`);
+  next();
+});
+
 // Serve static files
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
@@ -26,6 +33,7 @@ app.use('/api/settings', siteSettingRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/master', masterRoutes);
 app.use('/api/transactions', transactionRoutes);
+app.use('/api/finance', financeRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

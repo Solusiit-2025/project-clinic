@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function syncDepartments() {
-  console.log('--- DEPARTMENT SYNC TOOL ---');
+  console.log('--- PREMIUM DEPARTMENT FORCE SYNC TOOL ---');
 
   // 1. Identify Template Clinic (K001 - Pusat)
   const templateClinic = await prisma.clinic.findFirst({
@@ -15,30 +15,21 @@ async function syncDepartments() {
     process.exit(1);
   }
 
-  console.log(`Found template clinic: ${templateClinic.name} (${templateClinic.code})`);
+  console.log(`Master Template: ${templateClinic.name} (${templateClinic.code})`);
 
-  // 2. Find Clinics with 0 departments
-  const allClinics = await prisma.clinic.findMany();
-  const clinicsToSync = [];
-
-  for (const clinic of allClinics) {
-    if (clinic.id === templateClinic.id) continue;
-
-    const count = await prisma.department.count({
-      where: { clinicId: clinic.id },
-    });
-
-    if (count === 0) {
-      clinicsToSync.push(clinic);
+  // 2. Find all other clinics to sync
+  const otherClinics = await prisma.clinic.findMany({
+    where: {
+      NOT: { id: templateClinic.id }
     }
-  }
+  });
 
-  if (clinicsToSync.length === 0) {
-    console.log('No clinics found with 0 departments. Nothing to sync.');
+  if (otherClinics.length === 0) {
+    console.log('No other clinics found. Nothing to sync.');
     return;
   }
 
-  console.log(`Ready to sync departments to ${clinicsToSync.length} clinics:`, clinicsToSync.map(c => c.name));
+  console.log(`Syncing premium structure to ${otherClinics.length} branches...`);
 
   // 3. Fetch template departments ordered by level to preserve hierarchy
   const templateDepts = await prisma.department.findMany({
@@ -48,10 +39,17 @@ async function syncDepartments() {
 
   console.log(`Total departments to clone: ${templateDepts.length}`);
 
-  // 4. Perform Cloning per Clinic
-  for (const targetClinic of clinicsToSync) {
-    console.log(`\nProcessing clinic: ${targetClinic.name}...`);
-    const idMap = new Map<string, string>(); // Maps OLD ID -> NEW ID
+  // 4. Perform Sync per Clinic (Delete and Re-clone)
+  for (const targetClinic of otherClinics) {
+    console.log(`\n🔄 Processing branch: ${targetClinic.name} (${targetClinic.code})...`);
+    
+    // Clear existing depts for this branch to ensure clean hierarchical structure
+    await prisma.department.deleteMany({
+      where: { clinicId: targetClinic.id }
+    });
+    console.log(`   - Cleared existing departments.`);
+
+    const idMap = new Map<string, string>(); // Maps TEMPLATE ID -> NEW BRANCH ID
 
     for (const dept of templateDepts) {
       const newDept = await prisma.department.create({
@@ -62,15 +60,16 @@ async function syncDepartments() {
           sortOrder: dept.sortOrder,
           level: dept.level,
           clinicId: targetClinic.id,
+          // If the template dept had a parent, find the equivalent new ID in the branch
           parentId: dept.parentId ? idMap.get(dept.parentId) : null,
         },
       });
       idMap.set(dept.id, newDept.id);
     }
-    console.log(`Done! Created ${templateDepts.length} departments for ${targetClinic.name}.`);
+    console.log(`   ✅ Success! Created ${templateDepts.length} departments for ${targetClinic.name}.`);
   }
 
-  console.log('\n--- ALL SYNC TASKS COMPLETED SUCCESSFULLY ---');
+  console.log('\n--- ALL BRANCHES ARE NOW SYNCHRONIZED WITH PREMIUM STRUCTURE ---');
 }
 
 syncDepartments()

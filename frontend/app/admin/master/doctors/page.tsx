@@ -208,9 +208,17 @@ export default function DoctorsPage() {
     { key: 'specialization', label: 'Spesialisasi', render: (r) => (
       <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg uppercase tracking-tight">Poli {r.specialization}</span>
     )},
-    { key: 'department', label: 'Unit / Departemen', mobileHide: true, render: (r) => {
-      const isPusat = r.department?.clinic?.code === 'K001';
-      const isBekasi = r.department?.clinic?.code === 'K002';
+    { key: 'department', label: 'Unit / Departemen', mobileHide: true, render: (r) => (
+      <span className="text-xs font-semibold text-gray-600">
+        {r.department?.name || <span className="text-gray-300 italic">Belum diset</span>}
+      </span>
+    )},
+    { key: 'clinic', label: 'Cabang', mobileHide: true, render: (r) => {
+      const clinic = r.department?.clinic;
+      if (!clinic) return <span className="text-gray-300 text-xs">—</span>;
+      
+      const isPusat = clinic.code === 'K001';
+      const isBekasi = clinic.code === 'K002';
       const badgeClass = isPusat 
         ? "bg-indigo-50 text-indigo-600 border-indigo-100" 
         : isBekasi 
@@ -218,16 +226,9 @@ export default function DoctorsPage() {
           : "bg-gray-50 text-gray-400 border-gray-200";
 
       return (
-        <div>
-          <p className="text-xs font-semibold text-gray-600">
-            {r.department?.name || <span className="text-gray-300 italic">Belum diset</span>}
-          </p>
-          {r.department?.clinic && (
-            <span className={`inline-block mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest border ${badgeClass}`}>
-              {r.department.clinic.code} - {r.department.clinic.name}
-            </span>
-          )}
-        </div>
+        <span className={`inline-block text-[10px] font-bold px-2 py-1 rounded uppercase tracking-widest border ${badgeClass}`}>
+          {clinic.code} - {clinic.name}
+        </span>
       )
     }},
     { key: 'isActive', label: 'Status', render: (r) => <StatusBadge active={r.isActive} /> },

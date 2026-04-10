@@ -66,13 +66,13 @@ export const createRegistration = async (req: Request, res: Response) => {
           status: 'completed'
         }
       })
-
-      // Create Queue Number
+      // 2. Create Queue Number
       const queueNumber = await tx.queueNumber.create({
         data: {
           queueNo,
           patientId,
           clinicId,
+          registrationId: registration.id,
           doctorId: doctorId || null,
           departmentId: departmentId || null,
           queueDate: new Date(),
@@ -80,7 +80,67 @@ export const createRegistration = async (req: Request, res: Response) => {
         }
       })
 
-      return { registration, queueNumber }
+      // 3. Create Invoice for Registration
+      // First, get or create the Registration Fee Service
+      let regService = await tx.service.findFirst({
+        where: { 
+          serviceName: { contains: 'Pendaftaran', mode: 'insensitive' },
+          OR: [
+            { clinicId: clinicId },
+            { clinic: { isMain: true } }
+          ]
+        }
+      })
+
+      if (!regService) {
+        // Find existing clinic code or slug to make it readable
+        const clinic = await tx.clinic.findUnique({ where: { id: clinicId } })
+        const clinicSuffix = clinic?.code || clinicId.slice(0, 4).toUpperCase()
+        
+        regService = await tx.service.create({
+          data: {
+            serviceCode: `REG-${clinicSuffix}`,
+            serviceName: 'Biaya Pendaftaran',
+            category: 'Administrasi',
+            price: 50000, // Default price
+            isActive: true,
+            clinicId: clinicId
+          }
+        })
+      }
+
+      const todayInv = new Date()
+      const dateStrInv = todayInv.toISOString().split('T')[0].replace(/-/g, '')
+      todayInv.setHours(0, 0, 0, 0)
+      const invCount = await tx.invoice.count({
+        where: { createdAt: { gte: todayInv } }
+      })
+      const invoiceNo = `INV-${dateStrInv}-${(invCount + 1).toString().padStart(4, '0')}`
+
+      const invoice = await tx.invoice.create({
+        data: {
+          invoiceNo,
+          patientId,
+          clinicId,
+          invoiceDate: new Date(),
+          total: regService.price,
+          subtotal: regService.price,
+          status: 'unpaid'
+        }
+      })
+
+      await tx.invoiceItem.create({
+        data: {
+          invoiceId: invoice.id,
+          serviceId: regService.id,
+          description: regService.serviceName,
+          quantity: 1,
+          price: regService.price,
+          subtotal: regService.price
+        }
+      })
+
+      return { registration, queueNumber, invoice }
     })
 
     res.status(201).json(result)
@@ -99,14 +159,22 @@ export const createRegistration = async (req: Request, res: Response) => {
 export const getQueues = async (req: Request, res: Response) => {
   try {
     const { clinicId, date } = req.query
+    const currentClinicId = (req as any).clinicId
+    const isAdminView = (req as any).isAdminView
+
     const targetDate = date ? new Date(date as string) : new Date()
     targetDate.setHours(0, 0, 0, 0)
     const nextDay = new Date(targetDate)
     nextDay.setDate(targetDate.getDate() + 1)
 
+    // Determine target clinic
+    const finalClinicId = isAdminView 
+       ? (clinicId ? String(clinicId) : undefined)
+       : currentClinicId
+
     const queues = await prisma.queueNumber.findMany({
       where: {
-        clinicId: clinicId as string || undefined,
+        clinicId: finalClinicId,
         queueDate: {
           gte: targetDate,
           lt: nextDay
@@ -126,7 +194,45 @@ export const getQueues = async (req: Request, res: Response) => {
       orderBy: { createdAt: 'asc' }
     })
 
-    res.json(queues)
+    // Self-healing: Patch missing registrationIds for the frontend to work 
+    const healedQueues = await Promise.all(queues.map(async (q) => {
+      if (!q.registrationId) {
+        // Find matching registration for the same patient today
+        const reg = await prisma.registration.findFirst({
+          where: {
+            patientId: q.patientId,
+            clinicId: q.clinicId || undefined,
+            createdAt: { gte: targetDate, lt: nextDay }
+          },
+          orderBy: { createdAt: 'desc' }
+        })
+        if (reg) {
+          // Update DB for next time (fire and forget)
+          prisma.queueNumber.update({ 
+            where: { id: q.id }, 
+            data: { registrationId: reg.id } 
+          }).catch(err => console.error('Healing failed', err))
+          
+          return { ...q, registrationId: reg.id }
+        }
+      }
+      return q
+    }))
+
+    // Add MedicalRecord existence check
+    const regIds = healedQueues.map(q => q.registrationId).filter(Boolean) as string[]
+    const medicalRecords = await prisma.medicalRecord.findMany({
+      where: { registrationId: { in: regIds } },
+      select: { registrationId: true }
+    })
+    const mrRegIds = new Set(medicalRecords.map(mr => mr.registrationId))
+
+    const finalQueues = healedQueues.map(q => ({
+      ...q,
+      hasMedicalRecord: q.registrationId ? mrRegIds.has(q.registrationId) : false
+    }))
+
+    res.json(finalQueues)
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })
   }
@@ -155,6 +261,43 @@ export const updateQueueStatus = async (req: Request, res: Response) => {
     })
 
     res.json(queue)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+/**
+ * Get a specific queue by ID
+ */
+export const getQueueById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const queue = await prisma.queueNumber.findUnique({
+      where: { id },
+      include: {
+        patient: {
+          select: { id: true, name: true, medicalRecordNo: true, gender: true }
+        },
+        doctor: {
+           select: { id: true, name: true, specialization: true }
+        },
+        department: {
+           select: { id: true, name: true }
+        }
+      }
+    })
+
+    if (!queue) {
+      return res.status(404).json({ message: 'Antrian tidak ditemukan' })
+    }
+
+    // Check for MedicalRecord existence
+    const mr = queue.registrationId ? await prisma.medicalRecord.findUnique({
+      where: { registrationId: queue.registrationId },
+      select: { id: true }
+    }) : null
+
+    res.json({ ...queue, hasMedicalRecord: !!mr })
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })
   }

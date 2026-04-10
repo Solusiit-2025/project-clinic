@@ -132,106 +132,183 @@ export default function QueueDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Calling Section (Priority) */}
-        <div className="lg:col-span-2 space-y-6">
-          <h3 className="font-black text-xs uppercase tracking-[0.2em] text-gray-400 flex items-center gap-2">
-             <FiVolume2 className="text-primary" /> Antrian Aktif Poli
-          </h3>
+        {/* Main Content (Left) */}
+        <div className="lg:col-span-2 space-y-10">
           
-          <div className="grid grid-cols-1 gap-4">
-            {queues.filter(q => q.status === 'waiting' || q.status === 'called' || q.status === 'ongoing').map((q, i) => (
-              <motion.div 
-                key={q.id}
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.05 }}
-                className={`group relative bg-white p-5 rounded-3xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 ${
-                  q.status === 'called' ? 'border-primary ring-4 ring-primary/5 shadow-xl' : 
-                  q.status === 'ongoing' ? 'border-emerald-500/50 shadow-md' : 'border-gray-100 shadow-sm hover:shadow-md'
-                }`}
-              >
-                <div className="flex items-center gap-5">
-                  <div className={`min-w-[90px] h-20 px-4 rounded-[1.8rem] flex flex-col items-center justify-center transition-all relative overflow-hidden ${
-                    q.status === 'called' ? 'bg-primary text-white shadow-lg shadow-primary/30' : 
-                    q.status === 'ongoing' ? 'bg-emerald-500 text-white' : 'bg-gray-50 text-gray-900 group-hover:bg-primary group-hover:text-white'
-                  }`}>
-                    {/* Subtle background decoration */}
-                    <div className="absolute top-0 right-0 w-8 h-8 bg-white/10 rounded-full -mr-4 -mt-4" />
+          {/* ON PROGRESS / LIVE SECTION */}
+          <div className="space-y-6">
+            <h3 className="font-black text-xs uppercase tracking-[0.2em] text-emerald-600 flex items-center gap-2">
+               <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+               </span>
+               Sedang Diperiksa (In Progress)
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {queues.filter(q => q.status === 'ongoing').map((q, i) => (
+                <motion.div 
+                  key={q.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-emerald-600 p-5 rounded-3xl text-white shadow-xl shadow-emerald-500/20 relative overflow-hidden group border border-emerald-400/30"
+                >
+                  <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-all duration-700" />
+                  <div className="flex items-center gap-4 relative z-10">
+                    <div className="w-12 h-12 bg-white/20 rounded-xl flex flex-col items-center justify-center backdrop-blur-md border border-white/20">
+                      <p className="text-[7px] font-black uppercase opacity-60 leading-none mb-1">NO</p>
+                      <p className="text-base font-black">{q.queueNo}</p>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1 leading-none">{q.department?.name || 'POLI UMUM'}</p>
+                      <h4 className="text-base font-black uppercase truncate tracking-tight mb-0.5">{q.patient.name}</h4>
+                      <p className="text-[9px] font-bold opacity-80 flex items-center gap-1"><FiUser className="w-2.5 h-2.5" /> {q.doctor?.name || 'Dokter Jaga'}</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between relative z-10">
+                     <span className="text-[9px] font-black bg-white/20 px-2.5 py-1 rounded-full uppercase">Pemeriksaan Dokter</span>
+                     <button 
+                        onClick={() => updateStatus(q.id, 'completed')}
+                        className="p-2 bg-white text-emerald-600 rounded-xl hover:scale-110 active:scale-90 transition-all shadow-lg"
+                        title="Selesaikan Pemeriksaan"
+                     >
+                        <FiCheckCircle className="w-5 h-5" />
+                     </button>
+                  </div>
+                </motion.div>
+              ))}
+
+              {queues.filter(q => q.status === 'ongoing').length === 0 && (
+                <div className="col-span-2 py-10 border-2 border-dashed border-emerald-100 rounded-[2.5rem] flex flex-col items-center justify-center bg-white/50">
+                   <FiActivity className="w-10 h-10 text-emerald-100 mb-2" />
+                   <p className="text-[10px] font-black text-emerald-200 uppercase tracking-widest">Tidak ada pemeriksaan aktif</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* TRIAGE / READY SECTION (NEW) */}
+          <div className="space-y-6">
+            <h3 className="font-black text-xs uppercase tracking-[0.2em] text-amber-600 flex items-center gap-2">
+               <FiActivity className="text-amber-500" /> Tahap Triage & Persiapan (Nurses)
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               {queues.filter(q => q.status === 'triage' || q.status === 'ready').map((q, i) => (
+                  <motion.div 
+                    key={q.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-white p-4 rounded-3xl border border-amber-100 shadow-sm hover:shadow-md transition-all flex items-center gap-4"
+                  >
+                    <div className="w-12 h-12 bg-amber-50 rounded-2xl flex flex-col items-center justify-center text-amber-600 border border-amber-100/50">
+                      <p className="text-[7px] font-black uppercase opacity-60 leading-none mb-1">NO</p>
+                      <p className="text-sm font-black">{q.queueNo}</p>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-black uppercase truncate tracking-tight text-gray-900">{q.patient.name}</h4>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+                         {q.status === 'triage' ? 'Pemeriksaan Vital...' : 'Siap Menunggu Dokter'}
+                      </p>
+                    </div>
+                    <div className={`p-2 rounded-full ${q.status === 'ready' ? 'bg-emerald-50 text-emerald-500' : 'bg-amber-50 text-amber-500'}`}>
+                       <FiCheckCircle className="w-4 h-4" />
+                    </div>
+                  </motion.div>
+               ))}
+               {queues.filter(q => q.status === 'triage' || q.status === 'ready').length === 0 && (
+                  <p className="col-span-2 text-center py-6 text-[10px] font-black text-gray-300 uppercase tracking-widest bg-gray-50/50 rounded-3xl border border-dashed border-gray-100">Semua Pasien Triage Selesai</p>
+               )}
+            </div>
+          </div>
+
+          {/* WAITING LIST SECTION */}
+          <div className="space-y-6">
+            <h3 className="font-black text-xs uppercase tracking-[0.2em] text-gray-400 flex items-center gap-2">
+               <FiVolume2 className="text-primary" /> Antrian Aktif (Pendaftaran & Panggilan)
+            </h3>
+            
+            <div className="grid grid-cols-1 gap-4">
+              {queues.filter(q => ['waiting', 'called'].includes(q.status)).map((q, i) => (
+                <motion.div 
+                  key={q.id}
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.05 }}
+                  className={`group relative bg-white p-5 rounded-3xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 ${
+                    q.status === 'called' ? 'border-primary ring-4 ring-primary/5 shadow-xl' : 'border-gray-100 shadow-sm hover:shadow-md'
+                  }`}
+                >
+                  <div className="flex items-center gap-5">
+                    <div className={`min-w-[90px] h-20 px-4 rounded-[1.8rem] flex flex-col items-center justify-center transition-all relative overflow-hidden ${
+                      q.status === 'called' ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'bg-gray-50 text-gray-900 group-hover:bg-primary group-hover:text-white'
+                    }`}>
+                      <div className="absolute top-0 right-0 w-8 h-8 bg-white/10 rounded-full -mr-4 -mt-4" />
+                      <p className="text-[9px] font-black opacity-60 uppercase tracking-[0.2em] leading-none mb-1.5 z-10">Antrian</p>
+                      <p className={`text-2xl font-black tracking-tight leading-none z-10 whitespace-nowrap ${q.queueNo.length > 5 ? 'text-xl' : 'text-2xl'}`}>
+                        {q.queueNo}
+                      </p>
+                    </div>
                     
-                    <p className="text-[9px] font-black opacity-60 uppercase tracking-[0.2em] leading-none mb-1.5 relative z-10">Antrian</p>
-                    <p className={`text-2xl font-black tracking-tight leading-none relative z-10 whitespace-nowrap ${q.queueNo.length > 5 ? 'text-xl' : 'text-2xl'}`}>
-                      {q.queueNo}
-                    </p>
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 mb-1">
-                       <StatusPill status={q.status} />
-                       <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1"><FiClock /> {q.actualCallTime ? new Date(q.actualCallTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</span>
-                    </div>
-                    <p className="font-black text-gray-900 text-lg leading-tight uppercase tracking-tight">{q.patient.name}</p>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1">
-                      <p className="text-xs font-bold text-primary flex items-center gap-1">
-                        <FiHome className="w-3 h-3" /> {q.department?.name || 'UMUM'}
-                      </p>
-                      <p className="text-xs font-bold text-gray-400 flex items-center gap-1">
-                        <FiUser className="w-3 h-3" /> {q.doctor?.name || 'Dokter Jaga'}
-                      </p>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 mb-1">
+                         <StatusPill status={q.status} />
+                         <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1"><FiClock /> {q.actualCallTime ? new Date(q.actualCallTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</span>
+                      </div>
+                      <p className="font-black text-gray-900 text-lg leading-tight uppercase tracking-tight">{q.patient.name}</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1">
+                        <p className="text-xs font-bold text-primary flex items-center gap-1">
+                          <FiHome className="w-3 h-3" /> {q.department?.name || 'UMUM'}
+                        </p>
+                        <p className="text-xs font-bold text-gray-400 flex items-center gap-1">
+                          <FiUser className="w-3 h-3" /> {q.doctor?.name || 'Dokter Jaga'}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex gap-2 pt-4 md:pt-0 border-t md:border-t-0 border-gray-50">
-                   {q.status === 'waiting' && (
+                  <div className="flex gap-2 pt-4 md:pt-0 border-t md:border-t-0 border-gray-50">
+                     {q.status === 'waiting' && (
+                       <button 
+                        onClick={() => updateStatus(q.id, 'called')}
+                        className="flex-1 md:flex-none px-6 py-3 bg-primary text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-primary/20"
+                       >
+                          <FiVolume2 /> PANGGIL
+                       </button>
+                     )}
+                     {q.status === 'called' && (
+                       <div className="flex items-center gap-2 flex-1 md:flex-none">
+                          <button 
+                            onClick={() => updateStatus(q.id, 'called')}
+                            className="px-4 py-3 bg-white border border-primary text-primary font-black rounded-2xl text-xs flex items-center justify-center gap-2 hover:bg-primary/5 transition-all shadow-sm"
+                            title="Panggil Ulang Antrian"
+                          >
+                            <FiVolume2 /> ULANG
+                          </button>
+                          <button 
+                            onClick={() => updateStatus(q.id, 'ongoing')}
+                            className="flex-1 md:flex-none px-6 py-3 bg-emerald-500 text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20"
+                          >
+                            <FiArrowRight /> PERIKSA
+                          </button>
+                       </div>
+                     )}
                      <button 
-                      onClick={() => updateStatus(q.id, 'called')}
-                      className="flex-1 md:flex-none px-6 py-3 bg-primary text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-primary/20"
+                      onClick={() => updateStatus(q.id, 'no-show')}
+                      className="p-3 bg-gray-50 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
+                      title="Lewati"
                      >
-                        <FiVolume2 /> PANGGIL
+                        <FiSkipForward className="w-4 h-4" />
                      </button>
-                   )}
-                   {q.status === 'called' && (
-                     <div className="flex items-center gap-2 flex-1 md:flex-none">
-                        <button 
-                          onClick={() => updateStatus(q.id, 'called')}
-                          className="px-4 py-3 bg-white border border-primary text-primary font-black rounded-2xl text-xs flex items-center justify-center gap-2 hover:bg-primary/5 transition-all shadow-sm"
-                          title="Panggil Ulang Antrian"
-                        >
-                          <FiVolume2 /> PANGGIL ULANG
-                        </button>
-                        <button 
-                          onClick={() => updateStatus(q.id, 'ongoing')}
-                          className="flex-1 md:flex-none px-6 py-3 bg-emerald-500 text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20"
-                        >
-                          <FiArrowRight /> PERIKSA
-                        </button>
-                     </div>
-                   )}
-                   {q.status === 'ongoing' && (
-                     <button 
-                      onClick={() => updateStatus(q.id, 'completed')}
-                      className="flex-1 md:flex-none px-6 py-3 bg-gray-900 text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 hover:bg-black transition-all shadow-lg shadow-black/20"
-                     >
-                        <FiCheckCircle /> SELESAI
-                     </button>
-                   )}
-                   <button 
-                    onClick={() => updateStatus(q.id, 'no-show')}
-                    className="p-3 bg-gray-50 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
-                    title="Lewati"
-                   >
-                      <FiSkipForward className="w-4 h-4" />
-                   </button>
-                </div>
-              </motion.div>
-            ))}
+                  </div>
+                </motion.div>
+              ))}
 
-            {queues.filter(q => q.status === 'waiting' || q.status === 'called' || q.status === 'ongoing').length === 0 && !loading && (
-              <div className="py-20 text-center bg-white rounded-3xl border border-dashed border-gray-200">
-                <FiUsers className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-                <p className="text-gray-400 font-bold">Tidak ada antrian aktif saat ini</p>
-              </div>
-            )}
+              {queues.filter(q => q.status === 'waiting' || q.status === 'called').length === 0 && !loading && (
+                <div className="py-20 text-center bg-gray-50/50 rounded-3xl border border-dashed border-gray-200">
+                  <FiUsers className="w-12 h-12 text-gray-100 mx-auto mb-4" />
+                  <p className="text-gray-300 font-bold">Semua antrian telah diproses</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

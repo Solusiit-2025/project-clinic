@@ -25,10 +25,28 @@ async function main() {
         continue
       }
 
+      // 0. Ensure ProductCategory exists (ProductMaster now uses categoryId)
+      let productCategory = await prisma.productCategory.findUnique({
+        where: { categoryName: asset.category }
+      })
+
+      if (!productCategory) {
+        productCategory = await prisma.productCategory.create({
+          data: {
+            categoryName: asset.category,
+            description: `Auto-generated from Asset migration`
+          }
+        })
+        console.log(`+ Created new category: "${asset.category}"`)
+      }
+
       // 1. Identify or Create ProductMaster (Catalog)
-      // Check if a ProductMaster with this name and category exists
+      // Check if a ProductMaster with this name and categoryId exists
       let masterProduct = await prisma.productMaster.findFirst({
-        where: { masterName: asset.assetName, category: asset.category }
+        where: { 
+          masterName: asset.assetName, 
+          categoryId: productCategory.id 
+        }
       })
 
       if (!masterProduct) {
@@ -36,7 +54,7 @@ async function main() {
           data: {
             masterName: asset.assetName,
             masterCode: asset.assetCode + '-MASTER',
-            category: asset.category,
+            categoryId: productCategory.id,
             description: asset.description || `Generated from asset ${asset.assetCode}`,
             isActive: true
           }
@@ -49,7 +67,7 @@ async function main() {
       if (asset.clinicId) {
         let product = await prisma.product.findFirst({
           where: { 
-            masterProductId: masterProduct.id, 
+            productCode: asset.assetCode + '-PC',
             clinicId: asset.clinicId 
           }
         })
@@ -77,11 +95,12 @@ async function main() {
           productsCreated++
           console.log(`  + Created Product Stock for Clinic: "${asset.clinic?.name}"`)
         } else {
-            // Increment stock if it already exists
+            // Update master link if needed
             await prisma.product.update({
                 where: { id: product.id },
-                data: { quantity: { increment: 1 } }
+                data: { masterProductId: masterProduct.id }
             })
+            console.log(`  ✓ Product Stock already exists for: "${asset.clinic?.name}". Linked to Master.`)
         }
       }
 

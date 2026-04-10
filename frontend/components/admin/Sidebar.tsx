@@ -9,7 +9,7 @@ import {
   FiSettings, FiLogOut, FiChevronDown, FiDatabase,
   FiBriefcase, FiUserCheck, FiClock, FiActivity,
   FiPackage, FiShoppingBag, FiList, FiMenu, FiX, FiBox,
-  FiChevronLeft, FiFolder, FiCpu, FiPlus
+  FiChevronLeft, FiFolder, FiCpu, FiPlus, FiDollarSign, FiFileText
 } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import ClinicSwitcher from './ClinicSwitcher'
@@ -28,7 +28,16 @@ const TRANSAKSI_GROUPS = [
     icon: FiUserPlus,
     items: [
       { icon: FiPlus, label: 'Pendaftaran Baru', href: '/admin/transactions/registration' },
+      { icon: FiActivity, label: 'Nurse Station (Triage)', href: '/admin/transactions/nurse' },
+      { icon: FiUserCheck, label: 'Doctor Station', href: '/admin/transactions/doctor' },
       { icon: FiActivity, label: 'Dashboard Antrian', href: '/admin/transactions/queue' },
+    ]
+  },
+  {
+    label: 'Billing & Keuangan',
+    icon: FiDollarSign,
+    items: [
+      { icon: FiFileText, label: 'Invoice & Pembayaran', href: '/admin/finance' },
     ]
   }
 ]

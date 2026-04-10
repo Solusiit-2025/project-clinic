@@ -182,7 +182,7 @@ export default function PatientsPage() {
       <PageHeader
         title="Database Pasien" subtitle="Kelola data master pasien dan riwayat rekam medis"
         icon={<FiUsers className="w-5 h-5 sm:w-6 sm:h-6" />}
-        onAdd={openAdd} addLabel={<span><FiPlus className="inline mr-1" /> Pasien Baru</span>} count={data.length}
+        onAdd={openAdd} addLabel="Pasien Baru" count={data.length}
         breadcrumb={['Admin', 'Data Master', 'Pasien']}
       />
       

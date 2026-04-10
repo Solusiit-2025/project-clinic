@@ -20,6 +20,7 @@ type Dept = {
   parentId?: string;
   level: number;
   parent?: { id: string; name: string };
+  clinic?: { id: string; name: string; code: string };
   createdAt: string 
 }
 
@@ -106,6 +107,29 @@ export default function DepartmentsPage() {
       ) : <span className="text-gray-300 text-xs italic">— Root</span>
     },
     { key: 'description', label: 'Deskripsi', mobileHide: true, render: (r) => <span className="text-xs text-gray-500 line-clamp-1">{r.description || '—'}</span> },
+    { 
+      key: 'clinic', 
+      label: 'Cabang', 
+      mobileHide: true,
+      render: (r) => {
+        const clinic = r.clinic;
+        if (!clinic) return <span className="text-gray-300 text-xs">—</span>;
+        
+        const isPusat = clinic.code === 'K001';
+        const isBekasi = clinic.code === 'K002';
+        const badgeClass = isPusat 
+          ? "bg-indigo-50 text-indigo-600 border-indigo-100" 
+          : isBekasi 
+            ? "bg-amber-50 text-amber-600 border-amber-100"
+            : "bg-gray-50 text-gray-400 border-gray-200";
+
+        return (
+          <span className={`inline-block text-[10px] font-bold px-2 py-1 rounded uppercase tracking-widest border ${badgeClass}`}>
+            {clinic.code} - {clinic.name}
+          </span>
+        )
+      }
+    },
     { key: 'isActive', label: 'Status', render: (r) => <StatusBadge active={r.isActive} /> },
   ]
 

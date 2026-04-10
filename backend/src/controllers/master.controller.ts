@@ -11,18 +11,8 @@ const prisma = new PrismaClient()
 export const getUsers = async (req: Request, res: Response) => {
   try {
     const { search, role, isActive } = req.query
-    const currentUser = (req as any).user
     const currentClinicId = (req as any).clinicId
-    
-    // Check if user is Super Admin or Admin of Pusat (K001)
-    let isAdminView = currentUser.role === 'SUPER_ADMIN'
-    
-    if (!isAdminView && currentUser.role === 'ADMIN') {
-      const currentClinic = await prisma.clinic.findUnique({ where: { id: currentClinicId } })
-      if (currentClinic?.isMain) {
-        isAdminView = true // Pusat Admin can see everyone
-      }
-    }
+    const isAdminView = (req as any).isAdminView
 
     const users = await prisma.user.findMany({
       where: {
@@ -272,19 +262,13 @@ export const getDoctors = async (req: Request, res: Response) => {
   try {
     const { search, specialization, isActive, departmentId } = req.query
     const currentClinicId = (req as any).clinicId
-    const currentUser = (req as any).user
-
-    // Check if Pusat Admin or Super Admin
-    let skipClinicFilter = currentUser.role === 'SUPER_ADMIN'
-    if (!skipClinicFilter && currentUser.role === 'ADMIN') {
-      const currentClinic = await prisma.clinic.findUnique({ where: { id: currentClinicId } })
-      if (currentClinic?.isMain) {
-        skipClinicFilter = true
-      }
-    }
+    const isAdminView = (req as any).isAdminView
 
     const doctors = await prisma.doctor.findMany({
       where: {
+        ...(!isAdminView ? { 
+          department: { clinicId: currentClinicId }
+        } : {}),
         ...(search ? {
           OR: [
             { name: { contains: String(search), mode: 'insensitive' } },
@@ -293,10 +277,7 @@ export const getDoctors = async (req: Request, res: Response) => {
           ]
         } : {}),
         ...(specialization ? { specialization: { contains: String(specialization), mode: 'insensitive' } } : {}),
-        ...(departmentId ? { departmentId: String(departmentId) } : {
-          // Filter by clinicId unless we skip it for Pusat/SuperAdmin
-          ...(!skipClinicFilter ? { department: { clinicId: currentClinicId } } : {})
-        }),
+        ...(departmentId ? { departmentId: String(departmentId) } : {}),
         ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
       },
       include: {
@@ -390,9 +371,12 @@ export const deleteDoctor = async (req: Request, res: Response) => {
 export const getSchedules = async (req: Request, res: Response) => {
   try {
     const { doctorId } = req.query
+    const currentClinicId = (req as any).clinicId
+    const isAdminView = (req as any).isAdminView
+
     const schedules = await prisma.doctorSchedule.findMany({
       where: {
-        clinicId: (req as any).clinicId,
+        ...(!isAdminView ? { clinicId: currentClinicId } : {}),
         ...(doctorId ? { doctorId: String(doctorId) } : {}),
       },
       include: { doctor: { select: { name: true, specialization: true } } },
@@ -448,9 +432,17 @@ export const deleteSchedule = async (req: Request, res: Response) => {
 export const getServices = async (req: Request, res: Response) => {
   try {
     const { search, categoryId, isActive } = req.query
+    const currentClinicId = (req as any).clinicId
+    const isAdminView = (req as any).isAdminView
+
     const services = await prisma.service.findMany({
       where: {
-        clinicId: (req as any).clinicId,
+        ...(!isAdminView ? { 
+            OR: [
+                { clinicId: currentClinicId },
+                { clinic: { isMain: true } }
+            ]
+        } : {}),
         ...(search ? {
           OR: [
             { serviceName: { contains: String(search), mode: 'insensitive' } },
@@ -594,8 +586,14 @@ const processMedicinePhoto = async (file: Express.Multer.File): Promise<string> 
 export const getMedicines = async (req: Request, res: Response) => {
   try {
     const { search, isActive } = req.query
+    const currentClinicId = (req as any).clinicId
+    const isAdminView = (req as any).isAdminView
+
     const medicines = await prisma.medicine.findMany({
       where: {
+        ...(!isAdminView ? {
+          products: { some: { clinicId: currentClinicId } }
+        } : {}),
         ...(search ? {
           OR: [
             { medicineName: { contains: String(search), mode: 'insensitive' } },
@@ -776,17 +774,24 @@ export const getProductMasters = async (req: Request, res: Response) => {
       },
       include: { 
         productCategory: true,
-        _count: { 
-          select: { 
-            products: { where: { clinicId: (req as any).clinicId } },
-            assets: { where: { clinicId: (req as any).clinicId } }
-          } 
-        },
         medicine: true,
+        // Include specific products for this clinic to get stock levels
+        products: { 
+          where: { clinicId: (req as any).clinicId },
+          select: { quantity: true, unit: true, usedUnit: true }
+        }
       },
       orderBy: { masterName: 'asc' },
     })
-    res.json(products)
+    
+    // Calculate total stock for this clinic and simplify response
+    const result = products.map(p => ({
+      ...p,
+      stock: p.products.reduce((acc, curr) => acc + curr.quantity, 0),
+      unit: p.products[0]?.usedUnit || p.products[0]?.unit || 'Unit'
+    }))
+
+    res.json(result)
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })
   }
@@ -977,19 +982,13 @@ const processAssetPhoto = async (file: Express.Multer.File): Promise<string> => 
 export const getAssets = async (req: Request, res: Response) => {
   try {
     const { search, category, status, clinicId } = req.query
-    const requestingClinicId = (req as any).clinicId
+    const currentClinicId = (req as any).clinicId
+    const isAdminView = (req as any).isAdminView
 
-    // Check if the requesting clinic is the Main Branch (Pusat)
-    const currentClinic = await prisma.clinic.findUnique({
-      where: { id: requestingClinicId }
-    })
-
-    const isPusat = currentClinic?.isMain
-
-    // Security: If not Pusat, always force the user's clinicId
-    const targetClinicId = isPusat 
+    // Security: If not Pusat/Global view, always force the user's clinicId
+    const targetClinicId = isAdminView 
       ? (clinicId ? String(clinicId) : undefined) 
-      : requestingClinicId
+      : currentClinicId
 
     const assets = await prisma.asset.findMany({
       where: {
@@ -1136,14 +1135,7 @@ export const getInventoryProducts = async (req: Request, res: Response) => {
   try {
     const { search, categoryId, clinicId, isActive } = req.query
     const currentClinicId = (req as any).clinicId
-    const currentUser = (req as any).user
-
-    // Check if Pusat Admin or Super Admin
-    let isAdminView = currentUser.role === 'SUPER_ADMIN'
-    if (!isAdminView && currentUser.role === 'ADMIN') {
-      const currentClinic = await prisma.clinic.findUnique({ where: { id: currentClinicId } })
-      if (currentClinic?.isMain) isAdminView = true
-    }
+    const isAdminView = (req as any).isAdminView
 
     // Filter by clinic: If not admin, force current clinic. If admin, optional clinicId filter.
     const targetClinicId = isAdminView 
@@ -1334,6 +1326,9 @@ export const deleteInventoryProduct = async (req: Request, res: Response) => {
 export const getPatients = async (req: Request, res: Response) => {
   try {
     const { search, isActive } = req.query
+    const currentClinicId = (req as any).clinicId
+    const isAdminView = (req as any).isAdminView
+
     const patients = await prisma.patient.findMany({
       where: {
         ...(search ? {

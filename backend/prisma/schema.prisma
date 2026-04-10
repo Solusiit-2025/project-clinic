@@ -151,6 +151,7 @@ model Registration {
   clinic          Clinic? @relation(fields: [clinicId], references: [id], onDelete: SetNull)
   doctor          Doctor? @relation(fields: [doctorId], references: [id], onDelete: SetNull)
   department      Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  medicalRecord   MedicalRecord?
 
   @@index([patientId])
   @@index([clinicId])
@@ -266,11 +267,12 @@ model QueueNumber {
   id              String  @id @default(uuid())
   queueNo         String
   patientId       String
+  registrationId  String?
   appointmentId   String?
   queueDate       DateTime
   estimatedTime   DateTime?
   actualCallTime  DateTime?
-  status          String  @default("waiting") // waiting, called, ongoing, completed, no-show
+  status          String  @default("waiting") // waiting, called, triage (nurse check), ready (for doctor), ongoing, completed, no-show
   notes           String?
   clinicId        String?
   doctorId        String?
@@ -295,21 +297,25 @@ model QueueNumber {
 model MedicalRecord {
   id              String  @id @default(uuid())
   recordNo        String  @unique
-  appointmentId   String
+  appointmentId   String?
+  registrationId  String?  @unique
   patientId       String
-  doctorId        String
+  doctorId        String?
   chiefComplaint  String
-  diagnosis       String
+  diagnosis       String?
   treatmentPlan   String?
+  labNotes        String?
+  labResults      String?
   notes           String?
   recordDate      DateTime @default(now())
   clinicId        String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  appointment     Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  appointment     Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  registration    Registration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
   patient         Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  doctor          Doctor @relation(fields: [doctorId], references: [id])
+  doctor          Doctor? @relation(fields: [doctorId], references: [id])
   clinic          Clinic? @relation(fields: [clinicId], references: [id], onDelete: SetNull)
   vitals          VitalSign[]
   prescriptions   Prescription[]

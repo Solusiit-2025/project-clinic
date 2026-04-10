@@ -38,24 +38,40 @@ export async function authMiddleware(req: any, res: Response, next: NextFunction
     req.user = {
       ...userWithoutPassword,
       image: profileImage,
-      clinics
+      clinics,
+      doctor // Include doctor profile if exists
     }
 
     // Multi-clinic support: Extract clinicId from header
     const requestedClinicId = req.headers['x-clinic-id']
     
-    // Get user's clinics to verify access (Already in req.user.clinics)
-    const assignedClinicIds = (req.user.clinics || []).map((c: any) => c.id)
-    
+    // Get user's clinics to verify access
+    const assignedClinicIds = clinics.map((c: any) => c.id)
+
+    console.log('[Auth] Processing request for clinic:', requestedClinicId, 'Assigned IDs:', assignedClinicIds)
+
     if (requestedClinicId && assignedClinicIds.includes(String(requestedClinicId))) {
       req.clinicId = String(requestedClinicId)
-    } else if (assignedClinicIds.length > 0) {
+    } else if (clinics.length > 0) {
       // Default to first assigned clinic if none requested or invalid requested
-      req.clinicId = assignedClinicIds[0]
+      req.clinicId = clinics[0].id
+      console.log('[Auth] Fallback clinic used:', req.clinicId)
     } else {
       // If no clinic assigned (should not happen if seeded), set null or handle error
       req.clinicId = null
     }
+
+    // Determine if user has "Global Admin View" (Pusat)
+    // 1. SUPER_ADMIN is always global
+    // 2. ADMIN in a clinic marked as isMain is also global
+    let isAdminView = user.role === 'SUPER_ADMIN'
+    if (!isAdminView && user.role === 'ADMIN' && req.clinicId) {
+       const activeClinic = clinics.find((c: any) => c.id === req.clinicId)
+       if (activeClinic?.isMain) {
+         isAdminView = true
+       }
+    }
+    req.isAdminView = isAdminView
 
     next()
   } catch (error) {
