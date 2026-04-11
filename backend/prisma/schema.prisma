@@ -55,6 +55,7 @@ model Clinic {
   services        Service[]
   doctorSchedules DoctorSchedule[]
   medicines       Medicine[]
+  referrals       Referral[]
 
   @@map("clinics")
 }
@@ -230,6 +231,7 @@ model Department {
   doctors     Doctor[]
   registrations Registration[]
   queueNumbers  QueueNumber[] @relation("QueueDept")
+  referrals     Referral[]
 
   @@index([parentId])
   @@map("departments")
@@ -279,6 +281,7 @@ model QueueNumber {
   clinicId        String?
   doctorId        String?
   departmentId    String?
+  callCounter     Int      @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -304,12 +307,15 @@ model MedicalRecord {
   patientId       String
   doctorId        String?
   chiefComplaint  String
-  diagnosis       String?
-  treatmentPlan   String?
+  subjective      String?
+  objective       String?
+  diagnosis       String?  // Assessment
+  treatmentPlan   String?  // Plan
   labNotes        String?
   labResults      String?
   notes           String?
   consultationDraft Json?
+  hasInformedConsent Boolean @default(false)
   recordDate      DateTime @default(now())
   clinicId        String?
   createdAt       DateTime @default(now())
@@ -323,6 +329,8 @@ model MedicalRecord {
   vitals          VitalSign[]
   prescriptions   Prescription[]
   services        MedicalRecordService[]
+  referrals       Referral[]
+  attachments     MedicalRecordAttachment[]
 
   @@index([patientId])
   @@index([doctorId])
@@ -347,6 +355,57 @@ model VitalSign {
   @@index([medicalRecordId])
   @@map("vital_signs")
 }
+
+model Referral {
+  id              String   @id @default(uuid())
+  medicalRecordId String
+  type            String   // INTERNAL, EXTERNAL
+  toClinicId      String?
+  toDepartmentId  String?
+  toHospitalName  String?
+  referralDate    DateTime @default(now())
+  notes           String?
+  status          String   @default("pending") // pending, completed, cancelled
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+  toClinic        Clinic?       @relation(fields: [toClinicId], references: [id], onDelete: SetNull)
+  toDepartment    Department?   @relation(fields: [toDepartmentId], references: [id], onDelete: SetNull)
+
+  @@index([medicalRecordId])
+  @@map("referrals")
+}
+
+model MedicalRecordAttachment {
+  id              String   @id @default(uuid())
+  medicalRecordId String
+  fileUrl         String
+  fileName        String
+  fileType        String
+  fileSize        Int?
+  uploadedAt      DateTime @default(now())
+
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+
+  @@index([medicalRecordId])
+  @@map("medical_record_attachments")
+}
+
+model ClinicalTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  type        String   // SOAP, PRESCRIPTION
+  content     Json     // { subjective, objective, diagnosis, treatmentPlan } or prescription items
+  doctorId    String?
+  clinicId    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("clinical_templates")
+}
+
 
 
 model MedicalRecordService {

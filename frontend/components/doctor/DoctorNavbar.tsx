@@ -7,11 +7,15 @@ import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function DoctorNavbar() {
-  const { user, logout } = useAuthStore()
+  const { user, logout, activeClinicId } = useAuthStore()
   const router = useRouter()
   const pathname = usePathname()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [currentTime, setCurrentTime] = useState('')
+
+  const activeClinic = useMemo(() => {
+    return user?.clinics?.find(c => c.id === activeClinicId)
+  }, [user, activeClinicId])
 
   useEffect(() => {
     const updateTime = () => {
@@ -50,12 +54,20 @@ export default function DoctorNavbar() {
               <h2 className="text-sm sm:text-lg font-black text-gray-900 truncate tracking-tight">
                 {pageTitle}
               </h2>
-              <div className="flex items-center gap-3 mt-0.5">
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest hidden sm:block">
-                  Yasfina Health System
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-[10px] text-primary font-black uppercase tracking-widest hidden sm:block">
+                  {activeClinic?.name || 'Yasfina Health System'}
                 </p>
+                {activeClinic?.address && (
+                  <>
+                    <div className="w-1 h-1 rounded-full bg-gray-300 hidden sm:block"></div>
+                    <p className="text-[10px] text-gray-400 font-bold truncate max-w-[200px] hidden sm:block">
+                      {activeClinic.address}
+                    </p>
+                  </>
+                )}
                 <div className="w-1 h-1 rounded-full bg-gray-300 hidden sm:block"></div>
-                <p className="text-[10px] text-primary font-black flex items-center gap-1.5 transition-all">
+                <p className="text-[10px] text-slate-500 font-black flex items-center gap-1.5 transition-all">
                   <FiClock className="w-3 h-3" />
                   {currentTime}
                 </p>

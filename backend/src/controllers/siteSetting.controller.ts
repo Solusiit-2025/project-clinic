@@ -26,4 +26,58 @@ export class SiteSettingController {
       res.status(500).json({ error: 'Failed to update setting' });
     }
   }
+
+  async uploadDisplayVideo(req: Request, res: Response) {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No video file provided' });
+    }
+
+    try {
+      const key = 'display_videos';
+      const setting = await siteSettingService.getSettingByKey(key);
+      let videos = Array.isArray(setting?.value) ? setting.value : [];
+      
+      const videoPath = `/uploads/videos/${req.file.filename}`;
+      
+      if (videos.length >= 5) {
+        return res.status(400).json({ error: 'Maximum 5 videos reached. Delete one before uploading more.' });
+      }
+
+      videos.push({
+        id: req.file.filename,
+        url: videoPath,
+        name: req.file.originalname,
+        uploadedAt: new Date()
+      });
+
+      const updated = await siteSettingService.updateSetting(key, videos, 'Videos for waiting room monitor');
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to upload video' });
+    }
+  }
+
+  async deleteDisplayVideo(req: Request, res: Response) {
+    const { filename } = req.params;
+    try {
+      const key = 'display_videos';
+      const setting = await siteSettingService.getSettingByKey(key);
+      let videos = Array.isArray(setting?.value) ? setting.value : [];
+      
+      const updatedVideos = videos.filter((v: any) => v.id !== filename);
+      
+      // Physically delete the file
+      const fs = require('fs');
+      const path = require('path');
+      const filePath = path.join(__dirname, '../../public/uploads/videos', filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+
+      const updated = await siteSettingService.updateSetting(key, updatedVideos, 'Videos for waiting room monitor');
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to delete video' });
+    }
+  }
 }

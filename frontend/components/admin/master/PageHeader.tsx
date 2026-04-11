@@ -11,18 +11,19 @@ interface PageHeaderProps {
   addLabel?: string
   count?: number
   breadcrumb?: string[]
+  children?: React.ReactNode
 }
 
 export default function PageHeader({
-  title, subtitle, icon, onAdd, addLabel = 'Tambah Data', count, breadcrumb
+  title, subtitle, icon, onAdd, addLabel = 'Tambah Data', count, breadcrumb, children
 }: PageHeaderProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mb-5 sm:mb-7"
+      className="mb-8"
     >
-      {/* Breadcrumb */}
+      {/* Breadcrumb ... (rest of the logic) */}
       {breadcrumb && (
         <div className="flex items-center gap-1.5 mb-3 text-xs sm:text-sm text-gray-400 font-medium">
           {breadcrumb.map((crumb, i) => (
@@ -34,35 +35,36 @@ export default function PageHeader({
         </div>
       )}
 
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-          {/* Icon */}
-          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-2xl flex items-center justify-center flex-shrink-0 border border-primary/10">
-            <span className="text-primary">{icon}</span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-6 border-b border-gray-100">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm border border-gray-100 ring-4 ring-gray-50">
+            <span className="text-primary text-xl">{icon}</span>
           </div>
-          <div className="min-w-0">
+          <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-lg sm:text-2xl font-extrabold text-gray-900 tracking-tight leading-tight">{title}</h1>
+              <h1 className="text-2xl font-black text-gray-900 tracking-tight leading-tight">{title}</h1>
               {count !== undefined && (
-                <span className="text-xs font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                  {count}
+                <span className="text-xs font-black bg-primary/5 text-primary px-3 py-1 rounded-full border border-primary/10">
+                  {count} Data
                 </span>
               )}
             </div>
-            <p className="text-xs sm:text-sm text-gray-500 font-medium mt-0.5 truncate">{subtitle}</p>
+            <p className="text-sm text-gray-400 font-medium mt-0.5">{subtitle}</p>
           </div>
         </div>
 
-        {onAdd && (
-          <button
-            onClick={onAdd}
-            className="flex-shrink-0 flex items-center gap-1.5 sm:gap-2 bg-primary hover:bg-primary/90 text-white font-bold text-xs sm:text-sm px-3 sm:px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all hover:-translate-y-0.5 active:translate-y-0"
-          >
-            <FiPlus className="w-4 h-4" />
-            <span className="hidden sm:inline">{addLabel}</span>
-            <span className="sm:hidden">Tambah</span>
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {children}
+          {onAdd && (
+            <button
+              onClick={onAdd}
+              className="flex-shrink-0 flex items-center gap-2 bg-gray-900 hover:bg-black text-white font-black text-xs px-6 py-3.5 rounded-2xl shadow-xl shadow-gray-200 transition-all hover:-translate-y-0.5"
+            >
+              <FiPlus className="w-4 h-4" />
+              <span>{addLabel}</span>
+            </button>
+          )}
+        </div>
       </div>
     </motion.div>
   )

@@ -224,19 +224,24 @@ export const getQueues = async (req: Request, res: Response) => {
 
     // Self-healing: Patch missing registrationIds for the frontend to work 
     const healedQueues = await Promise.all(queues.map(async (q) => {
+      // If registrationId is missing, try to find the best match created around the same time
       if (!q.registrationId) {
-        // Find matching registration for the same patient today
+        // Look for a registration created within 5 minutes of the queue number
+        const fiveMinBefore = new Date(q.createdAt.getTime() - 5 * 60 * 1000)
+        const fiveMinAfter = new Date(q.createdAt.getTime() + 5 * 60 * 1000)
+
         const reg = await prisma.registration.findFirst({
           where: {
             patientId: q.patientId,
             clinicId: q.clinicId || undefined,
-            createdAt: { gte: targetDate, lt: nextDay }
+            createdAt: { gte: fiveMinBefore, lt: fiveMinAfter }
           },
           orderBy: { createdAt: 'desc' }
         })
+
         if (reg) {
-          // Update DB for next time (fire and forget)
-          prisma.queueNumber.update({ 
+          // Update DB for next time
+          await prisma.queueNumber.update({ 
             where: { id: q.id }, 
             data: { registrationId: reg.id } 
           }).catch(err => console.error('Healing failed', err))
@@ -247,17 +252,27 @@ export const getQueues = async (req: Request, res: Response) => {
       return q
     }))
 
-    // Add MedicalRecord existence check
+    // Add MedicalRecord existence check and vitals
     const regIds = healedQueues.map(q => q.registrationId).filter(Boolean) as string[]
     const medicalRecords = await prisma.medicalRecord.findMany({
       where: { registrationId: { in: regIds } },
-      select: { registrationId: true }
+      include: { vitals: true }
     })
-    const mrRegIds = new Set(medicalRecords.map(mr => mr.registrationId))
+    
+    // Create a map for quick lookup
+    const mrMap = new Map()
+    medicalRecords.forEach(mr => {
+      mrMap.set(mr.registrationId, {
+        id: mr.id,
+        chiefComplaint: mr.chiefComplaint,
+        vitals: mr.vitals[0] || null
+      })
+    })
 
     const finalQueues = healedQueues.map(q => ({
       ...q,
-      hasMedicalRecord: q.registrationId ? mrRegIds.has(q.registrationId) : false
+      hasMedicalRecord: q.registrationId ? mrMap.has(q.registrationId) : false,
+      medicalRecord: q.registrationId ? mrMap.get(q.registrationId) : null
     }))
 
     res.json(finalQueues)
@@ -277,6 +292,7 @@ export const updateQueueStatus = async (req: Request, res: Response) => {
     const data: any = { status }
     if (status === 'called') {
       data.actualCallTime = new Date()
+      data.callCounter = { increment: 1 }
     }
 
     const queue = await prisma.queueNumber.update({

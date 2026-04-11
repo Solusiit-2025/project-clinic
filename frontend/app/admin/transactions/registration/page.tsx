@@ -93,14 +93,14 @@ export default function RegistrationPage() {
     const fetchSelectables = async () => {
       try {
         const [docsRes, deptsRes] = await Promise.all([
-          axios.get(`${API}/master/doctors`, { headers }),
+          axios.get(`${API}/master/doctors`, { headers, params: { clinicId: activeClinicId } }),
           axios.get(`${API}/master/departments`, { headers, params: { clinicId: activeClinicId } })
         ])
         setDoctors(docsRes.data)
         setDepartments(deptsRes.data)
       } catch (e) { console.error(e) }
     }
-    if (token) fetchSelectables()
+    if (token && activeClinicId) fetchSelectables()
   }, [token, activeClinicId, headers])
 
   // Search Patient

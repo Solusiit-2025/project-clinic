@@ -6,10 +6,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   FiActivity, FiUsers, FiClock, FiCheckCircle, FiArrowRight, 
   FiRefreshCw, FiAlertCircle, FiEdit3, FiClipboard, FiSearch, FiCalendar, FiZap,
-  FiChevronRight, FiFilter, FiUser, FiInfo, FiLock
+  FiChevronRight, FiFilter, FiUser, FiInfo, FiLock, FiVolume2
 } from 'react-icons/fi'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/store/useAuthStore'
+import { announceQueue } from '@/lib/utils/speech'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { toast } from 'react-hot-toast'
@@ -25,15 +26,28 @@ interface Queue {
   status: 'waiting' | 'called' | 'triage' | 'ready' | 'ongoing' | 'completed' | 'no-show'
   department: { name: string } | null
   createdAt: string
+  hasMedicalRecord: boolean
+  medicalRecord?: {
+    chiefComplaint?: string
+    vitals?: {
+      temperature?: number
+      bloodPressure?: string
+      weight?: number
+      height?: number
+      heartRate?: number
+      respiratoryRate?: number
+      bloodOxygen?: number
+    }
+  } | null
 }
 
 export default function DoctorQueue() {
   const router = useRouter()
-  const { user } = useAuthStore()
+  const { user, token } = useAuthStore()
   const [queues, setQueues] = useState<Queue[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [filter, setFilter] = useState<'all' | 'ongoing' | 'completed' | 'ready'>('ready')
+  const [filter, setFilter] = useState<'all' | 'ongoing' | 'completed' | 'ready' | 'triage'>('ready')
 
   const fetchQueues = useCallback(async () => {
     try {
@@ -52,15 +66,49 @@ export default function DoctorQueue() {
     return () => clearInterval(interval)
   }, [fetchQueues])
 
+  const handleCallPatient = async (q: Queue) => {
+    try {
+      // Step 4: Update status to 'called' if it's currently 'ready'
+      if (q.status === 'ready') {
+        await api.patch(`transactions/queues/${q.id}/status`, { status: 'called' })
+        fetchQueues()
+      }
+      
+      // Announce the patient
+      announceQueue(q.queueNo, q.patient.name, 'Ruang Periksa Dokter')
+    } catch (err) {
+      console.error('Failed to call patient', err)
+      toast.error('Gagal memanggil pasien')
+    }
+  }
+
+  const handleStartConsultation = async (q: Queue) => {
+    try {
+      // Step 5: Update status to 'ongoing' before opening the menu
+      if (q.status !== 'ongoing') {
+        await api.patch(`transactions/queues/${q.id}/status`, { status: 'ongoing' })
+      }
+      router.push(`/doctor/queue/${q.id}`)
+    } catch (err) {
+      console.error('Failed to start consultation', err)
+      toast.error('Gagal memulai pemeriksaan')
+    }
+  }
+
   const filteredQueues = useMemo(() => {
     let result = queues
 
     if (filter === 'ongoing') {
-      result = result.filter(q => q.status === 'ongoing' || q.status === 'called')
+      // BERJALAN: Currently being examined only
+      result = result.filter(q => q.status === 'ongoing')
     } else if (filter === 'completed') {
       result = result.filter(q => q.status === 'completed')
     } else if (filter === 'ready') {
-      result = result.filter(q => q.status === 'ready' || q.status === 'waiting' || q.status === 'triage')
+      // ANTRIAN: Waiting for nurse/triage
+      result = result.filter(q => q.status === 'waiting' || (q.status === 'called' && !q.hasMedicalRecord) || q.status === 'triage')
+    } else if (filter === 'triage') {
+      // VITAL SIGN / TRIAGE: Finished triage (Ready) OR Being called to doctor room
+      result = result.filter(q => q.status === 'ready' || (q.status === 'called' && q.hasMedicalRecord))
     }
 
     if (searchTerm) {
@@ -76,8 +124,8 @@ export default function DoctorQueue() {
   }, [queues, searchTerm, filter])
 
   const stats = {
-    waiting: queues.filter(q => q.status === 'waiting' || q.status === 'called' || q.status === 'triage').length,
-    ready: queues.filter(q => q.status === 'ready').length,
+    ready: queues.filter(q => q.status === 'waiting' || (q.status === 'called' && !q.hasMedicalRecord) || q.status === 'triage').length,
+    triage: queues.filter(q => q.status === 'ready' || (q.status === 'called' && q.hasMedicalRecord)).length,
     ongoing: queues.filter(q => q.status === 'ongoing').length,
     completed: queues.filter(q => q.status === 'completed').length,
   }
@@ -97,16 +145,18 @@ export default function DoctorQueue() {
   }
 
   const statCards = [
-    { label: 'Triage', value: stats.waiting, icon: FiActivity, color: 'text-amber-500', bg: 'bg-amber-50 shadow-amber-100/20' },
-    { label: 'Siap Periksa', value: stats.ready, icon: FiZap, color: 'text-emerald-500', bg: 'bg-emerald-50 shadow-emerald-100/20' },
-    { label: 'Sedang Periksa', value: stats.ongoing, icon: FiUsers, color: 'text-indigo-500', bg: 'bg-indigo-50 shadow-indigo-100/20' },
+    { label: 'Triage', value: stats.ready, icon: FiActivity, color: 'text-amber-500', bg: 'bg-amber-50 shadow-amber-100/20' },
+    { label: 'Vital Signs', value: stats.triage, icon: FiActivity, color: 'text-indigo-500', bg: 'bg-indigo-50 shadow-indigo-100/20' },
     { label: 'Selesai', value: stats.completed, icon: FiCheckCircle, color: 'text-slate-500', bg: 'bg-slate-50 shadow-slate-100/20' },
   ]
 
-  const StatusPill = ({ status }: { status: string }) => {
+  const StatusPill = ({ status, hasMedicalRecord }: { status: string, hasMedicalRecord: boolean }) => {
     const map: any = {
-      waiting: { label: 'MENUNGGU TRIAGE', cls: 'bg-slate-100 text-slate-500 border-slate-200 opacity-60' },
-      called: { label: 'DI FRONT OFFICE', cls: 'bg-slate-100 text-slate-500 border-slate-200' },
+      waiting: { label: 'FRONT OFFICE', cls: 'bg-slate-100 text-slate-500 border-slate-200' },
+      called: { 
+        label: hasMedicalRecord ? 'DIPANGGIL DOKTER' : 'DIPANGGIL PERAWAT', 
+        cls: hasMedicalRecord ? 'bg-indigo-600 text-white border-transparent animate-bounce' : 'bg-blue-50 text-blue-600 border-blue-200' 
+      },
       triage: { label: 'SEDANG TRIAGE', cls: 'bg-amber-50 text-amber-600 border-amber-200 animate-pulse font-black' },
       ready: { label: 'SIAP PERIKSA', cls: 'bg-emerald-50 text-emerald-600 border-emerald-200 font-bold' },
       ongoing: { label: 'DALAM RUANGAN', cls: 'bg-indigo-600 text-white border-transparent shadow-md font-black' },
@@ -115,7 +165,7 @@ export default function DoctorQueue() {
     const s = map[status] || map.waiting
     return (
       <span className={`text-[9px] font-black px-3 py-1.5 rounded-xl border uppercase tracking-widest flex items-center gap-1.5 w-fit ${s.cls}`}>
-        {['waiting', 'called', 'triage'].includes(status) && <FiLock className="w-2.5 h-2.5" />}
+        {['waiting', 'called', 'triage'].includes(status) && !hasMedicalRecord && <FiLock className="w-2.5 h-2.5" />}
         {s.label}
       </span>
     )
@@ -192,6 +242,7 @@ export default function DoctorQueue() {
           <div className="flex p-1.5 bg-white border border-slate-200 rounded-2xl shadow-sm min-w-fit self-start">
             {[
               { id: 'ready', label: 'Antrian', color: 'bg-amber-500' },
+              { id: 'triage', label: 'Vital Sign / Triage', color: 'bg-indigo-600' },
               { id: 'ongoing', label: 'Berjalan', color: 'bg-indigo-600' },
               { id: 'completed', label: 'Selesai', color: 'bg-emerald-500' },
               { id: 'all', label: 'Semua', color: 'bg-slate-700' },
@@ -229,11 +280,24 @@ export default function DoctorQueue() {
               <tr className="border-b border-slate-100 bg-white">
                 <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">No</th>
                 <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Pasien</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">ID Rekam Medis</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Departemen</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Waktu Masuk</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
+                {filter === 'triage' ? (
+                  <>
+                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Tensi (TD)</th>
+                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Suhu</th>
+                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">BB/TB</th>
+                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Keluhan</th>
+                  </>
+                ) : (
+                  <>
+                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">ID Rekam Medis</th>
+                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Departemen</th>
+                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Waktu Masuk</th>
+                  </>
+                )}
+                {filter !== 'triage' && (
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -250,8 +314,20 @@ export default function DoctorQueue() {
                   return (
                     <tr 
                       key={q.id} 
-                      onClick={() => handleNavigation(q)}
-                      className={`group transition-all ${isLocked ? 'cursor-not-allowed bg-slate-50/30' : 'hover:bg-slate-50 cursor-pointer'}`}
+                      onClick={() => {
+                        // Only "Ready" (Siap Periksa) is read-only.
+                        // "DIPANGGIL DOKTER" (Called with vitals) OR "Ongoing" should be clickable.
+                        if (filter === 'triage' && q.status === 'ready') return;
+                        
+                        if (q.status === 'completed') {
+                          router.push(`/doctor/queue/${q.id}`);
+                        } else if (!isLocked) {
+                          handleStartConsultation(q);
+                        } else {
+                          handleNavigation(q);
+                        }
+                      }}
+                      className={`group transition-all ${isLocked ? 'cursor-not-allowed bg-slate-50/30' : (filter === 'triage' && q.status === 'ready') ? 'cursor-default bg-slate-50/10' : 'hover:bg-slate-50 cursor-pointer'}`}
                     >
                       <td className="px-6 py-5">
                         <div className={`min-w-[3.5rem] w-fit px-3 h-10 rounded-xl flex items-center justify-center font-black text-sm border ${
@@ -267,56 +343,75 @@ export default function DoctorQueue() {
                           <p className={`text-[10px] font-bold uppercase tracking-widest ${isLocked ? 'text-slate-300' : 'text-slate-400'}`}>{q.patient.gender === 'Laki-laki' ? 'PRIA' : 'WANITA'}</p>
                         </div>
                       </td>
-                      <td className="px-6 py-5">
-                        <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg border uppercase tracking-tighter ${isLocked ? 'bg-slate-50 text-slate-300 border-slate-100' : 'bg-indigo-50 text-primary border-indigo-100'}`}>
-                          {q.patient.medicalRecordNo}
-                        </span>
-                      </td>
-                      <td className="px-6 py-5">
-                         <div className="flex justify-center">
-                            <StatusPill status={q.status} />
-                         </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <p className={`text-[10px] font-black uppercase tracking-widest ${isLocked ? 'text-slate-300' : 'text-slate-500'}`}>{q.department?.name || 'POLI UMUM'}</p>
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className={`flex items-center gap-2 ${isLocked ? 'text-slate-300' : 'text-slate-500'}`}>
-                          <FiClock className="w-3.5 h-3.5" />
-                          <span className="text-xs font-bold">{format(new Date(q.createdAt), 'HH:mm')}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5 text-right">
-                        {filter === 'ready' && isLocked ? (
-                          <div className="flex justify-end pr-4 text-slate-200">
-                             <FiLock className="w-5 h-5" />
-                          </div>
-                        ) : (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleNavigation(q);
-                            }}
-                            className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
-                              q.status === 'ongoing' || q.status === 'called'
-                                ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-200'
-                                : q.status === 'completed'
-                                ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                : isLocked
-                                ? 'bg-slate-50 text-slate-300 cursor-not-allowed'
-                                : 'bg-primary text-white hover:bg-primary/90 shadow-md shadow-primary/10'
-                            }`}
-                          >
-                            {q.status === 'completed' ? (
-                              <><FiClipboard /> Buka Riwayat</>
-                            ) : isLocked ? (
-                              <><FiLock /> Antrean</>
-                            ) : (
-                              <><FiEdit3 /> {q.status === 'ongoing' ? 'Lanjutkan' : 'Mulai Periksa'}</>
-                            )}
-                          </button>
-                        )}
-                      </td>
+                      {filter === 'triage' ? (
+                        <>
+                          <td className="px-6 py-5 text-center">
+                            <span className="text-sm font-black text-indigo-600">{q.medicalRecord?.vitals?.bloodPressure || '-'}</span>
+                          </td>
+                          <td className="px-6 py-5 text-center">
+                            <span className="text-sm font-black text-amber-600">{q.medicalRecord?.vitals?.temperature || '-'}°C</span>
+                          </td>
+                          <td className="px-6 py-5 text-center">
+                            <span className="text-xs font-bold text-slate-600">{q.medicalRecord?.vitals?.weight || '-'}/{q.medicalRecord?.vitals?.height || '-'}</span>
+                          </td>
+                          <td className="px-6 py-5">
+                            <p className="text-[10px] font-medium text-slate-500 uppercase tracking-tight line-clamp-2 italic max-w-xs transition-all group-hover:line-clamp-none">
+                              "{q.medicalRecord?.chiefComplaint || 'Tidak ada keluhan.'}"
+                            </p>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-6 py-5">
+                            <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg border uppercase tracking-tighter ${isLocked ? 'bg-slate-50 text-slate-300 border-slate-100' : 'bg-indigo-50 text-primary border-indigo-100'}`}>
+                              {q.patient.medicalRecordNo}
+                            </span>
+                          </td>
+                          <td className="px-6 py-5">
+                            <div className="flex justify-center">
+                                <StatusPill status={q.status} hasMedicalRecord={q.hasMedicalRecord} />
+                            </div>
+                          </td>
+                          <td className="px-6 py-5">
+                            <p className={`text-[10px] font-black uppercase tracking-widest ${isLocked ? 'text-slate-300' : 'text-slate-500'}`}>{q.department?.name || 'POLI UMUM'}</p>
+                          </td>
+                          <td className="px-6 py-5">
+                            <div className={`flex items-center gap-2 ${isLocked ? 'text-slate-300' : 'text-slate-500'}`}>
+                              <FiClock className="w-3.5 h-3.5" />
+                              <span className="text-xs font-bold">{format(new Date(q.createdAt), 'HH:mm')}</span>
+                            </div>
+                          </td>
+                        </>
+                      )}
+                      
+                      {filter !== 'triage' && (
+                         <td className="px-6 py-5 text-right">
+                            <button
+                              disabled={isLocked}
+                              className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                                q.status === 'ongoing' || q.status === 'called'
+                                  ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-200'
+                                  : q.status === 'completed'
+                                  ? 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                  : isLocked
+                                  ? 'bg-slate-50 text-slate-300 cursor-not-allowed border border-slate-100'
+                                  : 'bg-primary text-white hover:bg-primary/90 shadow-md shadow-primary/10'
+                              }`}
+                            >
+                              {q.status === 'completed' ? (
+                                <><FiClipboard className="w-3.5 h-3.5" /> Buka Riwayat</>
+                              ) : q.status === 'ongoing' ? (
+                                <><FiEdit3 className="w-3.5 h-3.5" /> Lanjutkan</>
+                              ) : q.status === 'called' && q.hasMedicalRecord ? (
+                                <><FiActivity className="w-3.5 h-3.5" /> Mulai Periksa</>
+                              ) : isLocked ? (
+                                <><FiLock className="w-3.5 h-3.5" /> Antrean</>
+                              ) : (
+                                <><FiArrowRight className="w-3.5 h-3.5" /> Detail</>
+                              )}
+                            </button>
+                         </td>
+                      )}
                     </tr>
                   )
                 })

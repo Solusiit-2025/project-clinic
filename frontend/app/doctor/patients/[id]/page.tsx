@@ -281,25 +281,49 @@ export default function PatientDetailPage() {
 
                     <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-10">
                       <div className="space-y-6">
-                        <div className="p-6 bg-slate-50/50 rounded-3xl border border-slate-100 hover:border-indigo-200 transition-colors">
-                          <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                            <FiActivity className="w-3.5 h-3.5" /> Diagnosa Medis
+                        {/* S Quadrant */}
+                        <div className="p-6 bg-slate-50/50 rounded-3xl border border-slate-100 italic">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-[9px] font-black">S</span> Subjective (Anamnesa)
                           </p>
-                          <p className="text-base font-bold text-gray-800 leading-relaxed italic">
-                            "{record.diagnosis || 'Tidak ada catatan diagnosa spesifik.'}"
+                          <p className="text-sm font-bold text-gray-800 leading-relaxed">
+                            "{record.subjective || record.chiefComplaint || '-'}"
                           </p>
                         </div>
-                        <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100">
-                          <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                            <FiWind className="w-3.5 h-3.5" /> Rencana Perawatan
+                        
+                        {/* O Quadrant */}
+                        <div className="p-6 bg-slate-50/50 rounded-3xl border border-slate-100">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                             <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-[9px] font-black">O</span> Objective (Pemeriksaan)
+                          </p>
+                          <p className="text-sm font-bold text-gray-800 leading-relaxed italic">
+                            {record.objective || record.labResults || '-'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-6">
+                        {/* A Quadrant */}
+                        <div className="p-6 bg-indigo-50/50 rounded-3xl border border-indigo-100 hover:border-indigo-200 transition-colors">
+                          <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-indigo-500 text-white flex items-center justify-center text-[9px] font-black">A</span> Assessment (Diagnosa)
+                          </p>
+                          <p className="text-sm font-black text-gray-800 leading-relaxed">
+                            {record.diagnosis || 'Tidak ada catatan diagnosa spesifik.'}
+                          </p>
+                        </div>
+
+                        {/* P Quadrant */}
+                        <div className="p-6 bg-emerald-50/50 rounded-3xl border border-emerald-100">
+                          <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[9px] font-black">P</span> Plan (Terapi/Rencana)
                           </p>
                           <p className="text-sm font-bold text-gray-800 leading-relaxed">
                             {record.treatmentPlan || 'Pemantauan berkala dan istirahat cukup.'}
                           </p>
                         </div>
                       </div>
-
-                      <div className="space-y-6">
+                    </div>
                         {/* Vitals in record */}
                         <div className="flex flex-wrap gap-2">
                            <div className="px-4 py-2 bg-slate-900 text-white rounded-2xl text-[10px] font-black tracking-widest uppercase flex items-center gap-2 shadow-lg shadow-slate-200">

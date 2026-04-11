@@ -48,14 +48,14 @@ export async function authMiddleware(req: any, res: Response, next: NextFunction
     // Get user's clinics to verify access
     const assignedClinicIds = clinics.map((c: any) => c.id)
 
-    console.log('[Auth] Processing request for clinic:', requestedClinicId, 'Assigned IDs:', assignedClinicIds)
+    // console.log('[Auth] Processing request for clinic:', requestedClinicId, 'Assigned IDs:', assignedClinicIds)
 
     if (requestedClinicId && assignedClinicIds.includes(String(requestedClinicId))) {
       req.clinicId = String(requestedClinicId)
     } else if (clinics.length > 0) {
       // Default to first assigned clinic if none requested or invalid requested
       req.clinicId = clinics[0].id
-      console.log('[Auth] Fallback clinic used:', req.clinicId)
+      // console.log('[Auth] Fallback clinic used:', req.clinicId)
     } else {
       // If no clinic assigned (should not happen if seeded), set null or handle error
       req.clinicId = null

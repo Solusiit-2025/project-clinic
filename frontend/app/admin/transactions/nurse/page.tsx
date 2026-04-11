@@ -10,6 +10,7 @@ import {
 } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import MasterModal from '@/components/admin/master/MasterModal'
+import { announceQueue } from '@/lib/utils/speech'
 
 const API = process.env.NEXT_PUBLIC_API_URL + '/api/transactions'
 
@@ -72,6 +73,22 @@ export default function NurseStation() {
     const interval = setInterval(fetchQueues, 30000)
     return () => clearInterval(interval)
   }, [fetchQueues])
+
+  const handleCallPatient = async (q: Queue) => {
+    try {
+      // Update status to 'called' if it's currently 'waiting'
+      if (q.status === 'waiting') {
+        await axios.patch(`${API}/queues/${q.id}/status`, { status: 'called' }, { headers })
+        fetchQueues()
+      }
+      
+      // Announce the patient
+      announceQueue(q.queueNo, q.patient.name, 'Ruang Pra Pemeriksaan')
+    } catch (err) {
+      console.error('Failed to call patient', err)
+      alert('Gagal memanggil pasien')
+    }
+  }
 
   const openTriage = async (q: Queue) => {
     setSelectedQueue(q)
@@ -213,24 +230,35 @@ export default function NurseStation() {
               </div>
             </div>
 
-            <button 
-              onClick={() => openTriage(q)}
-              className={`px-6 py-3.5 font-black rounded-2xl text-xs flex items-center justify-center gap-2 transition-all shadow-lg ${
-                (q.status === 'ready' || q.hasMedicalRecord)
-                  ? 'bg-amber-400 text-white hover:bg-amber-500 shadow-amber-200/50'
-                  : 'bg-primary text-white hover:bg-indigo-700 shadow-primary/20'
-              }`}
-            >
-               {(q.status === 'ready' || q.hasMedicalRecord) ? (
-                 <>
-                   <FiActivity className="w-4 h-4" /> EDIT DATA VITAL
-                 </>
-               ) : (
-                 <>
-                   <FiClipboard className="w-4 h-4" /> AMBIL TANDA VITAL
-                 </>
-               )}
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button 
+                onClick={() => handleCallPatient(q)}
+                className={`px-4 py-3.5 font-black rounded-2xl text-xs flex items-center justify-center gap-2 transition-all shadow-lg ${
+                  q.status === 'called' ? 'bg-blue-500 text-white shadow-blue-200' : 'bg-white border border-gray-100 text-gray-400 hover:text-primary'
+                }`}
+              >
+                <FiVolume2 className="w-4 h-4" /> {q.status === 'called' ? 'PANGGIL ULANG' : 'PANGGIL'}
+              </button>
+
+              <button 
+                onClick={() => openTriage(q)}
+                className={`flex-1 px-6 py-3.5 font-black rounded-2xl text-xs flex items-center justify-center gap-2 transition-all shadow-lg ${
+                  (q.status === 'ready' || q.hasMedicalRecord)
+                    ? 'bg-amber-400 text-white hover:bg-amber-500 shadow-amber-200/50'
+                    : 'bg-primary text-white hover:bg-indigo-700 shadow-primary/20'
+                }`}
+              >
+                 {(q.status === 'ready' || q.hasMedicalRecord) ? (
+                   <>
+                     <FiActivity className="w-4 h-4" /> EDIT DATA VITAL
+                   </>
+                 ) : (
+                   <>
+                     <FiClipboard className="w-4 h-4" /> AMBIL TANDA VITAL
+                   </>
+                 )}
+              </button>
+            </div>
           </motion.div>
         ))}
 

@@ -71,6 +71,11 @@ export default function AdminNavbar() {
               <span className="text-sm font-extrabold text-primary tracking-tight">
                 {activeClinic.name}
               </span>
+              {activeClinic.address && (
+                <span className="text-[10px] font-medium text-gray-400 truncate max-w-[150px]">
+                  {activeClinic.address}
+                </span>
+              )}
             </div>
           </div>
         )}

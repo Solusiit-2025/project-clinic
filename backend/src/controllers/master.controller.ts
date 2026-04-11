@@ -163,7 +163,7 @@ const flattenDepartments = (depts: any[], parentId: string | null = null): any[]
 
 export const getDepartments = async (req: Request, res: Response) => {
   try {
-    const { search, parentId, allClinics } = req.query
+    const { search, parentId, allClinics, clinicId } = req.query
     const currentClinicId = (req as any).clinicId
     const currentUser = (req as any).user
 
@@ -176,14 +176,19 @@ export const getDepartments = async (req: Request, res: Response) => {
       }
     }
 
-    // If allClinics explicitly requested and user is admin, return all departments from all clinics
-    // Otherwise, filter by current clinic for non-admin users
-    const shouldShowAllClinics = isAdminView || (allClinics === 'true' && isAdminView)
+    // Determine target clinic:
+    // 1. Explicit clinicId in query takes precedence
+    // 2. Otherwise use currentClinicId if NOT in Admin View
+    // 3. undefined if Admin View and no clinicId provided (shows all)
+    const targetClinicId = clinicId ? String(clinicId) : (isAdminView ? undefined : currentClinicId)
+
+    // Overrule if allClinics explicitly requested by admin
+    const shouldShowAllClinics = isAdminView && (allClinics === 'true' || !clinicId)
 
     // Fetch all needed data
     let departments = await prisma.department.findMany({
       where: {
-        ...(!shouldShowAllClinics ? { clinicId: currentClinicId } : {}),
+        ...(targetClinicId ? { clinicId: targetClinicId } : {}),
         ...(search ? { name: { contains: String(search), mode: 'insensitive' } } : {}),
         ...(parentId !== undefined && parentId !== 'all' ? { parentId: parentId === 'null' ? null : String(parentId) } : {}),
       },
@@ -264,14 +269,18 @@ export const deleteDepartment = async (req: Request, res: Response) => {
 // ==================== DOCTORS ====================
 export const getDoctors = async (req: Request, res: Response) => {
   try {
-    const { search, specialization, isActive, departmentId } = req.query
+    const { search, specialization, isActive, departmentId, clinicId } = req.query
     const currentClinicId = (req as any).clinicId
     const isAdminView = (req as any).isAdminView
 
+    // If clinicId is explicitly passed in query, use it. 
+    // Otherwise, if not admin view, use the session's currentClinicId.
+    const targetClinicId = clinicId ? String(clinicId) : (isAdminView ? undefined : currentClinicId)
+
     const doctors = await prisma.doctor.findMany({
       where: {
-        ...(!isAdminView ? { 
-          department: { clinicId: currentClinicId }
+        ...(targetClinicId ? { 
+          department: { clinicId: targetClinicId }
         } : {}),
         ...(search ? {
           OR: [
@@ -376,16 +385,22 @@ export const deleteDoctor = async (req: Request, res: Response) => {
 // ==================== DOCTOR SCHEDULES ====================
 export const getSchedules = async (req: Request, res: Response) => {
   try {
-    const { doctorId } = req.query
+    const { doctorId, clinicId } = req.query
     const currentClinicId = (req as any).clinicId
     const isAdminView = (req as any).isAdminView
 
+    // Explicit clinicId from query takes precedence, otherwise use session-based clinicId for non-admins
+    const targetClinicId = clinicId ? String(clinicId) : (isAdminView ? undefined : currentClinicId)
+
     const schedules = await prisma.doctorSchedule.findMany({
       where: {
-        ...(!isAdminView ? { clinicId: currentClinicId } : {}),
+        ...(targetClinicId ? { clinicId: targetClinicId } : {}),
         ...(doctorId ? { doctorId: String(doctorId) } : {}),
       },
-      include: { doctor: { select: { name: true, specialization: true } } },
+      include: { 
+        doctor: { select: { name: true, specialization: true, profilePicture: true } },
+        clinic: { select: { name: true, code: true } }
+      },
       orderBy: { dayOfWeek: 'asc' },
     })
     res.json(schedules)

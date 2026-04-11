@@ -50,8 +50,8 @@ export default function DoctorDashboard() {
       setStats({
         totalQueue: allQueues.length,
         completed: allQueues.filter((q: any) => q.status === 'completed').length,
-        inProgress: allQueues.filter((q: any) => q.status === 'ongoing' || q.status === 'called').length,
-        waiting: allQueues.filter((q: any) => q.status === 'waiting').length,
+        inProgress: allQueues.filter((q: any) => q.status === 'ongoing').length,
+        waiting: allQueues.filter((q: any) => q.status === 'waiting' || q.status === 'ready' || q.status === 'triage' || q.status === 'called').length,
       })
     } catch (e) {
       console.error('Failed to fetch dashboard data', e)
@@ -74,11 +74,14 @@ export default function DoctorDashboard() {
   }, [fetchDashboardData])
 
   const currentPatient = useMemo(() => {
-    return queues.find(q => q.status === 'ongoing') || queues.find(q => q.status === 'called')
+    return queues.find(q => q.status === 'ongoing')
   }, [queues])
 
   const nextPatient = useMemo(() => {
-    return queues.find(q => q.status === 'waiting')
+    // Priority: 'ready' first, then 'triage', then 'waiting/called'
+    return queues.find(q => q.status === 'ready') || 
+           queues.find(q => q.status === 'triage') || 
+           queues.find(q => q.status === 'waiting' || q.status === 'called')
   }, [queues])
 
   const statCards = [
@@ -293,8 +296,8 @@ export default function DoctorDashboard() {
 
             <div className="space-y-3">
               <AnimatePresence>
-                {queues.filter(q => q.status === 'waiting').length > 0 ? (
-                  queues.filter(q => q.status === 'waiting').slice(0, 5).map((q, idx) => (
+                {queues.filter(q => ['waiting', 'ready', 'triage', 'called'].includes(q.status)).length > 0 ? (
+                  queues.filter(q => ['waiting', 'ready', 'triage', 'called'].includes(q.status)).slice(0, 5).map((q, idx) => (
                     <motion.div
                       key={q.id}
                       initial={{ opacity: 0, x: 10 }}

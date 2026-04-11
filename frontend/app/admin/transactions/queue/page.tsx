@@ -6,10 +6,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   FiActivity, FiUsers, FiClock, FiCheckCircle, 
   FiVolume2, FiArrowRight, FiSkipForward, FiMoreHorizontal,
-  FiRefreshCw, FiExternalLink, FiUser, FiHome, FiAlertCircle, FiRotateCcw
+  FiRefreshCw, FiExternalLink, FiUser, FiHome, FiAlertCircle, FiRotateCcw,
+  FiMonitor
 } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import Link from 'next/link'
+import { announceQueue } from '@/lib/utils/speech'
+import { Switch } from '@headlessui/react' // Assuming headless UI is available, or use a custom one
 
 const API = process.env.NEXT_PUBLIC_API_URL + '/api/transactions'
 
@@ -25,36 +28,20 @@ interface Queue {
 }
 
 export default function QueueDashboard() {
-  const { token, activeClinicId } = useAuthStore()
+  const { user, token, activeClinicId } = useAuthStore()
   const [queues, setQueues] = useState<Queue[]>([])
   const [loading, setLoading] = useState(true)
   const [callingId, setCallingId] = useState<string | null>(null)
+  const [isSoundEnabled, setIsSoundEnabled] = useState(false)
+  const [toast, setToast] = useState<{ queueNo: string; name: string; room: string } | null>(null)
 
   const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
   
-  const announceQueue = useCallback((queueNo: string, name: string, isTriageDone: boolean) => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      // Stop any ongoing speech
-      window.speechSynthesis.cancel()
-      
-      const room = isTriageDone ? 'Ruang Pemeriksaan Dokter' : 'Ruang Pra Pemeriksaan'
-      const utterance = new SpeechSynthesisUtterance(
-        `Nomor antrian, ${queueNo.replace('-', ' ')}, atas nama ${name.toLowerCase()}, silakan menuju ${room}.`
-      )
-      
-      // Mencari suara wanita Indonesia (Gadis, Andini, atau keyword female)
-      const voices = window.speechSynthesis.getVoices()
-      const idVoice = voices.find(v => v.lang.startsWith('id') && (v.name.includes('Gadis') || v.name.includes('Andini') || v.name.toLowerCase().includes('female'))) || 
-                      voices.find(v => v.lang.startsWith('id'))
-      
-      if (idVoice) utterance.voice = idVoice
-      
-      utterance.lang = 'id-ID'
-      utterance.rate = 0.9
-      utterance.pitch = 1.1 // Pitch agak tinggi untuk kesan suara wanita yang lebih ramah
-      window.speechSynthesis.speak(utterance)
-    }
-  }, [])
+  const announceQueueLocal = (queueNo: string, name: string, isTriageDone: boolean) => {
+    if (!isSoundEnabled) return
+    const room = isTriageDone ? 'Ruang Pemeriksaan Dokter' : 'Ruang Pra Pemeriksaan'
+    announceQueue(queueNo, name, room)
+  }
 
   const fetchQueues = useCallback(async () => {
     if (!token || !activeClinicId) return
@@ -83,7 +70,11 @@ export default function QueueDashboard() {
       setQueues(prev => prev.map(q => q.id === id ? data : q))
       
       if (status === 'called') {
-        announceQueue(data.queueNo, data.patient.name, data.hasMedicalRecord)
+        announceQueueLocal(data.queueNo, data.patient.name, data.hasMedicalRecord)
+        // Show top-center toast
+        const room = data.hasMedicalRecord ? 'Ruang Pemeriksaan Dokter' : 'Ruang Pra-Pemeriksaan'
+        setToast({ queueNo: data.queueNo, name: data.patient.name, room })
+        setTimeout(() => setToast(null), 5000)
       }
     } catch (e) {
       alert('Gagal memperbarui antrian')
@@ -97,9 +88,9 @@ export default function QueueDashboard() {
 
   const StatusPill = ({ status }: { status: string }) => {
     const map: any = {
-      waiting: { label: 'MENUNGGU', cls: 'bg-amber-50 text-amber-600 border-amber-100' },
+      waiting: { label: 'MENUNGGU TRIAGE', cls: 'bg-amber-50 text-amber-600 border-amber-100 opacity-60' },
       called: { label: 'DIPANGGIL', cls: 'bg-blue-50 text-blue-600 border-blue-100' },
-      ready: { label: 'VITAL SIGN OK', cls: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
+      ready: { label: 'SIAP PERIKSA', cls: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
       ongoing: { label: 'DIPERIKSA', cls: 'bg-indigo-50 text-indigo-600 border-indigo-100' },
       completed: { label: 'SELESAI', cls: 'bg-gray-50 text-gray-400 border-gray-100' },
       'no-show': { label: 'LEWATI', cls: 'bg-red-50 text-red-500 border-red-100' },
@@ -107,9 +98,50 @@ export default function QueueDashboard() {
     const s = map[status] || map.waiting
     return <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${s.cls}`}>{s.label}</span>
   }
+  // Get Current Clinic Code for the monitor link
+  const activeClinicCode = useMemo(() => {
+    return user?.clinics?.find((c: any) => c.id === activeClinicId)?.code
+  }, [user, activeClinicId])
 
   return (
     <div className="p-6 mx-auto pb-20 w-full">
+
+      {/* TOP-CENTER TOAST: Calling Notification */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ y: -100, opacity: 0, scale: 0.9 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: -100, opacity: 0, scale: 0.9 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-[999] min-w-[380px] max-w-[500px]"
+          >
+            <div className="bg-primary text-white rounded-2xl shadow-2xl shadow-primary/40 px-6 py-4 flex items-center gap-4">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                <FiVolume2 className="w-5 h-5 animate-pulse" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-widest opacity-70 mb-0.5">Pemanggilan Sedang Berjalan</p>
+                <p className="text-lg font-black uppercase leading-tight">
+                  <span className="opacity-70">{toast.queueNo}</span> — {toast.name}
+                </p>
+                <p className="text-[10px] font-medium opacity-60 mt-0.5">→ {toast.room}</p>
+              </div>
+              <button onClick={() => setToast(null)} className="w-7 h-7 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition-all flex-shrink-0">
+                <span className="text-xs font-black">✕</span>
+              </button>
+            </div>
+            {/* Progress Bar */}
+            <motion.div
+              initial={{ scaleX: 1 }}
+              animate={{ scaleX: 0 }}
+              transition={{ duration: 5, ease: 'linear' }}
+              className="h-1 bg-white/40 rounded-full mt-1 origin-left"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
@@ -117,8 +149,37 @@ export default function QueueDashboard() {
           <p className="text-sm text-gray-500 font-medium">Monitoring Pasien Aktif - {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
         </div>
         <div className="flex items-center gap-3">
+          {/* MONITOR LINK BUTTON */}
+          <Link 
+            href={`/display/queue${activeClinicCode ? `?clinic=${activeClinicCode}` : ''}`}
+            target="_blank"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-100 rounded-xl text-slate-600 hover:text-primary hover:border-primary/20 transition-all shadow-sm group"
+          >
+            <FiMonitor className="w-4 h-4 group-hover:scale-110 transition-transform" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Buka Monitor</span>
+          </Link>
+
           <button onClick={fetchQueues} className="p-2.5 bg-white border border-gray-100 rounded-xl text-gray-400 hover:text-primary transition-all shadow-sm">
             <FiRefreshCw className={loading ? 'animate-spin' : ''} />
+          </button>
+          
+          <div className="h-10 w-px bg-gray-200 mx-1 hidden md:block" />
+          
+          {/* SOUND TOGGLE */}
+          <button 
+            onClick={() => setIsSoundEnabled(!isSoundEnabled)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${
+              isSoundEnabled 
+              ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-[1.02]' 
+              : 'bg-white text-gray-400 border-gray-100 shadow-sm opacity-60'
+            }`}
+          >
+            <FiVolume2 className={`w-4 h-4 ${isSoundEnabled ? 'animate-pulse' : ''}`} />
+            <span className="text-[10px] font-black uppercase tracking-widest">{isSoundEnabled ? 'Suara Aktif' : 'Suara Mati'}</span>
+            <div className={`w-8 h-4 rounded-full relative transition-colors ${isSoundEnabled ? 'bg-white/30' : 'bg-gray-100'}`}>
+              <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${isSoundEnabled ? 'left-4.5' : 'left-0.5'}`} />
+              <div className={`absolute top-0.5 w-3 h-3 rounded-full transition-all ${isSoundEnabled ? 'right-0.5 bg-white' : 'left-0.5 bg-gray-300'}`} />
+            </div>
           </button>
           <div className="h-10 w-px bg-gray-200 mx-2 hidden md:block" />
           <div className="flex gap-2">
@@ -148,7 +209,7 @@ export default function QueueDashboard() {
                Sedang Diperiksa (In Progress)
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {queues.filter(q => q.status === 'ongoing').map((q, i) => (
+              {queues.filter(q => q.status === 'ongoing').sort((a, b) => a.queueNo.localeCompare(b.queueNo)).map((q, i) => (
                 <motion.div 
                   key={q.id}
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -157,9 +218,9 @@ export default function QueueDashboard() {
                 >
                   <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-all duration-700" />
                   <div className="flex items-center gap-4 relative z-10">
-                    <div className="w-12 h-12 bg-white/20 rounded-xl flex flex-col items-center justify-center backdrop-blur-md border border-white/20">
+                    <div className="min-w-[3.5rem] h-14 bg-white/20 rounded-xl flex flex-col items-center justify-center backdrop-blur-md border border-white/20 px-2">
                       <p className="text-[7px] font-black uppercase opacity-60 leading-none mb-1">NO</p>
-                      <p className="text-base font-black">{q.queueNo}</p>
+                      <p className="text-lg font-black tracking-tighter">{q.queueNo}</p>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1 leading-none">{q.department?.name || 'POLI UMUM'}</p>

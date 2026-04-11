@@ -113,11 +113,14 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
     const { 
         queueId,
         medicalRecordId,
+        subjective,
+        objective,
         diagnosis,
         treatmentPlan,
         labNotes,
         labResults,
         notes,
+        hasInformedConsent,
         services, // [{ serviceId, price, quantity }]
         prescriptions, // [{ medicineId, quantity, dosage, frequency, duration, instructions }]
         isFinal = true // Default to true for backward compatibility
@@ -128,12 +131,15 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
       const mr = await tx.medicalRecord.update({
         where: { id: medicalRecordId },
         data: {
+          subjective,
+          objective,
           diagnosis,
           treatmentPlan,
           labNotes,
           labResults,
           notes,
-          consultationDraft: !isFinal ? { services, prescriptions } : Prisma.DbNull,
+          hasInformedConsent: !!hasInformedConsent,
+          consultationDraft: !isFinal ? { subjective, objective, diagnosis, treatmentPlan, services, prescriptions } : Prisma.DbNull,
           doctorId: (req as any).user.doctor?.id || null 
         },
         include: { patient: true, services: true }
@@ -321,6 +327,8 @@ export const getMedicalRecordByRegistration = async (req: Request, res: Response
                 vitals: { orderBy: { recordedAt: 'desc' }, take: 1 },
                 prescriptions: { include: { items: { include: { medicine: true } } } },
                 services: { include: { service: true } },
+                referrals: { include: { toClinic: true, toDepartment: true } },
+                attachments: true,
                 patient: true,
                 doctor: true
             }

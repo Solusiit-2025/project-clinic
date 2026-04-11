@@ -22,9 +22,37 @@ interface Queue {
   registrationId: string | null
   queueNo: string
   status: 'waiting' | 'called' | 'triage' | 'ready' | 'ongoing' | 'completed' | 'no-show'
-  patient: { name: string; medicalRecordNo: string; gender: string }
+  patient: { name: string; medicalRecordNo: string; gender: string; allergies?: string }
   doctor: { name: string; specialization: string } | null
   department: { name: string } | null
+}
+
+interface Referral {
+  id: string
+  type: 'INTERNAL' | 'EXTERNAL'
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED'
+  toClinicId?: string
+  toDepartmentId?: string
+  toHospitalName?: string
+  notes?: string
+  toClinic?: { name: string }
+  toDepartment?: { name: string }
+  createdAt: string
+}
+
+interface Template {
+  id: string
+  name: string
+  type: 'SOAP' | 'PRESCRIPTION'
+  content: any
+}
+
+interface MedicalRecordAttachment {
+  id: string
+  fileName: string
+  filePath: string
+  fileType: string
+  createdAt: string
 }
 
 interface Medicine {
@@ -64,14 +92,21 @@ export default function DoctorConsultationPage() {
   
   // Consultation State
   const [medicalRecord, setMedicalRecord] = useState<any>(null)
+  const [subjective, setSubjective] = useState('')
+  const [objective, setObjective] = useState('')
   const [diagnosis, setDiagnosis] = useState('')
   const [treatmentPlan, setTreatmentPlan] = useState('')
   const [labNotes, setLabNotes] = useState('')
   const [labResults, setLabResults] = useState('')
   const [notes, setNotes] = useState('')
+  const [hasInformedConsent, setHasInformedConsent] = useState(false)
+  
   const [prescriptionItems, setPrescriptionItems] = useState<any[]>([])
   const [serviceItems, setServiceItems] = useState<any[]>([])
-  const [activeSegment, setActiveSegment] = useState<'nurse' | 'diag' | 'tindakan' | 'lab' | 'rx' | 'history'>('nurse')
+  const [referrals, setReferrals] = useState<Referral[]>([])
+  const [templates, setTemplates] = useState<Template[]>([])
+
+  const [activeSegment, setActiveSegment] = useState<'nurse' | 'diag' | 'tindakan' | 'lab' | 'rx' | 'history' | 'referral' | 'attachment' | 'consent'>('nurse')
   const [searchMed, setSearchMed] = useState('')
   const [searchService, setSearchService] = useState('')
 
@@ -98,11 +133,15 @@ export default function DoctorConsultationPage() {
         const { data } = await api.get(`transactions/medical-records/registration/${qData.registrationId}`)
         setMedicalRecord(data)
         if (data) {
+          setSubjective(data.subjective || '')
+          setObjective(data.objective || '')
           setDiagnosis(data.diagnosis || '')
           setTreatmentPlan(data.treatmentPlan || '')
           setLabNotes(data.labNotes || '')
           setLabResults(data.labResults || '')
           setNotes(data.notes || '')
+          setHasInformedConsent(!!data.hasInformedConsent)
+          setReferrals(data.referrals || [])
           
           if (data.prescriptions && data.prescriptions.length > 0) {
             const savedItems = data.prescriptions.flatMap((rx: any) =>
@@ -145,6 +184,10 @@ export default function DoctorConsultationPage() {
       // Fetch services for tindakan
       const svcRes = await api.get('master/services', { params: { isActive: true } })
       setAllServices(svcRes.data)
+
+      // Fetch templates
+      const templateRes = await api.get('clinical/templates')
+      setTemplates(templateRes.data)
 
     } catch (e) {
       console.error('Failed to fetch consultation data', e)
@@ -235,11 +278,14 @@ export default function DoctorConsultationPage() {
       await api.post('transactions/medical-records/doctor', {
         queueId: queue.id,
         medicalRecordId: medicalRecord.id,
+        subjective,
+        objective,
         diagnosis,
         treatmentPlan,
         labNotes,
         labResults,
         notes,
+        hasInformedConsent,
         services: serviceItems.map(s => ({ serviceId: s.serviceId, quantity: s.quantity, price: s.price })),
         prescriptions: prescriptionItems,
         isFinal
@@ -290,13 +336,29 @@ export default function DoctorConsultationPage() {
             </button>
             <div className="h-8 w-px bg-slate-200" />
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-black text-slate-900 uppercase tracking-tight">{queue.patient.name}</h1>
-                <span className="text-[10px] font-black px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100 uppercase">{queue.patient.medicalRecordNo}</span>
+              <div className="flex items-center gap-3">
+                <h1 className="text-xl font-black text-slate-900 tracking-tight">{queue.patient.name}</h1>
+                <span className="text-[10px] font-black px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100 uppercase tracking-wider">{queue.patient.medicalRecordNo}</span>
+                {queue.patient.gender && (
+                  <span className={`text-[10px] font-black px-2.5 py-1 rounded-xl border uppercase tracking-wider ${queue.patient.gender === 'L' ? 'bg-sky-50 text-sky-600 border-sky-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                    {queue.patient.gender === 'L' ? 'Laki-laki' : 'Perempuan'}
+                  </span>
+                )}
               </div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                {queue.department?.name || 'UMUM'} • Antrean: {queue.queueNo}
-              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">
+                  {queue.department?.name || 'UMUM'} • No. Antrean: <span className="text-slate-900">{queue.queueNo}</span>
+                </p>
+                {queue.patient.allergies && (
+                  <motion.div 
+                    animate={{ scale: [1, 1.05, 1] }} 
+                    transition={{ repeat: Infinity, duration: 2 }}
+                    className="flex items-center gap-1.5 px-2 py-0.5 bg-rose-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-200"
+                  >
+                    <FiAlertCircle className="w-3 h-3" /> ALERGI: {queue.patient.allergies}
+                  </motion.div>
+                )}
+              </div>
             </div>
           </div>
           
@@ -327,9 +389,12 @@ export default function DoctorConsultationPage() {
             {[
               { id: 'nurse', label: 'Nurse Handover', icon: <FiClipboard /> },
               { id: 'diag', label: 'SOAP & Diagnosa', icon: <FiActivity /> },
+              { id: 'referral', label: 'Rujukan Medis', icon: <FiArrowLeft className="rotate-180" /> },
               { id: 'rx', label: 'Resep Obat (Rx)', icon: <FiPackage /> },
               { id: 'tindakan', label: 'Tindakan Medis', icon: <FiCheckCircle /> },
               { id: 'lab', label: 'Laboratorium', icon: <HiOutlineBeaker /> },
+              { id: 'attachment', label: 'Lampiran / Media', icon: <FiPackage /> },
+              { id: 'consent', label: 'Persetujuan (Consent)', icon: <FiLock /> },
               { id: 'history', label: 'Riwayat Pasien', icon: <FiRotateCcw /> },
             ].map((s) => (
               <button
@@ -398,18 +463,70 @@ export default function DoctorConsultationPage() {
             {activeSegment === 'diag' && (
               <motion.div key="diag" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
                 <div className="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm min-h-[400px]">
-                  <div className="flex items-center justify-between mb-8">
-                     <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Diagnosa & Rencana Terapi</h3>
-                     <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full">Format SOAP</span>
+                  <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-50">
+                     <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Medical Documentation (S-O-A-P)</h3>
+                     <div className="flex items-center gap-2">
+                        {templates.length > 0 && (
+                          <div className="relative group">
+                            <button className="flex items-center gap-2 px-3 py-1.5 bg-primary/5 text-primary text-[10px] font-black rounded-lg hover:bg-primary hover:text-white transition-all">
+                              <FiPackage /> PILIH TEMPLATE
+                            </button>
+                            <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-slate-100 rounded-2xl shadow-2xl invisible group-hover:visible z-50 p-2 overflow-hidden">
+                              <div className="p-3 border-b border-slate-50 mb-1">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Skenario Klinis</p>
+                              </div>
+                              {templates.filter(t => t.type === 'SOAP').map(t => (
+                                <button key={t.id} onClick={() => {
+                                  setSubjective(t.content.subjective || '');
+                                  setObjective(t.content.objective || '');
+                                  setDiagnosis(t.content.diagnosis || '');
+                                  setTreatmentPlan(t.content.treatmentPlan || '');
+                                }} className="w-full text-left p-3 hover:bg-slate-50 rounded-xl text-[11px] font-bold text-slate-700 transition-colors">
+                                  {t.name}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">Standardized Format</span>
+                     </div>
                   </div>
-                  <div className="grid grid-cols-1 gap-8">
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* S Quadrant */}
                     <div className="space-y-3 group">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 group-focus-within:text-primary transition-colors">Diagnosa (ICD-10 / Klinis)</label>
-                      <textarea disabled={isReadOnly} value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} className={`w-full p-8 border border-slate-200 rounded-3xl min-h-[200px] text-base font-bold focus:bg-white focus:border-primary outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60 cursor-not-allowed' : 'bg-slate-50'}`} placeholder="Tuliskan diagnosa medis dengan detail..." />
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-black">S</div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] group-focus-within:text-slate-900 transition-colors">Subjective (Anamnesa)</label>
+                      </div>
+                      <textarea disabled={isReadOnly} value={subjective} onChange={(e) => setSubjective(e.target.value)} className={`w-full p-6 border border-slate-200 rounded-3xl min-h-[160px] text-sm font-bold focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60' : 'bg-slate-50'}`} placeholder="Keluhan utama, riwayat penyakit..." />
                     </div>
+
+                    {/* O Quadrant */}
                     <div className="space-y-3 group">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 group-focus-within:text-emerald-500 transition-colors">Rencana Pengobatan & Edukasi</label>
-                      <textarea disabled={isReadOnly} value={treatmentPlan} onChange={(e) => setTreatmentPlan(e.target.value)} className={`w-full p-8 border border-slate-200 rounded-3xl min-h-[200px] text-base font-bold focus:bg-white focus:border-emerald-500 outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60 cursor-not-allowed' : 'bg-slate-50'}`} placeholder="Rencana tindakan tambahan, edukasi pasien, dsb..." />
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-black">O</div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] group-focus-within:text-slate-900 transition-colors">Objective (Pemeriksaan)</label>
+                      </div>
+                      <textarea disabled={isReadOnly} value={objective} onChange={(e) => setObjective(e.target.value)} className={`w-full p-6 border border-slate-200 rounded-3xl min-h-[160px] text-sm font-bold focus:bg-white focus:border-slate-900 outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60' : 'bg-slate-50'}`} placeholder="Pemeriksaan fisik, tanda klinis..." />
+                    </div>
+
+                    {/* A Quadrant */}
+                    <div className="space-y-3 group">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-[10px] font-black">A</div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] group-focus-within:text-primary transition-colors">Assessment (Diagnosa)</label>
+                      </div>
+                      <textarea disabled={isReadOnly} value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} className={`w-full p-6 border border-slate-200 rounded-3xl min-h-[160px] text-sm font-bold focus:bg-white focus:border-primary outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60' : 'bg-slate-50'}`} placeholder="Diagnosa medis, ICD-10..." />
+                    </div>
+
+                    {/* P Quadrant */}
+                    <div className="space-y-3 group">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] font-black">P</div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] group-focus-within:text-emerald-500 transition-colors">Plan (Terapi/Rencana)</label>
+                      </div>
+                      <textarea disabled={isReadOnly} value={treatmentPlan} onChange={(e) => setTreatmentPlan(e.target.value)} className={`w-full p-6 border border-slate-200 rounded-3xl min-h-[160px] text-sm font-bold focus:bg-white focus:border-emerald-500 outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60' : 'bg-slate-50'}`} placeholder="Rencana pengobatan, edukasi..." />
                     </div>
                   </div>
                 </div>
@@ -633,6 +750,114 @@ export default function DoctorConsultationPage() {
                      <p className="text-[10px] font-medium text-slate-400 leading-relaxed uppercase tracking-tight">
                         Catatan order lab akan diteruskan ke tim laboratorium. Hasil lab yang diinput di sini akan otomatis tersimpan dalam rekam medis permanen pasien.
                      </p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeSegment === 'referral' && (
+              <motion.div key="referral" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                <div className="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm min-h-[500px]">
+                  <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-50">
+                     <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Digital Referral Management</h3>
+                     <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest bg-amber-50 px-3 py-1 rounded-full border border-amber-100">Care Coordination</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div className="space-y-6">
+                      <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100">
+                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Buat Rujukan Baru</p>
+                         <div className="space-y-4">
+                            <div className="flex gap-2">
+                               <button onClick={() => {/* Set referral type */}} className="flex-1 py-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-primary transition-all">Internal (Klinik)</button>
+                               <button onClick={() => {/* Set referral type */}} className="flex-1 py-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-primary transition-all">Eksternal (RS)</button>
+                            </div>
+                            <textarea placeholder="Catatan medis tambahan untuk dokter rujukan..." className="w-full p-4 border border-slate-200 rounded-2xl text-xs font-bold bg-white focus:border-primary outline-none min-h-[120px]" />
+                            <button className="w-full py-4 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20">Cetak & Simpan Rujukan</button>
+                         </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-2">Riwayat Rujukan Kunjungan Ini</p>
+                       {referrals.length === 0 ? (
+                         <div className="py-20 text-center border border-dashed border-slate-100 rounded-3xl bg-slate-50/30">
+                            <FiArrowLeft className="w-10 h-10 text-slate-100 mx-auto mb-2 rotate-180" />
+                            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Belum Ada Rujukan</p>
+                         </div>
+                       ) : (
+                         referrals.map(r => (
+                           <div key={r.id} className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between">
+                              <div>
+                                 <p className="text-[11px] font-black text-slate-800 uppercase tracking-tight">{r.type} REFERRAL</p>
+                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Status: {r.status || 'Pending'}</p>
+                              </div>
+                              <button className="p-2 text-primary hover:bg-indigo-50 rounded-lg transition-all"><FiInfo /></button>
+                           </div>
+                         ))
+                       )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeSegment === 'attachment' && (
+              <motion.div key="attachment" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                <div className="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm min-h-[500px]">
+                  <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-50">
+                     <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Medical Media & Attachments</h3>
+                     <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 tracking-tighter">Clinical Photography</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <label className="aspect-square border-2 border-dashed border-slate-200 rounded-[2.5rem] flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-primary hover:bg-slate-50 transition-all group">
+                       <div className="w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center text-slate-300 group-hover:text-primary transition-all">
+                          <FiPlus className="w-8 h-8" />
+                       </div>
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Unggah Foto / PDF</p>
+                       <input type="file" className="hidden" />
+                    </label>
+                    {/* Placeholder for uploaded items */}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeSegment === 'consent' && (
+              <motion.div key="consent" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                <div className="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm min-h-[500px]">
+                  <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-50">
+                     <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Informed Consent & Verification</h3>
+                     <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest bg-rose-50 px-3 py-1 rounded-full border border-rose-100">Legal & Safety</span>
+                  </div>
+                  
+                  <div className="max-w-xl mx-auto py-10">
+                    <div className={`p-10 rounded-[2.5rem] border-2 transition-all ${hasInformedConsent ? 'bg-emerald-50 border-emerald-100 shadow-lg shadow-emerald-500/5' : 'bg-slate-50 border-slate-100'}`}>
+                       <div className="flex items-center gap-6 mb-8">
+                          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl transition-all ${hasInformedConsent ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                             {hasInformedConsent ? <FiCheckCircle /> : <FiLock />}
+                          </div>
+                          <div>
+                             <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Persetujuan Tindakan Medis</h4>
+                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">Self-Verified by Practitioner</p>
+                          </div>
+                       </div>
+                       
+                       <p className="text-[11px] font-medium text-slate-500 leading-relaxed mb-10">
+                          Dengan mencentang opsi di bawah ini, saya selaku dokter pemeriksa mengonfirmasi bahwa pasien (atau wali yang sah) telah diberikan penjelasan yang cukup mengenai tindakan medis yang akan dilakukan, termasuk risiko, alternatif, dan konsekuensinya, serta telah memberikan persetujuannya secara lisan maupun tertulis.
+                       </p>
+                       
+                       <button 
+                        onClick={() => setHasInformedConsent(!hasInformedConsent)}
+                        className={`w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                          hasInformedConsent 
+                          ? 'bg-emerald-500 text-white shadow-xl shadow-emerald-500/20' 
+                          : 'bg-white border border-slate-200 text-slate-400 hover:border-primary hover:text-primary'
+                        }`}>
+                         {hasInformedConsent ? '✓ PERSETUJUAN TELAH DICATAT' : 'KLIK UNTUK KONFIRMASI PERSETUJUAN'}
+                       </button>
+                    </div>
                   </div>
                 </div>
               </motion.div>

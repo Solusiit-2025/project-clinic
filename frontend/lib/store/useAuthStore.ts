@@ -8,6 +8,7 @@ interface Clinic {
   id: string
   name: string
   code: string
+  address?: string
 }
 
 interface User {
