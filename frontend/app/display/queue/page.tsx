@@ -6,7 +6,8 @@ import api from '@/lib/api'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   FiActivity, FiUsers, FiClock, FiVolume2, 
-  FiUser, FiInfo, FiMonitor, FiPlayCircle, FiPackage 
+  FiUser, FiInfo, FiMonitor, FiPlayCircle, FiPackage,
+  FiPlay, FiPause
 } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { announceQueue } from '@/lib/utils/speech'
@@ -50,6 +51,8 @@ export default function DisplayQueue() {
   const [isVideoMuted, setIsVideoMuted] = useState(true)
   const [configVolume, setConfigVolume] = useState(50)
   const [carouselIndex, setCarouselIndex] = useState(0)
+  const [activeCallingPatient, setActiveCallingPatient] = useState<Queue | null>(null)
+  const [isPaused, setIsPaused] = useState(false)
   
   const videoRef = useRef<HTMLVideoElement>(null)
   const overlayTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -189,7 +192,12 @@ export default function DisplayQueue() {
     video.load()
     video.volume = configVolume / 100
     video.muted = isVideoMuted
-    video.play().catch(e => console.log('Video play blocked:', e))
+    
+    if (!isPaused) {
+      video.play().catch(e => console.log('Video play blocked:', e))
+    } else {
+      video.pause()
+    }
     
     console.log(`[Monitor] Playing video ${currentVideoIdx + 1}/${videos.length}: ${targetUrl}`)
   }, [currentVideoIdx, isStarted, videos])
@@ -204,7 +212,7 @@ export default function DisplayQueue() {
     } else {
       // Resume video after overlay closes
       setIsVideoMuted(false)
-      if (videoRef.current && videos.length > 0) {
+      if (videoRef.current && videos.length > 0 && !isPaused) {
         videoRef.current.muted = false
         videoRef.current.volume = configVolume / 100
         videoRef.current.play().catch(e => console.log('Resume play blocked:', e))
@@ -251,6 +259,7 @@ export default function DisplayQueue() {
       announceQueue(newestCall.queueNo, newestCall.patient.name, room)
       
       // 2. Show Overlay
+      setActiveCallingPatient(newestCall)
       setShowCallingOverlay(true)
       
       // 3. Auto-dismiss overlay after 15 seconds
@@ -280,7 +289,7 @@ export default function DisplayQueue() {
   const currentNextBatch = nextPasien.slice(startIdx, startIdx + 5)
   
   // Find the single patient to show on overlay
-  const callingPasienData = queues.find(q => q.status === 'called')
+  // Data Filtering for 3 Zones (Refined based on user feedback)
 
   // Carousel Rotation Timer (8s) - MOVED HERE to fix ReferenceError
   useEffect(() => {
@@ -569,9 +578,35 @@ export default function DisplayQueue() {
                               playsInline
                            />
                            <div className="absolute inset-0 bg-white/5" />
-                           <div className="absolute bottom-16 left-16 flex items-center gap-4 bg-white/30 backdrop-blur-2xl px-8 py-4 rounded-[2rem] border border-white/40 shadow-2xl">
-                              <div className="w-4 h-4 rounded-full bg-white animate-pulse" />
-                              <p className="text-[12px] font-black uppercase tracking-[0.4em] text-white drop-shadow-md">Konten Edukasi Yasfina</p>
+                           <div className="absolute bottom-16 left-16 flex items-center gap-6 bg-white/20 backdrop-blur-3xl px-8 py-5 rounded-[2.5rem] border border-white/30 shadow-2xl">
+                              
+                              {/* PLAY/PAUSE TOGGLE */}
+                              <button 
+                                onClick={() => {
+                                  setIsPaused(!isPaused)
+                                  if (videoRef.current) {
+                                    if (!isPaused) videoRef.current.pause()
+                                    else videoRef.current.play().catch(e => console.log('Play error:', e))
+                                  }
+                                }}
+                                className="w-14 h-14 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center transition-all border border-white/30 group/btn"
+                              >
+                                {isPaused ? (
+                                  <FiPlay className="w-6 h-6 text-white group-hover/btn:scale-110 transition-transform" />
+                                ) : (
+                                  <FiPause className="w-6 h-6 text-white group-hover/btn:scale-110 transition-transform" />
+                                )}
+                              </button>
+
+                              <div className="w-px h-10 bg-white/20" />
+
+                              <div className="flex items-center gap-4">
+                                <div className="w-4 h-4 rounded-full bg-white animate-pulse" />
+                                <div className="flex flex-col">
+                                  <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/50 leading-none mb-1">PROGRAM TV</p>
+                                  <p className="text-[12px] font-black uppercase tracking-[0.2em] text-white drop-shadow-md">Konten Edukasi Yasfina</p>
+                                </div>
+                              </div>
                            </div>
                         </div>
                      ) : (
@@ -586,7 +621,7 @@ export default function DisplayQueue() {
                   </div>
 
                   <AnimatePresence mode="wait">
-                     {showCallingOverlay && callingPasienData && (
+                     {showCallingOverlay && activeCallingPatient && (
                        <motion.div 
                          key="calling"
                          initial={{ opacity: 0, scale: 0.95 }}
@@ -603,17 +638,17 @@ export default function DisplayQueue() {
                           </motion.div>
                           
                           <div className="text-[20vh] font-black leading-[1] tracking-tighter text-slate-900 mb-0 drop-shadow-[0_10px_30px_rgba(0,0,0,0.05)] whitespace-nowrap">
-                             {callingPasienData.queueNo}
+                             {activeCallingPatient.queueNo}
                           </div>
                           
                           <h2 className="text-[7vh] font-black uppercase tracking-tighter text-primary mb-2 underline decoration-slate-100 decoration-8 underline-offset-[10px] truncate max-w-full px-12 leading-tight">
-                             {callingPasienData.patient.name}
+                             {activeCallingPatient.patient.name}
                           </h2>
                           
                           <div className="flex flex-col items-center gap-2">
                              <span className="text-slate-300 uppercase tracking-[0.4em] text-[10px] font-black">MENUJU:</span>
                              <span className="px-12 py-5 bg-slate-50 rounded-[2.5rem] border border-slate-200 uppercase text-slate-900 shadow-sm text-[3.5vh] font-black tracking-tight">
-                               {callingPasienData.hasMedicalRecord ? "RUANG PEMERIKSAAN DOKTER" : "RUANG PRA-PEMERIKSAAN"}
+                               {activeCallingPatient.hasMedicalRecord ? "RUANG PEMERIKSAAN DOKTER" : "RUANG PRA-PEMERIKSAAN"}
                              </span>
                           </div>
                        </motion.div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   FiActivity, FiUsers, FiClock, FiCheckCircle, 
@@ -12,9 +12,9 @@ import {
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import Link from 'next/link'
 import { announceQueue } from '@/lib/utils/speech'
-import { Switch } from '@headlessui/react' // Assuming headless UI is available, or use a custom one
 
-const API = process.env.NEXT_PUBLIC_API_URL + '/api/transactions'
+// API endpoint for transactions
+const TX_API = 'transactions'
 
 interface Queue {
   id: string
@@ -46,8 +46,7 @@ export default function QueueDashboard() {
   const fetchQueues = useCallback(async () => {
     if (!token || !activeClinicId) return
     try {
-      const { data } = await axios.get(`${API}/queues`, { 
-        headers, 
+      const { data } = await api.get(`${TX_API}/queues`, { 
         params: { clinicId: activeClinicId } 
       })
       setQueues(data)
@@ -66,7 +65,7 @@ export default function QueueDashboard() {
 
   const updateStatus = async (id: string, status: string) => {
     try {
-      const { data } = await axios.patch(`${API}/queues/${id}/status`, { status }, { headers })
+      const { data } = await api.patch(`${TX_API}/queues/${id}/status`, { status })
       setQueues(prev => prev.map(q => q.id === id ? data : q))
       
       if (status === 'called') {

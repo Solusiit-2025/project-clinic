@@ -1,7 +1,7 @@
 import { Request, Response } from 'express'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../lib/prisma'
 
-const prisma = new PrismaClient()
+// Singleton prisma used from ../lib/prisma
 
 // ==================== REGISTRATION & QUEUE ====================
 
@@ -322,6 +322,7 @@ export const updateQueueStatus = async (req: Request, res: Response) => {
       hasMedicalRecord: !!mr
     })
   } catch (e) {
+    console.error('[updateQueueStatus] Error:', e)
     res.status(500).json({ message: (e as Error).message })
   }
 }
