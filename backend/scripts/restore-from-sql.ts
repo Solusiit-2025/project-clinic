@@ -16,8 +16,13 @@ async function main() {
   const content = fs.readFileSync(sqlFile, 'utf8')
 
   console.log('🧹 Cleaning current records for a clean UUID-based restore...')
+  // Order matters for FK constraints
+  await prisma.inventoryTransaction.deleteMany({})
+  await prisma.inventory.deleteMany({})
+  await prisma.product.deleteMany({})
   await prisma.asset.deleteMany({})
   await prisma.productMaster.deleteMany({})
+  await prisma.medicine.deleteMany({})
   await prisma.productCategory.deleteMany({})
   console.log('✨ Workspace cleaned.')
 

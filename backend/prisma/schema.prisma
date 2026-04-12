@@ -616,10 +616,22 @@ model InventoryAdjustment {
 model ProductMaster {
   id              String  @id @default(uuid())
   masterCode      String  @unique
+  sku             String? @unique
   masterName      String
   description     String?
   image           String?
   categoryId      String?
+  brand           String?
+  manufacturer    String?
+  defaultUnit     String?  @default("pcs")
+  purchaseUnit    String?  @default("box")
+  storageUnit     String?  @default("pcs")
+  usedUnit        String?  @default("pcs")
+  supplier        String?
+  purchasePrice   Float?   @default(0)
+  sellingPrice    Float?   @default(0)
+  minStock        Int?     @default(0)
+  reorderPoint    Int?     @default(0)
   isActive        Boolean @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

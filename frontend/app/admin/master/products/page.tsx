@@ -19,20 +19,21 @@ const EMPTY = {
   productCode: '', 
   sku: '', 
   productName: '', 
-  unit: 'pcs', 
   purchaseUnit: 'box',
   storageUnit: 'pcs',
-  usedUnit: 'pcs',
-  quantity: 0, 
-  minimumStock: 5,
-  reorderQuantity: 10,
+  usedUnit: 'tablet',
   purchasePrice: 0, 
   sellingPrice: 0, 
-  clinicId: '',
   clinicIds: [] as string[],
   description: '',
   isActive: true,
-  image: null as File | string | null
+  image: null as File | string | null,
+  brand: '',
+  manufacturer: '',
+  defaultUnit: 'pcs',
+  supplier: '',
+  minStock: 0,
+  reorderPoint: 0
 }
 
 type ProductCategory = { id: string; categoryName: string; description?: string }
@@ -51,6 +52,18 @@ type ProductInventory = {
     image?: string;
     medicineName: string;
   };
+  brand?: string;
+  manufacturer?: string;
+  sku?: string;
+  defaultUnit?: string;
+  purchasePrice?: number;
+  sellingPrice?: number;
+  minStock?: number;
+  reorderPoint?: number;
+  purchaseUnit?: string;
+  storageUnit?: string;
+  usedUnit?: string;
+  supplier?: string;
 }
 
 export default function ProductsPage() {
@@ -61,6 +74,7 @@ export default function ProductsPage() {
   const [clinics, setClinics] = useState<Clinic[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [activeTab, setActiveTab] = useState<'info' | 'logistics' | 'pricing'>('info')
   const [catFilter, setCatFilter] = useState('')
   const [clinicFilter, setClinicFilter] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
@@ -114,16 +128,28 @@ export default function ProductsPage() {
     setModalOpen(true) 
   }
 
-  const openEdit = (r: ProductInventory) => {
+  const openEdit = (r: ProductInventory | any) => {
     setEditing(r)
     setForm({ 
       ...EMPTY,
-      masterProductId: r.id,
+      masterProductId: r.categoryId || '',
       productCode: r.masterCode,
       productName: r.masterName,
       description: r.description || '',
       isActive: r.isActive,
-      image: getProductImage(r)
+      image: getProductImage(r),
+      brand: r.brand || '',
+      manufacturer: r.manufacturer || '',
+      sku: r.sku || '',
+      defaultUnit: r.defaultUnit || 'pcs',
+      purchaseUnit: r.purchaseUnit || 'box',
+      storageUnit: r.storageUnit || 'pcs',
+      usedUnit: r.usedUnit || 'tablet',
+      supplier: r.supplier || '',
+      purchasePrice: r.purchasePrice || 0,
+      sellingPrice: r.sellingPrice || 0,
+      minStock: r.minStock || 0,
+      reorderPoint: r.reorderPoint || 0
     })
     const img = getProductImage(r)
     setImagePreview(img ? process.env.NEXT_PUBLIC_API_URL + img : null)
@@ -165,15 +191,45 @@ export default function ProductsPage() {
     setSaving(true); setError('')
     try {
       const formData = new FormData()
-      Object.entries(form).forEach(([key, value]) => {
-        if (key === 'image') {
-          if (value instanceof File) formData.append('image', value)
-        } else if (key === 'clinicIds') {
-          (value as string[]).forEach(id => formData.append('clinicIds[]', id))
-        } else {
-          formData.append(key, String(value))
-        }
+      
+      // Map form fields to backend expected keys
+      const payload: any = {
+        masterName: form.productName,
+        masterCode: form.productCode,
+        sku: form.sku,
+        categoryId: form.masterProductId,
+        description: form.description,
+        brand: form.brand,
+        manufacturer: form.manufacturer,
+        defaultUnit: form.defaultUnit,
+        purchaseUnit: form.purchaseUnit,
+        storageUnit: form.storageUnit,
+        usedUnit: form.usedUnit,
+        supplier: form.supplier,
+        purchasePrice: form.purchasePrice,
+        sellingPrice: form.sellingPrice,
+        minStock: form.minStock,
+        reorderPoint: form.reorderPoint,
+        isActive: form.isActive
+      }
+
+      Object.entries(payload).forEach(([key, value]) => {
+        formData.append(key, String(value))
       })
+
+      if (form.image instanceof File) {
+        formData.append('image', form.image)
+      }
+
+      if (editing) {
+        await axios.put(`${API}/products/${editing.id}`, formData, { 
+          headers: { ...headers, 'Content-Type': 'multipart/form-data' } 
+        })
+      } else {
+        await axios.post(`${API}/products`, formData, { 
+          headers: { ...headers, 'Content-Type': 'multipart/form-data' } 
+        })
+      }
 
       setModalOpen(false); fetchData()
       toast.success(editing ? 'Master produk diperbarui' : 'Master produk ditambahkan')
@@ -209,49 +265,110 @@ export default function ProductsPage() {
   }
 
   const columns: Column<ProductInventory>[] = [
-    { key: 'image', label: '', width: '50px', render: (r: ProductInventory) => {
+    { key: 'image', label: '', width: '60px', render: (r: ProductInventory) => {
       const img = getProductImage(r)
       const apiBase = process.env.NEXT_PUBLIC_API_URL
       return (
-        <div className="w-12 h-12 rounded-xl bg-gray-50 border border-gray-100 overflow-hidden flex items-center justify-center relative group shadow-sm">
+        <div className="w-14 h-14 rounded-2xl bg-gray-50 border border-gray-100 overflow-hidden flex items-center justify-center relative group shadow-sm transition-all hover:shadow-md">
           {img ? (
             <img 
               src={`${apiBase}${img}`} 
               alt={r.masterName} 
-              className="w-full h-full object-cover transition-transform group-hover:scale-110"
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
               onError={(e) => {
                 (e.target as any).src = "https://placehold.co/100x100?text=No+Image"
               }}
             />
           ) : (
             <div className="flex flex-col items-center justify-center text-gray-300">
-              <FiImage className="w-5 h-5 mb-0.5" />
-              <span className="text-[8px] font-bold uppercase tracking-tighter">No Pic</span>
+              <FiImage className="w-6 h-6 mb-0.5 opacity-50" />
+              <span className="text-[7px] font-black uppercase tracking-tighter opacity-50">NO PIC</span>
             </div>
           )}
           {r.medicine && (
-            <div className="absolute top-0 right-0 p-0.5 bg-red-500 rounded-bl-lg shadow-sm">
+            <div className="absolute top-0 right-0 p-1 bg-red-500 rounded-bl-xl shadow-lg border-b border-l border-white/20">
               <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
             </div>
           )}
         </div>
       )
     }},
-    { key: 'masterName', label: 'Produk & Master Code', width: '450px', render: (r: ProductInventory) => (
-      <div className="flex flex-col py-1">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-[10px] font-black bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md tracking-widest uppercase border border-gray-200">
+    { key: 'masterName', label: 'Detail Produk & Branding', width: '380px', render: (r: ProductInventory) => (
+      <div className="flex flex-col py-1.5">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[9px] font-black bg-white text-primary px-2 py-0.5 rounded-lg tracking-widest uppercase border-2 border-primary/10 shadow-sm">
             {r.masterCode}
           </span>
-          <span className="text-sm font-black text-gray-900 tracking-tight truncate max-w-[400px] uppercase">
-              {r.masterName}
-          </span>
+          <p className="text-sm font-black text-gray-900 tracking-tight leading-tight uppercase">
+            {r.masterName}
+          </p>
         </div>
-        {r.description && <p className="text-[10px] text-gray-500 font-medium italic line-clamp-1">{r.description}</p>}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {r.brand && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Brand:</span>
+              <span className="text-[10px] font-bold text-gray-600">{r.brand}</span>
+            </div>
+          )}
+          {r.manufacturer && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Vendor:</span>
+              <span className="text-[10px] font-bold text-gray-600">{r.manufacturer}</span>
+            </div>
+          )}
+          {(!r.brand && !r.manufacturer) && (
+            <p className="text-[10px] text-gray-400 font-medium italic line-clamp-1">{r.description || 'Tanpa keterangan brand'}</p>
+          )}
+        </div>
       </div>
     )},
-    { key: 'category', label: 'Kategori', mobileHide: true, render: (r: ProductInventory) => <CategoryBadge category={r.productCategory?.categoryName || 'General'} /> },
-    { key: 'isActive', label: 'STATUS', render: (r: ProductInventory) => <StatusBadge active={r.isActive} /> },
+    { key: 'logistics', label: 'Logistik', width: '180px', render: (r: ProductInventory) => (
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2">
+            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Unit:</span>
+            <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md uppercase">{r.defaultUnit || 'pcs'}</span>
+        </div>
+        <div className="flex items-center gap-3">
+            <div className="flex flex-col">
+                <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">Min Stock</span>
+                <span className="text-[11px] font-black text-gray-700">{r.minStock || 0}</span>
+            </div>
+            <div className="w-px h-6 bg-gray-100" />
+            <div className="flex flex-col">
+                <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">Reorder</span>
+                <span className="text-[11px] font-black text-amber-600">{r.reorderPoint || 0}</span>
+            </div>
+        </div>
+      </div>
+    )},
+    { key: 'pricing', label: 'Harga & SKU', width: '220px', render: (r: ProductInventory) => (
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-[8px] font-black bg-gray-900 text-white px-1.5 py-0.5 rounded tracking-widest uppercase">SKU</span>
+            <span className="text-[10px] font-bold text-gray-600 font-mono tracking-tight">{r.sku || 'N/A'}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col">
+                <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">Beli (Est)</span>
+                <span className="text-[11px] font-black text-slate-500">
+                    Rp {new Intl.NumberFormat('id-ID').format(r.purchasePrice || 0)}
+                </span>
+            </div>
+            <div className="flex flex-col">
+                <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">Jual Global</span>
+                <span className="text-[11px] font-black text-emerald-600">
+                    Rp {new Intl.NumberFormat('id-ID').format(r.sellingPrice || 0)}
+                </span>
+            </div>
+        </div>
+      </div>
+    )},
+    { key: 'category', label: 'Kategori', width: '150px', render: (r: ProductInventory) => (
+       <div className="flex items-center gap-2">
+          <CategoryBadge category={r.productCategory?.categoryName || 'General'} />
+       </div>
+    )},
+    { key: 'isActive', label: 'STATUS', width: '100px', render: (r: ProductInventory) => <StatusBadge active={r.isActive} /> },
   ].filter(c => c.key)
 
   return (
@@ -280,48 +397,182 @@ export default function ProductsPage() {
         }
       />
       <MasterModal isOpen={modalOpen} onClose={() => setModalOpen(false)}
-        title={editing ? 'Edit Master Produk' : 'Tambah Master Produk'} size="lg">
-        <div className="space-y-6 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-gray-700 mb-1.5">Nama Produk *</label>
-              <input value={form.productName} onChange={(e) => setForm(p => ({...p, productName: e.target.value}))} placeholder="cth: Paracetamol"
-                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-medium" />
-            </div>
+        title={editing ? 'Edit Master Produk' : 'Tambah Master Produk'} size="xl">
+        <div className="space-y-6 pt-2">
+          {error && (
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+              className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-600">
+              <FiAlertCircle className="w-5 h-5 flex-shrink-0" />
+              <p className="text-xs font-bold uppercase tracking-tight">{error}</p>
+            </motion.div>
+          )}
+          {/* Custom Tabs */}
+          <div className="flex border-b border-gray-100 -mx-6 px-6">
+            <button onClick={() => setActiveTab('info')} className={`pb-4 px-4 text-xs font-bold transition-all border-b-2 ${activeTab === 'info' ? 'border-primary text-primary' : 'border-transparent text-gray-400'}`}>UMUM</button>
+            <button onClick={() => setActiveTab('logistics')} className={`pb-4 px-4 text-xs font-bold transition-all border-b-2 ${activeTab === 'logistics' ? 'border-primary text-primary' : 'border-transparent text-gray-400'}`}>LOGISTIK & SATUAN</button>
+            <button onClick={() => setActiveTab('pricing')} className={`pb-4 px-4 text-xs font-bold transition-all border-b-2 ${activeTab === 'pricing' ? 'border-primary text-primary' : 'border-transparent text-gray-400'}`}>HARGA & STOK</button>
+          </div>
 
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1.5">Kode Master *</label>
-              <input value={form.productCode} onChange={(e) => setForm(p => ({...p, productCode: e.target.value}))} placeholder="cth: PR-001"
-                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-bold uppercase" />
-            </div>
+          <div className="min-h-[350px]">
+            {activeTab === 'info' && (
+              <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Left Column (2 slots) */}
+                  <div className="md:col-span-2 space-y-6">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-wider">Nama Produk *</label>
+                        <input value={form.productName} onChange={(e) => setForm(p => ({...p, productName: e.target.value}))} placeholder="cth: Paracetamol 500mg"
+                          className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-bold" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-wider">Brand / Merek</label>
+                          <input value={form.brand} onChange={(e) => setForm(p => ({...p, brand: e.target.value}))} placeholder="cth: Sanbe"
+                            className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-medium" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-wider">Manufacturer</label>
+                          <input value={form.manufacturer} onChange={(e) => setForm(p => ({...p, manufacturer: e.target.value}))} placeholder="cth: PT Kimia Farma"
+                            className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-medium" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-wider">Kode Master *</label>
+                          <input value={form.productCode} onChange={(e) => setForm(p => ({...p, productCode: e.target.value}))} placeholder="MSTR-001"
+                            className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-black uppercase tracking-widest text-primary bg-primary/5" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-wider">SKU / Barcode</label>
+                          <input value={form.sku} onChange={(e) => setForm(p => ({...p, sku: e.target.value}))} placeholder="Scan Barcode..."
+                            className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-bold text-gray-700" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-            <div className="md:col-span-3">
-              <label className="block text-xs font-bold text-gray-700 mb-1.5">Kategori Produk</label>
-              <select 
-                value={form.masterProductId} // Using this field for categoryId in simplified form or similar
-                onChange={(e) => setForm(p => ({ ...p, masterProductId: e.target.value }))}
-                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary bg-white font-medium"
-              >
-                <option value="">-- Pilih Kategori --</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.categoryName}</option>)}
-              </select>
-            </div>
+                  {/* Right Column (1 slot) */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-wider">Kategori *</label>
+                      <select value={form.masterProductId} onChange={(e) => setForm(p => ({ ...p, masterProductId: e.target.value }))}
+                        className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary bg-white font-bold">
+                        <option value="">-- PILIH --</option>
+                        {categories.map(c => <option key={c.id} value={c.id}>{c.categoryName}</option>)}
+                      </select>
+                    </div>
+                  </div>
 
-            <div className="md:col-span-3">
-              <label className="block text-xs font-bold text-gray-700 mb-1.5">Deskripsi Produk</label>
-              <textarea 
-                value={form.description} 
-                onChange={(e) => setForm(p => ({...p, description: e.target.value}))} 
-                placeholder="Tambahkan info tambahan mengenai produk ini..."
-                className="w-full px-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-medium min-h-[100px]"
-              />
-            </div>
+                  {/* Description (Full width of the internal grid) */}
+                  <div className="md:col-span-3">
+                    <label className="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-wider">Deskripsi Singkat</label>
+                    <textarea value={form.description} onChange={(e) => setForm(p => ({...p, description: e.target.value}))} placeholder="Detail teknis produk..."
+                      className="w-full px-4 py-2.5 text-xs border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-medium min-h-[80px]" />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'logistics' && (
+              <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100">
+                      <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Hierarki Satuan (Logistik)</h4>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-wider">Unit Pembelian (Ex: Box)</label>
+                                <input value={form.purchaseUnit} onChange={(e) => setForm(p => ({...p, purchaseUnit: e.target.value}))}
+                                    className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-bold" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-wider">Unit Penyimpanan (Ex: Pcs)</label>
+                                <input value={form.storageUnit} onChange={(e) => setForm(p => ({...p, storageUnit: e.target.value}))}
+                                    className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-bold" />
+                            </div>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-wider">Unit Penggunaan / Resep (Ex: Tablet / Ml)</label>
+                          <input value={form.usedUnit} onChange={(e) => setForm(p => ({...p, usedUnit: e.target.value}))}
+                              className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-bold text-primary" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10">
+                    <h4 className="text-[10px] font-black text-primary uppercase tracking-widest mb-4">Informasi Tambahan</h4>
+                    <ul className="space-y-3">
+                      <li className="text-xs text-gray-600 flex items-start gap-2">
+                        <div className="w-1 h-1 rounded-full bg-primary mt-1.5" />
+                        <span>Master data ini akan menjadi referensi global untuk seluruh cabang.</span>
+                      </li>
+                      <li className="text-xs text-gray-600 flex items-start gap-2">
+                        <div className="w-1 h-1 rounded-full bg-primary mt-1.5" />
+                        <span>Pastikan kaitan unit antar hierarki sudah sesuai (Beli → Simpan → Pakai).</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'pricing' && (
+              <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="bg-white p-6 rounded-3xl border-2 border-primary/5 shadow-sm space-y-4">
+                    <h4 className="text-[10px] font-black text-primary uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                        Target Harga Global (Est)
+                    </h4>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-wider">Harga Beli Est. (Rp)</label>
+                        <input type="number" value={form.purchasePrice} onChange={(e) => setForm(p => ({ ...p, purchasePrice: parseFloat(e.target.value) || 0 }))}
+                          className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-bold" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-wider">Harga Jual Est. (Rp)</label>
+                        <input type="number" value={form.sellingPrice} onChange={(e) => setForm(p => ({ ...p, sellingPrice: parseFloat(e.target.value) || 0 }))}
+                          className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-bold text-green-600" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 space-y-6">
+                    <div>
+                        <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Ambang Batas Stok</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-500 mb-1.5 uppercase tracking-wider">Minimum Stok</label>
+                            <input type="number" value={form.minStock} onChange={(e) => setForm(p => ({ ...p, minStock: parseInt(e.target.value) || 0 }))}
+                            className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-bold text-red-600" />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-500 mb-1.5 uppercase tracking-wider">Reorder Point</label>
+                            <input type="number" value={form.reorderPoint} onChange={(e) => setForm(p => ({ ...p, reorderPoint: parseInt(e.target.value) || 0 }))}
+                            className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-bold text-blue-600" />
+                        </div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Informasi Pemasok</h4>
+                        <label className="block text-[10px] font-black text-gray-500 mb-1.5 uppercase tracking-wider">Pemasok / Supplier Utama</label>
+                        <input value={form.supplier} onChange={(e) => setForm(p => ({ ...p, supplier: e.target.value }))} placeholder="cth: Kimia Farma"
+                          className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-bold" />
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </div>
 
           <div className="flex gap-3 pt-4 border-t border-gray-100">
-            <button onClick={() => setModalOpen(false)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
-            <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-sm disabled:opacity-60">
-              {saving ? 'Menyimpan...' : (editing ? 'Simpan Perubahan' : 'Tambah Produk')}
+            <button onClick={() => setModalOpen(false)} className="px-8 py-3 border border-gray-200 rounded-2xl text-xs font-black text-gray-400 hover:bg-gray-50 uppercase tracking-widest transition-all">Batal</button>
+            <button onClick={handleSave} disabled={saving} className="flex-1 py-3 bg-primary text-white rounded-2xl text-xs font-black shadow-lg shadow-primary/20 disabled:opacity-60 uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95">
+              {saving ? 'Menyimpan...' : (editing ? 'Update Master Catalog' : 'Daftarkan Master Baru')}
             </button>
           </div>
         </div>

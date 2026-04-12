@@ -646,22 +646,30 @@ export const getMedicines = async (req: Request, res: Response) => {
     const isAdminView = (req as any).isAdminView
 
     const targetClinicId = isAdminView
-      ? (clinicId === 'all' ? undefined : (clinicId ? String(clinicId) : currentClinicId))
+      ? (clinicId === 'all' ? undefined : (clinicId ? String(clinicId) : undefined))
       : currentClinicId
 
     const medicines = await prisma.medicine.findMany({
       where: {
-        ...(targetClinicId ? { clinicId: targetClinicId } : {}),
-        ...(search ? {
-          OR: [
-            { medicineName: { contains: String(search), mode: 'insensitive' } },
-            { genericName: { contains: String(search), mode: 'insensitive' } },
-            { description: { contains: String(search), mode: 'insensitive' } },
-          ]
-        } : {}),
-        ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
+        AND: [
+          ...(targetClinicId ? [{
+            OR: [
+              { clinicId: targetClinicId },
+              { clinicId: null }
+            ]
+          }] : []),
+          ...(search ? [{
+            OR: [
+              { medicineName: { contains: String(search), mode: 'insensitive' } },
+              { genericName: { contains: String(search), mode: 'insensitive' } },
+              { description: { contains: String(search), mode: 'insensitive' } },
+            ]
+          }] : []),
+          ...(isActive !== undefined ? [{ isActive: isActive === 'true' }] : []),
+        ]
       },
       include: { 
+        clinic: true, // Include clinic details for branch column
         productMaster: {
           include: {
             products: {
@@ -882,27 +890,65 @@ export const getProductMasters = async (req: Request, res: Response) => {
 
 export const createProductMaster = async (req: Request, res: Response) => {
   try {
+    const data = { ...req.body }
+    
+    // 1. Handle Image
+    if (req.file) {
+      data.image = `/uploads/${req.file.filename}`
+    }
+
+    // 2. Parse Numbers
+    if (data.purchasePrice) data.purchasePrice = parseFloat(data.purchasePrice)
+    if (data.sellingPrice) data.sellingPrice = parseFloat(data.sellingPrice)
+    if (data.minStock) data.minStock = parseInt(data.minStock)
+    if (data.reorderPoint) data.reorderPoint = parseInt(data.reorderPoint)
+    
+    // 3. Handle Boolean
+    if (data.isActive !== undefined) {
+      data.isActive = data.isActive === 'true' || data.isActive === true
+    }
+
     const product = await prisma.productMaster.create({ 
-      data: req.body,
+      data,
       include: { productCategory: true }
     })
     res.status(201).json(product)
   } catch (e: any) {
-    if (e.code === 'P2002') return res.status(400).json({ message: 'Kode master sudah ada' })
+    console.error('Create Product Master Error:', e)
+    if (e.code === 'P2002') return res.status(400).json({ message: 'Kode master atau SKU sudah ada' })
     res.status(500).json({ message: e.message })
   }
 }
 
 export const updateProductMaster = async (req: Request, res: Response) => {
   try {
+    const data = { ...req.body }
+    
+    // 1. Handle Image
+    if (req.file) {
+      data.image = `/uploads/${req.file.filename}`
+    }
+
+    // 2. Parse Numbers
+    if (data.purchasePrice) data.purchasePrice = parseFloat(data.purchasePrice)
+    if (data.sellingPrice) data.sellingPrice = parseFloat(data.sellingPrice)
+    if (data.minStock) data.minStock = parseInt(data.minStock)
+    if (data.reorderPoint) data.reorderPoint = parseInt(data.reorderPoint)
+
+    // 3. Handle Boolean
+    if (data.isActive !== undefined) {
+      data.isActive = data.isActive === 'true' || data.isActive === true
+    }
+
     const product = await prisma.productMaster.update({ 
       where: { id: req.params.id }, 
-      data: req.body,
+      data,
       include: { productCategory: true }
     })
     res.json(product)
-  } catch (e) {
-    res.status(500).json({ message: (e as Error).message })
+  } catch (e: any) {
+    console.error('Update Product Master Error:', e)
+    res.status(500).json({ message: e.message })
   }
 }
 

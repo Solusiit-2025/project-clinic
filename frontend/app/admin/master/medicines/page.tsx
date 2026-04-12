@@ -281,7 +281,7 @@ export default function MedicinesPage() {
       label: 'Cabang', 
       render: (r) => (
         <div className="flex flex-col">
-            <span className="text-[10px] font-black text-gray-700 uppercase tracking-tight truncate max-w-[100px]">{r.clinic?.name || 'Local'}</span>
+            <span className="text-[10px] font-black text-gray-700 uppercase tracking-tight">{r.clinic?.name || 'Local'}</span>
             <span className="text-[9px] font-bold text-gray-400">{r.clinic?.code || 'BASE'}</span>
         </div>
       )

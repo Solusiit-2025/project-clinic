@@ -76,8 +76,8 @@ masterRoutes.delete('/expense-categories/:id', deleteExpenseCategory)
 
 // Product Master
 masterRoutes.get('/products', getProductMasters)
-masterRoutes.post('/products', createProductMaster)
-masterRoutes.put('/products/:id', updateProductMaster)
+masterRoutes.post('/products', upload.single('image'), createProductMaster)
+masterRoutes.put('/products/:id', upload.single('image'), updateProductMaster)
 masterRoutes.delete('/products/:id', deleteProductMaster)
 
 // Clinics (Branches)
