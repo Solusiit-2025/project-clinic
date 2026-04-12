@@ -64,7 +64,7 @@ export default function FinanceDashboard() {
     if (!token || !activeClinicId) return
     try {
       setLoading(true)
-      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/api'
+      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004') + '/api'
       
       const [invRes, sumRes] = await Promise.all([
         axios.get(`${baseUrl}/finance/invoices`, { 
@@ -98,7 +98,7 @@ export default function FinanceDashboard() {
     if (!selectedInvoice) return
     
     try {
-      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/api'
+      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004') + '/api'
       await axios.post(`${baseUrl}/finance/payments`, {
         invoiceId: selectedInvoice.id,
         amount: paymentData.amount,

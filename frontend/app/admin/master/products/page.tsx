@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
+import toast from 'react-hot-toast'
 import { FiShoppingBag, FiAlertCircle, FiPlus, FiHash, FiImage, FiUpload, FiX, FiCamera } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
 import PageHeader from '@/components/admin/master/PageHeader'
 import MasterModal from '@/components/admin/master/MasterModal'
 import { StatusBadge, CategoryBadge } from '@/components/admin/master/StatusBadge'
+import DeleteConfirmModal from '@/components/admin/master/DeleteConfirmModal'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRef } from 'react'
 
@@ -66,6 +68,9 @@ export default function ProductsPage() {
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<ProductInventory | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   
@@ -170,16 +175,31 @@ export default function ProductsPage() {
         }
       })
 
-      if (editing) await axios.put(`${API}/products/${editing.id}`, formData, { headers })
-      else await axios.post(`${API}/products`, formData, { headers })
       setModalOpen(false); fetchData()
+      toast.success(editing ? 'Master produk diperbarui' : 'Master produk ditambahkan')
     } catch (e: any) { setError(e.response?.data?.message || 'Terjadi kesalahan') }
     finally { setSaving(false) }
   }
 
-  const handleDelete = async (r: ProductInventory) => {
-    if (!confirm(`Hapus master produk "${r.masterName}" secara permanen?`)) return
-    try { await axios.delete(`${API}/products/${r.id}`, { headers }); fetchData() } catch { }
+  const handleDelete = (r: ProductInventory) => {
+    setItemToDelete(r)
+    setDeleteModalOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return
+    setDeleteModalOpen(false)
+    setIsDeleting(true)
+    try { 
+      await axios.delete(`${API}/products/${itemToDelete.id}`, { headers })
+      fetchData() 
+      toast.success('Master produk berhasil dihapus')
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Gagal menghapus master produk')
+    } finally {
+      setIsDeleting(false)
+      setItemToDelete(null)
+    }
   }
 
   const getProductImage = (r: ProductInventory) => {
@@ -306,6 +326,16 @@ export default function ProductsPage() {
           </div>
         </div>
       </MasterModal>
+
+      <DeleteConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        title="Hapus Master Produk"
+        message="Apakah Anda yakin ingin menghapus produk ini secara permanen dari seluruh katalog?"
+        itemName={itemToDelete?.masterName}
+        loading={isDeleting}
+      />
     </div>
   )
 }

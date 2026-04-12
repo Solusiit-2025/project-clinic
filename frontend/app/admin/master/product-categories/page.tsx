@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import axios from 'axios'
+import toast from 'react-hot-toast'
 import { FiTag, FiAlertCircle, FiPackage } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
 import PageHeader from '@/components/admin/master/PageHeader'
 import MasterModal from '@/components/admin/master/MasterModal'
+import DeleteConfirmModal from '@/components/admin/master/DeleteConfirmModal'
 
 const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
 const EMPTY = { categoryName: '', description: '', isActive: true }
@@ -27,6 +29,9 @@ export default function ProductCategoriesPage() {
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<ProductCategory | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
 
   const fetchData = useCallback(async () => {
@@ -53,13 +58,31 @@ export default function ProductCategoriesPage() {
       if (editing) await axios.put(`${API}/product-categories/${editing.id}`, form, { headers })
       else await axios.post(`${API}/product-categories`, form, { headers })
       setModalOpen(false); fetchData()
+      toast.success(editing ? 'Kategori diperbarui' : 'Kategori baru ditambahkan')
     } catch (e: any) { setError(e.response?.data?.message || 'Terjadi kesalahan') }
     finally { setSaving(false) }
   }
 
-  const handleDelete = async (r: ProductCategory) => {
-    if (!confirm(`Hapus kategori "${r.categoryName}"?`)) return
-    try { await axios.delete(`${API}/product-categories/${r.id}`, { headers }); fetchData() } catch { }
+  const handleDelete = (r: ProductCategory) => {
+    setItemToDelete(r)
+    setDeleteModalOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return
+    setDeleteModalOpen(false)
+    setIsDeleting(true)
+    try { 
+      await axios.delete(`${API}/product-categories/${itemToDelete.id}`, { headers })
+      fetchData() 
+      toast.success('Kategori berhasil dihapus')
+    } catch (e: any) {
+      const msg = e.response?.data?.message || 'Gagal menghapus kategori'
+      toast.error(msg)
+    } finally {
+      setIsDeleting(false)
+      setItemToDelete(null)
+    }
   }
 
   const columns: Column<ProductCategory>[] = [
@@ -119,6 +142,16 @@ export default function ProductCategoriesPage() {
           </div>
         </div>
       </MasterModal>
+
+      <DeleteConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        title="Hapus Kategori Produk"
+        message="Apakah Anda yakin ingin menghapus kategori ini secara permanen?"
+        itemName={itemToDelete?.categoryName}
+        loading={isDeleting}
+      />
     </div>
   )
 }

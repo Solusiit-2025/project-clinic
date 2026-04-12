@@ -356,13 +356,11 @@ export default function PatientDetailPage() {
                         
                         {/* Additional Notes */}
                         {record.notes && (
-                           <div className="pt-2">
+                           <div className="pt-6">
                              <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1">Catatan Tambahan:</p>
                              <p className="text-xs text-gray-400 font-medium italic">"{record.notes}"</p>
                            </div>
                         )}
-                      </div>
-                    </div>
                   </div>
                 </motion.div>
               ))

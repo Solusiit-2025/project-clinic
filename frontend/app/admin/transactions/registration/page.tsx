@@ -30,7 +30,7 @@ interface Doctor {
   id: string
   name: string
   specialization: string
-  department: { name: string } | null
+  departments: { id: string; name: string }[]
 }
 
 interface Department {
@@ -326,7 +326,7 @@ export default function RegistrationPage() {
                     >
                       <option value="">Pilih Dokter</option>
                       {doctors
-                        .filter(d => !selectedDeptId || d.department?.name === departments.find(dep => dep.id === selectedDeptId)?.name)
+                        .filter(d => !selectedDeptId || d.departments?.some(dept => dept.id === selectedDeptId))
                         .map(d => <option key={d.id} value={d.id}>{d.name}</option>)
                       }
                     </select>

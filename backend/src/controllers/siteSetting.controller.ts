@@ -47,7 +47,7 @@ export class SiteSettingController {
         id: req.file.filename,
         url: videoPath,
         name: req.file.originalname,
-        uploadedAt: new Date()
+        uploadedAt: new Date().toISOString()
       });
 
       const updated = await siteSettingService.updateSetting(key, videos, 'Videos for waiting room monitor');

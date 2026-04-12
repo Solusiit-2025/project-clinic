@@ -22,7 +22,7 @@ export default function AdminNavbar() {
     if (path.startsWith('http')) return path
     
     // Get base URL for files. Always target the 127.0.0.1 IPv4 to avoid Windows localhost issues.
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000'
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5004'
     const baseUrl = apiBase.split('/api')[0].replace(/\/$/, '')
     
     // Ensure path covers the full relativity

@@ -180,7 +180,7 @@ export const createRegistration = async (req: Request, res: Response) => {
  */
 export const getQueues = async (req: Request, res: Response) => {
   try {
-    const { clinicId, date } = req.query
+    const { clinicId, date, doctorId: filterDoctorId, departmentId: filterDepartmentId } = req.query
     const currentClinicId = (req as any).clinicId
     const isAdminView = (req as any).isAdminView
 
@@ -190,13 +190,21 @@ export const getQueues = async (req: Request, res: Response) => {
     nextDay.setDate(targetDate.getDate() + 1)
 
     // Determine target clinic
+    // 1. Admin/Main branch view can filter by clinicId query param or see all
+    // 2. Regular user uses their assigned currentClinicId
+    // 3. Public Monitor (unauthenticated) uses clinicId from query param
     const finalClinicId = isAdminView 
        ? (clinicId ? String(clinicId) : undefined)
-       : currentClinicId
+       : (currentClinicId || (clinicId ? String(clinicId) : undefined))
 
     const user = (req as any).user
     const isDoctor = user?.role === 'DOCTOR'
     const doctorId = user?.doctor?.id
+
+    // Build doctor filter: explicit query param > role-based auto-filter
+    const effectiveDoctorFilter = filterDoctorId 
+      ? String(filterDoctorId)
+      : (isDoctor && !isAdminView && doctorId ? doctorId : undefined)
 
     const queues = await prisma.queueNumber.findMany({
       where: {
@@ -205,8 +213,10 @@ export const getQueues = async (req: Request, res: Response) => {
           gte: targetDate,
           lt: nextDay
         },
-        // STRICT Doctor filter: Only see patients assigned to THIS doctor
-        ...(isDoctor && !isAdminView && doctorId ? { doctorId } : {})
+        // Doctor filter: from query param OR from logged-in doctor's role
+        ...(effectiveDoctorFilter ? { doctorId: effectiveDoctorFilter } : {}),
+        // Department filter: from query param
+        ...(filterDepartmentId ? { departmentId: String(filterDepartmentId) } : {})
       },
       include: {
         patient: {

@@ -21,6 +21,8 @@ interface Queue {
   queueNo: string
   status: 'waiting' | 'called' | 'triage' | 'ready' | 'ongoing' | 'completed' | 'no-show'
   actualCallTime: string | null
+  doctorId: string | null
+  departmentId: string | null
   patient: { name: string; medicalRecordNo: string; gender: string }
   doctor: { name: string; specialization: string } | null
   department: { name: string } | null
@@ -148,15 +150,48 @@ export default function QueueDashboard() {
           <p className="text-sm text-gray-500 font-medium">Monitoring Pasien Aktif - {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
         </div>
         <div className="flex items-center gap-3">
-          {/* MONITOR LINK BUTTON */}
-          <Link 
-            href={`/display/queue${activeClinicCode ? `?clinic=${activeClinicCode}` : ''}`}
-            target="_blank"
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-100 rounded-xl text-slate-600 hover:text-primary hover:border-primary/20 transition-all shadow-sm group"
-          >
-            <FiMonitor className="w-4 h-4 group-hover:scale-110 transition-transform" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Buka Monitor</span>
-          </Link>
+          {/* MONITOR LINK BUTTONS */}
+          <div className="relative group">
+            <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-100 rounded-xl text-slate-600 hover:text-primary hover:border-primary/20 transition-all shadow-sm">
+              <FiMonitor className="w-4 h-4 group-hover:scale-110 transition-transform" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Buka Monitor</span>
+            </button>
+            <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-gray-100 rounded-2xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 overflow-hidden">
+              <div className="p-2 space-y-1">
+                <Link 
+                  href={`/display/queue${activeClinicCode ? `?clinic=${activeClinicCode}` : ''}`}
+                  target="_blank"
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 transition-all group/item"
+                >
+                  <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary flex-shrink-0">
+                    <FiMonitor className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-gray-900 uppercase tracking-widest">Semua Antrian</p>
+                    <p className="text-[9px] text-gray-400 font-medium">Monitor ruang tunggu pusat</p>
+                  </div>
+                </Link>
+                {Array.from(
+                  new Map(queues.filter(q => q.doctor && q.doctorId).map(q => [q.doctorId!, { id: q.doctorId!, name: q.doctor!.name, dept: q.department?.name }])).values()
+                ).map((doc: any) => (
+                  <Link
+                    key={doc.id}
+                    href={`/display/queue${activeClinicCode ? `?clinic=${activeClinicCode}` : '?'}${doc.id ? `&doctor=${doc.id}` : ''}`}
+                    target="_blank"
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-indigo-50 transition-all"
+                  >
+                    <div className="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-500 flex-shrink-0 text-[10px] font-black">
+                      {doc.name.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-gray-900 uppercase tracking-widest">{doc.name}</p>
+                      {doc.dept && <p className="text-[9px] text-gray-400 font-medium">{doc.dept}</p>}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
 
           <button onClick={fetchQueues} className="p-2.5 bg-white border border-gray-100 rounded-xl text-gray-400 hover:text-primary transition-all shadow-sm">
             <FiRefreshCw className={loading ? 'animate-spin' : ''} />

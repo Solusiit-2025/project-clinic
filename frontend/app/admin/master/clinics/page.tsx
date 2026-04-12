@@ -9,7 +9,7 @@ import PageHeader from '@/components/admin/master/PageHeader'
 import MasterModal from '@/components/admin/master/MasterModal'
 import { StatusBadge } from '@/components/admin/master/StatusBadge'
 
-const API = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/api/master/clinics'
+const API = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004') + '/api/master/clinics'
 const EMPTY = { name: '', code: '', address: '', phone: '', email: '', isActive: true, isMain: false }
 
 type Clinic = {

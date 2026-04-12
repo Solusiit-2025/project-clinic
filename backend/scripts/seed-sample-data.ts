@@ -51,7 +51,9 @@ async function main() {
             phone: doctorUser.phone || '000000000',
             licenseNumber: 'SIP/2026/001',
             specialization: 'Dokter Umum',
-            departmentId: createdDepts[0].id,
+            departments: {
+              connect: { id: createdDepts[0].id }
+            },
             isActive: true
           }
         })

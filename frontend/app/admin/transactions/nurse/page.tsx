@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   FiActivity, FiUsers, FiClock, FiCheckCircle, 
   FiVolume2, FiArrowRight, FiRefreshCw, FiUser, 
-  FiHome, FiAlertCircle, FiClipboard, FiHeart, FiThermometer, FiWind
+  FiHome, FiAlertCircle, FiClipboard, FiHeart, FiThermometer, FiWind,
+  FiFilter
 } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import MasterModal from '@/components/admin/master/MasterModal'
@@ -49,6 +50,9 @@ export default function NurseStation() {
     }
   })
   const [saving, setSaving] = useState(false)
+  const [isSoundEnabled, setIsSoundEnabled] = useState(false)
+  const [toast, setToast] = useState<{ queueNo: string; name: string } | null>(null)
+  const [filterDoctorId, setFilterDoctorId] = useState<string>('all')
 
   const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
 
@@ -76,14 +80,18 @@ export default function NurseStation() {
 
   const handleCallPatient = async (q: Queue) => {
     try {
-      // Update status to 'called' if it's currently 'waiting'
-      if (q.status === 'waiting') {
-        await axios.patch(`${API}/queues/${q.id}/status`, { status: 'called' }, { headers })
-        fetchQueues()
-      }
+      // Always notify backend to increment callCounter (triggers Monitor Voice/Overlay)
+      await axios.patch(`${API}/queues/${q.id}/status`, { status: 'called' }, { headers })
+      fetchQueues()
       
-      // Announce the patient
-      announceQueue(q.queueNo, q.patient.name, 'Ruang Pra Pemeriksaan')
+      // Trigger Toast
+      setToast({ queueNo: q.queueNo, name: q.patient.name })
+      setTimeout(() => setToast(null), 5000)
+
+      // Local audio feedback (Nurse's computer) - Check if enabled
+      if (isSoundEnabled) {
+        announceQueue(q.queueNo, q.patient.name, 'Ruang Pra Pemeriksaan')
+      }
     } catch (err) {
       console.error('Failed to call patient', err)
       alert('Gagal memanggil pasien')
@@ -194,13 +202,88 @@ export default function NurseStation() {
           </h1>
           <p className="text-sm text-gray-500 font-medium mt-1">Pemeriksaan Tanda Vital & Keluhan Awal Pasien</p>
         </div>
-        <button onClick={fetchQueues} className="p-2.5 bg-white border border-gray-100 rounded-xl text-gray-400 hover:text-primary transition-all shadow-sm self-start">
-          <FiRefreshCw className={loading ? 'animate-spin' : ''} />
-        </button>
+        <div className="flex items-center gap-3 self-start">
+          {/* SOUND TOGGLE */}
+          <button 
+            onClick={() => setIsSoundEnabled(!isSoundEnabled)}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all ${
+              isSoundEnabled 
+              ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-[1.02]' 
+              : 'bg-white text-gray-400 border-gray-100 shadow-sm opacity-60'
+            }`}
+          >
+            <FiVolume2 className={`w-4 h-4 ${isSoundEnabled ? 'animate-pulse' : ''}`} />
+            <span className="text-[10px] font-black uppercase tracking-widest">{isSoundEnabled ? 'Suara Aktif' : 'Suara Mati'}</span>
+          </button>
+
+          <button onClick={fetchQueues} className="p-2.5 bg-white border border-gray-100 rounded-xl text-gray-400 hover:text-primary transition-all shadow-sm">
+            <FiRefreshCw className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
+      {/* FILTER BAR */}
+      <div className="flex items-center gap-3 mb-6 flex-wrap">
+        <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          <FiFilter className="w-3.5 h-3.5" /> Filter Dokter:
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setFilterDoctorId('all')}
+            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+              filterDoctorId === 'all'
+                ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20'
+                : 'bg-white text-gray-400 border-gray-100 hover:border-primary/30 hover:text-primary'
+            }`}
+          >
+            Semua Dokter
+          </button>
+          {Array.from(
+            new Map(queues.filter(q => q.doctor).map(q => [q.doctor!.name, q.doctorId])).entries()
+          ).map(([name, id]) => (
+            <button
+              key={id}
+              onClick={() => setFilterDoctorId(id || 'all')}
+              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                filterDoctorId === id
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-200'
+                  : 'bg-white text-gray-500 border-gray-100 hover:border-indigo-200 hover:text-indigo-600'
+              }`}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* TOP-CENTER TOAST: Calling Notification */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ y: -100, opacity: 0, scale: 0.9 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: -100, opacity: 0, scale: 0.9 }}
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-[999] min-w-[320px]"
+          >
+            <div className="bg-primary text-white rounded-2xl shadow-2xl shadow-primary/40 px-6 py-4 flex items-center gap-4">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                <FiVolume2 className="w-5 h-5 animate-pulse" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-widest opacity-70 mb-0.5">Pemanggilan</p>
+                <p className="text-lg font-black uppercase leading-tight truncate">
+                  {toast.queueNo} — {toast.name}
+                </p>
+              </div>
+              <button onClick={() => setToast(null)} className="text-xs font-black opacity-60 hover:opacity-100 transition-opacity">✕</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+
       <div className="grid grid-cols-1 gap-4 max-w-4xl">
-        {queues.map((q, i) => (
+        {queues.filter(q => filterDoctorId === 'all' || q.doctorId === filterDoctorId).map((q, i) => (
           <motion.div 
             key={q.id}
             initial={{ opacity: 0, y: 10 }}

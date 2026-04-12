@@ -1,15 +1,15 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import api from '@/lib/api'
+import axios from 'axios'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   FiActivity, FiUsers, FiClock, FiVolume2, 
   FiUser, FiInfo, FiMonitor, FiPlayCircle, FiPackage,
   FiPlay, FiPause
 } from 'react-icons/fi'
-import { useAuthStore } from '@/lib/store/useAuthStore'
 import { announceQueue } from '@/lib/utils/speech'
 
 // Helper to get the actual Root URL for files (e.g., http://localhost:5000)
@@ -27,6 +27,7 @@ interface Queue {
   doctor: { name: string } | null
   department: { name: string } | null
   hasMedicalRecord: boolean
+  callCounter?: number
 }
 
 interface DisplayVideo {
@@ -35,9 +36,9 @@ interface DisplayVideo {
   name: string
 }
 
-export default function DisplayQueue() {
+function DisplayQueueContent() {
   const searchParams = useSearchParams()
-  const { activeClinicId, setActiveClinicId } = useAuthStore()
+  const [localClinicId, setLocalClinicId] = useState<string | null>(null)
   const [queues, setQueues] = useState<Queue[]>([])
   const [clinicName, setClinicName] = useState<string>('')
   const [clinicAddress, setClinicAddress] = useState<string>('')
@@ -53,6 +54,9 @@ export default function DisplayQueue() {
   const [carouselIndex, setCarouselIndex] = useState(0)
   const [activeCallingPatient, setActiveCallingPatient] = useState<Queue | null>(null)
   const [isPaused, setIsPaused] = useState(false)
+  const [filterDoctorId, setFilterDoctorId] = useState<string | null>(null)
+  const [filterDeptId, setFilterDeptId] = useState<string | null>(null)
+  const [filterLabel, setFilterLabel] = useState<string>('')
   
   const videoRef = useRef<HTMLVideoElement>(null)
   const overlayTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -67,12 +71,13 @@ export default function DisplayQueue() {
   }, [])
 
   const fetchData = useCallback(async () => {
-    let clinicId = activeClinicId
+    let clinicId = localClinicId
     
     // 1. Resolve clinic from URL param -> localStorage cache -> first active clinic
     if (!clinicId) {
       try {
-        const { data: clinics } = await api.get('public/clinics')
+        const publicApi = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004'}/api/public`
+        const { data: clinics } = await axios.get(`${publicApi}/clinics`)
         if (!clinics?.length) { setIsSyncing(false); return }
 
         // Priority 1: URL query param ?clinic=KLN-001 (most explicit, per-branch URL)
@@ -84,17 +89,23 @@ export default function DisplayQueue() {
             setClinicName(matched.name)
             setClinicAddress(matched.address || '')
             if (clinicId) {
-              setActiveClinicId(clinicId)
-              localStorage.setItem('monitor_clinic_id', clinicId)
+              setLocalClinicId(clinicId)
+              localStorage.setItem('monitor_standalone_clinic_id', clinicId)
             }
             localStorage.setItem('monitor_clinic_name', matched.name)
             localStorage.setItem('monitor_clinic_address', matched.address || '')
           }
         }
 
-        // Priority 2: Cached clinic from localStorage (persists across refreshes)
+        // Read doctor and department filter from URL
+        const urlDoctorId = searchParams.get('doctor')
+        const urlDeptId = searchParams.get('department')
+        if (urlDoctorId) setFilterDoctorId(urlDoctorId)
+        if (urlDeptId) setFilterDeptId(urlDeptId)
+
+        // Priority 2: Standalone monitor cache (prevents dashboard interference)
         if (!clinicId) {
-          const cached = localStorage.getItem('monitor_clinic_id')
+          const cached = localStorage.getItem('monitor_standalone_clinic_id')
           const cachedName = localStorage.getItem('monitor_clinic_name')
           const cachedAddress = localStorage.getItem('monitor_clinic_address')
           // Verify the cached clinic still exists in the DB
@@ -102,9 +113,7 @@ export default function DisplayQueue() {
             clinicId = cached
             setClinicName(cachedName || '')
             setClinicAddress(cachedAddress || '')
-            if (clinicId) {
-              setActiveClinicId(clinicId)
-            }
+            setLocalClinicId(clinicId)
           }
         }
 
@@ -116,8 +125,8 @@ export default function DisplayQueue() {
             setClinicName(active[0].name)
             setClinicAddress(active[0].address || '')
             if (clinicId) {
-              setActiveClinicId(clinicId)
-              localStorage.setItem('monitor_clinic_id', clinicId)
+              setLocalClinicId(clinicId)
+              localStorage.setItem('monitor_standalone_clinic_id', clinicId)
             }
             localStorage.setItem('monitor_clinic_name', active[0].name)
             localStorage.setItem('monitor_clinic_address', active[0].address || '')
@@ -127,7 +136,7 @@ export default function DisplayQueue() {
             clinicId = clinics[0].id
             setClinicName(clinics[0].name)
             setClinicAddress(clinics[0].address || '')
-            if (clinicId) { setActiveClinicId(clinicId); }
+            if (clinicId) { setLocalClinicId(clinicId); }
           }
         }
       } catch (e: any) {
@@ -141,14 +150,34 @@ export default function DisplayQueue() {
     }
 
     try {
-      // 2. Fetch Queues from Public Gateway
-      const { data: queueData } = await api.get('public/queues', { 
-        params: { clinicId } 
+      // 2. Fetch Queues from Public Gateway - Use raw axios to avoid global interceptor 403/401
+      const publicApi = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004'}/api/public`
+      const { data: queueData } = await axios.get(`${publicApi}/queues`, { 
+        params: { 
+          clinicId,
+          ...(filterDoctorId ? { doctorId: filterDoctorId } : {}),
+          ...(filterDeptId ? { departmentId: filterDeptId } : {})
+        } 
       })
       setQueues(queueData)
 
+      // Build filter label from first queue's doctor/department for header display
+      if ((filterDoctorId || filterDeptId) && queueData.length > 0) {
+        const parts: string[] = []
+        if (filterDoctorId && queueData[0]?.doctor?.name) {
+          parts.push(queueData[0].doctor.name)
+        }
+        if (filterDeptId && queueData[0]?.department?.name) {
+          parts.push(queueData[0].department.name)
+        }
+        setFilterLabel(parts.join(' — '))
+      } else if (filterDoctorId || filterDeptId) {
+        // No queues yet but filter is active, try to keep existing label
+        setFilterLabel(prev => prev || 'Filter Aktif')
+      }
+
       // 3. Fetch Settings from Public Gateway
-      const { data: settingsData } = await api.get('public/settings')
+      const { data: settingsData } = await axios.get(`${publicApi}/settings`)
       
       const videoSetting = settingsData.find((s: any) => s.key === 'display_videos')
       if (videoSetting && Array.isArray(videoSetting.value)) {
@@ -157,18 +186,18 @@ export default function DisplayQueue() {
 
       const volumeSetting = settingsData.find((s: any) => s.key === 'monitor_video_volume')
       if (volumeSetting) {
-        setConfigVolume(Number(volumeSetting.value))
+        const newVol = Number(volumeSetting.value)
+        setConfigVolume(prev => prev !== newVol ? newVol : prev)
       }
     } catch (e: any) {
       console.error('Data Sync Error:', e.response?.data || e.message)
     } finally {
       setIsSyncing(false)
     }
-  }, [activeClinicId, setActiveClinicId])
+  }, [localClinicId, filterDoctorId, filterDeptId, searchParams]) // Isolated dependencies
 
   // Real-time polling (5s)
   useEffect(() => {
-    console.log('Polling data...')
     fetchData()
     const interval = setInterval(fetchData, 5000)
     return () => clearInterval(interval)
@@ -181,52 +210,52 @@ export default function DisplayQueue() {
     setCurrentVideoIdx((prev) => (prev + 1) % videos.length)
   }
 
-  // ✅ Master Video Controller - Direct src injection (most reliable cross-browser approach)
+  // 🎬 CORE VIDEO PLAYER - Only handles Source Switching (the "heavy" part)
   useEffect(() => {
     if (!isStarted || !videoRef.current || videos.length === 0) return
     const video = videoRef.current
     const targetUrl = `${getBaseUrl()}${videos[currentVideoIdx]?.url}`
     
-    video.pause()
-    video.src = targetUrl
-    video.load()
-    video.volume = configVolume / 100
-    video.muted = isVideoMuted
-    
-    if (!isPaused) {
-      video.play().catch(e => console.log('Video play blocked:', e))
-    } else {
+    // IMPORTANT: Only update src and load if fundamentally different (prevents polling interference)
+    if (video.src !== targetUrl) {
+      console.log(`[Monitor] Loading next video: ${targetUrl}`)
       video.pause()
-    }
-    
-    console.log(`[Monitor] Playing video ${currentVideoIdx + 1}/${videos.length}: ${targetUrl}`)
-  }, [currentVideoIdx, isStarted, videos])
-
-  // Audio Ducking + Video Resume
-  useEffect(() => {
-    if (!isStarted) return
-    if (showCallingOverlay) {
-      // Mute video during announcement
-      setIsVideoMuted(true)
-      if (videoRef.current) videoRef.current.pause()
-    } else {
-      // Resume video after overlay closes
-      setIsVideoMuted(false)
-      if (videoRef.current && videos.length > 0 && !isPaused) {
-        videoRef.current.muted = false
-        videoRef.current.volume = configVolume / 100
-        videoRef.current.play().catch(e => console.log('Resume play blocked:', e))
+      video.src = targetUrl
+      video.load() // .load() is heavy, only call when source changes
+      
+      if (!isPaused && !showCallingOverlay) {
+        video.play().catch(e => console.log('Video play failed:', e))
       }
     }
-  }, [showCallingOverlay, isStarted])
+  }, [currentVideoIdx, isStarted, videos])
 
-  // Apply Configuration Volume
+  // 🔊 PROPERTY SYNC - Handles volume, mute, play/pause (the "light" part)
   useEffect(() => {
-    if (videoRef.current) {
-      // Set volume whenever config changes OR when we unmute
-      videoRef.current.volume = configVolume / 100
+    if (!videoRef.current || !isStarted) return
+    const video = videoRef.current
+
+    // Sync non-destructive properties
+    video.volume = configVolume / 100
+    video.muted = isVideoMuted
+
+    // Play/Pause Control (without reloading)
+    if (isPaused || showCallingOverlay) {
+        if (!video.paused) video.pause()
+    } else {
+        if (video.paused && video.src) {
+           video.play().catch(e => {
+             console.log('[Monitor] Autoplay play() failed:', e)
+           })
+        }
     }
-  }, [configVolume, isVideoMuted])
+  }, [configVolume, isVideoMuted, isPaused, showCallingOverlay, isStarted])
+
+  // 🔄 MUTE CONTROL - Automatically toggle mute when calling patient
+  useEffect(() => {
+    if (isStarted) {
+      setIsVideoMuted(showCallingOverlay)
+    }
+  }, [showCallingOverlay, isStarted])
 
   // Automated Vocal Announcement & Overlay Control (Manual Signal Detection)
   useEffect(() => {
@@ -269,7 +298,6 @@ export default function DisplayQueue() {
       }, 15000)
     }
   }, [queues, isStarted])
-  // REMOVED: Status-based auto trigger logic
 
   // Data Filtering for 3 Zones (Refined based on user feedback)
   const ongoingPasien = queues.filter(q => q.status === 'ongoing').slice(0, 5)
@@ -288,10 +316,7 @@ export default function DisplayQueue() {
   const startIdx = carouselIndex * 5
   const currentNextBatch = nextPasien.slice(startIdx, startIdx + 5)
   
-  // Find the single patient to show on overlay
-  // Data Filtering for 3 Zones (Refined based on user feedback)
-
-  // Carousel Rotation Timer (8s) - MOVED HERE to fix ReferenceError
+  // Carousel Rotation Timer (8s)
   useEffect(() => {
     if (nextPasien.length <= 5) {
       setCarouselIndex(0)
@@ -306,7 +331,7 @@ export default function DisplayQueue() {
     return () => clearInterval(timer)
   }, [nextPasien.length])
 
-  if (!activeClinicId && !isSyncing) return (
+  if (!localClinicId && !isSyncing) return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8 text-center space-y-6">
        <div className="w-24 h-24 bg-red-100 rounded-[2.5rem] flex items-center justify-center border border-red-200 shadow-inner">
           <FiInfo className="w-12 h-12 text-red-500" />
@@ -342,6 +367,7 @@ export default function DisplayQueue() {
                <button 
                 onClick={() => {
                   setIsStarted(true)
+                  setIsVideoMuted(false)
                   announceQueue('', 'Monitor Ruang Tunggu Aktif', '')
                 }}
                 className="group relative px-12 py-6 bg-primary text-white rounded-[2.5rem] font-black uppercase tracking-widest text-sm hover:scale-[1.02] transition-all shadow-2xl shadow-primary/30 active:scale-95 flex items-center gap-4 mx-auto"
@@ -378,7 +404,17 @@ export default function DisplayQueue() {
                      <p className="text-[10px] font-medium text-slate-400 mt-0.5 max-w-[220px] truncate">{clinicAddress}</p>
                    )}
                  </div>
-               </>
+                 {/* Doctor/Department Filter Indicator */}
+                 {filterLabel && (
+                   <>
+                     <div className="w-px h-10 bg-slate-200" />
+                     <div className="bg-indigo-50 border border-indigo-100 px-5 py-2.5 rounded-2xl">
+                       <p className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.3em] mb-0.5">Monitor Ruangan</p>
+                       <p className="text-[13px] font-black text-indigo-700 uppercase tracking-tight leading-tight">{filterLabel}</p>
+                     </div>
+                   </>
+                 )}
+              </>
              )}
           </div>
 
@@ -680,9 +716,15 @@ export default function DisplayQueue() {
   )
 }
 
-
-
-
-
-
-
+export default function DisplayQueue() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8 text-center space-y-6">
+        <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Menyiapkan Layar Antrian...</p>
+      </div>
+    }>
+      <DisplayQueueContent />
+    </Suspense>
+  )
+}

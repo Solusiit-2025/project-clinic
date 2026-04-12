@@ -280,7 +280,7 @@ export const getDoctors = async (req: Request, res: Response) => {
     const doctors = await prisma.doctor.findMany({
       where: {
         ...(targetClinicId ? { 
-          department: { clinicId: targetClinicId }
+          departments: { some: { clinicId: targetClinicId } }
         } : {}),
         ...(search ? {
           OR: [
@@ -290,11 +290,11 @@ export const getDoctors = async (req: Request, res: Response) => {
           ]
         } : {}),
         ...(specialization ? { specialization: { contains: String(specialization), mode: 'insensitive' } } : {}),
-        ...(departmentId ? { departmentId: String(departmentId) } : {}),
+        ...(departmentId ? { departments: { some: { id: String(departmentId) } } } : {}),
         ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
       },
       include: {
-        department: { include: { clinic: true } },
+        departments: { include: { clinic: true } },
         user: { select: { id: true, username: true } }
       },
       orderBy: { name: 'asc' },
@@ -325,21 +325,37 @@ const processDoctorPhoto = async (file: Express.Multer.File): Promise<string> =>
 
 export const createDoctor = async (req: Request, res: Response) => {
   try {
-    const { userId, licenseNumber, name, email, phone, specialization, departmentId, bio, yearsOfExperience, isActive, queueCode } = req.body
+    const { userId, licenseNumber, name, email, phone, specialization, departmentIds, clinicIds, bio, yearsOfExperience, isActive, queueCode } = req.body
     
     let profilePicture = null
     if (req.file) {
       profilePicture = await processDoctorPhoto(req.file)
     }
 
+    const deptIds = Array.isArray(departmentIds) ? departmentIds : (departmentIds ? JSON.parse(departmentIds) : [])
+    const cIds = Array.isArray(clinicIds) ? clinicIds : (clinicIds ? JSON.parse(clinicIds) : [])
+
     const doctor = await prisma.doctor.create({ 
       data: { 
-        userId, licenseNumber, name, email, phone, specialization, departmentId, bio, profilePicture,
+        userId, licenseNumber, name, email, phone, specialization, bio, profilePicture,
         yearsOfExperience: yearsOfExperience ? Number(yearsOfExperience) : undefined, 
         isActive: isActive === 'true' || isActive === true,
-        queueCode
+        queueCode,
+        departments: {
+          connect: deptIds.map((id: string) => ({ id }))
+        }
       } 
     })
+
+    // Sync UserClinic
+    if (cIds.length > 0) {
+      await prisma.userClinic.deleteMany({ where: { userId } })
+      await prisma.userClinic.createMany({
+        data: cIds.map((cid: string) => ({ userId, clinicId: cid })),
+        skipDuplicates: true
+      })
+    }
+
     res.status(201).json(doctor)
   } catch (e: any) {
     if (e.code === 'P2002') return res.status(400).json({ message: 'Nomor SIP atau email dokter sudah terdaftar' })
@@ -350,10 +366,10 @@ export const createDoctor = async (req: Request, res: Response) => {
 export const updateDoctor = async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { licenseNumber, name, email, phone, specialization, departmentId, bio, yearsOfExperience, isActive, queueCode } = req.body
+    const { licenseNumber, name, email, phone, specialization, departmentIds, clinicIds, bio, yearsOfExperience, isActive, queueCode } = req.body
     
     let updateData: any = { 
-      licenseNumber, name, email, phone, specialization, departmentId, bio, 
+      licenseNumber, name, email, phone, specialization, bio, 
       yearsOfExperience: yearsOfExperience ? Number(yearsOfExperience) : undefined, 
       isActive: isActive === 'true' || isActive === true,
       queueCode
@@ -363,10 +379,29 @@ export const updateDoctor = async (req: Request, res: Response) => {
       updateData.profilePicture = await processDoctorPhoto(req.file)
     }
 
+    const deptIds = Array.isArray(departmentIds) ? departmentIds : (departmentIds ? JSON.parse(departmentIds) : [])
+    const cIds = Array.isArray(clinicIds) ? clinicIds : (clinicIds ? JSON.parse(clinicIds) : [])
+
+    if (deptIds.length > 0 || Array.isArray(departmentIds)) {
+      updateData.departments = {
+        set: deptIds.map((id: string) => ({ id }))
+      }
+    }
+
     const doctor = await prisma.doctor.update({ 
       where: { id }, 
       data: updateData 
     })
+
+    // Sync UserClinic
+    if (cIds.length > 0 || Array.isArray(clinicIds)) {
+      await prisma.userClinic.deleteMany({ where: { userId: doctor.userId } })
+      await prisma.userClinic.createMany({
+        data: cIds.map((cid: string) => ({ userId: doctor.userId, clinicId: cid })),
+        skipDuplicates: true
+      })
+    }
+
     res.json(doctor)
   } catch (e: any) {
     res.status(500).json({ message: (e as Error).message })
@@ -1173,7 +1208,20 @@ export const updateProductCategory = async (req: Request, res: Response) => {
 
 export const deleteProductCategory = async (req: Request, res: Response) => {
   try {
-    await prisma.productCategory.delete({ where: { id: req.params.id } })
+    const { id } = req.params
+
+    // 1. Safety Check: Is it being used by any products?
+    const productCount = await prisma.productMaster.count({
+      where: { categoryId: id }
+    })
+
+    if (productCount > 0) {
+      return res.status(400).json({ 
+        message: `Kategori tidak dapat dihapus karena masih digunakan oleh ${productCount} produk. Silakan pindahkan atau hapus produk terlebih dahulu.` 
+      })
+    }
+
+    await prisma.productCategory.delete({ where: { id } })
     res.json({ message: 'Kategori berhasil dihapus' })
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })

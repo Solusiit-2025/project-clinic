@@ -2,16 +2,22 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios'
+import toast from 'react-hot-toast'
 import { FiUserCheck, FiAlertCircle, FiLock, FiCamera, FiX, FiUser, FiEye, FiPhone, FiMail, FiBriefcase, FiCalendar, FiMapPin, FiEdit2, FiArrowRight } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
 import PageHeader from '@/components/admin/master/PageHeader'
 import MasterModal from '@/components/admin/master/MasterModal'
 import { StatusBadge } from '@/components/admin/master/StatusBadge'
+import DeleteConfirmModal from '@/components/admin/master/DeleteConfirmModal'
 
 const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
-const UPLOADS_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
-const EMPTY = { userId: '', licenseNumber: '', name: '', email: '', phone: '', specialization: '', departmentId: '', bio: '', yearsOfExperience: '', isActive: true, clinicId: '', queueCode: '' }
+const UPLOADS_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004'
+const EMPTY = { 
+  userId: '', licenseNumber: '', name: '', email: '', phone: '', 
+  specialization: '', departmentIds: [] as string[], bio: '', 
+  yearsOfExperience: '', isActive: true, clinicIds: [] as string[], queueCode: '' 
+}
 
 type Doctor = {
   id: string;
@@ -20,13 +26,12 @@ type Doctor = {
   phone: string;
   licenseNumber: string
   specialization: string;
-  departmentId?: string;
-  department?: {
+  departments: {
     id: string;
     name: string;
     clinic?: { id: string; name: string; code: string }
-  };
-  user?: { id: string; username: string };
+  }[];
+  user?: { id: string; username: string; clinics: { clinicId: string }[] };
   userId: string;
   profilePicture?: string;
   bio?: string;
@@ -63,6 +68,9 @@ export default function DoctorsPage() {
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<Doctor | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Photo states
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -80,7 +88,7 @@ export default function DoctorsPage() {
 
   const fetchClinics = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/master/clinics`, { headers })
+      const { data } = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004'}/api/master/clinics`, { headers })
       setClinics(data)
     } catch { }
   }, [token])
@@ -113,7 +121,7 @@ export default function DoctorsPage() {
 
   const openAdd = () => {
     setEditing(null);
-    setForm({ ...EMPTY, clinicId: activeClinicId || '' });
+    setForm({ ...EMPTY, clinicIds: activeClinicId ? [activeClinicId] : [] });
     setPreviewUrl(null);
     setSelectedFile(null);
     setError('');
@@ -129,8 +137,8 @@ export default function DoctorsPage() {
       email: r.email || '',
       phone: r.phone,
       specialization: r.specialization,
-      departmentId: r.departmentId || '',
-      clinicId: r.department?.clinic?.id || '',
+      departmentIds: r.departments?.map(d => d.id) || [],
+      clinicIds: r.user?.clinics?.map(c => c.clinicId) || r.departments?.map(d => d.clinic?.id).filter(Boolean) as string[] || [],
       bio: r.bio || '',
       yearsOfExperience: String(r.yearsOfExperience || ''),
       isActive: r.isActive,
@@ -163,7 +171,11 @@ export default function DoctorsPage() {
     try {
       const formData = new FormData()
       Object.entries(form).forEach(([key, value]) => {
-        formData.append(key, String(value))
+        if (Array.isArray(value)) {
+          formData.append(key, JSON.stringify(value))
+        } else {
+          formData.append(key, String(value))
+        }
       })
       if (selectedFile) {
         formData.append('photo', selectedFile)
@@ -177,13 +189,31 @@ export default function DoctorsPage() {
       })
 
       setModalOpen(false); fetchData(); fetchUnlinked()
+      toast.success(editing ? 'Data dokter diperbarui' : 'Dokter baru ditambahkan')
     } catch (e: any) { setError(e.response?.data?.message || 'Terjadi kesalahan') }
     finally { setSaving(false) }
   }
 
-  const handleDelete = async (r: Doctor) => {
-    if (!confirm(`Hapus dokter "${r.name}"?`)) return
-    try { await axios.delete(`${API}/doctors/${r.id}`, { headers }); fetchData(); fetchUnlinked() } catch { }
+  const handleDelete = (r: Doctor) => {
+    setItemToDelete(r)
+    setDeleteModalOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return
+    setDeleteModalOpen(false)
+    setIsDeleting(true)
+    try { 
+      await axios.delete(`${API}/doctors/${itemToDelete.id}`, { headers })
+      fetchData()
+      fetchUnlinked() 
+      toast.success('Data dokter berhasil dihapus')
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Gagal menghapus dokter')
+    } finally {
+      setIsDeleting(false)
+      setItemToDelete(null)
+    }
   }
 
   const columns: Column<Doctor>[] = [
@@ -243,18 +273,22 @@ export default function DoctorsPage() {
     },
     {
       key: 'department', label: 'Unit & Cabang', mobileHide: true, render: (r) => {
-        const clinic = r.department?.clinic;
         return (
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-bold text-gray-600 truncate max-w-[150px]">
-              {r.department?.name || <span className="text-gray-300 italic font-medium">Internal</span>}
-            </span>
-            {clinic && (
-              <span className={`inline-block text-[9px] font-black px-2 py-0.5 rounded-md border w-fit uppercase tracking-widest ${clinic.code === 'K001' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-amber-50 text-amber-600 border-amber-100'
-                }`}>
-                {clinic.code} - {clinic.name}
-              </span>
-            )}
+          <div className="flex flex-col gap-2">
+            {r.departments?.map((dept, i) => (
+              <div key={i} className="flex flex-col border-l-2 border-primary/20 pl-2 py-0.5">
+                <span className="text-[10px] font-bold text-gray-600 truncate max-w-[150px]">
+                  {dept.name}
+                </span>
+                {dept.clinic && (
+                  <span className={`inline-block text-[8px] font-black px-1.5 py-0.5 rounded-md border w-fit uppercase tracking-widest ${dept.clinic.code === 'K001' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-amber-50 text-amber-600 border-amber-100'
+                    }`}>
+                    {dept.clinic.code} - {dept.clinic.name}
+                  </span>
+                )}
+              </div>
+            ))}
+            {(!r.departments || r.departments.length === 0) && <span className="text-gray-300 italic text-[10px]">Belum ada penempatan</span>}
           </div>
         )
       }
@@ -384,34 +418,81 @@ export default function DoctorsPage() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center gap-1">
-                Cabang / Klinik *
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-gray-700 mb-2.5 flex items-center gap-2">
+                <FiMapPin className="text-primary w-4 h-4" /> Cabang / Klinik Penugasan (Bisa Pilih &gt; 1) *
               </label>
-              <select value={form.clinicId} onChange={(e) => setForm(p => ({ ...p, clinicId: e.target.value, departmentId: '' }))}
-                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 bg-white font-medium shadow-sm transition-all">
-                <option value="">-- Pilih Cabang --</option>
-                {clinics.map(c => <option key={c.id} value={c.id}>{c.name} ({c.code})</option>)}
-              </select>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+                {clinics.map(c => (
+                  <label key={c.id} className="flex items-center gap-2.5 p-2 rounded-xl border border-transparent hover:bg-white hover:border-gray-200 transition-all cursor-pointer group">
+                    <input 
+                      type="checkbox" 
+                      checked={form.clinicIds.includes(c.id)}
+                      onChange={(e) => {
+                        const ids = e.target.checked 
+                          ? [...form.clinicIds, c.id] 
+                          : form.clinicIds.filter(id => id !== c.id)
+                        setForm(p => ({ ...p, clinicIds: ids }))
+                      }} 
+                      className="w-4 h-4 rounded-md border-gray-300 text-primary focus:ring-primary/20 transition-all"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-[11px] font-bold text-gray-700 group-hover:text-primary transition-colors">{c.name}</span>
+                      <span className="text-[9px] font-black text-gray-400 leading-none">{c.code}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1.5">Unit Penempatan (Departemen)</label>
-              <select value={form.departmentId} onChange={(e) => setForm(p => ({ ...p, departmentId: e.target.value }))}
-                disabled={!form.clinicId}
-                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 bg-white font-medium shadow-sm transition-all disabled:bg-gray-50 disabled:text-gray-400">
-                <option value="">-- Pilih Unit --</option>
-                {departments
-                  .filter(d => d.clinic?.id === form.clinicId)
-                  .map(d => (
-                    <option key={d.id} value={d.id}>
-                      {'-'.repeat(d.level)} {d.name}
-                    </option>
-                  ))}
-              </select>
-              {form.clinicId && departments.filter(d => d.clinic?.id === form.clinicId).length === 0 && (
-                <p className="mt-1 text-[10px] text-orange-500 font-medium italic">Belum ada unit terdaftar di cabang ini.</p>
-              )}
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-gray-700 mb-2.5 flex items-center gap-2">
+                <FiBriefcase className="text-primary w-4 h-4" /> Unit Penempatan (Departemen) *
+              </label>
+              <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+                <div className="max-h-[220px] overflow-y-auto p-4 space-y-4">
+                  {form.clinicIds.length === 0 ? (
+                    <div className="py-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                      <FiAlertCircle className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Pilih Cabang Terlebih Dahulu</p>
+                    </div>
+                  ) : (
+                    clinics.filter(c => form.clinicIds.includes(c.id)).map(clinic => (
+                      <div key={clinic.id} className="space-y-2">
+                        <div className="flex items-center gap-2 pb-1 border-b border-gray-100">
+                          <span className="text-[9px] font-black bg-primary/10 text-primary px-2 py-0.5 rounded uppercase">{clinic.code}</span>
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{clinic.name}</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {departments
+                            .filter(d => d.clinic?.id === clinic.id)
+                            .map(d => (
+                              <label key={d.id} className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-gray-50 transition-all cursor-pointer border border-transparent hover:border-gray-100">
+                                <input 
+                                  type="checkbox"
+                                  checked={form.departmentIds.includes(d.id)}
+                                  onChange={(e) => {
+                                    const ids = e.target.checked
+                                      ? [...form.departmentIds, d.id]
+                                      : form.departmentIds.filter(id => id !== d.id)
+                                    setForm(p => ({ ...p, departmentIds: ids }))
+                                  }}
+                                  className="w-4 h-4 rounded-md border-gray-300 text-primary focus:ring-primary/20 transition-all"
+                                />
+                                <span className="text-[11px] font-bold text-gray-600">
+                                  {'-'.repeat(d.level)} {d.name}
+                                </span>
+                              </label>
+                            ))}
+                          {departments.filter(d => d.clinic?.id === clinic.id).length === 0 && (
+                            <p className="text-[10px] text-orange-500 font-medium italic p-2">Belum ada unit terdaftar di cabang ini.</p>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
 
             {field('Pengalaman Kerja (tahun)', 'yearsOfExperience', 'number', '5')}
@@ -502,11 +583,11 @@ export default function DoctorsPage() {
                       Poli Spesialis {viewingDoctor.specialization}
                     </div>
 
-                    {viewingDoctor.department?.clinic && (
-                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold ring-1 ${viewingDoctor.department.clinic.code === 'K001' ? 'bg-indigo-50 text-indigo-700 ring-indigo-100' : 'bg-amber-50 text-amber-700 ring-amber-100'
+                    {(viewingDoctor as any).departments?.[0]?.clinic && (
+                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold ring-1 ${(viewingDoctor as any).departments[0].clinic.code === 'K001' ? 'bg-indigo-50 text-indigo-700 ring-indigo-100' : 'bg-amber-50 text-amber-700 ring-amber-100'
                         }`}>
                         <FiMapPin className="w-3 h-3" />
-                        {viewingDoctor.department.clinic.name}
+                        {(viewingDoctor as any).departments[0].clinic.name}
                       </div>
                     )}
                   </div>
@@ -551,7 +632,7 @@ export default function DoctorsPage() {
                     <FiMapPin className="w-5 h-5" />
                   </div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Assigned Unit</p>
-                  <p className="text-lg font-black text-slate-900 tracking-tight leading-tight">{viewingDoctor.department?.name || 'Central Unit'}</p>
+                  <p className="text-lg font-black text-slate-900 tracking-tight leading-tight">{(viewingDoctor as any).departments?.[0]?.name || 'Central Unit'}</p>
                 </div>
               </div>
 
@@ -564,7 +645,7 @@ export default function DoctorsPage() {
                     Clinical Biography
                   </h4>
                   <p className="text-sm sm:text-base text-slate-600 leading-[1.6] font-medium italic font-serif opacity-90">
-                    "{viewingDoctor.bio || `dr. ${viewingDoctor.name} is recognized for their commitment to evidence-based medicine and patient-centric care. They specialize in ${viewingDoctor.specialization}, ensuring that every visitor to ${viewingDoctor.department?.name || 'our facility'} receives unparalleled medical attention and guidance.`}"
+                    "{viewingDoctor.bio || `dr. ${viewingDoctor.name} is recognized for their commitment to evidence-based medicine and patient-centric care. They specialize in ${viewingDoctor.specialization}, ensuring that every visitor to ${(viewingDoctor as any).departments?.[0]?.name || 'our facility'} receives unparalleled medical attention and guidance.`}"
                   </p>
                 </div>
 
@@ -592,6 +673,16 @@ export default function DoctorsPage() {
           </div>
         )}
       </MasterModal>
+
+      <DeleteConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        title="Hapus Data Dokter"
+        message="Apakah Anda yakin ingin menghapus data dokter ini? Akun user yang terhubung akan tetap ada namun tidak lagi tertaut ke profil dokter."
+        itemName={itemToDelete ? `dr. ${itemToDelete.name}` : ''}
+        loading={isDeleting}
+      />
     </div>
   )
 }
