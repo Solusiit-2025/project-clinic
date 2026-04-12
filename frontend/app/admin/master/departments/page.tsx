@@ -10,16 +10,25 @@ import MasterModal from '@/components/admin/master/MasterModal'
 import { StatusBadge } from '@/components/admin/master/StatusBadge'
 
 const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
-const EMPTY = { name: '', description: '', parentId: '', isActive: true }
+const EMPTY = { name: '', code: '', description: '', parentId: '', isActive: true, location: '', phone: '', email: '', color: '', icon: '', headId: '', operatingHours: '' }
 
 type Dept = { 
   id: string; 
   name: string; 
+  code?: string;
   description?: string; 
   isActive: boolean; 
   parentId?: string;
   level: number;
+  location?: string;
+  phone?: string;
+  email?: string;
+  headId?: string;
+  color?: string;
+  icon?: string;
+  operatingHours?: any;
   parent?: { id: string; name: string };
+  head?: { id: string; name: string };
   clinic?: { id: string; name: string; code: string };
   createdAt: string 
 }
@@ -27,6 +36,7 @@ type Dept = {
 export default function DepartmentsPage() {
   const { token, activeClinicId } = useAuthStore()
   const [data, setData] = useState<Dept[]>([])
+  const [doctors, setDoctors] = useState<{id: string, name: string, specialization: string}[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [levelFilter, setLevelFilter] = useState('all')
@@ -49,16 +59,31 @@ export default function DepartmentsPage() {
     } finally { setLoading(false) }
   }, [search, levelFilter, token, activeClinicId])
 
-  useEffect(() => { fetch() }, [fetch])
+  const fetchDoctors = useCallback(async () => {
+    try {
+      const { data } = await axios.get(`${API}/doctors`, { headers })
+      setDoctors(data)
+    } catch {}
+  }, [token])
+
+  useEffect(() => { fetch(); fetchDoctors() }, [fetch, fetchDoctors])
 
   const openAdd = () => { setEditing(null); setForm(EMPTY); setError(''); setModalOpen(true) }
   const openEdit = (r: Dept) => { 
     setEditing(r)
     setForm({ 
       name: r.name, 
+      code: r.code || '',
       description: r.description || '', 
       parentId: r.parentId || '', 
-      isActive: r.isActive 
+      isActive: r.isActive,
+      location: r.location || '',
+      phone: r.phone || '',
+      email: r.email || '',
+      color: r.color || '',
+      icon: r.icon || '',
+      headId: r.headId || '',
+      operatingHours: typeof r.operatingHours === 'string' ? r.operatingHours : (r.operatingHours ? JSON.stringify(r.operatingHours) : '')
     })
     setError(''); 
     setModalOpen(true) 
@@ -86,13 +111,29 @@ export default function DepartmentsPage() {
   const columns: Column<Dept>[] = [
     { 
       key: 'name', 
-      label: 'Nama Departemen', 
+      label: 'Kode & Nama Departemen', 
       render: (r) => (
         <div className="flex items-center gap-2" style={{ paddingLeft: `${r.level * 24}px` }}>
           {r.level > 0 && <FiCornerDownRight className="text-gray-300 w-4 h-4 flex-shrink-0" />}
-          <span className={`${r.level === 0 ? 'text-sm font-extrabold text-gray-900' : 'text-xs font-bold text-gray-600'}`}>
-            {r.name}
-          </span>
+          <div>
+            {r.code && <div className="text-[10px] text-gray-500 font-bold tracking-wider">{r.code}</div>}
+            <span className={`${r.level === 0 ? 'text-sm font-extrabold text-gray-900' : 'text-xs font-bold text-gray-600'}`}>
+              {r.name}
+            </span>
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'contact',
+      label: 'Info Detail',
+      mobileHide: true,
+      render: (r) => (
+        <div className="flex flex-col gap-0.5 mt-1">
+          {r.location ? <span className="text-[11px] text-gray-600 font-medium">📍 {r.location}</span> : <span className="text-[10px] text-gray-300 italic">Tanpa Lokasi</span>}
+          {r.phone && <span className="text-[10px] text-gray-500 font-medium">📞 Ext/Telp: {r.phone}</span>}
+          {r.head && <span className="text-[10px] text-indigo-700 font-bold mt-1 bg-indigo-50 self-start px-1.5 py-0.5 rounded">👨‍⚕️ Ka. Poli: {r.head.name}</span>}
+          {r.operatingHours && <span className="text-[10px] text-amber-700 font-semibold mt-0.5 bg-amber-50 self-start px-1.5 py-0.5 rounded">⏰ {String(r.operatingHours)}</span>}
         </div>
       )
     },
@@ -171,6 +212,28 @@ export default function DepartmentsPage() {
             <input value={form.name} onChange={(e) => setForm(p => ({ ...p, name: e.target.value }))} placeholder="cth: Poli Umum, Radiologi..." className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-medium" />
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5">Kode</label>
+              <input value={form.code} onChange={(e) => setForm(p => ({ ...p, code: e.target.value.toUpperCase() }))} placeholder="cth: POLUM" className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-medium uppercase" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5">Lokasi / Lantai</label>
+              <input value={form.location} onChange={(e) => setForm(p => ({ ...p, location: e.target.value }))} placeholder="cth: Lt. 1, R.102" className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-medium" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5">No. Telepon / Ext</label>
+              <input value={form.phone} onChange={(e) => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="cth: 102 atau 0812..." className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-medium" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5">Email</label>
+              <input value={form.email} onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))} placeholder="cth: umum@klinik.com" className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-medium" />
+            </div>
+          </div>
+
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1.5">Departemen Induk (Parent)</label>
             <select 
@@ -186,6 +249,34 @@ export default function DepartmentsPage() {
               ))}
             </select>
             <p className="mt-1 text-[10px] text-gray-400 font-medium italic">Kosongkan jika ingin menjadikan ini departemen utama.</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5">Kepala Poli/Departemen</label>
+              <select 
+                value={form.headId} 
+                onChange={(e) => setForm(p => ({ ...p, headId: e.target.value }))}
+                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary bg-white font-medium shadow-sm transition-all"
+              >
+                <option value="">— Tidak Ada/Belum Ditentukan —</option>
+                {doctors.map(d => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} {d.specialization && `(${d.specialization})`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5">Kode Warna UI (Hex/Nama)</label>
+              <input value={form.color} onChange={(e) => setForm(p => ({ ...p, color: e.target.value }))} placeholder="cth: #3b82f6 atau blue" className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-medium" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1.5">Jam Operasional Khusus</label>
+            <input value={form.operatingHours} onChange={(e) => setForm(p => ({ ...p, operatingHours: e.target.value }))} placeholder="cth: Senin - Jumat (08:00 - 15:00)" className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-medium" />
+            <p className="mt-1 text-[10px] text-gray-400 font-medium italic">Bisa diisi jika beda dengan jam operasional klinik.</p>
           </div>
 
           <div>

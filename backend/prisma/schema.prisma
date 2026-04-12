@@ -180,6 +180,7 @@ model Doctor {
   updatedAt           DateTime @updatedAt
 
   user                User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  managedDepartments  Department[] @relation("DeptHead")
   departments         Department[] @relation("DoctorAllDepts")
   schedules           DoctorSchedule[]
   appointments        Appointment[]
@@ -213,12 +214,20 @@ model DoctorSchedule {
 
 model Department {
   id          String      @id @default(uuid())
+  code        String?     @unique // e.g., "POLI-UMUM", "RADIO"
   name        String
   description String?
   isActive    Boolean     @default(true)
   parentId    String?     // null = top-level department, filled = sub-department
   level       Int         @default(0) // 0 = root, 1 = sub, 2 = sub-sub
   sortOrder   Int         @default(0)
+  location    String?     // e.g., "Lantai 1, Sayap Timur", "Ruang 102"
+  phone       String?     // ext or direct number
+  email       String?     // department email
+  headId      String?     // Doctor that heads this department
+  color       String?     // UI color code
+  icon        String?     // UI icon name
+  operatingHours Json?    // JSON for specific opening hours
   clinicId    String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -226,6 +235,7 @@ model Department {
   clinic      Clinic?      @relation(fields: [clinicId], references: [id], onDelete: SetNull)
   parent      Department?  @relation("DeptHierarchy", fields: [parentId], references: [id])
   children    Department[] @relation("DeptHierarchy")
+  head        Doctor?      @relation("DeptHead", fields: [headId], references: [id], onDelete: SetNull)
   doctors             Doctor[]     @relation("DoctorAllDepts")
 
   registrations Registration[]

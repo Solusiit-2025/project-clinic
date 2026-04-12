@@ -195,6 +195,8 @@ export const getDepartments = async (req: Request, res: Response) => {
       include: {
         clinic: { select: { id: true, name: true, code: true } },
         parent: { select: { id: true, name: true } },
+        // @ts-ignore - Prisma types are cached in VS Code, head exists in our schema.prisma
+        head: { select: { id: true, name: true } },
         _count: { select: { children: true } }
       }
     })
@@ -215,7 +217,7 @@ export const getDepartments = async (req: Request, res: Response) => {
 
 export const createDepartment = async (req: Request, res: Response) => {
   try {
-    const { name, description, isActive, parentId, sortOrder } = req.body
+    const { name, description, isActive, parentId, sortOrder, code, location, phone, email, headId, color, icon, operatingHours } = req.body
     
     let level = 0
     if (parentId) {
@@ -227,6 +229,7 @@ export const createDepartment = async (req: Request, res: Response) => {
       data: { 
         name, description, isActive, parentId, level, 
         sortOrder: sortOrder || 0,
+        code, location, phone, email, headId, color, icon, operatingHours,
         clinicId: (req as any).clinicId
       } 
     })
@@ -239,7 +242,7 @@ export const createDepartment = async (req: Request, res: Response) => {
 export const updateDepartment = async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { name, description, isActive, parentId, sortOrder } = req.body
+    const { name, description, isActive, parentId, sortOrder, code, location, phone, email, headId, color, icon, operatingHours } = req.body
     
     let level = 0
     if (parentId) {
@@ -249,7 +252,7 @@ export const updateDepartment = async (req: Request, res: Response) => {
 
     const dept = await prisma.department.update({ 
       where: { id }, 
-      data: { name, description, isActive, parentId, level, sortOrder: sortOrder || 0 } 
+      data: { name, description, isActive, parentId, level, sortOrder: sortOrder || 0, code, location, phone, email, headId, color, icon, operatingHours } 
     })
     res.json(dept)
   } catch (e) {
@@ -660,9 +663,9 @@ export const getMedicines = async (req: Request, res: Response) => {
           }] : []),
           ...(search ? [{
             OR: [
-              { medicineName: { contains: String(search), mode: 'insensitive' } },
-              { genericName: { contains: String(search), mode: 'insensitive' } },
-              { description: { contains: String(search), mode: 'insensitive' } },
+              { medicineName: { contains: String(search), mode: 'insensitive' as "insensitive" } },
+              { genericName: { contains: String(search), mode: 'insensitive' as "insensitive" } },
+              { description: { contains: String(search), mode: 'insensitive' as "insensitive" } },
             ]
           }] : []),
           ...(isActive !== undefined ? [{ isActive: isActive === 'true' }] : []),
