@@ -237,13 +237,13 @@ export default function ProductsPage() {
         </div>
       )
     }},
-    { key: 'masterName', label: 'Produk & Master Code', render: (r: ProductInventory) => (
+    { key: 'masterName', label: 'Produk & Master Code', width: '450px', render: (r: ProductInventory) => (
       <div className="flex flex-col py-1">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-[10px] font-black bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md tracking-widest uppercase border border-gray-200">
             {r.masterCode}
           </span>
-          <span className="text-sm font-black text-gray-900 tracking-tight truncate max-w-[200px] uppercase">
+          <span className="text-sm font-black text-gray-900 tracking-tight truncate max-w-[400px] uppercase">
               {r.masterName}
           </span>
         </div>
