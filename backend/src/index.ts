@@ -11,6 +11,7 @@ import financeRoutes from './routes/finance.routes';
 import backupRoutes from './routes/backup.routes';
 import clinicalRoutes from './routes/clinical.routes';
 import publicRoutes from './routes/public.routes';
+import pharmacyRoutes from './routes/pharmacy.routes';
 
 // Load environment variables
 dotenv.config();
@@ -40,6 +41,7 @@ app.use('/api/finance', financeRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/clinical', clinicalRoutes);
 app.use('/api/public', publicRoutes);
+app.use('/api/pharmacy', pharmacyRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

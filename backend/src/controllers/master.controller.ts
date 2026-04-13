@@ -188,14 +188,18 @@ export const getDepartments = async (req: Request, res: Response) => {
     // Fetch all needed data
     let departments = await prisma.department.findMany({
       where: {
-        ...(targetClinicId ? { clinicId: targetClinicId } : {}),
+        ...(targetClinicId ? { 
+           OR: [
+             { clinicId: targetClinicId },
+             { clinicId: null }
+           ] 
+        } : {}),
         ...(search ? { name: { contains: String(search), mode: 'insensitive' } } : {}),
         ...(parentId !== undefined && parentId !== 'all' ? { parentId: parentId === 'null' ? null : String(parentId) } : {}),
       },
       include: {
         clinic: { select: { id: true, name: true, code: true } },
         parent: { select: { id: true, name: true } },
-        // @ts-ignore - Prisma types are cached in VS Code, head exists in our schema.prisma
         head: { select: { id: true, name: true } },
         _count: { select: { children: true } }
       }
@@ -220,16 +224,25 @@ export const createDepartment = async (req: Request, res: Response) => {
     const { name, description, isActive, parentId, sortOrder, code, location, phone, email, headId, color, icon, operatingHours } = req.body
     
     let level = 0
-    if (parentId) {
-      const parent = await prisma.department.findUnique({ where: { id: parentId } })
+    const parsedParentId = (parentId === 'null' || parentId === '') ? null : parentId
+    
+    if (parsedParentId) {
+      const parent = await prisma.department.findUnique({ where: { id: parsedParentId } })
       if (parent) level = parent.level + 1
     }
 
+    const parsedHeadId = (headId === 'null' || headId === '') ? null : headId
+
     const dept = await prisma.department.create({ 
       data: { 
-        name, description, isActive, parentId, level, 
-        sortOrder: sortOrder || 0,
-        code, location, phone, email, headId, color, icon, operatingHours,
+        name, description, 
+        isActive: isActive === 'true' || isActive === true,
+        parentId: parsedParentId, 
+        level, 
+        sortOrder: sortOrder ? Number(sortOrder) : 0,
+        code, location, phone, email, 
+        headId: parsedHeadId, 
+        color, icon, operatingHours,
         clinicId: (req as any).clinicId
       } 
     })
@@ -245,14 +258,27 @@ export const updateDepartment = async (req: Request, res: Response) => {
     const { name, description, isActive, parentId, sortOrder, code, location, phone, email, headId, color, icon, operatingHours } = req.body
     
     let level = 0
-    if (parentId) {
-      const parent = await prisma.department.findUnique({ where: { id: parentId } })
+    const parsedParentId = (parentId === 'null' || parentId === '') ? null : parentId
+
+    if (parsedParentId) {
+      const parent = await prisma.department.findUnique({ where: { id: parsedParentId } })
       if (parent) level = parent.level + 1
     }
 
+    const parsedHeadId = (headId === 'null' || headId === '') ? null : headId
+
     const dept = await prisma.department.update({ 
       where: { id }, 
-      data: { name, description, isActive, parentId, level, sortOrder: sortOrder || 0, code, location, phone, email, headId, color, icon, operatingHours } 
+      data: { 
+        name, description, 
+        isActive: isActive === 'true' || isActive === true, 
+        parentId: parsedParentId, 
+        level, 
+        sortOrder: sortOrder ? Number(sortOrder) : 0, 
+        code, location, phone, email, 
+        headId: parsedHeadId, 
+        color, icon, operatingHours 
+      } 
     })
     res.json(dept)
   } catch (e) {
@@ -283,7 +309,10 @@ export const getDoctors = async (req: Request, res: Response) => {
     const doctors = await prisma.doctor.findMany({
       where: {
         ...(targetClinicId ? { 
-          departments: { some: { clinicId: targetClinicId } }
+          OR: [
+            { departments: { some: { clinicId: targetClinicId } } },
+            { user: { clinics: { some: { clinicId: targetClinicId } } } }
+          ]
         } : {}),
         ...(search ? {
           OR: [

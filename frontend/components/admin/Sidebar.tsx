@@ -31,6 +31,7 @@ const TRANSAKSI_GROUPS = [
       { icon: FiActivity, label: 'Dashboard Antrian', href: '/admin/transactions/queue' },
       { icon: FiActivity, label: 'Nurse Station (Triage)', href: '/admin/transactions/nurse' },
       { icon: FiUserCheck, label: 'Doctor Station', href: '/admin/transactions/doctor' },
+      { icon: FiBox, label: 'Farmasi (Apotek)', href: '/admin/transactions/pharmacy' },
     ]
   },
   {

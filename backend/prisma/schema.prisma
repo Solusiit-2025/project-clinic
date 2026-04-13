@@ -128,6 +128,7 @@ model Patient {
   prescriptions     Prescription[]
   invoices          Invoice[]
   queueNumbers      QueueNumber[]
+  labOrders         LabOrder[]
 
   @@index([medicalRecordNo])
   @@index([phone])
@@ -188,6 +189,7 @@ model Doctor {
   prescriptions       Prescription[]
   registrations       Registration[]
   queueNumbers        QueueNumber[]    @relation("QueueDoctor")
+  labOrders           LabOrder[]
 
   @@index([specialization])
   @@map("doctors")
@@ -340,6 +342,8 @@ model MedicalRecord {
   services        MedicalRecordService[]
   referrals       Referral[]
   attachments     MedicalRecordAttachment[]
+  labOrders       LabOrder[]
+  radiologyOrders RadiologyOrder[]
 
   @@index([patientId])
   @@index([doctorId])
@@ -444,6 +448,11 @@ model Prescription {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  dispenseStatus  String   @default("pending") // pending, preparing, ready, dispensed
+  pharmacistId    String?  
+  counselingGiven Boolean  @default(false)
+  dispenseDate    DateTime?
+
   medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
   patient         Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
   doctor          Doctor @relation(fields: [doctorId], references: [id])
@@ -457,7 +466,11 @@ model Prescription {
 model PrescriptionItem {
   id              String  @id @default(uuid())
   prescriptionId  String
-  medicineId      String
+
+  isRacikan       Boolean @default(false)
+  racikanName     String?
+
+  medicineId      String?
   quantity        Int
   dosage          String // e.g., "500mg"
   frequency       String // e.g., "3x sehari"
@@ -465,10 +478,24 @@ model PrescriptionItem {
   instructions    String?
 
   prescription    Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
-  medicine        Medicine @relation(fields: [medicineId], references: [id])
+  medicine        Medicine?    @relation(fields: [medicineId], references: [id])
+  components      PrescriptionItemComponent[]
 
   @@index([prescriptionId])
   @@map("prescription_items")
+}
+
+model PrescriptionItemComponent {
+  id                  String  @id @default(uuid())
+  prescriptionItemId  String
+  medicineId          String
+  quantity            Float
+  
+  prescriptionItem    PrescriptionItem @relation(fields: [prescriptionItemId], references: [id], onDelete: Cascade)
+  medicine            Medicine         @relation(fields: [medicineId], references: [id])
+  
+  @@index([prescriptionItemId])
+  @@map("prescription_item_components")
 }
 
 model Medicine {
@@ -490,6 +517,7 @@ model Medicine {
 
   clinic            Clinic?  @relation(fields: [clinicId], references: [id], onDelete: SetNull)
   prescriptionItems PrescriptionItem[]
+  prescriptionItemComponents PrescriptionItemComponent[]
   inventoryItems    Inventory[]
   productMaster     ProductMaster?
 
@@ -903,3 +931,81 @@ model SiteSetting {
 
   @@map("site_settings")
 }
+
+// ==================== LABORATORY ====================
+
+model LabOrder {
+  id              String   @id @default(uuid())
+  orderNo         String   @unique
+  medicalRecordId String
+  patientId       String
+  doctorId        String
+  orderDate       DateTime @default(now())
+  status          String   @default("pending") // pending, sample_collected, analyzing, completed, cancelled
+  priority        String   @default("normal")  // normal, urgent, cito
+  clinicalNotes   String?
+  completedAt     DateTime?
+  analystId       String?
+  validatorId     String?
+  
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id])
+  patient         Patient       @relation(fields: [patientId], references: [id])
+  doctor          Doctor        @relation(fields: [doctorId], references: [id])
+  results         LabResultDetail[]
+  
+  @@map("lab_orders")
+}
+
+model LabTestMaster {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  name            String
+  category        String   // Hematologi, Imunologi, Urine, dll
+  unit            String?  // mg/dL, %, dll
+  normalRangeText String?  // "12.0 - 15.0"
+  minNormal       Float?
+  maxNormal       Float?
+  price           Float
+  isActive        Boolean  @default(true)
+  
+  results         LabResultDetail[]
+  @@map("lab_test_master")
+}
+
+model LabResultDetail {
+  id              String   @id @default(uuid())
+  labOrderId      String
+  testMasterId    String
+  resultValue     String
+  isCritical      Boolean  @default(false)
+  notes           String?
+  
+  order           LabOrder      @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
+  testMaster      LabTestMaster @relation(fields: [testMasterId], references: [id])
+  
+  @@map("lab_result_details")
+}
+
+// ==================== RADIOLOGY ====================
+
+model RadiologyOrder {
+  id              String   @id @default(uuid())
+  orderNo         String   @unique
+  medicalRecordId String
+  patientId       String
+  doctorId        String
+  orderDate       DateTime @default(now())
+  status          String   @default("pending") // pending, imaging, reading, completed
+  modality        String   // X-RAY, USG, CT-SCAN
+  bodyPart        String
+  clinicalNotes   String?
+  
+  pacsLink        String?
+  radiologistNote String?  
+  radiologistId   String?  
+  
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id])
+  
+  @@map("radiology_orders")
+}
+

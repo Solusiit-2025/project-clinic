@@ -96,6 +96,7 @@ export default function RegistrationPage() {
           axios.get(`${API}/master/doctors`, { headers, params: { clinicId: activeClinicId } }),
           axios.get(`${API}/master/departments`, { headers, params: { clinicId: activeClinicId } })
         ])
+        console.log('Fetched D&D:', docsRes.data.length, deptsRes.data.length)
         setDoctors(docsRes.data)
         setDepartments(deptsRes.data)
       } catch (e) { console.error(e) }
@@ -326,7 +327,7 @@ export default function RegistrationPage() {
                     >
                       <option value="">Pilih Dokter</option>
                       {doctors
-                        .filter(d => !selectedDeptId || d.departments?.some(dept => dept.id === selectedDeptId))
+                        .filter(d => !selectedDeptId || (d.departments && d.departments.some(dept => dept.id === selectedDeptId)))
                         .map(d => <option key={d.id} value={d.id}>{d.name}</option>)
                       }
                     </select>
