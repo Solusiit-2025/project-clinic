@@ -20,15 +20,15 @@ interface Prescription {
 
 export default function PharmacyQueuePage() {
   const router = useRouter()
-  const { activeClinic } = useAuthStore()
+  const { activeClinicId } = useAuthStore()
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   const fetchQueues = async () => {
     try {
-      if (!activeClinic) return
+      if (!activeClinicId) return
       const res = await api.get('/pharmacy/queues', {
-        params: { clinicId: activeClinic.id }
+        params: { clinicId: activeClinicId }
       })
       setPrescriptions(res.data)
     } catch (e) {
@@ -42,7 +42,7 @@ export default function PharmacyQueuePage() {
     fetchQueues()
     const interval = setInterval(fetchQueues, 10000) // Poll every 10s
     return () => clearInterval(interval)
-  }, [activeClinic])
+  }, [activeClinicId])
 
   const pending = prescriptions.filter(p => ['pending', 'preparing'].includes(p.dispenseStatus))
   const ready = prescriptions.filter(p => ['ready', 'dispensed'].includes(p.dispenseStatus))

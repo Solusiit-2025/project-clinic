@@ -24,14 +24,26 @@ const MAIN_MENU = [
 
 const TRANSAKSI_GROUPS = [
   {
-    label: 'Pendaftaran & Antrian',
+    label: 'Front Office & Pendaftaran',
     icon: FiUserPlus,
     items: [
       { icon: FiPlus, label: 'Pendaftaran Baru', href: '/admin/transactions/registration' },
       { icon: FiActivity, label: 'Dashboard Antrian', href: '/admin/transactions/queue' },
+    ]
+  },
+  {
+    label: 'Pelayanan Medis',
+    icon: FiActivity,
+    items: [
       { icon: FiActivity, label: 'Nurse Station (Triage)', href: '/admin/transactions/nurse' },
       { icon: FiUserCheck, label: 'Doctor Station', href: '/admin/transactions/doctor' },
-      { icon: FiBox, label: 'Farmasi (Apotek)', href: '/admin/transactions/pharmacy' },
+    ]
+  },
+  {
+    label: 'Farmasi (Apotek)',
+    icon: FiBox,
+    items: [
+      { icon: FiBox, label: 'Antrian Resep', href: '/admin/transactions/pharmacy' },
     ]
   },
   {
@@ -48,7 +60,11 @@ const LOGISTIK_GROUPS = [
     label: 'Logistik & Inventaris',
     icon: FiPackage,
     items: [
-      { icon: FiPackage, label: 'Obat-obatan', href: '/admin/master/medicines' },
+      { icon: FiHome, label: 'Dashboard Stok', href: '/admin/inventory' },
+      { icon: FiShoppingBag, label: 'Pengadaan (Procurement)', href: '/admin/inventory/procurement' },
+      { icon: FiGlobe, label: 'Transfer Barang', href: '/admin/inventory/transfers' },
+      { icon: FiList, label: 'Kartu Stok (Mutasi)', href: '/admin/inventory/mutations' },
+      { icon: FiPackage, label: 'Data Obat', href: '/admin/master/medicines' },
       { icon: FiBox, label: 'Manajemen Aset', href: '/admin/master/assets' },
     ]
   }

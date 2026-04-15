@@ -11,39 +11,16 @@ import {
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { announceQueue } from '@/lib/utils/speech'
+import { socket, connectSocket } from '@/lib/socket'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { toast } from 'react-hot-toast'
 
-interface Queue {
-  id: string
-  queueNo: string
-  patient: { 
-    name: string; 
-    medicalRecordNo: string; 
-    gender: string 
-  }
-  status: 'waiting' | 'called' | 'triage' | 'ready' | 'ongoing' | 'completed' | 'no-show'
-  department: { name: string } | null
-  createdAt: string
-  hasMedicalRecord: boolean
-  medicalRecord?: {
-    chiefComplaint?: string
-    vitals?: {
-      temperature?: number
-      bloodPressure?: string
-      weight?: number
-      height?: number
-      heartRate?: number
-      respiratoryRate?: number
-      bloodOxygen?: number
-    }
-  } | null
-}
+// ... [Keep Queue interface]
 
 export default function DoctorQueue() {
   const router = useRouter()
-  const { user, token } = useAuthStore()
+  const { user } = useAuthStore()
   const [queues, setQueues] = useState<Queue[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -61,10 +38,24 @@ export default function DoctorQueue() {
   }, [])
 
   useEffect(() => {
+    // 1. Initial Fetch
     fetchQueues()
-    const interval = setInterval(fetchQueues, 30000)
-    return () => clearInterval(interval)
-  }, [fetchQueues])
+
+    // 2. Setup Real-time listener
+    const clinicId = user?.clinics?.[0]?.clinic?.id || (user as any).clinicId
+    if (clinicId) {
+      connectSocket(clinicId)
+      
+      socket.on('queue-updated', (data) => {
+        console.log('[Socket] Queue update received:', data)
+        fetchQueues()
+      })
+    }
+
+    return () => {
+      socket.off('queue-updated')
+    }
+  }, [fetchQueues, user])
 
   const handleCallPatient = async (q: Queue) => {
     try {
@@ -340,7 +331,9 @@ export default function DoctorQueue() {
                       <td className="px-6 py-5">
                         <div className="space-y-0.5">
                           <p className={`text-sm font-black transition-colors ${isLocked ? 'text-slate-400' : 'text-slate-900 group-hover:text-primary'}`}>{q.patient.name}</p>
-                          <p className={`text-[10px] font-bold uppercase tracking-widest ${isLocked ? 'text-slate-300' : 'text-slate-400'}`}>{q.patient.gender === 'Laki-laki' ? 'PRIA' : 'WANITA'}</p>
+                          <p className={`text-[10px] font-bold uppercase tracking-widest ${isLocked ? 'text-slate-300' : 'text-slate-400'}`}>
+                            {['Laki-laki', 'L', 'M'].includes(q.patient.gender) ? 'PRIA' : 'WANITA'}
+                          </p>
                         </div>
                       </td>
                       {filter === 'triage' ? (

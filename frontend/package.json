@@ -4,7 +4,7 @@
   "description": "Frontend for Clinic Management System",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3004",
+    "dev": "cross-env NODE_OPTIONS='--max-old-space-size=2048' next dev -p 3004",
     "build": "next build",
     "start": "next start -p 3004",
     "lint": "next lint"
@@ -19,6 +19,7 @@
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.6.0",
     "react-icons": "^4.12.0",
+    "socket.io-client": "^4.8.3",
     "zustand": "^4.4.1"
   },
   "devDependencies": {
@@ -26,6 +27,7 @@
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
     "autoprefixer": "^10.4.16",
+    "cross-env": "^10.1.0",
     "eslint": "^9.0.0",
     "eslint-config-next": "^16.2.3",
     "postcss": "^8.4.31",

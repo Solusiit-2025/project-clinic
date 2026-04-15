@@ -1,0 +1,15 @@
+# Project Root Gitignore
+node_modules/
+.next/
+dist/
+build/
+*.log
+*.tmp
+.env
+.env.local
+.env.production
+backups/
+scratch/
+public/uploads/
+.tsxwatchignore
+tsconfig.tsbuildinfo

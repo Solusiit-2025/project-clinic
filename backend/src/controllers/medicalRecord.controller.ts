@@ -95,6 +95,9 @@ export const saveNurseVitals = async (req: Request, res: Response) => {
       })
 
       return medicalRecord
+    }, {
+      maxWait: 10000,
+      timeout: 30000,
     })
 
     res.status(200).json(result)
@@ -188,12 +191,12 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
                 prescriptionNo: pNo,
                 medicalRecordId: mr.id,
                 patientId: mr.patientId,
-                doctorId: mr.doctorId!,
+                doctorId: mr.doctorId || (req as any).user.doctor?.id,
                 prescriptionDate: new Date(),
                 items: {
                   create: safePrescriptions.map((item: any) => ({
                     medicineId: item.medicineId,
-                    quantity: parseInt(item.quantity),
+                    quantity: parseInt(item.quantity) || 0,
                     dosage: item.dosage,
                     frequency: item.frequency,
                     duration: item.duration,
@@ -220,14 +223,15 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
           for (const s of services) {
             const serviceData = await tx.service.findUnique({ where: { id: s.serviceId } })
             if (serviceData) {
-              const itemPrice = s.price || serviceData.price
-              const subtotal = itemPrice * (s.quantity || 1)
+              const itemPrice = parseFloat(s.price) || serviceData.price
+              const quantity = parseInt(s.quantity) || 1
+              const subtotal = itemPrice * quantity
               await tx.invoiceItem.create({
                 data: {
                   invoiceId: invoice.id,
                   serviceId: s.serviceId,
                   description: serviceData.serviceName,
-                  quantity: s.quantity || 1,
+                  quantity: quantity,
                   price: itemPrice,
                   subtotal
                 }
@@ -237,43 +241,49 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
           }
         }
 
+        // 3.1 Pre-fetch Service for Medicine (One time only)
+        let obatService = await tx.service.findFirst({
+          where: { 
+            serviceName: { contains: 'Obat', mode: 'insensitive' },
+            OR: [ { clinicId: mr.clinicId }, { clinic: { isMain: true } } ]
+          }
+        })
+        
+        if (!obatService) {
+          obatService = await tx.service.create({
+            data: {
+              serviceCode: 'MED-GEN',
+              serviceName: 'Obat-obatan',
+              price: 0,
+              isActive: true,
+              clinicId: mr.clinicId
+            }
+          })
+        }
+
         // Add Medicines
         if (prescriptions && Array.isArray(prescriptions)) {
           for (const p of prescriptions) {
-            const medicine = await tx.medicine.findUnique({ 
-                where: { id: p.medicineId },
-                include: { inventoryItems: { where: { clinicId: mr.clinicId } } }
-            })
-            if (medicine) {
-              const invItem = medicine.inventoryItems?.[0]
-              const itemPrice = invItem?.sellingPrice || 0
-              const subtotal = itemPrice * parseInt(p.quantity)
-              
-              let obatService = await tx.service.findFirst({
-                where: { 
-                  serviceName: { contains: 'Obat', mode: 'insensitive' },
-                  OR: [ { clinicId: mr.clinicId }, { clinic: { isMain: true } } ]
+            const product = await tx.product.findFirst({
+              where: {
+                clinicId: mr.clinicId,
+                masterProduct: {
+                  medicineId: p.medicineId
                 }
-              })
-              
-              if (!obatService) {
-                obatService = await tx.service.create({
-                  data: {
-                    serviceCode: 'MED-GEN',
-                    serviceName: 'Obat-obatan',
-                    price: 0,
-                    isActive: true,
-                    clinicId: mr.clinicId
-                  }
-                })
               }
+            })
 
+            if (product) {
+              const itemPrice = product.sellingPrice || 0
+              const quantity = parseInt(p.quantity) || 0
+              const subtotal = itemPrice * quantity
+              
               await tx.invoiceItem.create({
                 data: {
                   invoiceId: invoice.id,
                   serviceId: obatService.id,
-                  description: `${medicine.medicineName} (${p.dosage})`,
-                  quantity: parseInt(p.quantity),
+                  description: `${product.productName} (${p.dosage})`,
+                  quantity: quantity,
                   price: itemPrice,
                   subtotal
                 }
@@ -301,12 +311,16 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
       }
 
       return mr
+    }, {
+      maxWait: 10000,
+      timeout: 30000,
     })
 
     res.status(200).json(result)
   } catch (e) {
-    console.error('Save Doctor Consultation Error:', e)
-    res.status(500).json({ message: (e as Error).message })
+    const error = e as Error
+    console.error('Save Doctor Consultation Error:', error)
+    res.status(500).json({ message: error.message })
   }
 }
 

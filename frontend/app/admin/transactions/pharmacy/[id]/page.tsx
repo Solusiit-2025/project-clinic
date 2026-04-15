@@ -1,13 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import api from '@/lib/api'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { ArrowLeft, CheckCircle, PackageCheck, AlertCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
 
-export default function PharmacyDetailPage({ params }: { params: { id: string } }) {
+export default function PharmacyDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params)
   const router = useRouter()
   const [prescription, setPrescription] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -21,7 +22,7 @@ export default function PharmacyDetailPage({ params }: { params: { id: string } 
 
   const fetchPrescription = async () => {
     try {
-      const res = await api.get(`/pharmacy/prescriptions/${params.id}`)
+      const res = await api.get(`/pharmacy/prescriptions/${resolvedParams.id}`)
       setPrescription(res.data)
     } catch (e: any) {
       setError(e.response?.data?.message || 'Gagal memuat resep')
@@ -43,7 +44,7 @@ export default function PharmacyDetailPage({ params }: { params: { id: string } 
          payload.counselingGiven = true
       }
 
-      await api.patch(`/pharmacy/prescriptions/${params.id}/status`, payload)
+      await api.patch(`/pharmacy/prescriptions/${resolvedParams.id}/status`, payload)
       await fetchPrescription() // Refresh data
     } catch (e: any) {
       setError(e.response?.data?.message || e.message || 'Gagal mengubah status')

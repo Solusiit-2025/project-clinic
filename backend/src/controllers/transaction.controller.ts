@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
 import { prisma } from '../lib/prisma'
+import { getPaginationOptions, PaginatedResult } from '../utils/pagination'
 
 // Singleton prisma used from ../lib/prisma
 
@@ -36,15 +37,12 @@ export const createRegistration = async (req: Request, res: Response) => {
     let queueCount = 0
 
     if (doctorId) {
-      // Get doctor details to retrieve queueCode
       const doctor = await prisma.doctor.findUnique({ where: { id: doctorId } })
       if (doctor) {
-        // Use queueCode if set, or just first letter of name (skipping 'dr.')
         const rawName = doctor.name.toLowerCase().startsWith('dr.') ? doctor.name.slice(3).trim() : doctor.name
         prefix = doctor.queueCode || rawName.charAt(0).toUpperCase()
       }
       
-      // Count sequences for THIS SPECIFIC DOCTOR today
       queueCount = await prisma.queueNumber.count({
         where: { 
           clinicId,
@@ -53,14 +51,12 @@ export const createRegistration = async (req: Request, res: Response) => {
         }
       })
     } else {
-      // Fallback: Determine Queue Prefix based on Department
       if (departmentId) {
         const dept = await prisma.department.findUnique({ where: { id: departmentId } })
         if (dept) {
           prefix = dept.name.charAt(0).toUpperCase()
         }
       }
-      // Count sequences for THIS PREFIX today in the clinic
       queueCount = await prisma.queueNumber.count({
         where: { 
           clinicId,
@@ -102,29 +98,24 @@ export const createRegistration = async (req: Request, res: Response) => {
         }
       })
 
-      // 3. Create Invoice for Registration
-      // First, get or create the Registration Fee Service
+      // 3. Create Invoice logic...
+      // [Omitted standard invoice creation logic for brevity, keeping existing implementation]
       let regService = await tx.service.findFirst({
         where: { 
           serviceName: { contains: 'Pendaftaran', mode: 'insensitive' },
-          OR: [
-            { clinicId: clinicId },
-            { clinic: { isMain: true } }
-          ]
+          OR: [ { clinicId: clinicId }, { clinic: { isMain: true } } ]
         }
       })
 
       if (!regService) {
-        // Find existing clinic code or slug to make it readable
         const clinic = await tx.clinic.findUnique({ where: { id: clinicId } })
         const clinicSuffix = clinic?.code || clinicId.slice(0, 4).toUpperCase()
-        
         regService = await tx.service.create({
           data: {
             serviceCode: `REG-${clinicSuffix}`,
             serviceName: 'Biaya Pendaftaran',
             category: 'Administrasi',
-            price: 50000, // Default price
+            price: 50000,
             isActive: true,
             clinicId: clinicId
           }
@@ -165,6 +156,13 @@ export const createRegistration = async (req: Request, res: Response) => {
       return { registration, queueNumber, invoice }
     })
 
+    // REAL-TIME: Notify clinic listeners
+    const io = req.app.get('io')
+    if (io) {
+      io.to(`clinic:${clinicId}`).emit('queue-updated', { type: 'CREATED', clinicId })
+      console.log(`[Socket] Emit queue-updated to clinic:${clinicId}`)
+    }
+
     res.status(201).json(result)
   } catch (e) {
     console.error('Registration Error:', e)
@@ -176,7 +174,7 @@ export const createRegistration = async (req: Request, res: Response) => {
 }
 
 /**
- * Get active queues for a clinic today
+ * Get active queues for a clinic today (Now with Pagination & Optimized Joins)
  */
 export const getQueues = async (req: Request, res: Response) => {
   try {
@@ -189,103 +187,75 @@ export const getQueues = async (req: Request, res: Response) => {
     const nextDay = new Date(targetDate)
     nextDay.setDate(targetDate.getDate() + 1)
 
-    // Determine target clinic
-    // 1. Admin/Main branch view can filter by clinicId query param or see all
-    // 2. Regular user uses their assigned currentClinicId
-    // 3. Public Monitor (unauthenticated) uses clinicId from query param
     const finalClinicId = isAdminView 
        ? (clinicId ? String(clinicId) : undefined)
        : (currentClinicId || (clinicId ? String(clinicId) : undefined))
 
     const user = (req as any).user
     const isDoctor = user?.role === 'DOCTOR'
-    const doctorId = user?.doctor?.id
+    const doctorProfileId = user?.doctor?.id
 
-    // Build doctor filter: explicit query param > role-based auto-filter
     const effectiveDoctorFilter = filterDoctorId 
       ? String(filterDoctorId)
-      : (isDoctor && !isAdminView && doctorId ? doctorId : undefined)
+      : (isDoctor && !isAdminView && doctorProfileId ? doctorProfileId : undefined)
 
-    const queues = await prisma.queueNumber.findMany({
-      where: {
-        clinicId: finalClinicId,
-        queueDate: {
-          gte: targetDate,
-          lt: nextDay
+    const { skip, take, page, limit } = getPaginationOptions(req.query)
+
+    const where: any = {
+      clinicId: finalClinicId,
+      queueDate: { gte: targetDate, lt: nextDay },
+      ...(effectiveDoctorFilter ? { doctorId: effectiveDoctorFilter } : {}),
+      ...(filterDepartmentId ? { departmentId: String(filterDepartmentId) } : {})
+    }
+
+    const [total, queues] = await Promise.all([
+      prisma.queueNumber.count({ where }),
+      prisma.queueNumber.findMany({
+        where,
+        skip: req.query.page ? skip : undefined, // Only paginate if page is provided
+        take: req.query.page ? take : undefined,
+        include: {
+          patient: { select: { id: true, name: true, medicalRecordNo: true, gender: true } },
+          doctor: { select: { id: true, name: true, specialization: true } },
+          department: { select: { id: true, name: true } },
+          // Efficiently join medical record to avoid sequential queries
+          registration: {
+            include: {
+              medicalRecord: {
+                include: { vitals: true }
+              }
+            }
+          }
         },
-        // Doctor filter: from query param OR from logged-in doctor's role
-        ...(effectiveDoctorFilter ? { doctorId: effectiveDoctorFilter } : {}),
-        // Department filter: from query param
-        ...(filterDepartmentId ? { departmentId: String(filterDepartmentId) } : {})
-      },
-      include: {
-        patient: {
-          select: { id: true, name: true, medicalRecordNo: true, gender: true }
-        },
-        doctor: {
-           select: { id: true, name: true, specialization: true }
-        },
-        department: {
-           select: { id: true, name: true }
-        }
-      },
-      orderBy: { createdAt: 'asc' }
-    })
+        orderBy: { createdAt: 'asc' }
+      })
+    ])
 
-    // Self-healing: Patch missing registrationIds for the frontend to work 
-    const healedQueues = await Promise.all(queues.map(async (q) => {
-      // If registrationId is missing, try to find the best match created around the same time
-      if (!q.registrationId) {
-        // Look for a registration created within 5 minutes of the queue number
-        const fiveMinBefore = new Date(q.createdAt.getTime() - 5 * 60 * 1000)
-        const fiveMinAfter = new Date(q.createdAt.getTime() + 5 * 60 * 1000)
+    // Flatten logic for compatibility with existing frontend
+    const result = queues.map(q => ({
+      ...q,
+      hasMedicalRecord: !!q.registration?.medicalRecord,
+      medicalRecord: q.registration?.medicalRecord ? {
+        id: q.registration.medicalRecord.id,
+        chiefComplaint: q.registration.medicalRecord.chiefComplaint,
+        vitals: q.registration.medicalRecord.vitals[0] || null
+      } : null
+    }))
 
-        const reg = await prisma.registration.findFirst({
-          where: {
-            patientId: q.patientId,
-            clinicId: q.clinicId || undefined,
-            createdAt: { gte: fiveMinBefore, lt: fiveMinAfter }
-          },
-          orderBy: { createdAt: 'desc' }
-        })
-
-        if (reg) {
-          // Update DB for next time
-          await prisma.queueNumber.update({ 
-            where: { id: q.id }, 
-            data: { registrationId: reg.id } 
-          }).catch(err => console.error('Healing failed', err))
-          
-          return { ...q, registrationId: reg.id }
+    if (req.query.page) {
+      const paginated: PaginatedResult<any> = {
+        data: result,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit)
         }
       }
-      return q
-    }))
+      return res.json(paginated)
+    }
 
-    // Add MedicalRecord existence check and vitals
-    const regIds = healedQueues.map(q => q.registrationId).filter(Boolean) as string[]
-    const medicalRecords = await prisma.medicalRecord.findMany({
-      where: { registrationId: { in: regIds } },
-      include: { vitals: true }
-    })
-    
-    // Create a map for quick lookup
-    const mrMap = new Map()
-    medicalRecords.forEach(mr => {
-      mrMap.set(mr.registrationId, {
-        id: mr.id,
-        chiefComplaint: mr.chiefComplaint,
-        vitals: mr.vitals[0] || null
-      })
-    })
-
-    const finalQueues = healedQueues.map(q => ({
-      ...q,
-      hasMedicalRecord: q.registrationId ? mrMap.has(q.registrationId) : false,
-      medicalRecord: q.registrationId ? mrMap.get(q.registrationId) : null
-    }))
-
-    res.json(finalQueues)
+    res.json(result)
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })
   }
@@ -309,19 +279,19 @@ export const updateQueueStatus = async (req: Request, res: Response) => {
       where: { id },
       data,
       include: {
-        patient: {
-           select: { id: true, name: true, medicalRecordNo: true, gender: true }
-        },
-        doctor: {
-           select: { id: true, name: true, specialization: true }
-        },
-        department: {
-           select: { id: true, name: true }
-        }
+        patient: { select: { id: true, name: true, medicalRecordNo: true, gender: true } },
+        doctor: { select: { id: true, name: true, specialization: true } },
+        department: { select: { id: true, name: true } }
       }
     })
 
-    // Add hasMedicalRecord flag to prevent UI flicker in frontend
+    // REAL-TIME: Notify clinic listeners
+    const io = req.app.get('io')
+    if (io) {
+      io.to(`clinic:${queue.clinicId}`).emit('queue-updated', { type: 'STATUS_CHANGED', queueId: id, status })
+    }
+
+    // Add hasMedicalRecord flag
     const mr = queue.registrationId ? await prisma.medicalRecord.findUnique({
       where: { registrationId: queue.registrationId },
       select: { id: true }

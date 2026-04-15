@@ -209,7 +209,7 @@ export default function DoctorDashboard() {
                   <div className="flex-1 text-center md:text-left">
                     <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">Data Pasien</p>
                     <h4 className="text-xl md:text-2xl font-black text-gray-900">{currentPatient.patient.name}</h4>
-                    <p className="text-xs text-gray-500 font-bold mt-0.5">RM: {currentPatient.patient.medicalRecordNo} • {currentPatient.patient.gender === 'M' ? 'Laki-laki' : 'Perempuan'}</p>
+                    <p className="text-xs text-gray-500 font-bold mt-0.5">RM: {currentPatient.patient.medicalRecordNo} • {['M', 'L', 'Laki-laki'].includes(currentPatient.patient.gender) ? 'Laki-laki' : 'Perempuan'}</p>
                     
                     <button
                       onClick={() => router.push(`/doctor/queue/${currentPatient.id}`)}

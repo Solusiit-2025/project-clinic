@@ -612,6 +612,7 @@ function DisplayQueueContent() {
                               className="w-full h-full object-cover"
                               muted={isVideoMuted}
                               playsInline
+                              poster="/monitor-poster.png"
                            />
                            <div className="absolute inset-0 bg-white/5" />
                            <div className="absolute bottom-16 left-16 flex items-center gap-6 bg-white/20 backdrop-blur-3xl px-8 py-5 rounded-[2.5rem] border border-white/30 shadow-2xl">

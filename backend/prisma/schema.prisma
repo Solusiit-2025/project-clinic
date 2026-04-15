@@ -38,6 +38,7 @@ model Clinic {
   isMain          Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
 
   users           UserClinic[]
   departments     Department[]
@@ -45,7 +46,7 @@ model Clinic {
   appointments    Appointment[]
   queueNumbers    QueueNumber[]
   medicalRecords  MedicalRecord[]
-  inventories     Inventory[]
+
   products        Product[]
   assets          Asset[]
   invoices        Invoice[]
@@ -56,6 +57,17 @@ model Clinic {
   doctorSchedules DoctorSchedule[]
   medicines       Medicine[]
   referrals       Referral[]
+
+  // New Inventory Module Relations
+  inventoryStocks   InventoryStock[]
+  inventoryBatches  InventoryBatch[]
+  inventoryMutations InventoryMutation[]
+  procurements      Procurement[]
+  transfersSent     InterBranchTransfer[] @relation("TransferSource")
+  transfersReceived InterBranchTransfer[] @relation("TransferDest")
+  inventoryReturns  InventoryReturn[]
+  inventoryAuditLogs InventoryAuditLog[]
+  branchProductPrices BranchProductPrice[]
 
   @@map("clinics")
 }
@@ -88,6 +100,7 @@ model User {
   lastLogin     DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
 
   doctor        Doctor?
   activityLogs  ActivityLog[]
@@ -155,6 +168,7 @@ model Registration {
   doctor          Doctor? @relation(fields: [doctorId], references: [id], onDelete: SetNull)
   department      Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   medicalRecord   MedicalRecord?
+  queueNumbers    QueueNumber[]
 
   @@index([patientId])
   @@index([clinicId])
@@ -300,6 +314,7 @@ model QueueNumber {
   clinic          Clinic? @relation(fields: [clinicId], references: [id], onDelete: SetNull)
   doctor          Doctor? @relation("QueueDoctor", fields: [doctorId], references: [id], onDelete: SetNull)
   department      Department? @relation("QueueDept", fields: [departmentId], references: [id], onDelete: SetNull)
+  registration    Registration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
 
   @@index([patientId])
   @@index([queueDate])
@@ -518,7 +533,7 @@ model Medicine {
   clinic            Clinic?  @relation(fields: [clinicId], references: [id], onDelete: SetNull)
   prescriptionItems PrescriptionItem[]
   prescriptionItemComponents PrescriptionItemComponent[]
-  inventoryItems    Inventory[]
+
   productMaster     ProductMaster?
 
   @@index([medicineName])
@@ -580,73 +595,6 @@ model AppointmentService {
 
   @@index([appointmentId])
   @@map("appointment_services")
-}
-
-// ==================== INVENTORY & STOCK ====================
-
-model Inventory {
-  id                  String  @id @default(uuid())
-  itemCode            String  @unique
-  medicineId          String?
-  itemName            String
-  description         String?
-  category            String  // medicine, supplies, equipment
-  unit                String  // tablet, box, pcs, ml
-  quantity            Int
-  minimumStock        Int
-  reorderQuantity     Int
-  purchasePrice       Float
-  sellingPrice        Float?
-  supplier            String?
-  lastPurchaseDate    DateTime?
-  expiryDate          DateTime?
-  location            String? // storage location
-  clinicId            String?
-  isActive            Boolean @default(true)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-
-  medicine            Medicine? @relation(fields: [medicineId], references: [id])
-  clinic              Clinic?   @relation(fields: [clinicId], references: [id], onDelete: SetNull)
-  transactions        InventoryTransaction[]
-  adjustments         InventoryAdjustment[]
-
-  @@index([itemCode])
-  @@index([category])
-  @@map("inventory")
-}
-
-model InventoryTransaction {
-  id              String  @id @default(uuid())
-  inventoryId     String
-  transactionType String  // in (pembelian), out (penggunaan), return, adjustment
-  quantity        Int
-  referenceNo     String?
-  notes           String?
-  createdAt       DateTime @default(now())
-
-  inventory       Inventory @relation(fields: [inventoryId], references: [id])
-
-  @@index([inventoryId])
-  @@index([transactionType])
-  @@map("inventory_transactions")
-}
-
-model InventoryAdjustment {
-  id              String  @id @default(uuid())
-  inventoryId     String
-  adjustmentType  String  // add, reduce
-  quantity        Int
-  reason          String
-  notes           String?
-  approvedBy      String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  inventory       Inventory @relation(fields: [inventoryId], references: [id])
-
-  @@index([inventoryId])
-  @@map("inventory_adjustments")
 }
 
 // ==================== PRODUCT ====================
@@ -722,9 +670,20 @@ model Product {
   isActive        Boolean @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
 
   masterProduct   ProductMaster @relation(fields: [masterProductId], references: [id], onDelete: Cascade)
   clinic          Clinic?       @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+
+  // New Inventory Relations
+  inventoryStocks   InventoryStock[]
+  inventoryBatches  InventoryBatch[]
+  inventoryMutations InventoryMutation[]
+  conversionRules   ProductUnitConversion[]
+  procurementItems  ProcurementItem[]
+  transferItems     InterBranchTransfer[]
+  returnItems       InventoryReturn[]
+  branchPrices      BranchProductPrice[]
 
   @@unique([productCode, clinicId])
   @@unique([sku, clinicId])
@@ -763,6 +722,7 @@ model Asset {
   masterProductId String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
 
   clinic          Clinic?  @relation(fields: [clinicId], references: [id], onDelete: SetNull)
   masterProduct   ProductMaster? @relation(fields: [masterProductId], references: [id])
@@ -802,6 +762,7 @@ model Invoice {
   @@index([patientId])
   @@index([status])
   @@index([invoiceDate])
+  @@index([clinicId])
   @@map("invoices")
 }
 
@@ -1009,3 +970,231 @@ model RadiologyOrder {
   @@map("radiology_orders")
 }
 
+
+// ==================== NEW INVENTORY MODULE MODELS ====================
+
+model ProductUnit {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g., "Tablet", "Strip", "Box", "Botol"
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  conversionsFrom ProductUnitConversion[] @relation("FromUnit")
+  conversionsTo   ProductUnitConversion[] @relation("ToUnit")
+
+  @@map("product_units")
+}
+
+model ProductUnitConversion {
+  id          String   @id @default(uuid())
+  productId   String
+  fromUnitId  String
+  toUnitId    String
+  ratio       Float    // e.g., 1 Box = 10 Strip -> ratio = 10
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  fromUnit    ProductUnit @relation("FromUnit", fields: [fromUnitId], references: [id])
+  toUnit      ProductUnit @relation("ToUnit", fields: [toUnitId], references: [id])
+
+  @@unique([productId, fromUnitId, toUnitId])
+  @@map("product_unit_conversions")
+}
+
+model InventoryStock {
+  id              String   @id @default(uuid())
+  branchId        String
+  productId       String
+  batchId         String?
+  onHandQty       Float    @default(0) // In smallest unit
+  reservedQty     Float    @default(0) // In smallest unit
+  minStockAlert   Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  branch          Clinic   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  batch           InventoryBatch? @relation(fields: [batchId], references: [id])
+
+  @@unique([branchId, productId, batchId])
+  @@index([productId])
+  @@index([branchId])
+  @@index([batchId])
+  @@map("inventory_stocks")
+}
+
+model InventoryBatch {
+  id              String   @id @default(uuid())
+  branchId        String
+  productId       String
+  batchNumber     String
+  expiryDate      DateTime
+  purchasePrice   Float    @default(0)
+  initialQty      Float    @default(0)
+  currentQty      Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  branch          Clinic   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  stocks          InventoryStock[]
+  mutations       InventoryMutation[]
+  returns         InventoryReturn[]
+  transfers       InterBranchTransfer[]
+
+  @@unique([branchId, productId, batchNumber])
+  @@map("inventory_batches")
+}
+
+model InventoryMutation {
+  id              String   @id @default(uuid())
+  branchId        String
+  productId       String
+  batchId         String?
+  type            String   // IN, OUT, ADJUSTMENT, TRANSFER, RETURN
+  quantity        Float
+  referenceType   String?  // PROCUREMENT, DISPENSING, TRANSFER, ADJUSTMENT
+  referenceId     String?
+  notes           String?
+  userId          String
+  createdAt       DateTime @default(now())
+
+  branch          Clinic   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  batch           InventoryBatch? @relation(fields: [batchId], references: [id])
+
+  @@index([branchId, productId])
+  @@index([createdAt])
+  @@index([type])
+  @@map("inventory_mutations")
+}
+
+model Procurement {
+  id              String   @id @default(uuid())
+  procurementNo   String   @unique
+  branchId        String
+  vendorId        String?
+  type            String   // PR, PO, GRN
+  status          String   @default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, ORDERED, RECEIVED, CANCELLED
+  paymentStatus   String   @default("UNPAID") // UNPAID, PARTIAL, PAID
+  totalAmount     Float    @default(0)
+  paidAmount      Float    @default(0)
+  dueDate         DateTime?
+  notes           String?
+  createdBy       String
+  approvedBy      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  branch          Clinic            @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  items           ProcurementItem[]
+  returns         InventoryReturn[]
+
+  @@index([branchId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("procurements")
+}
+
+model ProcurementItem {
+  id              String   @id @default(uuid())
+  procurementId   String
+  productId       String
+  requestedQty    Float
+  receivedQty     Float    @default(0)
+  unitPrice       Float
+  subtotal        Float
+  expiryDate      DateTime?
+  batchNumber     String?
+
+  procurement     Procurement @relation(fields: [procurementId], references: [id], onDelete: Cascade)
+  product         Product     @relation(fields: [productId], references: [id])
+
+  @@map("procurement_items")
+}
+
+model InterBranchTransfer {
+  id                  String   @id @default(uuid())
+  transferNo          String   @unique
+  sourceBranchId      String
+  destBranchId        String
+  productId           String
+  batchId             String?
+  quantity            Float
+  status              String   @default("REQUESTED") // REQUESTED, HQ_APPROVED, IN_TRANSIT, RECEIVED, REJECTED
+  transferCost        Float    @default(0)
+  requestedBy         String
+  approvedBy          String?
+  receivedBy          String?
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  sourceBranch        Clinic   @relation("TransferSource", fields: [sourceBranchId], references: [id])
+  destBranch          Clinic   @relation("TransferDest", fields: [destBranchId], references: [id])
+  product             Product  @relation(fields: [productId], references: [id])
+  batch               InventoryBatch? @relation(fields: [batchId], references: [id])
+
+  @@index([sourceBranchId, destBranchId])
+  @@map("inter_branch_transfers")
+}
+
+model InventoryReturn {
+  id              String   @id @default(uuid())
+  returnNo        String   @unique
+  branchId        String
+  productId       String
+  batchId         String?
+  quantity        Float
+  returnType      String   // TO_SUPPLIER, INTER_BRANCH, FROM_PATIENT
+  reason          String
+  status          String   @default("REQUESTED") // REQUESTED, APPROVED, COMPLETED
+  procurementId   String?
+  transferId      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  branch          Clinic   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product         Product  @relation(fields: [productId], references: [id])
+  batch           InventoryBatch? @relation(fields: [batchId], references: [id])
+  procurement     Procurement? @relation(fields: [procurementId], references: [id])
+
+  @@map("inventory_returns")
+}
+
+model InventoryAuditLog {
+  id              String   @id @default(uuid())
+  branchId        String
+  userId          String
+  action          String   // INSERT, UPDATE, DELETE, APPROVE, REJECT, TRANSFER
+  tableName       String
+  recordId        String
+  oldData         Json?
+  newData         Json?
+  createdAt       DateTime @default(now())
+
+  branch          Clinic   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([branchId, createdAt])
+  @@map("inventory_audit_logs")
+}
+
+model BranchProductPrice {
+  id              String   @id @default(uuid())
+  branchId        String
+  productId       String
+  purchasePrice   Float
+  sellingPrice    Float
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  branch          Clinic   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, productId])
+  @@map("branch_product_prices")
+}

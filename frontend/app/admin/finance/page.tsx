@@ -53,6 +53,12 @@ export default function FinanceDashboard() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [paymentData, setPaymentData] = useState({ amount: 0, method: 'cash', notes: '' })
+  const [processing, setProcessing] = useState(false)
+  
+  // Pagination State
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalItems, setTotalItems] = useState(0)
 
   const headers = useMemo(() => ({ 
     Authorization: `Bearer ${token}`,
@@ -60,33 +66,42 @@ export default function FinanceDashboard() {
   }), [token, activeClinicId])
 
   const fetchData = useCallback(async () => {
-    console.log('Finance fetchData triggered:', { token: !!token, activeClinicId })
     if (!token || !activeClinicId) return
     try {
       setLoading(true)
-      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004') + '/api'
+      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/api'
       
       const [invRes, sumRes] = await Promise.all([
         axios.get(`${baseUrl}/finance/invoices`, { 
           headers,
           params: { 
             search: search || undefined,
-            status: statusFilter === 'all' ? undefined : statusFilter
+            status: statusFilter === 'all' ? undefined : statusFilter,
+            page: page,
+            limit: 10
           }
         }),
         axios.get(`${baseUrl}/finance/summary`, { headers })
       ])
       
-      setInvoices(invRes.data)
+      // Handle the new PaginatedResult format
+      if (invRes.data?.data) {
+        setInvoices(invRes.data.data)
+        setTotalPages(invRes.data.meta.totalPages)
+        setTotalItems(invRes.data.meta.total)
+      } else {
+        setInvoices(invRes.data || [])
+        setTotalPages(1)
+      }
+      
       setSummary(sumRes.data)
     } catch (error) {
       console.error('Fetch Finance Error:', error)
       toast.error('Gagal mengambil data keuangan')
     } finally {
-      setLoading(true)
-      setTimeout(() => setLoading(false), 500)
+      setLoading(false)
     }
-  }, [headers, search, statusFilter])
+  }, [headers, search, statusFilter, page])
 
   useEffect(() => {
     if (token && activeClinicId) {
@@ -98,7 +113,8 @@ export default function FinanceDashboard() {
     if (!selectedInvoice) return
     
     try {
-      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004') + '/api'
+      setProcessing(true)
+      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/api'
       await axios.post(`${baseUrl}/finance/payments`, {
         invoiceId: selectedInvoice.id,
         amount: paymentData.amount,
@@ -111,7 +127,10 @@ export default function FinanceDashboard() {
       setSelectedInvoice(null)
       fetchData()
     } catch (error) {
+      console.error('Payment Error:', error)
       toast.error('Gagal memproses pembayaran')
+    } finally {
+      setProcessing(false)
     }
   }
 
@@ -200,6 +219,7 @@ export default function FinanceDashboard() {
 
           <div className="bg-white rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden">
             <table className="w-full text-left border-collapse">
+                {/* ... existing table structure ... */}
                 <thead>
                   <tr className="bg-slate-50/50 border-bottom border-slate-100">
                       <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">No. Invoice</th>
@@ -277,6 +297,32 @@ export default function FinanceDashboard() {
                   </AnimatePresence>
                 </tbody>
             </table>
+
+            {/* Pagination Controls */}
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                Showing {invoices.length} of {totalItems} Invoices
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  disabled={page <= 1 || loading}
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  className="px-6 py-2.5 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  Previous
+                </button>
+                <div className="w-10 h-10 flex items-center justify-center bg-indigo-600 rounded-xl text-white font-black text-xs shadow-md shadow-indigo-200">
+                  {page}
+                </div>
+                <button
+                  disabled={page >= totalPages || loading}
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  className="px-6 py-2.5 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           </div>
       </section>
 
@@ -429,13 +475,33 @@ export default function FinanceDashboard() {
                            value={paymentData.amount} onChange={(e) => setPaymentData({...paymentData, amount: parseFloat(e.target.value)})}
                         />
                      </div>
+
+                     <div className="space-y-3 text-left">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Catatan (Opsional)</label>
+                        <textarea 
+                           className="w-full px-8 py-4 bg-slate-50 border border-slate-100 rounded-[2rem] font-medium text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none"
+                           rows={2}
+                           placeholder="Tambahkan catatan pembayaran..."
+                           value={paymentData.notes} onChange={(e) => setPaymentData({...paymentData, notes: e.target.value})}
+                        />
+                     </div>
                   </div>
 
                   <button 
+                     disabled={processing}
                      onClick={handleProcessPayment}
-                     className="w-full py-6 bg-indigo-600 text-white rounded-[2rem] font-black uppercase tracking-widest shadow-[0_20px_40px_-15px_rgba(79,70,229,0.4)] hover:bg-indigo-700 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-4"
+                     className={`w-full py-6 rounded-[2rem] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-4 ${processing ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 text-white shadow-[0_20px_40px_-15px_rgba(79,70,229,0.4)] hover:bg-indigo-700 hover:scale-[1.02] active:scale-[0.98]'}`}
                   >
-                     Submit Pembayaran <FiArrowRight className="w-5 h-5" />
+                     {processing ? (
+                        <>
+                           <FiActivity className="w-5 h-5 animate-spin-slow" />
+                           Memproses...
+                        </>
+                     ) : (
+                        <>
+                           Submit Pembayaran <FiArrowRight className="w-5 h-5" />
+                        </>
+                     )}
                   </button>
                </motion.div>
             </div>
@@ -449,6 +515,13 @@ export default function FinanceDashboard() {
         }
         .animate-bounce-slow {
           animation: bounce-slow 3s ease-in-out infinite;
+        }
+        @keyframes spin-slow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin-slow {
+          animation: spin-slow 2s linear infinite;
         }
         .custom-scrollbar::-webkit-scrollbar {
           width: 8px;

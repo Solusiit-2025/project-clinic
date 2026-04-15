@@ -1,49 +1,63 @@
 import { Request, Response } from 'express'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '../lib/prisma'
+import { getPaginationOptions, PaginatedResult } from '../utils/pagination'
 
 /**
- * Get all invoices with filtering
+ * Get all invoices with filtering (Paginated)
  */
 export const getInvoices = async (req: Request, res: Response) => {
   try {
-    const { status, search, startDate, endDate } = req.query
+    const { status, search, startDate, endDate, page: pageParam } = req.query
     const currentClinicId = (req as any).clinicId
     const isAdminView = (req as any).isAdminView
 
-    console.log('[Finance] getInvoices filters:', {
-      currentClinicId,
-      isAdminView,
-      status,
-      search
-    })
+    const { skip, take, page, limit } = getPaginationOptions(req.query)
 
-    const invoices = await prisma.invoice.findMany({
-      where: {
-        ...(!isAdminView ? { clinicId: currentClinicId } : {}),
-        ...(status ? { status: String(status) } : {}),
-        ...(search ? {
-          OR: [
-            { invoiceNo: { contains: String(search), mode: 'insensitive' } },
-            { patient: { name: { contains: String(search), mode: 'insensitive' } } },
-            { patient: { medicalRecordNo: { contains: String(search), mode: 'insensitive' } } },
-          ]
-        } : {}),
-        ...(startDate || endDate ? {
-          invoiceDate: {
-            ...(startDate ? { gte: new Date(String(startDate)) } : {}),
-            ...(endDate ? { lte: new Date(String(endDate)) } : {}),
-          }
-        } : {}),
-      },
-      include: {
-        patient: { select: { name: true, medicalRecordNo: true, phone: true } },
-        items: true,
-        payments: true
-      },
-      orderBy: { createdAt: 'desc' }
-    })
+    const where: any = {
+      ...(!isAdminView ? { clinicId: currentClinicId } : {}),
+      ...(status ? { status: String(status) } : {}),
+      ...(search ? {
+        OR: [
+          { invoiceNo: { contains: String(search), mode: 'insensitive' } },
+          { patient: { name: { contains: String(search), mode: 'insensitive' } } },
+          { patient: { medicalRecordNo: { contains: String(search), mode: 'insensitive' } } },
+        ]
+      } : {}),
+      ...(startDate || endDate ? {
+        invoiceDate: {
+          ...(startDate ? { gte: new Date(String(startDate)) } : {}),
+          ...(endDate ? { lte: new Date(String(endDate)) } : {}),
+        }
+      } : {}),
+    }
+
+    const [total, invoices] = await Promise.all([
+      prisma.invoice.count({ where }),
+      prisma.invoice.findMany({
+        where,
+        include: {
+          patient: { select: { id: true, name: true, medicalRecordNo: true, phone: true } },
+          items: true,
+          payments: true
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: pageParam ? skip : undefined,
+        take: pageParam ? take : undefined,
+      })
+    ])
+
+    if (pageParam) {
+      const result: PaginatedResult<any> = {
+        data: invoices,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit)
+        }
+      }
+      return res.json(result)
+    }
 
     res.json(invoices)
   } catch (e) {

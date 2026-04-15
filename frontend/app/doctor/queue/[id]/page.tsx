@@ -203,6 +203,8 @@ export default function DoctorConsultationPage() {
   // Medicine Search Logic
   useEffect(() => {
     if (isReadOnly) return
+    const controller = new AbortController()
+    
     const searchTimeout = setTimeout(async () => {
       if (searchMed.length < 2 && !isMedDropdownOpen) {
         setSearchMedicines([])
@@ -210,15 +212,30 @@ export default function DoctorConsultationPage() {
       }
       try {
         const medRes = await api.get('master/products', { 
-          params: { isActive: true, search: searchMed || undefined, limit: 10 } 
+          params: { 
+            isActive: true, 
+            search: searchMed || undefined, 
+            limit: 20,
+            clinicId: queue?.clinicId
+          },
+          signal: controller.signal
         })
-        setSearchMedicines(medRes.data.filter((m: any) => m.medicineId))
-      } catch (e) {
-        console.error('Search aborted')
+        // Backend returns array if 'page' is not provided
+        setSearchMedicines(Array.isArray(medRes.data) ? medRes.data.filter((m: any) => m.medicineId) : [])
+      } catch (e: any) {
+        if (e.name === 'CanceledError' || e.name === 'AbortError') {
+          // Silently ignore aborted requests
+          return
+        }
+        console.error('Medicine search failed:', e)
       }
     }, 300)
-    return () => clearTimeout(searchTimeout)
-  }, [searchMed, isMedDropdownOpen, isReadOnly])
+
+    return () => {
+      clearTimeout(searchTimeout)
+      controller.abort()
+    }
+  }, [searchMed, isMedDropdownOpen, isReadOnly, queue?.clinicId])
 
   // Service Search Logic
   useEffect(() => {
@@ -286,8 +303,15 @@ export default function DoctorConsultationPage() {
         labResults,
         notes,
         hasInformedConsent,
-        services: serviceItems.map(s => ({ serviceId: s.serviceId, quantity: s.quantity, price: s.price })),
-        prescriptions: prescriptionItems,
+        services: serviceItems.map(s => ({ 
+          serviceId: s.serviceId, 
+          quantity: parseInt(s.quantity) || 0, 
+          price: parseFloat(s.price) || 0 
+        })),
+        prescriptions: prescriptionItems.map(p => ({
+          ...p,
+          quantity: parseInt(p.quantity) || 0
+        })),
         isFinal
       })
       
@@ -340,8 +364,8 @@ export default function DoctorConsultationPage() {
                 <h1 className="text-xl font-black text-slate-900 tracking-tight">{queue.patient.name}</h1>
                 <span className="text-[10px] font-black px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100 uppercase tracking-wider">{queue.patient.medicalRecordNo}</span>
                 {queue.patient.gender && (
-                  <span className={`text-[10px] font-black px-2.5 py-1 rounded-xl border uppercase tracking-wider ${queue.patient.gender === 'L' ? 'bg-sky-50 text-sky-600 border-sky-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
-                    {queue.patient.gender === 'L' ? 'Laki-laki' : 'Perempuan'}
+                  <span className={`text-[10px] font-black px-2.5 py-1 rounded-xl border uppercase tracking-wider ${['L', 'M', 'Laki-laki'].includes(queue.patient.gender) ? 'bg-sky-50 text-sky-600 border-sky-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                    {['L', 'M', 'Laki-laki'].includes(queue.patient.gender) ? 'Laki-laki' : 'Perempuan'}
                   </span>
                 )}
               </div>

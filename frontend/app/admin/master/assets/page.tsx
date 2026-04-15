@@ -231,7 +231,7 @@ export default function AssetsPage() {
   )
 
   return (
-    <div>
+    <div className="p-6 w-full mx-auto min-h-screen">
       <PageHeader
         title="Manajemen Aset" subtitle="Pemantauan inventaris peralatan medis dan fasilitas klinik"
         icon={<FiBox className="w-5 h-5 sm:w-6 sm:h-6" />}

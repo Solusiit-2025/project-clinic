@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
 import { PrismaClient } from '@prisma/client'
+import { InventoryService } from '../services/inventory.service'
 
 const prisma = new PrismaClient()
 
@@ -108,7 +109,16 @@ export const updateDispenseStatus = async (req: Request, res: Response) => {
     const prescription = await prisma.prescription.findUnique({
       where: { id },
       include: { 
-         items: { include: { medicine: true } },
+         items: { 
+           include: { 
+             medicine: true,
+             components: {
+               include: {
+                 medicine: true
+               }
+             }
+           } 
+         },
          medicalRecord: true
       }
     })
@@ -125,48 +135,46 @@ export const updateDispenseStatus = async (req: Request, res: Response) => {
          // Deduct Stock
          for (const item of prescription.items) {
              
-             // Setup helper functions for deduction to avoid duplication
+             // Core deduction handler using FIFO
              const deductItem = async (medicineId: string, medicineName: string, reqQty: number) => {
-                const stockNeeded = Math.ceil(reqQty) // e.g. 7.5 requires taking 8 physical tablets
-                const inventory = await tx.inventory.findFirst({
-                   where: { medicineId: medicineId, clinicId: clinicId }
-                })
-
-                if (!inventory) {
-                   throw new Error(`Inventory untuk obat ${medicineName} tidak ditemukan di klinik ini.`)
-                }
-                if (inventory.quantity < stockNeeded) {
-                   throw new Error(`Stok obat ${medicineName} tidak mencukupi. (Stok: ${inventory.quantity}, Dibutuhkan: ${stockNeeded})`)
-                }
-
-                await tx.inventory.update({
-                   where: { id: inventory.id },
-                   data: { quantity: { decrement: stockNeeded } }
-                })
-                await tx.inventoryTransaction.create({
-                   data: {
-                      inventoryId: inventory.id,
-                      transactionType: 'out',
-                      quantity: stockNeeded,
-                      referenceNo: prescription.prescriptionNo,
-                      notes: `Auto deduction for Prescription ${prescription.prescriptionNo} ${item.isRacikan ? '(Racikan)' : ''}`
+                const product = await tx.product.findFirst({
+                   where: { 
+                     masterProduct: {
+                       medicineId: medicineId 
+                     },
+                     clinicId: clinicId 
                    }
                 })
+
+                if (!product) {
+                   throw new Error(`Produk untuk obat ${medicineName} tidak ditemukan di klinik ini.`)
+                }
+
+                // Use the new InventoryService for FIFO deduction
+                await InventoryService.deductStock(tx, {
+                    productId: product.id,
+                    branchId: clinicId as string,
+                    quantity: reqQty,
+                    userId: pharmacistId || 'SYSTEM',
+                    referenceType: 'PHARMACY_DISPENSING',
+                    referenceId: id,
+                    notes: `Dispensing for Prescription ${prescription.prescriptionNo}`
+                });
              }
 
              if (item.isRacikan) {
                 // Loop components and deduct
                 for (const comp of (item as any).components) {
                    if (comp.medicine) {
-                       const requiredQty = comp.quantity * item.quantity;
-                       await deductItem(comp.medicine.id, comp.medicine.medicineName, requiredQty)
+                        const requiredQty = comp.quantity * item.quantity;
+                        await deductItem(comp.medicine.id, comp.medicine.medicineName, requiredQty)
                    }
                 }
              } else {
-                 // Standard PATEN medication
+                 // Standard medication
                  const medicine = item.medicine
                  if (medicine && clinicId) {
-                    await deductItem(medicine.id, medicine.medicineName, item.quantity)
+                    await deductItem(medicine.id, medicine.medicineName, item.quantity as number)
                  }
              }
          }

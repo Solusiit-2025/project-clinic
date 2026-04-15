@@ -4,6 +4,8 @@ import bcrypt from 'bcrypt'
 import sharp from 'sharp'
 import path from 'path'
 import fs from 'fs/promises'
+import { getPaginationOptions, PaginatedResult } from '../utils/pagination'
+import { CacheService } from '../lib/cache'
 
 const prisma = new PrismaClient()
 
@@ -14,35 +16,64 @@ export const getUsers = async (req: Request, res: Response) => {
     const currentClinicId = (req as any).clinicId
     const isAdminView = (req as any).isAdminView
 
-    const users = await prisma.user.findMany({
-      where: {
-        ...(search ? {
-          OR: [
-            { name: { contains: String(search), mode: 'insensitive' } },
-            { email: { contains: String(search), mode: 'insensitive' } },
-            { username: { contains: String(search), mode: 'insensitive' } },
-          ]
-        } : {}),
-        ...(role ? { role: role as Role } : {}),
-        ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
-        // Filter by clinic only if NOT an admin view
-        ...(!isAdminView ? { clinics: { some: { clinicId: currentClinicId } } } : {})
-      },
-      select: {
-        id: true, email: true, username: true, name: true,
-        phone: true, role: true, isActive: true, lastLogin: true,
-        createdAt: true, updatedAt: true,
-        clinics: {
-          select: {
-            clinic: {
-              select: { id: true, name: true, code: true }
+    const { skip, take, page, limit } = getPaginationOptions(req.query)
+
+    const [total, users] = await Promise.all([
+      prisma.user.count({ 
+        where: {
+          ...(search ? {
+            OR: [
+              { name: { contains: String(search), mode: 'insensitive' } },
+              { email: { contains: String(search), mode: 'insensitive' } },
+              { username: { contains: String(search), mode: 'insensitive' } },
+            ]
+          } : {}),
+          ...(role ? { role: role as Role } : {}),
+          ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
+          ...(!isAdminView ? { clinics: { some: { clinicId: currentClinicId } } } : {})
+        }
+      }),
+      prisma.user.findMany({
+        where: {
+          ...(search ? {
+            OR: [
+              { name: { contains: String(search), mode: 'insensitive' } },
+              { email: { contains: String(search), mode: 'insensitive' } },
+              { username: { contains: String(search), mode: 'insensitive' } },
+            ]
+          } : {}),
+          ...(role ? { role: role as Role } : {}),
+          ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
+          ...(!isAdminView ? { clinics: { some: { clinicId: currentClinicId } } } : {})
+        },
+        select: {
+          id: true, email: true, username: true, name: true,
+          phone: true, role: true, isActive: true, lastLogin: true,
+          createdAt: true, updatedAt: true,
+          clinics: {
+            select: {
+              clinic: {
+                select: { id: true, name: true, code: true }
+              }
             }
           }
-        }
-      },
-      orderBy: { createdAt: 'desc' },
-    })
-    res.json(users)
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take
+      })
+    ])
+
+    const result: PaginatedResult<any> = {
+      data: users,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    }
+    res.json(result)
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })
   }
@@ -883,37 +914,68 @@ export const deleteExpenseCategory = async (req: Request, res: Response) => {
 // ==================== PRODUCT MASTER ====================
 export const getProductMasters = async (req: Request, res: Response) => {
   try {
-    const { search, categoryId, isActive } = req.query
-    const products = await prisma.productMaster.findMany({
-      where: {
-        ...(search ? {
-          OR: [
-            { masterName: { contains: String(search), mode: 'insensitive' } },
-            { masterCode: { contains: String(search), mode: 'insensitive' } },
-          ]
-        } : {}),
-        ...(categoryId ? { categoryId: String(categoryId) } : {}),
-        ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
-      },
-      include: { 
-        productCategory: true,
-        medicine: true,
-        // Include specific products for this clinic to get stock levels
-        products: { 
-          where: { clinicId: (req as any).clinicId },
-          select: { quantity: true, unit: true, usedUnit: true }
-        }
-      },
-      orderBy: { masterName: 'asc' },
-    })
-    
-    // Calculate total stock for this clinic and simplify response
-    const result = products.map(p => ({
-      ...p,
-      stock: p.products.reduce((acc, curr) => acc + curr.quantity, 0),
-      unit: p.products[0]?.usedUnit || p.products[0]?.unit || 'Unit'
-    }))
+    const { search, categoryId, isActive, clinicId } = req.query
+    const targetClinicId = clinicId ? String(clinicId) : (req as any).clinicId
 
+    const { skip, take, page, limit } = getPaginationOptions(req.query)
+
+    const where: any = {
+      ...(search ? {
+        OR: [
+          { masterName: { contains: String(search), mode: 'insensitive' } },
+          { masterCode: { contains: String(search), mode: 'insensitive' } },
+        ]
+      } : {}),
+      ...(categoryId ? { categoryId: String(categoryId) } : {}),
+      ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
+      products: {
+        some: {
+          clinicId: targetClinicId
+        }
+      }
+    }
+
+    const [total, products] = await Promise.all([
+      prisma.productMaster.count({ where }),
+      prisma.productMaster.findMany({
+        where,
+        include: { 
+          productCategory: true,
+          medicine: true,
+          products: { 
+            where: { clinicId: targetClinicId },
+            include: {
+              inventoryStocks: true
+            }
+          }
+        },
+        orderBy: { masterName: 'asc' },
+        skip,
+        take
+      })
+    ])
+    
+    // Calculate total stock
+    const data = products.map(p => {
+      const branchProduct = p.products[0]
+      const totalStock = (branchProduct?.inventoryStocks || []).reduce((acc, curr) => acc + (curr.onHandQty || 0), 0)
+      
+      return {
+        ...p,
+        stock: totalStock,
+        unit: branchProduct?.usedUnit || branchProduct?.unit || 'Unit'
+      }
+    })
+
+    const result: PaginatedResult<any> = {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    }
     res.json(result)
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })
@@ -997,28 +1059,33 @@ export const deleteProductMaster = async (req: Request, res: Response) => {
 export const getClinics = async (req: Request, res: Response) => {
   try {
     const { search, isActive } = req.query
-    const clinics = await prisma.clinic.findMany({
-      where: {
-        ...(search ? {
-          OR: [
-            { name: { contains: String(search), mode: 'insensitive' } },
-            { code: { contains: String(search), mode: 'insensitive' } },
-            { address: { contains: String(search), mode: 'insensitive' } },
-          ]
-        } : {}),
-        ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
-      },
-      include: {
-        _count: {
-          select: {
-            users: true,
-            departments: true,
+    const cacheKey = `clinics:${JSON.stringify(req.query)}`
+
+    const result = await CacheService.getOrSet(cacheKey, async () => {
+      return await prisma.clinic.findMany({
+        where: {
+          ...(search ? {
+            OR: [
+              { name: { contains: String(search), mode: 'insensitive' } },
+              { code: { contains: String(search), mode: 'insensitive' } },
+              { address: { contains: String(search), mode: 'insensitive' } },
+            ]
+          } : {}),
+          ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
+        },
+        include: {
+          _count: {
+            select: {
+              users: true,
+              departments: true,
+            }
           }
-        }
-      },
-      orderBy: { code: 'asc' }
-    })
-    res.json(clinics)
+        },
+        orderBy: { code: 'asc' }
+      })
+    }, 600) // 10 minutes cache
+
+    res.json(result)
   } catch (e: any) {
     res.status(500).json({ message: e.message })
   }
@@ -1069,6 +1136,7 @@ export const createClinic = async (req: Request, res: Response) => {
       // We don't return 500 here because the clinic was already created successfully
     }
 
+    CacheService.del('clinics:*'); // Invalidate all clinic caches
     res.status(201).json(clinic)
   } catch (e: any) {
     res.status(500).json({ message: e.message })
@@ -1100,6 +1168,7 @@ export const updateClinic = async (req: Request, res: Response) => {
       where: { id: req.params.id },
       data: req.body
     })
+    CacheService.del('clinics:*');
     res.json(clinic)
   } catch (e: any) {
     res.status(500).json({ message: e.message })
@@ -1115,6 +1184,7 @@ export const deleteClinic = async (req: Request, res: Response) => {
     }
 
     await prisma.clinic.delete({ where: { id: req.params.id } })
+    CacheService.del('clinics:*');
     res.json({ message: 'Cabang berhasil dihapus' })
   } catch (e: any) {
     res.status(500).json({ message: e.message })
