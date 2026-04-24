@@ -16,11 +16,11 @@ import {
   getInventoryProducts, createInventoryProduct, updateInventoryProduct, deleteInventoryProduct,
   getPatients, getPatientById, getNextMRNo, createPatient, updatePatient, deletePatient
 } from '../controllers/master.controller'
-import { getCOAs, createCOA, updateCOA, deleteCOA } from '../controllers/coa.controller'
+import { getCOAs, createCOA, updateCOA, deleteCOA, getCoaBalances } from '../controllers/coa.controller'
 import { getBanks, createBank, updateBank, deleteBank } from '../controllers/bank.controller'
 import { getSystemAccounts, updateSystemAccount, seedSystemAccounts } from '../controllers/systemAccount.controller'
 import {
-  getAllMaintenance, getAssetMaintenance, createAssetMaintenance, updateAssetMaintenance, deleteAssetMaintenance,
+  getAllMaintenance, getAssetMaintenance, createAssetMaintenance, postMaintenanceToGL, updateAssetMaintenance, deleteAssetMaintenance,
   getAssetTransfers, createAssetTransfer, approveAssetTransfer, rejectAssetTransfer,
   getAssetAuditLogs, getAssetInsurance, upsertAssetInsurance, deleteAssetInsurance,
   getMaintenanceSchedule, getExpiringInsurance
@@ -114,6 +114,7 @@ masterRoutes.delete('/assets/:id', deleteAsset)
 masterRoutes.get('/maintenance/all', getAllMaintenance)
 masterRoutes.get('/assets/:id/maintenance', getAssetMaintenance)
 masterRoutes.post('/assets/:id/maintenance', createAssetMaintenance)
+masterRoutes.post('/assets/maintenance/:id/post', postMaintenanceToGL)
 masterRoutes.put('/assets/maintenance/:maintenanceId', updateAssetMaintenance)
 masterRoutes.delete('/assets/maintenance/:maintenanceId', deleteAssetMaintenance)
 
@@ -158,6 +159,7 @@ masterRoutes.delete('/patients/:id', deletePatient)
 
 // Chart of Accounts (COA)
 masterRoutes.get('/coa', getCOAs)
+masterRoutes.get('/coa/balances', getCoaBalances)
 masterRoutes.post('/coa', createCOA)
 masterRoutes.put('/coa/:id', updateCOA)
 masterRoutes.delete('/coa/:id', deleteCOA)

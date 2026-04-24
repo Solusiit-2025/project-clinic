@@ -5,7 +5,7 @@ import axios from 'axios'
 import { 
   FiSettings, FiPlus, FiTool, FiCalendar, FiDollarSign, 
   FiUser, FiAlertCircle, FiCheckCircle, FiClock, FiSearch,
-  FiFileText, FiArrowRight
+  FiFileText, FiArrowRight, FiSend, FiX, FiInfo
 } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
@@ -35,6 +35,7 @@ type MaintenanceRecord = {
   performedBy: string;
   nextMaintenanceDate?: string;
   notes?: string;
+  isPosted: boolean;
   asset: Asset;
 }
 
@@ -50,9 +51,11 @@ const EMPTY_FORM = {
 }
 
 export default function MaintenancePage() {
-  const { token, activeClinicId } = useAuthStore()
+  const { token } = useAuthStore()
   const [data, setData] = useState<MaintenanceRecord[]>([])
   const [assets, setAssets] = useState<Asset[]>([])
+  const [coas, setCoas] = useState<any[]>([])
+  const [balances, setBalances] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
@@ -61,7 +64,13 @@ export default function MaintenancePage() {
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
 
-  const headers = { Authorization: `Bearer ${token}` }
+  // Posting States
+  const [postingModalOpen, setPostingModalOpen] = useState(false)
+  const [postingRecord, setPostingRecord] = useState<MaintenanceRecord | null>(null)
+  const [selectedCreditCoa, setSelectedCreditCoa] = useState('')
+  const [postingLoading, setPostingLoading] = useState(false)
+
+  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -73,19 +82,40 @@ export default function MaintenancePage() {
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [headers])
 
   const fetchAssets = useCallback(async () => {
     try {
       const { data: res } = await axios.get(`${API}/assets`, { headers })
       setAssets(res)
     } catch (e) { console.error('Failed to fetch assets', e) }
-  }, [token])
+  }, [headers])
+
+  const fetchCoasAndBalances = useCallback(async () => {
+    try {
+      const [{ data: resCoa }, { data: resBal }] = await Promise.all([
+        axios.get(`${API}/coa`, { headers }),
+        axios.get(`${API}/coa/balances`, { headers })
+      ])
+      
+      const balMap: Record<string, number> = {}
+      resBal.forEach((b: any) => { balMap[b.id] = b.balance })
+      setBalances(balMap)
+
+      // Filter for Cash and Bank (Usually starts with 1-11)
+      const filtered = resCoa.filter((c: any) => c.code.startsWith('1-11'))
+      setCoas(filtered)
+      if (filtered.length > 0) setSelectedCreditCoa(filtered[0].id)
+    } catch (e) { console.error('Failed to fetch COAs/Balances', e) }
+  }, [headers])
 
   useEffect(() => {
-    fetchData()
-    fetchAssets()
-  }, [fetchData, fetchAssets])
+    if (token) {
+      fetchData()
+      fetchAssets()
+      fetchCoasAndBalances()
+    }
+  }, [token, fetchData, fetchAssets, fetchCoasAndBalances])
 
   const assetOptions = useMemo(() => assets.map(a => ({
     id: a.id,
@@ -93,6 +123,13 @@ export default function MaintenancePage() {
     code: a.assetCode,
     description: `${a.assetType.toUpperCase()} - ${a.clinic?.name || 'Central'}`
   })), [assets])
+
+  const coaOptions = useMemo(() => coas.map(c => ({
+    id: c.id,
+    label: c.name,
+    code: c.code,
+    description: `Saldo: Rp ${(balances[c.id] || 0).toLocaleString('id-ID')}`
+  })), [coas, balances])
 
   const handleSave = async () => {
     if (!form.assetId || !form.description || !form.maintenanceDate) {
@@ -116,12 +153,28 @@ export default function MaintenancePage() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Hapus record maintenance ini?')) return
+  const handlePostToGL = async () => {
+    if (!postingRecord || !selectedCreditCoa) return
+    
+    const balance = balances[selectedCreditCoa] || 0
+    if (balance < postingRecord.cost) {
+      alert(`Saldo tidak cukup! Saldo saat ini: Rp ${balance.toLocaleString('id-ID')}`)
+      return
+    }
+
+    setPostingLoading(true)
     try {
-      await axios.delete(`${API}/assets/maintenance/${id}`, { headers })
+      await axios.post(`${API}/assets/maintenance/${postingRecord.id}/post`, {
+        creditCoaId: selectedCreditCoa
+      }, { headers })
+      setPostingModalOpen(false)
       fetchData()
-    } catch (e) { alert('Gagal menghapus') }
+      fetchCoasAndBalances() // Refresh balances
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Gagal posting ke GL')
+    } finally {
+      setPostingLoading(false)
+    }
   }
 
   const columns: Column<MaintenanceRecord>[] = [
@@ -139,57 +192,59 @@ export default function MaintenancePage() {
             </span>
           </div>
           <p className="text-sm font-black text-gray-900 tracking-tight leading-none uppercase">{r.asset?.assetName}</p>
-          <p className="text-[10px] text-gray-400 font-bold mt-1.5 uppercase italic">{r.asset?.clinic?.name || 'Pusat'}</p>
         </div>
       )
     },
     {
       key: 'maintenanceDate',
-      label: 'JADWAL & TIPE',
+      label: 'JADWAL',
       render: (r) => (
         <div className="flex flex-col">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] font-black bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full uppercase tracking-tighter">
-              {r.maintenanceType}
-            </span>
-          </div>
+          <span className="text-[10px] font-black text-indigo-500 uppercase mb-1">{r.maintenanceType}</span>
           <span className="text-xs font-black text-gray-800">
             {new Date(r.maintenanceDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
           </span>
-          {r.nextMaintenanceDate && (
-             <span className="text-[9px] text-rose-500 font-bold mt-1 uppercase flex items-center gap-1">
-               <FiClock className="w-2.5 h-2.5" /> Next: {new Date(r.nextMaintenanceDate).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' })}
-             </span>
-          )}
         </div>
       )
     },
     {
       key: 'description',
-      label: 'KETERANGAN / TINDAKAN',
-      render: (r) => (
-        <div className="max-w-[200px]">
-          <p className="text-xs font-bold text-gray-700 line-clamp-2 leading-relaxed">{r.description}</p>
-          {r.performedBy && (
-             <p className="text-[9px] text-gray-400 font-black mt-1 uppercase flex items-center gap-1">
-               <FiUser className="w-2.5 h-2.5" /> {r.performedBy}
-             </p>
-          )}
-        </div>
-      )
+      label: 'TINDAKAN',
+      render: (r) => <p className="text-xs font-bold text-gray-600 line-clamp-2 max-w-[200px]">{r.description}</p>
     },
     {
       key: 'cost',
-      label: 'BIAYA (FINANCIAL)',
+      label: 'BIAYA',
       render: (r) => (
-        <div className="flex flex-col">
-          <span className={`text-sm font-black ${r.cost > 0 ? 'text-rose-600' : 'text-gray-400 italic'}`}>
-            {r.cost > 0 ? `Rp ${r.cost.toLocaleString('id-ID')}` : 'Gratis / Garansi'}
-          </span>
-          {r.cost > 0 && (
-            <span className="text-[9px] font-black bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded mt-1 w-fit uppercase border border-emerald-100">
-              Synced to GL
-            </span>
+        <span className={`text-sm font-black ${r.cost > 0 ? 'text-rose-600' : 'text-gray-400 italic'}`}>
+          {r.cost > 0 ? `Rp ${r.cost.toLocaleString('id-ID')}` : 'Gratis'}
+        </span>
+      )
+    },
+    {
+      key: 'isPosted',
+      label: 'STATUS GL',
+      render: (r) => (
+        <div className="flex items-center">
+          {r.cost > 0 ? (
+            r.isPosted ? (
+              <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-2xl border-2 border-emerald-100 shadow-sm shadow-emerald-100/50">
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Terposting</span>
+              </div>
+            ) : (
+              <button 
+                onClick={() => { setPostingRecord(r); setPostingModalOpen(true); }}
+                className="group relative flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-2xl shadow-lg shadow-amber-200 hover:shadow-amber-300 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
+              >
+                <div className="absolute inset-0 bg-white/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                <FiSend className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Posting to GL</span>
+                <FiArrowRight className="w-3 h-3 opacity-50 group-hover:translate-x-1 transition-transform" />
+              </button>
+            )
+          ) : (
+            <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest italic">-</span>
           )}
         </div>
       )
@@ -200,7 +255,20 @@ export default function MaintenancePage() {
       render: (r) => (
         <div className="flex gap-2">
           <button 
-            onClick={() => { setEditing(r); setForm({ ...r, maintenanceDate: r.maintenanceDate.substring(0,10), nextMaintenanceDate: r.nextMaintenanceDate?.substring(0,10) || '' }); setModalOpen(true); }}
+            onClick={() => { 
+              setEditing(r); 
+              setForm({ 
+                assetId: r.assetId,
+                maintenanceDate: r.maintenanceDate.substring(0, 10),
+                maintenanceType: r.maintenanceType,
+                description: r.description,
+                cost: r.cost,
+                performedBy: r.performedBy || '',
+                nextMaintenanceDate: r.nextMaintenanceDate?.substring(0, 10) || '',
+                notes: r.notes || ''
+              }); 
+              setModalOpen(true); 
+            }}
             className="p-2.5 bg-gray-50 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all"
           >
             <FiSettings className="w-4 h-4" />
@@ -210,71 +278,32 @@ export default function MaintenancePage() {
     }
   ]
 
-  const SummaryCard = ({ title, value, subValue, icon, color }: any) => (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm hover:shadow-xl hover:shadow-gray-200/40 transition-all group overflow-hidden relative"
-    >
-      <div className={`absolute -right-6 -top-6 w-32 h-32 ${color} bg-opacity-5 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-1000`} />
-      <div className="flex justify-between items-start mb-4 relative z-10">
-        <div className={`p-3 rounded-2xl ${color} bg-opacity-10 group-hover:scale-110 transition-transform`}>
-          {icon}
-        </div>
-      </div>
-      <div className="relative z-10">
-        <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">{title}</p>
-        <h3 className="text-2xl font-black text-gray-900 tracking-tighter">
-          {typeof value === 'number' && title.includes('Biaya') ? `Rp ${value.toLocaleString('id-ID')}` : value}
-        </h3>
-        {subValue && <p className="text-[10px] text-gray-500 font-bold mt-1.5 uppercase italic">{subValue}</p>}
-      </div>
-    </motion.div>
-  )
-
   const totals = useMemo(() => {
     const cost = data.reduce((sum, r) => sum + (r.cost || 0), 0)
     const upcoming = data.filter(r => r.nextMaintenanceDate && new Date(r.nextMaintenanceDate) > new Date()).length
     return { cost, count: data.length, upcoming }
   }, [data])
 
+  const selectedBalance = selectedCreditCoa ? (balances[selectedCreditCoa] || 0) : 0
+  const isInsufficient = postingRecord ? selectedBalance < postingRecord.cost : false
+
   return (
     <div className="p-6 w-full mx-auto min-h-screen bg-[#fcfcfd]">
       <PageHeader
         title="Maintenance & Perawatan"
-        subtitle="Kelola riwayat pemeliharaan berkala dan perbaikan aset tetap klinik"
+        subtitle="Kelola riwayat pemeliharaan berkala dan perbaikan aset tetap"
         icon={<FiTool className="w-6 h-6" />}
         breadcrumb={['Admin', 'Manajemen Aset', 'Maintenance']}
         onAdd={() => { setEditing(null); setForm(EMPTY_FORM); setError(''); setModalOpen(true); }}
         addLabel="Catat Maintenance"
       />
 
-      {/* Summary Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 mt-2">
-        <SummaryCard 
-          title="Total Perawatan" 
-          value={totals.count} 
-          subValue="Record Terdaftar"
-          icon={<FiFileText className="w-6 h-6 text-indigo-600" />} 
-          color="bg-indigo-600"
-        />
-        <SummaryCard 
-          title="Total Biaya Pemeliharaan" 
-          value={totals.cost} 
-          subValue="Terjurnal ke Buku Besar"
-          icon={<FiDollarSign className="w-6 h-6 text-rose-600" />} 
-          color="bg-rose-600"
-        />
-        <SummaryCard 
-          title="Jadwal Mendatang" 
-          value={totals.upcoming} 
-          subValue="Service Rutin Berikutnya"
-          icon={<FiClock className="w-6 h-6 text-emerald-600" />} 
-          color="bg-emerald-600"
-        />
+        <SummaryCard title="Total Perawatan" value={totals.count} icon={<FiFileText className="w-6 h-6 text-indigo-600" />} color="bg-indigo-600" />
+        <SummaryCard title="Total Biaya" value={totals.cost} icon={<FiDollarSign className="w-6 h-6 text-rose-600" />} color="bg-rose-600" />
+        <SummaryCard title="Jadwal Mendatang" value={totals.upcoming} icon={<FiClock className="w-6 h-6 text-emerald-600" />} color="bg-emerald-600" />
       </div>
 
-      {/* Data Table Section */}
       <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden">
         <DataTable
           data={data}
@@ -282,12 +311,12 @@ export default function MaintenancePage() {
           loading={loading}
           searchValue={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Cari berdasarkan aset, deskripsi, atau teknisi..."
+          searchPlaceholder="Cari..."
           groupBy={(r) => r.maintenanceType.toUpperCase()}
         />
       </div>
 
-      {/* MODAL */}
+      {/* FORM MODAL */}
       <MasterModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -296,168 +325,147 @@ export default function MaintenancePage() {
       >
         <div className="flex flex-col gap-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-1">
-          <div className="md:col-span-2">
-             <SearchableSelect
-               label="Pilih Aset"
-               options={assetOptions}
-               value={form.assetId}
-               onChange={(id) => setForm(p => ({...p, assetId: id}))}
-               placeholder="Cari kode atau nama aset..."
-               disabled={!!editing}
-             />
-          </div>
+            <div className="md:col-span-2">
+               <SearchableSelect
+                 label="Pilih Aset"
+                 options={assetOptions}
+                 value={form.assetId}
+                 onChange={(id) => setForm(p => ({...p, assetId: id}))}
+                 placeholder="Cari aset..."
+                 disabled={!!editing}
+               />
+            </div>
 
-          <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 text-blue-600">Tanggal Maintenance</label>
-            <input 
-              type="date" value={form.maintenanceDate} 
-              onChange={(e) => setForm(p => ({...p, maintenanceDate: e.target.value}))} 
-              className="w-full px-5 py-3.5 rounded-3xl border-2 border-blue-100 focus:border-primary outline-none font-bold text-sm text-gray-700" 
-            />
-          </div>
+            <div>
+              <label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Tanggal Maintenance</label>
+              <input type="date" value={form.maintenanceDate} onChange={(e) => setForm(p => ({...p, maintenanceDate: e.target.value}))} className="w-full px-5 py-3.5 rounded-3xl border-2 border-blue-100 focus:border-primary outline-none text-sm font-bold" />
+            </div>
 
-          <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 text-blue-600">Tipe Perawatan</label>
-            <select 
-              value={form.maintenanceType} 
-              onChange={(e) => setForm(p => ({...p, maintenanceType: e.target.value}))} 
-              className="w-full px-5 py-3.5 rounded-3xl border-2 border-blue-100 focus:border-primary outline-none font-bold text-sm text-gray-700 appearance-none bg-white"
-            >
-              <option value="Routine">Routine Service</option>
-              <option value="Repair">Repair / Perbaikan</option>
-              <option value="Upgrade">Upgrade / Penggantian Part</option>
-              <option value="Inspection">Inspection / Kalibrasi</option>
-            </select>
-          </div>
+            <div>
+              <label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Tipe Perawatan</label>
+              <select value={form.maintenanceType} onChange={(e) => setForm(p => ({...p, maintenanceType: e.target.value}))} className="w-full px-5 py-3.5 rounded-3xl border-2 border-blue-100 focus:border-primary outline-none text-sm font-bold appearance-none bg-white">
+                <option value="Routine">Routine Service</option>
+                <option value="Repair">Repair / Perbaikan</option>
+                <option value="Upgrade">Upgrade / Part</option>
+                <option value="Inspection">Inspection</option>
+              </select>
+            </div>
 
             <div className="md:col-span-2">
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 text-blue-600">Tindakan / Deskripsi</label>
-              <textarea 
-                value={form.description} 
-                onChange={(e) => setForm(p => ({...p, description: e.target.value}))} 
-                placeholder="Apa saja yang dilakukan pada aset ini?"
-                rows={5}
-                className="w-full px-5 py-3.5 rounded-[2rem] border-2 border-blue-100 focus:border-primary outline-none font-bold text-sm text-gray-700 resize-none" 
-              />
+              <label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Tindakan / Deskripsi</label>
+              <textarea value={form.description} onChange={(e) => setForm(p => ({...p, description: e.target.value}))} placeholder="..." rows={5} className="w-full px-5 py-3.5 rounded-[2rem] border-2 border-blue-100 focus:border-primary outline-none text-sm font-bold resize-none" />
             </div>
 
-          <div className="p-6 bg-rose-50/50 border-2 border-rose-100/50 rounded-[2.5rem]">
-             <div className="flex items-center gap-3 mb-4">
-               <FiDollarSign className="text-rose-600 w-5 h-5" />
-               <span className="text-[10px] font-black text-rose-900 uppercase tracking-widest">Biaya Maintenance</span>
-             </div>
-             <input 
-              type="number" value={form.cost} 
-              onChange={(e) => setForm(p => ({...p, cost: Number(e.target.value)}))} 
-              className="w-full px-5 py-3.5 rounded-2xl border-2 border-rose-100 bg-white focus:border-rose-500 outline-none font-black text-lg text-rose-900 shadow-inner" 
-            />
-            <p className="text-[9px] text-rose-400 font-bold mt-2 italic">* Jika &gt; 0, sistem akan otomatis mencatat jurnal beban (Expense).</p>
-          </div>
-
-          <div className="p-6 bg-emerald-50/50 border-2 border-emerald-100/50 rounded-[2.5rem]">
-             <div className="flex items-center gap-3 mb-4">
-               <FiCalendar className="text-emerald-600 w-5 h-5" />
-               <span className="text-[10px] font-black text-emerald-900 uppercase tracking-widest">Jadwal Berikutnya</span>
-             </div>
-             <input 
-              type="date" value={form.nextMaintenanceDate} 
-              onChange={(e) => setForm(p => ({...p, nextMaintenanceDate: e.target.value}))} 
-              className="w-full px-5 py-3.5 rounded-2xl border-2 border-emerald-100 bg-white focus:border-emerald-500 outline-none font-bold text-sm text-emerald-900" 
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 text-blue-600">Teknisi / Pelaksana</label>
-            <input 
-              type="text" value={form.performedBy} 
-              onChange={(e) => setForm(p => ({...p, performedBy: e.target.value}))} 
-              placeholder="Nama Teknisi atau Vendor..."
-              className="w-full px-5 py-3.5 rounded-3xl border-2 border-blue-100 focus:border-primary outline-none font-bold text-sm text-gray-700" 
-            />
-          </div>
-
-          <div>
-             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 text-blue-600">Catatan Tambahan</label>
-             <input 
-              type="text" value={form.notes} 
-              onChange={(e) => setForm(p => ({...p, notes: e.target.value}))} 
-              placeholder="Catatan tambahan (opsional)..."
-              className="w-full px-5 py-3.5 rounded-3xl border-2 border-blue-100 focus:border-primary outline-none font-bold text-sm text-gray-700" 
+            <div className="p-6 bg-rose-50/50 border-2 border-rose-100/50 rounded-[2.5rem]">
+               <div className="flex items-center gap-3 mb-4"><FiDollarSign className="text-rose-600" /> <span className="text-[10px] font-black text-rose-900 uppercase">Biaya</span></div>
+               <input type="number" value={form.cost} onChange={(e) => setForm(p => ({...p, cost: Number(e.target.value)}))} className="w-full px-5 py-3.5 rounded-2xl border-2 border-rose-100 bg-white focus:border-rose-500 outline-none font-black text-lg text-rose-900 shadow-inner" />
+               <p className="text-[9px] text-rose-400 font-bold mt-2 italic">* Data ini tidak langsung masuk ke laporan keuangan (Manual Posting)</p>
             </div>
+
+            <div className="p-6 bg-emerald-50/50 border-2 border-emerald-100/50 rounded-[2.5rem]">
+               <div className="flex items-center gap-3 mb-4"><FiCalendar className="text-emerald-600" /> <span className="text-[10px] font-black text-emerald-900 uppercase">Next Jadwal</span></div>
+               <input type="date" value={form.nextMaintenanceDate} onChange={(e) => setForm(p => ({...p, nextMaintenanceDate: e.target.value}))} className="w-full px-5 py-3.5 rounded-2xl border-2 border-emerald-100 bg-white focus:border-emerald-500 outline-none text-sm font-bold" />
+            </div>
+
+            <input type="text" value={form.performedBy} onChange={(e) => setForm(p => ({...p, performedBy: e.target.value}))} placeholder="Teknisi..." className="w-full px-5 py-3.5 rounded-3xl border-2 border-blue-100 focus:border-primary outline-none text-sm font-bold" />
+            <input type="text" value={form.notes} onChange={(e) => setForm(p => ({...p, notes: e.target.value}))} placeholder="Catatan..." className="w-full px-5 py-3.5 rounded-3xl border-2 border-blue-100 focus:border-primary outline-none text-sm font-bold" />
           </div>
-          
+
           <div className="flex gap-4 pt-6 border-t border-gray-100">
-            <button 
-              onClick={() => setModalOpen(false)} 
-              className="flex-1 py-4 border-2 border-gray-100 rounded-[2rem] text-[11px] font-black text-gray-400 tracking-widest uppercase hover:bg-gray-50 transition-all active:scale-95"
-            >
-              Batal
-            </button>
-            <button 
-              onClick={handleSave} 
-              disabled={saving} 
-              className="flex-1 py-4 bg-primary text-white rounded-[2rem] text-[11px] font-black tracking-widest uppercase shadow-xl shadow-primary/20 disabled:opacity-60 transition-all active:scale-95"
-            >
-              {saving ? 'SEDANG MENYIMPAN...' : 'SIMPAN MAINTENANCE'}
-            </button>
+            <button onClick={() => setModalOpen(false)} className="flex-1 py-4 border-2 border-gray-100 rounded-[2rem] text-[11px] font-black text-gray-400 tracking-widest uppercase hover:bg-gray-50 transition-all">Batal</button>
+            <button onClick={handleSave} disabled={saving} className="flex-1 py-4 bg-primary text-white rounded-[2rem] text-[11px] font-black tracking-widest uppercase shadow-xl shadow-primary/20 transition-all">{saving ? 'Menyimpan...' : 'Simpan'}</button>
           </div>
 
-          {error && (
-            <div className="p-4 bg-rose-50 text-rose-600 rounded-2xl text-xs font-bold flex items-center gap-2 border border-rose-100">
-              <FiAlertCircle className="w-4 h-4 flex-shrink-0" />
-              {error}
-            </div>
-          )}
+          {error && <div className="p-4 bg-rose-50 text-rose-600 rounded-2xl text-xs font-bold border border-rose-100">{error}</div>}
         </div>
       </MasterModal>
 
-      {/* FOOTER INFO */}
-      <div className="mt-8 p-8 bg-gradient-to-br from-gray-900 to-indigo-900 rounded-[3rem] text-white overflow-hidden relative group shadow-2xl shadow-indigo-200">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:scale-120 transition-transform duration-1000" />
-        
-        <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-400">
-                <FiActivity className="w-5 h-5" />
-              </div>
-              <h4 className="text-xl font-black tracking-tight">Kesehatan Aset & Integritas Keuangan</h4>
-            </div>
-            <p className="text-indigo-100/60 text-sm font-medium max-w-2xl leading-relaxed">
-              Modul maintenance ini terintegrasi langsung dengan sistem Akuntansi. Setiap biaya pemeliharaan yang Anda masukkan akan otomatis membuat jurnal pengeluaran kas dan beban pemeliharaan di Buku Besar. Pastikan mencatat setiap perawatan untuk menjaga nilai ekonomis aset Anda.
-            </p>
+      {/* POSTING MODAL */}
+      <AnimatePresence>
+        {postingModalOpen && postingRecord && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setPostingModalOpen(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} 
+              animate={{ scale: 1, opacity: 1 }} 
+              exit={{ scale: 0.9, opacity: 0 }} 
+              className="relative bg-white w-full max-w-lg rounded-[3rem] shadow-2xl p-8 pb-12 max-h-[90vh] overflow-y-auto custom-scrollbar"
+            >
+               <div className="absolute top-0 right-0 p-6">
+                 <button onClick={() => setPostingModalOpen(false)} className="p-2 bg-gray-50 text-gray-400 rounded-xl hover:bg-gray-100"><FiX /></button>
+               </div>
+               
+               <div className="mb-8">
+                 <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 mb-4">
+                   <FiSend className="w-7 h-7" />
+                 </div>
+                 <h3 className="text-xl font-black text-gray-900 tracking-tight">Posting ke General Ledger</h3>
+                 <p className="text-sm text-gray-500 font-bold mt-1">Konfirmasi pembayaran dan catat ke laporan keuangan</p>
+               </div>
+
+               <div className="space-y-6 mb-10">
+                  <div className="p-6 bg-rose-50/50 rounded-[2rem] border-2 border-rose-100/50 flex flex-col items-center text-center">
+                    <p className="text-[10px] font-black text-rose-400 uppercase tracking-[0.2em] mb-2">Total Biaya Pemeliharaan</p>
+                    <p className="text-3xl font-black text-rose-600 tracking-tighter">Rp {postingRecord.cost.toLocaleString('id-ID')}</p>
+                    <div className="mt-4 px-4 py-1.5 bg-white rounded-full border border-rose-100 flex items-center gap-2">
+                       <span className="text-[10px] font-black text-rose-900 uppercase">{postingRecord.asset?.assetCode}</span>
+                       <span className="w-1 h-1 bg-rose-200 rounded-full" />
+                       <span className="text-[10px] font-bold text-rose-500 uppercase">{postingRecord.asset?.assetName}</span>
+                    </div>
+                  </div>
+
+                  <div className="relative">
+                    <SearchableSelect
+                      label="Pilih Sumber Dana (Akun Kas/Bank)"
+                      options={coaOptions}
+                      value={selectedCreditCoa}
+                      onChange={(val) => setSelectedCreditCoa(val)}
+                      placeholder="Cari akun kas atau bank..."
+                    />
+                    
+                    {/* WARNING LABEL */}
+                    {selectedCreditCoa && (
+                      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className={`mt-3 p-4 rounded-2xl border-2 flex items-start gap-3 ${isInsufficient ? 'bg-rose-50 border-rose-100 text-rose-600' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
+                        <div className="mt-0.5">{isInsufficient ? <FiAlertCircle className="w-4 h-4" /> : <FiCheckCircle className="w-4 h-4" />}</div>
+                        <div>
+                          <p className="text-[11px] font-black uppercase tracking-tight">Informasi Saldo Kas</p>
+                          <p className="text-sm font-black mt-0.5">Saldo Saat Ini: Rp {selectedBalance.toLocaleString('id-ID')}</p>
+                          {isInsufficient && (
+                            <p className="text-[10px] font-bold mt-1 uppercase text-rose-400 italic">Peringatan: Saldo tidak mencukupi untuk biaya ini!</p>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+               </div>
+
+               <div className="flex gap-4">
+                 <button onClick={() => setPostingModalOpen(false)} className="flex-1 py-4 border-2 border-gray-100 rounded-[2rem] text-[11px] font-black text-gray-400 uppercase tracking-widest hover:bg-gray-50 transition-all">Batal</button>
+                 <button 
+                  onClick={handlePostToGL} 
+                  disabled={postingLoading || !selectedCreditCoa || isInsufficient}
+                  className={`flex-1 py-4 text-white rounded-[2rem] text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 ${isInsufficient ? 'bg-gray-200 cursor-not-allowed text-gray-400' : 'bg-primary shadow-xl shadow-primary/20 hover:shadow-primary/40'}`}
+                 >
+                   {postingLoading ? 'SEDANG POSTING...' : isInsufficient ? 'SALDO KURANG' : 'KONFIRMASI POSTING'}
+                 </button>
+               </div>
+            </motion.div>
           </div>
-          <div className="flex flex-col gap-3 min-w-[200px]">
-             <div className="p-4 bg-white/10 rounded-2xl border border-white/10 flex items-center gap-3">
-               <FiCheckCircle className="text-emerald-400 w-5 h-5" />
-               <span className="text-xs font-black uppercase tracking-widest">Auto Journaling</span>
-             </div>
-             <div className="p-4 bg-white/10 rounded-2xl border border-white/10 flex items-center gap-3">
-               <FiCheckCircle className="text-emerald-400 w-5 h-5" />
-               <span className="text-xs font-black uppercase tracking-widest">Asset Lifecycle</span>
-             </div>
-          </div>
-        </div>
-      </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
 
-function FiActivity(props: any) {
+function SummaryCard({ title, value, icon, color }: any) {
   return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-    </svg>
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm relative overflow-hidden group">
+      <div className={`absolute -right-6 -top-6 w-32 h-32 ${color} bg-opacity-5 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-1000`} />
+      <div className={`p-3 rounded-2xl ${color} bg-opacity-10 w-fit mb-4`}>{icon}</div>
+      <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1">{title}</p>
+      <h3 className="text-2xl font-black text-gray-900 tracking-tighter">
+        {typeof value === 'number' && title.includes('Biaya') ? `Rp ${value.toLocaleString('id-ID')}` : value}
+      </h3>
+    </motion.div>
   )
 }

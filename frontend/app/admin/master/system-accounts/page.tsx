@@ -26,6 +26,7 @@ const SYSTEM_KEYS = [
   { key: 'PURCHASE_DISCOUNT', name: 'Potongan Pembelian', desc: 'Diskon yang didapat dari supplier.', category: 'REVENUE' },
   { key: 'EXPENSE_SALARY', name: 'Beban Gaji Karyawan', desc: 'Beban gaji, bonus, dan tunjangan staf.', category: 'EXPENSE' },
   { key: 'EXPENSE_UTILITY', name: 'Beban Listrik/Air/Internet', desc: 'Beban biaya rutin utilitas bulanan.', category: 'EXPENSE' },
+  { key: 'MAINTENANCE_EXPENSE', name: 'Beban Maintenance Alat', desc: 'Akun beban untuk pemeliharaan dan perbaikan aset/alat medis.', category: 'EXPENSE' },
   { key: 'RETAINED_EARNINGS', name: 'Laba Ditahan', desc: 'Akumulasi laba bersih tahun-tahun sebelumnya.', category: 'EQUITY' },
 ]
 
@@ -97,7 +98,25 @@ export default function SystemAccountsPage() {
         subtitle="Hubungkan peran sistem ke Chart of Accounts untuk otomatisasi jurnal keuangan."
         icon={<FiCpu className="w-6 h-6" />}
         breadcrumb={['Admin', 'Data Master', 'System Accounts']}
-      />
+      >
+        <button 
+          onClick={async () => {
+            if (confirm('Sinkronisasi kunci akun sistem default?')) {
+              try {
+                await axios.post(`${API_SYSTEM}/seed`, {}, { headers })
+                fetchData()
+                setSuccess('Kunci akun sistem berhasil disinkronkan.')
+              } catch (e) {
+                setError('Gagal sinkronisasi akun sistem.')
+              }
+            }
+          }}
+          className="px-6 py-3 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-indigo-100 transition-all border-2 border-indigo-100 flex items-center gap-2"
+        >
+          <FiSettings className="w-4 h-4" />
+          Inisialisasi Akun
+        </button>
+      </PageHeader>
 
       <div className="max-w-5xl space-y-6">
         {error && (

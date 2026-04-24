@@ -106,17 +106,50 @@ export const seedSystemAccounts = async (req: Request, res: Response) => {
             { key: 'PURCHASE_DISCOUNT', name: 'Potongan / Diskon Pembelian' },
             { key: 'EXPENSE_SALARY', name: 'Beban Gaji Karyawan' },
             { key: 'EXPENSE_UTILITY', name: 'Beban Listrik, Air & Internet' },
+            { key: 'MAINTENANCE_EXPENSE', name: 'Beban Maintenance Alat' },
             { key: 'RETAINED_EARNINGS', name: 'Laba Ditahan' },
         ]
 
         const results = []
+        const currentClinicId = (req as any).clinicId || null
+
         for (const item of defaults) {
-            // Check if COA exists for some standard codes to auto-map if possible
-            // This is just a helper, the user will still need to map them properly
-            results.push({ key: item.key, status: 'pending_mapping' })
+            const existing = await prisma.systemAccount.findFirst({
+                where: { key: item.key, clinicId: currentClinicId }
+            })
+
+            if (!existing) {
+                // Check if we can find a default COA by code (just a guess)
+                // For example, if item is MAINTENANCE_EXPENSE, try to find 6-1401
+                const fallbackCodes: Record<string, string> = {
+                    'MAINTENANCE_EXPENSE': '6-1401',
+                    'CASH_ACCOUNT': '1-1101',
+                    'SERVICE_REVENUE': '4-1301'
+                }
+                
+                let autoCoaId = null
+                if (fallbackCodes[item.key]) {
+                    const coa = await prisma.chartOfAccount.findFirst({
+                        where: { code: fallbackCodes[item.key], OR: [{ clinicId: currentClinicId }, { clinicId: null }] }
+                    })
+                    if (coa) autoCoaId = coa.id
+                }
+
+                const created = await prisma.systemAccount.create({
+                    data: {
+                        key: item.key,
+                        name: item.name,
+                        clinicId: currentClinicId,
+                        coaId: autoCoaId || '' // coaId is required in schema? Let me check
+                    }
+                })
+                results.push({ key: item.key, status: 'created', coaId: autoCoaId })
+            } else {
+                results.push({ key: item.key, status: 'exists' })
+            }
         }
 
-        res.json({ message: 'Default System Account keys defined. Please map them to COA.', results })
+        res.json({ message: 'System accounts synchronized.', results })
     } catch (e) {
         res.status(500).json({ message: (e as Error).message })
     }

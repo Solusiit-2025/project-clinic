@@ -40,28 +40,39 @@ export const getAllMaintenance = async (req: Request, res: Response) => {
 
     const targetClinicId = clinicId ? String(clinicId) : (isAdminView ? undefined : currentClinicId)
 
-    const maintenance = await prisma.assetMaintenance.findMany({
-      where: {
-        ...(type ? { maintenanceType: String(type) } : {}),
-        ...(targetClinicId ? { asset: { clinicId: targetClinicId } } : {}),
-        ...(startDate && endDate ? {
-          maintenanceDate: {
-            gte: new Date(`${startDate}T00:00:00+07:00`),
-            lte: new Date(`${endDate}T23:59:59+07:00`)
-          }
-        } : {})
-      },
-      orderBy: { maintenanceDate: 'desc' },
-      include: {
-        asset: {
-          include: {
-            clinic: { select: { name: true, code: true } }
-          }
-        }
-      }
-    })
+    // Use Prisma.sql fragments for conditional queries
+    const { Prisma } = require('@prisma/client')
+    let query = Prisma.sql`
+      SELECT 
+        m.*, 
+        a."assetCode", a."assetName", a."assetType", a."condition",
+        c.name as "clinicName", c.code as "clinicCode"
+      FROM asset_maintenance m
+      JOIN assets a ON m."assetId" = a.id
+      LEFT JOIN clinics c ON a."clinicId" = c.id
+      WHERE 1=1
+    `
 
-    res.json(maintenance)
+    if (type) query = Prisma.sql`${query} AND m."maintenanceType" = ${type}`
+    if (targetClinicId) query = Prisma.sql`${query} AND a."clinicId" = ${targetClinicId}`
+    
+    query = Prisma.sql`${query} ORDER BY m."maintenanceDate" DESC`
+
+    const maintenance: any[] = await prisma.$queryRaw(query)
+
+    // Map the flat result back to the structure expected by the frontend
+    const mappedMaintenance = maintenance.map(m => ({
+      ...m,
+      asset: {
+        assetCode: m.assetCode,
+        assetName: m.assetName,
+        assetType: m.assetType,
+        condition: m.condition,
+        clinic: m.clinicName ? { name: m.clinicName, code: m.clinicCode } : null
+      }
+    }))
+
+    res.json(mappedMaintenance)
   } catch (err: any) {
     res.status(500).json({ message: err.message })
   }
@@ -76,32 +87,96 @@ export const getAssetMaintenance = async (req: Request, res: Response) => {
     const { id } = req.params
     const { type, startDate, endDate } = req.query
 
-    const maintenance = await prisma.assetMaintenance.findMany({
-      where: {
-        assetId: id,
-        ...(type ? { maintenanceType: String(type) } : {}),
-        ...(startDate && endDate ? {
-          maintenanceDate: {
-            gte: new Date(`${startDate}T00:00:00+07:00`),
-            lte: new Date(`${endDate}T23:59:59+07:00`)
-          }
-        } : {})
-      },
-      orderBy: { maintenanceDate: 'desc' },
-      include: {
-        asset: {
-          select: {
-            assetCode: true,
-            assetName: true,
-            assetType: true,
-            condition: true
+    const { Prisma } = require('@prisma/client')
+    let query = Prisma.sql`
+      SELECT 
+        m.*, 
+        a."assetCode", a."assetName", a."assetType", a."condition"
+      FROM asset_maintenance m
+      JOIN assets a ON m."assetId" = a.id
+      WHERE m."assetId" = ${id}
+    `
+
+    if (type) query = Prisma.sql`${query} AND m."maintenanceType" = ${type}`
+    
+    query = Prisma.sql`${query} ORDER BY m."maintenanceDate" DESC`
+
+    const maintenance: any[] = await prisma.$queryRaw(query)
+
+    const mappedMaintenance = maintenance.map(m => ({
+      ...m,
+      asset: {
+        assetCode: m.assetCode,
+        assetName: m.assetName,
+        assetType: m.assetType,
+        condition: m.condition
+      }
+    }))
+
+    res.json(mappedMaintenance)
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+/**
+ * POST /api/assets/maintenance/:id/post
+ * Manual Posting Maintenance to GL
+ */
+export const postMaintenanceToGL = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { creditCoaId, date } = req.body
+    const userId = (req as any).userId
+
+    if (!creditCoaId) return res.status(400).json({ message: 'Pilih Akun Kas/Bank pembayar' })
+
+    const maintenanceArr: any[] = await prisma.$queryRaw`SELECT m.*, a."clinicId" as "assetClinicId", a."assetName", a."assetCode" FROM asset_maintenance m JOIN assets a ON m."assetId" = a.id WHERE m.id = ${id}`
+    const maintenance = maintenanceArr[0]
+
+    if (!maintenance) return res.status(404).json({ message: 'Record maintenance tidak ditemukan' })
+    if (maintenance.isPosted) return res.status(400).json({ message: 'Record ini sudah diposting ke GL' })
+    if (!maintenance.cost || maintenance.cost <= 0) return res.status(400).json({ message: 'Biaya maintenance harus lebih dari 0 untuk diposting' })
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Check current balance of the credit account
+      const journalDetails: any = await tx.$queryRaw`SELECT SUM(debit) as "totalDebit", SUM(credit) as "totalCredit" FROM journal_details WHERE "coaId" = ${creditCoaId}`
+      const currentBalance = (Number(journalDetails[0].totalDebit) || 0) - (Number(journalDetails[0].totalCredit) || 0)
+
+      if (currentBalance < maintenance.cost) {
+        throw new Error(`Saldo tidak cukup. Saldo saat ini: Rp ${currentBalance.toLocaleString('id-ID')}`)
+      }
+
+      const assetClinicId = maintenance.assetClinicId || (req as any).clinicId
+      const expenseCoa = await resolveCoa('MAINTENANCE_EXPENSE', '6-1401', assetClinicId)
+      
+      if (!expenseCoa) throw new Error('Akun Beban Pemeliharaan (6-1401) tidak ditemukan')
+
+      const journal = await tx.journalEntry.create({
+        data: {
+          date: new Date(date || maintenance.maintenanceDate),
+          description: `Pemeliharaan Aset: ${maintenance.assetName} (${maintenance.assetCode})`,
+          referenceNo: `MAINT-${maintenance.id.slice(-8)}`,
+          entryType: 'SYSTEM',
+          clinicId: assetClinicId,
+          details: {
+            create: [
+              { coaId: expenseCoa.id, debit: maintenance.cost || 0, credit: 0, description: `Beban Pemeliharaan ${maintenance.assetName}` },
+              { coaId: creditCoaId, debit: 0, credit: maintenance.cost || 0, description: `Pembayaran Pemeliharaan ${maintenance.assetName}` }
+            ]
           }
         }
-      }
+      })
+
+      // Update maintenance status using raw SQL to bypass stale Prisma Client mapping
+      await tx.$executeRaw`UPDATE asset_maintenance SET "isPosted" = true, "journalEntryId" = ${journal.id} WHERE id = ${id}`
+
+      return journal
     })
 
-    res.json(maintenance)
+    res.json({ message: 'Berhasil posting ke GL', journal: result })
   } catch (err: any) {
+    console.error('❌ [postMaintenanceToGL] Error:', err)
     res.status(500).json({ message: err.message })
   }
 }
@@ -144,41 +219,7 @@ export const createAssetMaintenance = async (req: Request, res: Response) => {
         data: { lastMaintenanceDate: new Date(`${maintenanceDate}T00:00:00+07:00`) }
       })
 
-      // 3. Create Journal Entry if cost > 0
-      const maintenanceCost = cost ? Number(cost) : 0
-      if (maintenanceCost > 0) {
-        const assetClinicId = asset.clinicId || (req as any).clinicId
-        const expenseCoa = await resolveCoa('MAINTENANCE_EXPENSE', '6-1102', assetClinicId)
-        
-        const cashAccount = await tx.systemAccount.findFirst({
-          where: { key: 'CASH_ACCOUNT', OR: [{ clinicId: assetClinicId }, { clinicId: null }] },
-          include: { coa: true },
-          orderBy: { clinicId: 'desc' }
-        })
-        const creditCoa = cashAccount?.coa || await tx.chartOfAccount.findFirst({
-          where: { code: '1-1101', OR: [{ clinicId: assetClinicId }, { clinicId: null }] }
-        })
-
-        if (expenseCoa && creditCoa) {
-          await tx.journalEntry.create({
-            data: {
-              date: new Date(`${maintenanceDate}T00:00:00+07:00`),
-              description: `Pemeliharaan Aset: ${asset.assetName} (${asset.assetCode})`,
-              referenceNo: `MAINT-${maintenance.id.slice(-8)}`,
-              entryType: 'SYSTEM',
-              clinicId: assetClinicId,
-              details: {
-                create: [
-                  { coaId: expenseCoa.id, debit: maintenanceCost, credit: 0, description: `Beban Pemeliharaan ${asset.assetName}` },
-                  { coaId: creditCoa.id, debit: 0, credit: maintenanceCost, description: `Pembayaran Pemeliharaan ${asset.assetName}` }
-                ]
-              }
-            }
-          })
-        }
-      }
-
-      // 4. Create audit log
+      // 3. Create audit log
       await tx.assetAuditLog.create({
         data: {
           assetId: id,

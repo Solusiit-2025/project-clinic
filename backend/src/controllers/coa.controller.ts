@@ -135,3 +135,50 @@ export const deleteCOA = async (req: Request, res: Response) => {
     res.status(500).json({ message: (e as Error).message })
   }
 }
+/**
+ * Get balances for detail accounts
+ */
+export const getCoaBalances = async (req: Request, res: Response) => {
+  try {
+    const currentClinicId = (req as any).clinicId
+    const isAdminView = (req as any).isAdminView
+    const { clinicId } = req.query
+    const targetClinicId = clinicId ? String(clinicId) : (isAdminView ? undefined : currentClinicId)
+
+    const accounts = await prisma.chartOfAccount.findMany({
+      where: {
+        accountType: 'DETAIL',
+        ...(targetClinicId ? { OR: [{ clinicId: targetClinicId }, { clinicId: null }] } : {})
+      }
+    })
+
+    const balances = await Promise.all(accounts.map(async (acc) => {
+      const aggregates = await prisma.journalDetail.aggregate({
+        where: {
+          coaId: acc.id,
+          journalEntry: {
+            ...(targetClinicId ? { clinicId: targetClinicId } : {})
+          }
+        },
+        _sum: { debit: true, credit: true }
+      })
+
+      const totalDebit = (aggregates._sum.debit || 0)
+      const totalCredit = (aggregates._sum.credit || 0)
+      const net = totalDebit - totalCredit
+      
+      let balance = 0
+      if (acc.category === 'ASSET' || acc.category === 'EXPENSE') {
+        balance = acc.openingBalance + net
+      } else {
+        balance = acc.openingBalance + (totalCredit - totalDebit)
+      }
+
+      return { id: acc.id, code: acc.code, balance }
+    }))
+
+    res.json(balances)
+  } catch (e: any) {
+    res.status(500).json({ message: e.message })
+  }
+}
