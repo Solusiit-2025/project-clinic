@@ -26,6 +26,10 @@ interface DataTableProps<T> {
   keyField?: string
   emptyText?: string
   groupBy?: (row: T) => string
+  // Pagination Props
+  page?: number
+  totalPages?: number
+  onPageChange?: (page: number) => void
 }
 
 function GroupHeader({ label, count, colSpan }: { label: string, count: number, colSpan: number }) {
@@ -88,6 +92,9 @@ export default function DataTable<T extends Record<string, any>>({
   extraFilters, keyField = 'id',
   emptyText = 'Belum ada data. Klik Tambah untuk memulai.',
   groupBy,
+  page = 1,
+  totalPages = 1,
+  onPageChange,
 }: DataTableProps<T>) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -153,10 +160,13 @@ export default function DataTable<T extends Record<string, any>>({
                 : (() => {
                   let lastGroup = ''
                   
+                  // Defensive check to ensure data is an array
+                  const safeData = Array.isArray(data) ? data : []
+
                   // Sort data by group key if grouping is active
                   const sortedData = groupBy 
-                    ? [...data].sort((a, b) => groupBy(a).localeCompare(groupBy(b)))
-                    : data
+                    ? [...safeData].sort((a, b) => groupBy(a).localeCompare(groupBy(b)))
+                    : safeData
 
                   const groupCounts = groupBy ? sortedData.reduce((acc, row) => {
                     const g = groupBy(row)
@@ -268,10 +278,13 @@ export default function DataTable<T extends Record<string, any>>({
             : (() => {
                 let lastGroup = ''
                 
+                // Defensive check to ensure data is an array
+                const safeData = Array.isArray(data) ? data : []
+
                 // Sort data by group key if grouping is active
                 const sortedData = groupBy 
-                  ? [...data].sort((a, b) => groupBy(a).localeCompare(groupBy(b)))
-                  : data
+                  ? [...safeData].sort((a, b) => groupBy(a).localeCompare(groupBy(b)))
+                  : safeData
 
                 return sortedData.map((row, i) => {
                   const elements = []
@@ -350,12 +363,59 @@ export default function DataTable<T extends Record<string, any>>({
         }
       </div>
 
-      {/* Footer count */}
-      {!loading && data.length > 0 && (
-        <div className="px-4 sm:px-5 py-3 border-t border-gray-100 bg-gray-50/40">
-          <p className="text-xs text-gray-400 font-medium">
-            Menampilkan <span className="font-bold text-gray-600">{data.length}</span> data
+      {/* Footer & Pagination */}
+      {!loading && (data.length > 0 || page > 1) && (
+        <div className="px-4 sm:px-5 py-3 border-t border-gray-100 bg-gray-50/40 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">
+            Menampilkan <span className="text-gray-900">{data.length}</span> data 
+            {totalPages > 1 && <> — Halaman <span className="text-primary">{page}</span> dari {totalPages}</>}
           </p>
+          
+          {totalPages > 1 && onPageChange && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => onPageChange(Math.max(1, page - 1))}
+                disabled={page === 1}
+                className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-black text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all uppercase tracking-tighter"
+              >
+                Prev
+              </button>
+              
+              <div className="flex items-center gap-1 mx-2">
+                {Array.from({ length: totalPages }).map((_, i) => {
+                  const p = i + 1
+                  // Show current, first, last, and neighbors
+                  if (p === 1 || p === totalPages || Math.abs(p - page) <= 1) {
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => onPageChange(p)}
+                        className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${
+                          page === p 
+                            ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110' 
+                            : 'bg-white border border-gray-200 text-gray-400 hover:border-primary/30 hover:text-primary'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    )
+                  }
+                  if (p === 2 || p === totalPages - 1) {
+                    return <span key={p} className="text-gray-300 px-1">...</span>
+                  }
+                  return null
+                }).filter(Boolean)}
+              </div>
+
+              <button
+                onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+                disabled={page === totalPages}
+                className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-black text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all uppercase tracking-tighter"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -68,6 +68,14 @@ model Clinic {
   inventoryReturns  InventoryReturn[]
   inventoryAuditLogs InventoryAuditLog[]
   branchProductPrices BranchProductPrice[]
+  stockOpnames      StockOpnameSession[]
+  chartOfAccounts   ChartOfAccount[]
+  banks             Bank[]
+  journalEntries    JournalEntry[]
+  systemAccounts    SystemAccount[]
+  procurementPayments ProcurementPayment[]
+  assetTransfersFrom AssetTransfer[] @relation("AssetTransferFrom")
+  assetTransfersTo AssetTransfer[] @relation("AssetTransferTo")
 
   @@map("clinics")
 }
@@ -552,6 +560,7 @@ model Service {
   categoryId      String?
   unit            String? // session, item, package
   price           Float
+  coaId           String?
   clinicId        String?
   isActive        Boolean @default(true)
   createdAt       DateTime @default(now())
@@ -559,12 +568,14 @@ model Service {
 
   clinic              Clinic?              @relation(fields: [clinicId], references: [id], onDelete: SetNull)
   serviceCategory     ServiceCategory?     @relation(fields: [categoryId], references: [id])
+  coa                 ChartOfAccount?      @relation(fields: [coaId], references: [id])
   appointmentServices AppointmentService[]
   invoiceItems        InvoiceItem[]
   medicalRecordServices MedicalRecordService[]
 
   @@index([serviceCode])
   @@index([categoryId])
+  @@index([coaId])
   @@map("services")
 }
 
@@ -684,6 +695,7 @@ model Product {
   transferItems     InterBranchTransfer[]
   returnItems       InventoryReturn[]
   branchPrices      BranchProductPrice[]
+  stockOpnameItems  StockOpnameItem[]
 
   @@unique([productCode, clinicId])
   @@unique([sku, clinicId])
@@ -707,12 +719,18 @@ model Asset {
   model           String?
   purchaseDate    DateTime
   purchasePrice   Float
-  currentValue    Float?
+  currentValue    Float?  // Nilai buku saat ini (auto-calculated)
+  salvageValue    Float   @default(0)    // Nilai sisa / residu
+  usefulLifeYears Float   @default(5)    // Umur ekonomis (tahun)
+  depreciationMethod String @default("STRAIGHT_LINE") // STRAIGHT_LINE, DECLINING_BALANCE
+  coaAssetId      String? // COA akun aset (1-2101, 1-2201, dll)
+  coaAccumDepId   String? // COA akumulasi penyusutan (1-2102)
+  totalDepreciated Float  @default(0)    // Total penyusutan yang sudah dicatat
   condition       String  @default("good") // excellent, good, fair, poor
-  location        String? // storage location
+  location        String?
   supplier        String?
   warrantyExpiry  DateTime?
-  maintenanceSchedule String? // e.g., "monthly", "quarterly"
+  maintenanceSchedule String?
   lastMaintenanceDate DateTime?
   status          String  @default("active") // active, inactive, maintenance, retired
   image           String?
@@ -726,12 +744,108 @@ model Asset {
 
   clinic          Clinic?  @relation(fields: [clinicId], references: [id], onDelete: SetNull)
   masterProduct   ProductMaster? @relation(fields: [masterProductId], references: [id])
+  coaAsset        ChartOfAccount? @relation("AssetCOA", fields: [coaAssetId], references: [id])
+  coaAccumDep     ChartOfAccount? @relation("AssetAccumDep", fields: [coaAccumDepId], references: [id])
+  maintenanceRecords AssetMaintenance[]
+  transfers       AssetTransfer[]
+  auditLogs       AssetAuditLog[]
+  insurance       AssetInsurance?
 
   @@index([assetCode])
   @@index([category])
   @@index([status])
   @@index([masterProductId])
   @@map("assets")
+}
+
+// ==================== ASSET MANAGEMENT EXTENSIONS ====================
+
+model AssetMaintenance {
+  id              String  @id @default(uuid())
+  assetId         String
+  maintenanceDate DateTime
+  maintenanceType String  // preventive, corrective, emergency
+  description     String
+  cost            Float?
+  performedBy     String?
+  nextMaintenanceDate DateTime?
+  notes           String?
+  attachmentUrl   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  asset           Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@index([maintenanceDate])
+  @@map("asset_maintenance")
+}
+
+model AssetTransfer {
+  id              String  @id @default(uuid())
+  transferNo      String  @unique
+  assetId         String
+  fromClinicId    String
+  toClinicId      String
+  transferDate    DateTime
+  transferValue   Float   // nilai buku saat transfer
+  reason          String?
+  approvedBy      String?
+  status          String  @default("pending") // pending, approved, completed, rejected
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  asset           Asset @relation(fields: [assetId], references: [id])
+  fromClinic      Clinic @relation("AssetTransferFrom", fields: [fromClinicId], references: [id])
+  toClinic        Clinic @relation("AssetTransferTo", fields: [toClinicId], references: [id])
+
+  @@index([assetId])
+  @@index([fromClinicId])
+  @@index([toClinicId])
+  @@index([status])
+  @@map("asset_transfers")
+}
+
+model AssetAuditLog {
+  id              String  @id @default(uuid())
+  assetId         String
+  action          String  // UPDATE, DEPRECIATE, TRANSFER, DISPOSE, MAINTENANCE
+  fieldChanged    String?
+  oldValue        String?
+  newValue        String?
+  changedBy       String?
+  changedAt       DateTime @default(now())
+  notes           String?
+
+  asset           Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@index([changedAt])
+  @@map("asset_audit_logs")
+}
+
+model AssetInsurance {
+  id              String  @id @default(uuid())
+  assetId         String  @unique
+  insuranceCompany String
+  policyNumber    String
+  coverageAmount  Float
+  premium         Float
+  startDate       DateTime
+  endDate         DateTime
+  renewalDate     DateTime?
+  contactPerson   String?
+  contactPhone    String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  asset           Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@index([endDate])
+  @@map("asset_insurance")
 }
 
 // ==================== FINANCE & BILLING ====================
@@ -749,6 +863,8 @@ model Invoice {
   total           Float
   amountPaid      Float   @default(0)
   status          String  @default("unpaid") // unpaid, partial, paid, cancelled
+  isPosted        Boolean @default(false)
+  postedAt        DateTime?
   notes           String?
   clinicId        String?
   createdAt       DateTime @default(now())
@@ -756,6 +872,8 @@ model Invoice {
 
   patient         Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
   clinic          Clinic? @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+  bankId          String?
+  bank            Bank?   @relation(fields: [bankId], references: [id])
   items           InvoiceItem[]
   payments        Payment[]
 
@@ -820,6 +938,8 @@ model Expense {
 
   category        ExpenseCategory @relation(fields: [categoryId], references: [id])
   clinic          Clinic?         @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+  bankId          String?
+  bank            Bank?           @relation(fields: [bankId], references: [id])
 
   @@index([categoryId])
   @@index([expenseDate])
@@ -830,11 +950,13 @@ model ExpenseCategory {
   id              String  @id @default(uuid())
   categoryName    String  @unique
   description     String?
+  coaId           String? // Linked to an expense account in COA
   isActive        Boolean @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   expenses        Expense[]
+  coa             ChartOfAccount? @relation(fields: [coaId], references: [id])
 
   @@map("expense_categories")
 }
@@ -1044,6 +1166,7 @@ model InventoryBatch {
   mutations       InventoryMutation[]
   returns         InventoryReturn[]
   transfers       InterBranchTransfer[]
+  stockOpnameItems StockOpnameItem[]
 
   @@unique([branchId, productId, batchNumber])
   @@map("inventory_batches")
@@ -1080,6 +1203,7 @@ model Procurement {
   type            String   // PR, PO, GRN
   status          String   @default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, ORDERED, RECEIVED, CANCELLED
   paymentStatus   String   @default("UNPAID") // UNPAID, PARTIAL, PAID
+  paymentMethod   String?  // CASH, TRANSFER, CREDIT (diisi saat GRN atau pembayaran)
   totalAmount     Float    @default(0)
   paidAmount      Float    @default(0)
   dueDate         DateTime?
@@ -1093,11 +1217,38 @@ model Procurement {
   branch          Clinic            @relation(fields: [branchId], references: [id], onDelete: Cascade)
   items           ProcurementItem[]
   returns         InventoryReturn[]
+  payments        ProcurementPayment[]
 
   @@index([branchId])
   @@index([status])
   @@index([createdAt])
   @@map("procurements")
+}
+
+model ProcurementPayment {
+  id              String   @id @default(uuid())
+  paymentNo       String   @unique
+  procurementId   String
+  branchId        String
+  amount          Float
+  paymentMethod   String   // CASH, TRANSFER
+  bankId          String?  // Jika transfer, bank yang digunakan
+  referenceNo     String?  // Nomor referensi transfer / nomor bon
+  notes           String?
+  receiptFile     String?  // Path file foto bon/invoice supplier (disimpan di public/uploads/procurement)
+  paidBy          String   // userId yang melakukan pembayaran
+  paidAt          DateTime @default(now())
+  journalEntryId  String?  // Referensi ke jurnal GL yang dibuat
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  procurement     Procurement    @relation(fields: [procurementId], references: [id], onDelete: Cascade)
+  branch          Clinic         @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([procurementId])
+  @@index([branchId])
+  @@index([paidAt])
+  @@map("procurement_payments")
 }
 
 model ProcurementItem {
@@ -1197,4 +1348,160 @@ model BranchProductPrice {
 
   @@unique([branchId, productId])
   @@map("branch_product_prices")
+}
+
+model StockOpnameSession {
+  id                String   @id @default(uuid())
+  branchId          String
+  status            String   @default("DRAFT") // DRAFT, COMPLETED, CANCELLED
+  notes             String?
+  totalValue        Float    @default(0)
+  createdBy         String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  completedAt       DateTime?
+
+  branch            Clinic   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  items             StockOpnameItem[]
+
+  @@index([branchId])
+  @@index([status])
+  @@map("stock_opname_sessions")
+}
+
+model StockOpnameItem {
+  id                String   @id @default(uuid())
+  sessionId         String
+  productId         String
+  batchId           String?
+  systemQty         Float
+  physicalQty       Float
+  diffQty           Float
+  unitPrice         Float
+  subtotal          Float
+  notes             String?
+  status            String   @default("DRAFT") // DRAFT, COMPLETED
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  session           StockOpnameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  product           Product            @relation(fields: [productId], references: [id])
+  batch             InventoryBatch?    @relation(fields: [batchId], references: [id])
+
+  @@index([sessionId])
+  @@index([productId])
+  @@unique([sessionId, productId, batchId])
+  @@map("stock_opname_items")
+}
+
+// ==================== ACCOUNTING ====================
+
+enum AccountCategory {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum AccountType {
+  HEADER
+  DETAIL
+}
+
+model ChartOfAccount {
+  id              String   @id @default(uuid())
+  code            String   @unique // e.g., "1101", "2100"
+  name            String
+  category        AccountCategory
+  accountType     AccountType @default(DETAIL) // HEADER (for grouping) or DETAIL (for transactions)
+  parentId        String?
+  clinicId        String?
+  openingBalance  Float    @default(0)
+  isReconciled    Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  clinic          Clinic?         @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+  parent          ChartOfAccount? @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children        ChartOfAccount[] @relation("AccountHierarchy")
+  banks           Bank[]
+  journalDetails  JournalDetail[]
+  systemAccounts  SystemAccount[]
+  expenseCategories ExpenseCategory[]
+  services        Service[]
+  assetsCOA       Asset[]  @relation("AssetCOA")
+  assetsAccumDep  Asset[]  @relation("AssetAccumDep")
+
+  @@map("chart_of_accounts")
+}
+
+model Bank {
+  id              String   @id @default(uuid())
+  bankName        String
+  accountNumber   String
+  accountHolder   String
+  coaId           String   // The COA account linked to this bank (e.g., "Kas di BCA")
+  clinicId        String
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  coa             ChartOfAccount @relation(fields: [coaId], references: [id])
+  clinic          Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  invoices        Invoice[]
+  expenses        Expense[]
+
+  @@map("banks")
+}
+
+model JournalEntry {
+  id              String   @id @default(uuid())
+  date            DateTime
+  description     String
+  referenceNo     String?  // e.g., Invoice No, Expense No
+  entryType       String   @default("MANUAL") // MANUAL, SYSTEM
+  clinicId        String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  clinic          Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  details         JournalDetail[]
+
+  @@index([clinicId])
+  @@index([date])
+  @@map("journal_entries")
+}
+
+model JournalDetail {
+  id              String   @id @default(uuid())
+  journalEntryId  String
+  coaId           String
+  debit           Float    @default(0)
+  credit          Float    @default(0)
+  description     String?  // Line item description
+
+  journalEntry    JournalEntry   @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  coa             ChartOfAccount @relation(fields: [coaId], references: [id])
+
+  @@index([journalEntryId])
+  @@index([coaId])
+  @@map("journal_details")
+}
+
+model SystemAccount {
+  id              String   @id @default(uuid())
+  key             String   // e.g., "ACCOUNTS_RECEIVABLE", "SALES_REVENUE"
+  name            String
+  coaId           String
+  clinicId        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  coa             ChartOfAccount @relation(fields: [coaId], references: [id])
+  clinic          Clinic?        @relation(fields: [clinicId], references: [id])
+
+  @@unique([key, clinicId])
+  @@map("system_accounts")
 }

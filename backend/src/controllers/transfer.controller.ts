@@ -114,7 +114,7 @@ export const receiveTransfer = async (req: Request, res: Response) => {
     const userId = (req as any).user?.id || 'SYSTEM';
 
     const transfer = await prisma.interBranchTransfer.findUnique({
-      where: { id, batch: true },
+      where: { id },
       include: { batch: true }
     });
 
@@ -175,7 +175,10 @@ export const receiveTransfer = async (req: Request, res: Response) => {
         },
       });
 
-      // 4. Update status to RECEIVED
+      // 4. Synchronize total quantity
+      await InventoryService.syncProductQuantity(tx, transfer.productId, transfer.destBranchId);
+
+      // 5. Update status to RECEIVED
       await tx.interBranchTransfer.update({
         where: { id },
         data: { status: 'RECEIVED', receivedBy: userId },

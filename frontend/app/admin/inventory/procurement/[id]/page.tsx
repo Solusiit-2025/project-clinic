@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
   ArrowLeft, CheckCircle, Package, Truck, 
-  MapPin, Printer, ScanBarcode, Check, ShieldAlert
+  MapPin, Printer, ScanBarcode, Check, ShieldAlert, FileText, DollarSign
 } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { id as localeID } from 'date-fns/locale'
+import POPreview from './POPreview'
 
 export default function ProcurementDetailView({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -21,6 +22,7 @@ export default function ProcurementDetailView({ params }: { params: Promise<{ id
   const [isLoading, setIsLoading] = useState(true)
   const [isApproving, setIsApproving] = useState(false)
   const [isReceiving, setIsReceiving] = useState(false)
+  const [isPOModalOpen, setIsPOModalOpen] = useState(false)
 
   // GRN State
   const [grnItems, setGrnItems] = useState<any[]>([])
@@ -78,11 +80,26 @@ export default function ProcurementDetailView({ params }: { params: Promise<{ id
 
     try {
       setIsReceiving(true)
-      await api.post(`/inventory/procurement/${id}/receive`, {
+      const res = await api.post(`/inventory/procurement/${id}/receive`, {
         grnNo,
         items: grnItems
       })
+      
       toast.success('Penerimaan barang berhasil, stok bertambah')
+      
+      if (res.data.warning) {
+        toast(res.data.warning, { 
+          icon: '⚠️', 
+          duration: 6000,
+          style: {
+            border: '1px solid #EAB308',
+            padding: '16px',
+            color: '#854D0E',
+            fontWeight: 'bold'
+          }
+        })
+      }
+      
       fetchDetail()
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Gagal menerima barang')
@@ -119,8 +136,12 @@ export default function ProcurementDetailView({ params }: { params: Promise<{ id
           <p className="text-gray-500 font-medium text-xs mt-1">Dibuat pada {format(new Date(data.createdAt), 'dd MMMM yyyy HH:mm', { locale: localeID })}</p>
         </div>
         
-        <button className="p-3 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 transition-all text-gray-600 shadow-sm">
-          <Printer className="w-5 h-5" />
+        <button 
+          onClick={() => setIsPOModalOpen(true)}
+          className="flex items-center gap-2 px-5 py-3 bg-gray-900 border border-transparent rounded-xl hover:bg-black transition-all text-white shadow-xl group"
+        >
+          <FileText className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
+          <span className="text-xs font-black uppercase tracking-widest">Preview PO</span>
         </button>
       </div>
 
@@ -278,18 +299,61 @@ export default function ProcurementDetailView({ params }: { params: Promise<{ id
            )}
 
            {data.status === 'RECEIVED' && (
-              <div className="bg-green-50 border border-green-100 p-6 rounded-[32px] flex items-center gap-4">
-                 <div className="w-12 h-12 rounded-full bg-green-200 text-green-700 flex items-center justify-center flex-shrink-0">
-                    <CheckCircle className="w-6 h-6" />
+              <div className="space-y-4">
+                 {/* Status Selesai */}
+                 <div className="bg-green-50 border border-green-100 p-5 rounded-[24px] flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-green-200 text-green-700 flex items-center justify-center flex-shrink-0">
+                       <CheckCircle className="w-5 h-5" />
+                    </div>
+                    <div>
+                       <h3 className="font-black text-green-800 text-sm uppercase tracking-widest">Barang Diterima</h3>
+                       <p className="text-xs font-medium text-green-600 mt-0.5">Stok & jurnal GL sudah tercatat.</p>
+                    </div>
                  </div>
-                 <div>
-                    <h3 className="font-black text-green-800 text-sm uppercase tracking-widest">Selesai</h3>
-                    <p className="text-xs font-medium text-green-600 mt-1">Barang telah masuk ke sistem stok dan jurnal tercatat.</p>
+
+                 {/* Payment Status */}
+                 <div className={`p-5 rounded-[24px] border ${data.paymentStatus === 'PAID' ? 'bg-green-50 border-green-100' : data.paymentStatus === 'PARTIAL' ? 'bg-orange-50 border-orange-100' : 'bg-red-50 border-red-100'}`}>
+                    <div className="flex items-center justify-between mb-3">
+                       <h3 className="font-black text-sm uppercase tracking-widest text-gray-700">Status Pembayaran</h3>
+                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-black border ${data.paymentStatus === 'PAID' ? 'bg-green-100 text-green-700 border-green-200' : data.paymentStatus === 'PARTIAL' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-red-100 text-red-700 border-red-200'}`}>
+                          {data.paymentStatus || 'UNPAID'}
+                       </span>
+                    </div>
+                    <div className="space-y-1.5 text-xs font-bold">
+                       <div className="flex justify-between text-gray-600">
+                          <span>Total Pembelian</span>
+                          <span>Rp {data.totalAmount?.toLocaleString('id-ID')}</span>
+                       </div>
+                       <div className="flex justify-between text-green-600">
+                          <span>Sudah Dibayar</span>
+                          <span>Rp {(data.paidAmount || 0).toLocaleString('id-ID')}</span>
+                       </div>
+                       <div className="flex justify-between text-red-600 font-black border-t border-gray-200 pt-1.5 mt-1.5">
+                          <span>Sisa Hutang</span>
+                          <span>Rp {((data.totalAmount || 0) - (data.paidAmount || 0)).toLocaleString('id-ID')}</span>
+                       </div>
+                    </div>
                  </div>
+
+                 {/* Tombol Bayar (jika belum lunas) */}
+                 {data.paymentStatus !== 'PAID' && (
+                    <button
+                       onClick={() => router.push(`/admin/inventory/procurement/payables`)}
+                       className="w-full py-3 bg-primary text-white font-black rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 text-sm"
+                    >
+                       <Package className="w-4 h-4" />
+                       Bayar Hutang Supplier
+                    </button>
+                 )}
               </div>
            )}
         </div>
       </div>
+      <POPreview 
+        isOpen={isPOModalOpen}
+        onClose={() => setIsPOModalOpen(false)}
+        data={data}
+      />
     </div>
   )
 }

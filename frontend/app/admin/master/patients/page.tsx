@@ -53,8 +53,10 @@ export default function PatientsPage() {
     try {
       const params: any = {}
       if (search) params.search = search
-      const { data } = await axios.get(`${API}/patients`, { headers, params })
-      setData(data)
+      const res = await axios.get(`${API}/patients`, { headers, params })
+      // Extract the data array from the paginated response object if necessary
+      const patientsArray = Array.isArray(res.data) ? res.data : (res.data.data || [])
+      setData(patientsArray)
     } finally { setLoading(false) }
   }, [search, token])
 

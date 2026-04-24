@@ -50,8 +50,10 @@ export default function UsersPage() {
       const params: any = {}
       if (search) params.search = search
       if (roleFilter) params.role = roleFilter
-      const { data } = await axios.get(`${API}/users`, { headers, params })
-      setData(data)
+      const res = await axios.get(`${API}/users`, { headers, params })
+      // Extract the data array from the paginated response object if necessary
+      const usersArray = Array.isArray(res.data) ? res.data : (res.data.data || [])
+      setData(usersArray)
     } catch { /* ignore */ }
     finally { setLoading(false) }
   }, [search, roleFilter, token, activeClinicId])

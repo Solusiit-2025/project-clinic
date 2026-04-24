@@ -9,7 +9,8 @@ import {
   FiSettings, FiLogOut, FiChevronDown, FiDatabase,
   FiBriefcase, FiUserCheck, FiClock, FiActivity,
   FiPackage, FiShoppingBag, FiList, FiMenu, FiX, FiBox,
-  FiChevronLeft, FiFolder, FiCpu, FiPlus, FiDollarSign, FiFileText
+  FiChevronLeft, FiFolder, FiCpu, FiPlus, FiDollarSign, FiFileText, FiTrendingUp, FiLayers, FiBookOpen, FiLock, FiCreditCard,
+  FiTool, FiRepeat, FiShield, FiBarChart2, FiAlertCircle, FiArchive
 } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import ClinicSwitcher from './ClinicSwitcher'
@@ -17,18 +18,16 @@ import ClinicSwitcher from './ClinicSwitcher'
 // --- Types & Constants ---
 const MAIN_MENU = [
   { icon: FiHome, label: 'Dashboard', href: '/admin' },
-  { icon: FiGlobe, label: 'Website', href: '/admin/website' },
   { icon: FiCalendar, label: 'Appointments', href: '/admin/appointments' },
-  { icon: FiSettings, label: 'Settings', href: '/admin/settings' },
 ]
 
-const TRANSAKSI_GROUPS = [
+const LAYANAN_UTAMA_GROUPS = [
   {
-    label: 'Front Office & Pendaftaran',
+    label: 'Pendaftaran & Antrian',
     icon: FiUserPlus,
     items: [
-      { icon: FiPlus, label: 'Pendaftaran Baru', href: '/admin/transactions/registration' },
-      { icon: FiActivity, label: 'Dashboard Antrian', href: '/admin/transactions/queue' },
+      { icon: FiPlus, label: 'Registrasi Baru', href: '/admin/transactions/registration' },
+      { icon: FiActivity, label: 'Antrian Pasien', href: '/admin/transactions/queue' },
     ]
   },
   {
@@ -37,70 +36,120 @@ const TRANSAKSI_GROUPS = [
     items: [
       { icon: FiActivity, label: 'Nurse Station (Triage)', href: '/admin/transactions/nurse' },
       { icon: FiUserCheck, label: 'Doctor Station', href: '/admin/transactions/doctor' },
+      { icon: FiUsers, label: 'Database Pasien', href: '/admin/master/patients' },
     ]
   },
   {
-    label: 'Farmasi (Apotek)',
-    icon: FiBox,
+    label: 'Farmasi',
+    icon: FiPackage,
     items: [
-      { icon: FiBox, label: 'Antrian Resep', href: '/admin/transactions/pharmacy' },
+      { icon: FiBox, label: 'Antrian Farmasi', href: '/admin/transactions/pharmacy' },
+      { icon: FiMenu, label: 'Data Obat & Alkes', href: '/admin/master/medicines' },
     ]
-  },
+  }
+]
+
+const FINANCE_GROUPS = [
   {
-    label: 'Billing & Keuangan',
+    label: 'Billing & Pembayaran',
     icon: FiDollarSign,
     items: [
-      { icon: FiFileText, label: 'Invoice & Pembayaran', href: '/admin/finance' },
+      { icon: FiFileText, label: 'Invoice & Bayar', href: '/admin/finance' },
+      { icon: FiDollarSign, label: 'Pengeluaran Operasional', href: '/admin/finance/expenses' },
+      { icon: FiClock, label: 'Tutup Buku (Closing)', href: '/admin/finance/closing' },
+    ]
+  },
+  {
+    label: 'Laporan & Akuntansi',
+    icon: FiTrendingUp,
+    items: [
+      { icon: FiBookOpen, label: 'Buku Besar (Ledger)', href: '/admin/finance/reports/general-ledger' },
+      { icon: FiActivity, label: 'Neraca Saldo (Trial Balance)', href: '/admin/finance/reports/trial-balance' },
+      { icon: FiTrendingUp, label: 'Laba Rugi (P&L)', href: '/admin/finance/reports/profit-loss' },
+      { icon: FiDatabase, label: 'Neraca (Balance Sheet)', href: '/admin/finance/reports/balance-sheet' },
+    ]
+  },
+  {
+    label: 'Konfigurasi Akuntansi',
+    icon: FiSettings,
+    items: [
+      { icon: FiLayers, label: 'Chart of Accounts (COA)', href: '/admin/master/coa' },
+      { icon: FiCpu, label: 'System Account Mapping', href: '/admin/master/system-accounts' },
+      { icon: FiCreditCard, label: 'Rekening Bank', href: '/admin/master/banks' },
     ]
   }
 ]
 
 const LOGISTIK_GROUPS = [
   {
-    label: 'Logistik & Inventaris',
+    label: 'Stok & Inventaris',
     icon: FiPackage,
     items: [
       { icon: FiHome, label: 'Dashboard Stok', href: '/admin/inventory' },
-      { icon: FiShoppingBag, label: 'Pengadaan (Procurement)', href: '/admin/inventory/procurement' },
-      { icon: FiGlobe, label: 'Transfer Barang', href: '/admin/inventory/transfers' },
-      { icon: FiList, label: 'Kartu Stok (Mutasi)', href: '/admin/inventory/mutations' },
-      { icon: FiPackage, label: 'Data Obat', href: '/admin/master/medicines' },
-      { icon: FiBox, label: 'Manajemen Aset', href: '/admin/master/assets' },
+      { icon: FiList, label: 'Kartu Stok', href: '/admin/inventory/mutations' },
+      { icon: FiPlus, label: 'Update Stok Opname', href: '/admin/inventory/stock-opname' },
+    ]
+  },
+  {
+    label: 'Pengadaan & Logistik',
+    icon: FiShoppingBag,
+    items: [
+      { icon: FiShoppingBag, label: 'Procurement (PR/PO)', href: '/admin/inventory/procurement' },
+      { icon: FiCreditCard, label: 'Bayar Hutang Supplier', href: '/admin/inventory/procurement/payables' },
+      { icon: FiGlobe, label: 'Transfer Antar Cabang', href: '/admin/inventory/transfers' },
+      { icon: FiPackage, label: 'Katalog Produk', href: '/admin/master/products' },
+      { icon: FiList, label: 'Kategori Produk', href: '/admin/master/product-categories' },
     ]
   }
 ]
 
-const KLINIK_GROUPS = [
+const ASSET_GROUPS = [
   {
-    label: 'Klinik & Medis',
-    icon: FiActivity,
+    label: 'Data & Registrasi Aset',
+    icon: FiArchive,
     items: [
-      { icon: FiUsers, label: 'Data Pasien', href: '/admin/master/patients' },
-      { icon: FiBriefcase, label: 'Departemen', href: '/admin/master/departments' },
-      { icon: FiUserCheck, label: 'Dokter', href: '/admin/master/doctors' },
-      { icon: FiClock, label: 'Jadwal Dokter', href: '/admin/master/schedules' },
-      { icon: FiActivity, label: 'Layanan', href: '/admin/master/services' },
-      { icon: FiList, label: 'Kategori Layanan', href: '/admin/master/service-categories' },
+      { icon: FiArchive, label: 'Daftar Aset', href: '/admin/master/assets' },
+      { icon: FiBarChart2, label: 'Register Aset (Nilai Buku)', href: '/admin/assets/register' },
     ]
-  }
+  },
+  {
+    label: 'Operasional Aset',
+    icon: FiTool,
+    items: [
+      { icon: FiTool, label: 'Maintenance & Perawatan', href: '/admin/assets/maintenance' },
+      { icon: FiRepeat, label: 'Transfer Aset', href: '/admin/assets/transfers' },
+      { icon: FiShield, label: 'Asuransi Aset', href: '/admin/assets/insurance' },
+    ]
+  },
+  {
+    label: 'Keuangan Aset',
+    icon: FiTrendingUp,
+    items: [
+      { icon: FiTrendingUp, label: 'Penyusutan (Depresiasi)', href: '/admin/assets/depreciation' },
+      { icon: FiAlertCircle, label: 'Penghapusan Aset', href: '/admin/assets/disposal' },
+    ]
+  },
 ]
 
 const MASTER_GROUPS = [
   {
-    label: 'Katalog Master',
-    icon: FiShoppingBag,
+    label: 'Master Tenaga Medis',
+    icon: FiUserCheck,
     items: [
-      { icon: FiShoppingBag, label: 'Master Produk', href: '/admin/master/products' },
-      { icon: FiList, label: 'Kategori Produk', href: '/admin/master/product-categories' },
+      { icon: FiUserCheck, label: 'Database Dokter', href: '/admin/master/doctors' },
+      { icon: FiClock, label: 'Jadwal Praktek', href: '/admin/master/schedules' },
+      { icon: FiBriefcase, label: 'Departemen & Poli', href: '/admin/master/departments' },
+      { icon: FiActivity, label: 'Daftar Layanan/Tindakan', href: '/admin/master/services' },
     ]
   },
   {
-    label: 'Akses & Admin',
+    label: 'Pengaturan Sistem',
     icon: FiDatabase,
     items: [
-      { icon: FiUsers, label: 'Users', href: '/admin/master/users' },
-      { icon: FiGlobe, label: 'Cabang / Klinik', href: '/admin/master/clinics' },
-      { icon: FiList, label: 'Kategori Biaya', href: '/admin/master/expense-categories' },
+      { icon: FiUsers, label: 'Manajemen Users', href: '/admin/master/users' },
+      { icon: FiGlobe, label: 'Manajemen Cabang', href: '/admin/master/clinics' },
+      { icon: FiGlobe, label: 'Manajemen Website', href: '/admin/website' },
+      { icon: FiSettings, label: 'Pengaturan Umum', href: '/admin/settings' },
     ]
   }
 ]
@@ -123,35 +172,33 @@ const Tooltip = ({ text, visible }: { text: string; visible: boolean }) => (
 )
 
 // --- Nav Item Component ---
-const SidebarNavItem = ({ 
-  item, 
-  pathname, 
-  isCollapsed, 
-  isMobile 
-}: { 
-  item: any; 
-  pathname: string; 
-  isCollapsed: boolean; 
+const SidebarNavItem = ({
+  item,
+  pathname,
+  isCollapsed,
+  isMobile
+}: {
+  item: any;
+  pathname: string;
+  isCollapsed: boolean;
   isMobile: boolean;
 }) => {
   const [hover, setHover] = useState(false)
   const isActive = pathname === item.href
 
   return (
-    <div 
-      onMouseEnter={() => setHover(true)} 
-      onMouseLeave={() => setHover(false)} 
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       className="relative"
     >
       <Link
         href={item.href}
-        className={`flex items-center rounded-xl transition-all group ${
-          isCollapsed && !isMobile ? 'justify-center w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5'
-        } ${
-          isActive
+        className={`flex items-center rounded-xl transition-all group ${isCollapsed && !isMobile ? 'justify-center w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5'
+          } ${isActive
             ? 'bg-primary/10 text-primary font-bold shadow-sm shadow-primary/10'
             : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 font-semibold'
-        }`}
+          }`}
       >
         <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-primary' : 'group-hover:text-primary transition-colors'}`} />
         {(!isCollapsed || isMobile) && <span className="text-sm truncate">{item.label}</span>}
@@ -163,18 +210,18 @@ const SidebarNavItem = ({
 }
 
 // --- Nav Group Component ---
-const SidebarNavGroup = ({ 
-  group, 
-  pathname, 
-  isCollapsed, 
+const SidebarNavGroup = ({
+  group,
+  pathname,
+  isCollapsed,
   isMobile,
   openGroups,
   toggleGroup,
   accentColor = 'primary'
-}: { 
-  group: any; 
-  pathname: string; 
-  isCollapsed: boolean; 
+}: {
+  group: any;
+  pathname: string;
+  isCollapsed: boolean;
   isMobile: boolean;
   openGroups: string[];
   toggleGroup: (label: string) => void;
@@ -188,13 +235,11 @@ const SidebarNavGroup = ({
     <div className="relative" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
       <button
         onClick={() => toggleGroup(group.label)}
-        className={`flex items-center rounded-xl transition-all ${
-          isCollapsed && !isMobile ? 'justify-center w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5 w-full'
-        } ${
-          isGroupActive && !isOpen
+        className={`flex items-center rounded-xl transition-all ${isCollapsed && !isMobile ? 'justify-center w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5 w-full'
+          } ${isGroupActive && !isOpen
             ? accentColor === 'primary' ? 'bg-primary/5 text-primary' : 'bg-indigo-50/50 text-indigo-600'
             : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-        }`}
+          }`}
       >
         <group.icon className={`w-5 h-5 flex-shrink-0 ${isGroupActive ? (accentColor === 'primary' ? 'text-primary' : 'text-indigo-600') : ''}`} />
         {(!isCollapsed || isMobile) && (
@@ -223,13 +268,12 @@ const SidebarNavGroup = ({
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all text-xs ${
-                      isActive
-                        ? accentColor === 'primary' 
-                          ? 'bg-primary text-white font-black shadow-md shadow-primary/20'
-                          : 'bg-primary/10 text-primary font-black'
-                        : 'text-gray-500 hover:text-primary font-bold'
-                    }`}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all text-xs ${isActive
+                      ? accentColor === 'primary'
+                        ? 'bg-primary text-white font-black shadow-md shadow-primary/20'
+                        : 'bg-primary/10 text-primary font-black'
+                      : 'text-gray-500 hover:text-primary font-bold'
+                      }`}
                   >
                     <item.icon className="w-3.5 h-3.5" />
                     <span className="truncate">{item.label}</span>
@@ -244,7 +288,7 @@ const SidebarNavGroup = ({
   )
 }
 
-const SidebarContent = ({ 
+const SidebarContent = ({
   isMobile = false,
   isCollapsed,
   user,
@@ -253,7 +297,7 @@ const SidebarContent = ({
   openGroups,
   toggleGroup,
   toggleCollapse
-}: { 
+}: {
   isMobile?: boolean;
   isCollapsed: boolean;
   user: any;
@@ -290,18 +334,18 @@ const SidebarContent = ({
     <nav className="flex-1 px-3 overflow-y-auto custom-scrollbar pb-10">
       {(!isCollapsed || isMobile) && (
         <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-3 pt-4 pb-2">
-            Menu Utama
+          Menu Utama
         </p>
       )}
-      
+
       <div className="flex flex-col gap-1">
         {MAIN_MENU.map((item) => (
-          <SidebarNavItem 
-            key={item.href} 
-            item={item} 
-            pathname={pathname} 
-            isCollapsed={isCollapsed} 
-            isMobile={isMobile} 
+          <SidebarNavItem
+            key={item.href}
+            item={item}
+            pathname={pathname}
+            isCollapsed={isCollapsed}
+            isMobile={isMobile}
           />
         ))}
       </div>
@@ -309,12 +353,12 @@ const SidebarContent = ({
       <div className="flex flex-col gap-1 mt-2">
         {(!isCollapsed || isMobile) && (
           <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-3 pb-2 pt-4">
-            Transaksi & Antrian
+            Layanan Utama
           </p>
         )}
-        
-        {TRANSAKSI_GROUPS.map((group) => (
-          <SidebarNavGroup 
+
+        {LAYANAN_UTAMA_GROUPS.map((group) => (
+          <SidebarNavGroup
             key={group.label}
             group={group}
             pathname={pathname}
@@ -327,38 +371,60 @@ const SidebarContent = ({
         ))}
       </div>
 
-      {/* Klinik & Medis Section */}
-      <div className="flex flex-col gap-1 mt-2">
-        {(!isCollapsed || isMobile) && (
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-3 pb-2 pt-4">
-            Klinik & Medis
-          </p>
-        )}
-        
-        {KLINIK_GROUPS.map((group) => (
-          <SidebarNavGroup 
-            key={group.label}
-            group={group}
-            pathname={pathname}
-            isCollapsed={isCollapsed}
-            isMobile={isMobile}
-            openGroups={openGroups}
-            toggleGroup={toggleGroup}
-            accentColor="primary"
-          />
-        ))}
-      </div>
-
-      {/* Logistics and Inventory Outside Master */}
+      {/* Logistics and Inventory */}
       <div className="flex flex-col gap-1 mt-2">
         {(!isCollapsed || isMobile) && (
           <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-3 pb-2 pt-4">
             Logistik & Inventaris
           </p>
         )}
-        
+
         {LOGISTIK_GROUPS.map((group) => (
-          <SidebarNavGroup 
+          <SidebarNavGroup
+            key={group.label}
+            group={group}
+            pathname={pathname}
+            isCollapsed={isCollapsed}
+            isMobile={isMobile}
+            openGroups={openGroups}
+            toggleGroup={toggleGroup}
+            accentColor="primary"
+          />
+        ))}
+      </div>
+
+      {/* Manajemen Aset */}
+      <div className="flex flex-col gap-1 mt-2">
+        {(!isCollapsed || isMobile) && (
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-3 pb-2 pt-4">
+            Manajemen Aset
+          </p>
+        )}
+
+        {ASSET_GROUPS.map((group) => (
+          <SidebarNavGroup
+            key={group.label}
+            group={group}
+            pathname={pathname}
+            isCollapsed={isCollapsed}
+            isMobile={isMobile}
+            openGroups={openGroups}
+            toggleGroup={toggleGroup}
+            accentColor="primary"
+          />
+        ))}
+      </div>
+
+      {/* Keuangan & Akuntansi Section */}
+      <div className="flex flex-col gap-1 mt-2">
+        {(!isCollapsed || isMobile) && (
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-3 pb-2 pt-4">
+            Keuangan & Akuntansi
+          </p>
+        )}
+
+        {FINANCE_GROUPS.map((group) => (
+          <SidebarNavGroup
             key={group.label}
             group={group}
             pathname={pathname}
@@ -375,12 +441,12 @@ const SidebarContent = ({
       <div className="flex flex-col gap-1 mt-2">
         {(!isCollapsed || isMobile) && (
           <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-3 pb-2 pt-4">
-            Data Master
+            Pengaturan Master
           </p>
         )}
-        
+
         {MASTER_GROUPS.map((group) => (
-          <SidebarNavGroup 
+          <SidebarNavGroup
             key={group.label}
             group={group}
             pathname={pathname}
@@ -399,39 +465,37 @@ const SidebarContent = ({
       {(!isCollapsed || isMobile) && (
         <div className="px-4 py-3 rounded-2xl bg-gray-50/80 border border-gray-100 group transition-all hover:bg-white hover:shadow-md cursor-pointer">
           <div className="flex items-center gap-3 overflow-hidden">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-primary flex items-center justify-center text-white font-bold text-xs shadow-sm">
-                  {user?.name?.[0] || 'A'}
-              </div>
-              <div className="flex-1 truncate">
-                  <p className="text-xs font-black text-gray-900 truncate uppercase tracking-tight">{user?.name || 'Administrator'}</p>
-                  <p className="text-[9px] font-bold text-gray-400 truncate tracking-wide">{user?.email}</p>
-              </div>
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-primary flex items-center justify-center text-white font-bold text-xs shadow-sm">
+              {user?.name?.[0] || 'A'}
+            </div>
+            <div className="flex-1 truncate">
+              <p className="text-xs font-black text-gray-900 truncate uppercase tracking-tight">{user?.name || 'Administrator'}</p>
+              <p className="text-[9px] font-bold text-gray-400 truncate tracking-wide">{user?.email}</p>
+            </div>
           </div>
         </div>
       )}
 
       <div className="flex flex-col gap-1">
-          <button
-            onClick={logout}
-            className={`flex items-center rounded-xl text-red-500 hover:bg-red-50 transition-all font-bold text-sm ${
-              isCollapsed && !isMobile ? 'justify-center w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5 w-full'
+        <button
+          onClick={logout}
+          className={`flex items-center rounded-xl text-red-500 hover:bg-red-50 transition-all font-bold text-sm ${isCollapsed && !isMobile ? 'justify-center w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5 w-full'
             }`}
-          >
-            <FiLogOut className="w-5 h-5 flex-shrink-0" />
-            {(!isCollapsed || isMobile) && <span>Keluar</span>}
-          </button>
-          
-          {!isMobile && (
-            <button
-              onClick={toggleCollapse}
-              className={`flex items-center rounded-xl text-gray-400 hover:bg-gray-50 hover:text-primary transition-all font-bold text-sm ${
-                  isCollapsed && !isMobile ? 'justify-center w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5 w-full'
+        >
+          <FiLogOut className="w-5 h-5 flex-shrink-0" />
+          {(!isCollapsed || isMobile) && <span>Keluar</span>}
+        </button>
+
+        {!isMobile && (
+          <button
+            onClick={toggleCollapse}
+            className={`flex items-center rounded-xl text-gray-400 hover:bg-gray-50 hover:text-primary transition-all font-bold text-sm ${isCollapsed && !isMobile ? 'justify-center w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5 w-full'
               }`}
-            >
-              <FiChevronLeft className={`w-5 h-5 transition-transform duration-500 ${isCollapsed ? 'rotate-180' : ''}`} />
-              {!isCollapsed && <span>Ciutkan Menu</span>}
-            </button>
-          )}
+          >
+            <FiChevronLeft className={`w-5 h-5 transition-transform duration-500 ${isCollapsed ? 'rotate-180' : ''}`} />
+            {!isCollapsed && <span>Ciutkan Menu</span>}
+          </button>
+        )}
       </div>
     </div>
   </div>
@@ -444,24 +508,26 @@ export default function Sidebar() {
   const [openGroups, setOpenGroups] = useState<string[]>([])
   const [mobileOpen, setMobileOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
-  
+
   useEffect(() => {
     setMounted(true)
     const saved = localStorage.getItem('sidebar-collapsed')
     if (saved === 'true') setIsCollapsed(true)
-    
+
     // Check which group should be open initially based on pathname
     const activeMasterGroup = MASTER_GROUPS.find(g => g.items.some(i => i.href === pathname))
-    const activeTransaksiGroup = TRANSAKSI_GROUPS.find(g => g.items.some(i => i.href === pathname))
+    const activeLayananGroup = LAYANAN_UTAMA_GROUPS.find(g => g.items.some(i => i.href === pathname))
+    const activeFinanceGroup = FINANCE_GROUPS.find(g => g.items.some(i => i.href === pathname))
     const activeLogistikGroup = LOGISTIK_GROUPS.find(g => g.items.some(i => i.href === pathname))
-    const activeKlinikGroup = KLINIK_GROUPS.find(g => g.items.some(i => i.href === pathname))
-    
+    const activeAssetGroup = ASSET_GROUPS.find(g => g.items.some(i => i.href === pathname))
+
     const initialOpen: string[] = []
     if (activeMasterGroup) initialOpen.push(activeMasterGroup.label)
-    if (activeTransaksiGroup) initialOpen.push(activeTransaksiGroup.label)
+    if (activeLayananGroup) initialOpen.push(activeLayananGroup.label)
+    if (activeFinanceGroup) initialOpen.push(activeFinanceGroup.label)
     if (activeLogistikGroup) initialOpen.push(activeLogistikGroup.label)
-    if (activeKlinikGroup) initialOpen.push(activeKlinikGroup.label)
-    
+    if (activeAssetGroup) initialOpen.push(activeAssetGroup.label)
+
     if (initialOpen.length > 0) {
       setOpenGroups(prev => Array.from(new Set([...prev, ...initialOpen])))
     }
@@ -475,8 +541,8 @@ export default function Sidebar() {
 
   const toggleGroup = (label: string) => {
     if (isCollapsed) {
-        setIsCollapsed(false)
-        localStorage.setItem('sidebar-collapsed', 'false')
+      setIsCollapsed(false)
+      localStorage.setItem('sidebar-collapsed', 'false')
     }
     setOpenGroups(prev => prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label])
   }
@@ -541,16 +607,16 @@ export default function Sidebar() {
       </AnimatePresence>
 
       {/* Desktop Sidebar */}
-      <motion.aside 
+      <motion.aside
         animate={{ width: isCollapsed ? 80 : 280 }}
         transition={{ type: 'spring', damping: 20, stiffness: 100 }}
         className="hidden lg:flex fixed left-0 top-0 h-screen bg-white border-r border-gray-100 z-50 flex-col shadow-[4px_0_24px_-10px_rgba(0,0,0,0.05)] overflow-hidden"
       >
         <SidebarContent {...contentProps} />
       </motion.aside>
-      
+
       {/* Spacer to push content */}
-      <motion.div 
+      <motion.div
         animate={{ width: isCollapsed ? 80 : 280 }}
         className="hidden lg:block transition-all"
       />

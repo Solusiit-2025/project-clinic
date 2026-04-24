@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { FiPackage, FiAlertCircle, FiUpload, FiX, FiCamera, FiSearch } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
@@ -11,7 +11,6 @@ import SearchableSelect from '@/components/admin/master/SearchableSelect'
 import { StatusBadge } from '@/components/admin/master/StatusBadge'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
 const FORMS = ['Tablet', 'Capsule', 'Syrup', 'Injection', 'Liquid', 'Cream', 'Ointment', 'Drops', 'Inhaler', 'Suppository', 'Gel', 'Solution']
 const EMPTY = { 
   medicineName: '', 
@@ -34,10 +33,13 @@ type Medicine = {
   image?: string;
   clinicId?: string;
   clinic?: { name: string; code: string };
+  totalStock?: number;
+  unit?: string;
   productMaster?: {
     products: {
       id: string;
       quantity: number;
+      purchasePrice: number;
       sellingPrice: number;
       usedUnit: string;
       unit: string;
@@ -48,12 +50,12 @@ type Medicine = {
 }
 
 export default function MedicinesPage() {
-  const { token, activeClinicId } = useAuthStore()
+  const { token, activeClinicId, user } = useAuthStore()
   const [data, setData] = useState<Medicine[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<Medicine | null>(null)
+  const [editing, setEditing] = useState<any | null>(null)
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -63,7 +65,8 @@ export default function MedicinesPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
 
-  const headers = { Authorization: `Bearer ${token}` }
+  // Use a derived isAdmin state for UI logic
+  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.clinics?.some(c => c.clinic?.isMain)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -71,21 +74,28 @@ export default function MedicinesPage() {
       const params: any = {}
       if (search) params.search = search
       if (filterClinic) params.clinicId = filterClinic
-      const { data } = await axios.get(`${API}/medicines`, { headers, params })
-      setData(data)
+      
+      const { data: resData } = await api.get('/master/medicines', { params })
+      const medicineList = Array.isArray(resData) ? resData : (resData?.data || [])
+      setData(medicineList)
+    } catch (e) {
+      console.error('Failed to fetch medicines', e)
+      setData([])
     } finally { setLoading(false) }
-  }, [search, token, filterClinic, activeClinicId])
+  }, [search, filterClinic])
 
   const fetchClinics = useCallback(async () => {
     try {
-      const [{ data: cData }, { data: pData }] = await Promise.all([
-        axios.get(`${API}/clinics`, { headers }),
-        axios.get(`${API}/products`, { headers }) // Actually getProducts returns ProductMaster list
+      const [cRes, pRes] = await Promise.all([
+        api.get('/master/clinics'),
+        api.get('/master/products')
       ])
-      setClinics(cData)
-      setProductMasters(pData)
-    } catch { }
-  }, [token])
+      setClinics(Array.isArray(cRes.data) ? cRes.data : (cRes.data?.data || []))
+      setProductMasters(Array.isArray(pRes.data) ? pRes.data : (pRes.data?.data || []))
+    } catch (e) { 
+      console.error('Failed to fetch support data', e)
+    }
+  }, [])
 
   useEffect(() => { 
     fetchData()
@@ -230,34 +240,79 @@ export default function MedicinesPage() {
     )},
     { key: 'strength', label: 'Dosis', mobileHide: true, render: (r) => <span className="text-[11px] font-bold text-gray-600 tracking-tight">{r.strength || '—'}</span> },
     { key: 'stock', label: 'STOK', render: (r) => {
-      const inv = r.productMaster?.products?.[0]
-      if (!inv) return (
+      const products = r.productMaster?.products || []
+      const isGlobal = products.length > 1 && !filterClinic
+      const displayStock = r.stock ?? 0
+      const unit = r.unit || 'Unit'
+      
+      if (products.length === 0) return (
         <div className="flex flex-col opacity-40">
            <span className="text-sm font-black text-gray-400">0</span>
-           <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Katalog</span>
+           <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">BELUM SET</span>
         </div>
       )
+
       return (
         <div className="flex flex-col">
           <div className="flex items-baseline gap-1">
-            <span className={`text-sm font-black ${inv.quantity <= 10 ? 'text-rose-600 animate-pulse' : 'text-gray-900'}`}>
-              {inv.quantity}
+            <span className={`text-sm font-black ${displayStock <= 10 ? 'text-rose-600 animate-pulse' : 'text-gray-900'}`}>
+              {displayStock}
             </span>
-            <span className="text-[10px] font-bold text-gray-400 lowercase">{inv.usedUnit || inv.unit}</span>
+            <span className="text-[10px] font-bold text-gray-400 lowercase">{unit}</span>
           </div>
-          {inv.quantity <= 10 && <span className="text-[9px] font-black text-rose-500 uppercase tracking-tighter">Running Low</span>}
+          {isGlobal && <span className="text-[9px] font-black text-blue-500 uppercase tracking-tighter">Total Global</span>}
+          {displayStock <= 10 && !isGlobal && <span className="text-[9px] font-black text-rose-500 uppercase tracking-tighter">Low</span>}
+        </div>
+      )
+    }},
+    { key: 'purchasePrice', label: 'HARGA BELI', render: (r) => {
+      const products = r.productMaster?.products || []
+      if (products.length === 0) return <span className="text-[10px] font-bold text-gray-300 italic">Belum Set</span>
+      
+      const prices = products.map(p => p.purchasePrice)
+      const minPrice = Math.min(...prices)
+      const maxPrice = Math.max(...prices)
+      const isRange = minPrice !== maxPrice && !filterClinic
+
+      return (
+        <div className="flex flex-col">
+          <span className="text-sm font-black text-gray-600">
+            {isRange ? `Rp ${minPrice.toLocaleString('id-ID')} - Rp ${maxPrice.toLocaleString('id-ID')}` : `Rp ${minPrice.toLocaleString('id-ID')}`}
+          </span>
+          <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Per {r.unit}</span>
         </div>
       )
     }},
     { key: 'price', label: 'HARGA JUAL', render: (r) => {
-      const inv = r.productMaster?.products?.[0]
-      if (!inv) return <span className="text-[10px] font-bold text-gray-300 italic">Belum Set</span>
+      const products = r.productMaster?.products || []
+      if (products.length === 0) return <span className="text-[10px] font-bold text-gray-300 italic">Belum Set</span>
+      
+      const prices = products.map(p => p.sellingPrice)
+      const minPrice = Math.min(...prices)
+      const maxPrice = Math.max(...prices)
+      const isRange = minPrice !== maxPrice && !filterClinic
+
       return (
         <div className="flex flex-col">
           <span className="text-sm font-black text-emerald-700">
-            Rp {inv.sellingPrice.toLocaleString('id-ID')}
+            {isRange ? `Mulai Rp ${minPrice.toLocaleString('id-ID')}` : `Rp ${minPrice.toLocaleString('id-ID')}`}
           </span>
-          <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Per {inv.unit}</span>
+          <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Per {r.unit}</span>
+        </div>
+      )
+    }},
+    { key: 'margin', label: 'SELISIH', render: (r) => {
+      const products = r.productMaster?.products || []
+      if (products.length === 0) return <span className="text-[10px] font-bold text-gray-300 italic">—</span>
+      
+      const first = products[0]
+      const margin = (first.sellingPrice || 0) - (first.purchasePrice || 0)
+      return (
+        <div className="flex flex-col">
+          <span className={`text-sm font-black ${margin >= 0 ? 'text-blue-600' : 'text-rose-600'}`}>
+            Rp {margin.toLocaleString('id-ID')}
+          </span>
+          <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Margin</span>
         </div>
       )
     }},
@@ -281,8 +336,8 @@ export default function MedicinesPage() {
       label: 'Cabang', 
       render: (r) => (
         <div className="flex flex-col">
-            <span className="text-[10px] font-black text-gray-700 uppercase tracking-tight">{r.clinic?.name || 'Local'}</span>
-            <span className="text-[9px] font-bold text-gray-400">{r.clinic?.code || 'BASE'}</span>
+            <span className="text-[10px] font-black text-gray-700 uppercase tracking-tight">{(r as any).productMaster?.products?.length > 1 && !filterClinic ? 'Multi-Branch' : (r.clinic?.name || 'Local')}</span>
+            <span className="text-[9px] font-bold text-gray-400">{(r as any).productMaster?.products?.length > 1 && !filterClinic ? 'Mixed' : (r.clinic?.code || 'BASE')}</span>
         </div>
       )
     },
@@ -324,7 +379,7 @@ export default function MedicinesPage() {
           >
             <option value="">Cabang Aktif (Sidebar)</option>
             <option value="all">Seluruh Cabang</option>
-            {clinics.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {(Array.isArray(clinics) ? clinics : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         }
         onEdit={openEdit} onDelete={handleDelete}
@@ -349,7 +404,7 @@ export default function MedicinesPage() {
               <SearchableSelect 
                 label="Pilih dari Katalog Master Produk"
                 placeholder="Cari nama atau kode produk (ex: Sanmol)..."
-                options={productMasters.map(m => ({
+                options={(Array.isArray(productMasters) ? productMasters : []).map(m => ({
                   id: m.id,
                   label: m.masterName,
                   code: m.masterCode,
@@ -377,7 +432,7 @@ export default function MedicinesPage() {
                 className="w-full px-4 py-3 text-sm border border-indigo-100 rounded-2xl focus:outline-none focus:border-primary bg-white font-black text-indigo-700 shadow-sm"
               >
                 <option value="">Pilih Cabang (Default ke Sidebar)...</option>
-                {clinics.map(c => (
+                {(Array.isArray(clinics) ? clinics : []).map(c => (
                   <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
                 ))}
               </select>

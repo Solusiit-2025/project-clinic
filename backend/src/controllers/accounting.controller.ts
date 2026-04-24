@@ -1,0 +1,725 @@
+import { Request, Response } from 'express'
+import { prisma } from '../lib/prisma'
+import { AccountCategory } from '@prisma/client'
+
+/**
+ * Get Trial Balance (Real-time)
+ */
+export const getTrialBalance = async (req: Request, res: Response) => {
+  try {
+    const { date, clinicId } = req.query
+    const currentClinicId = (req as any).clinicId
+    const isAdminView = (req as any).isAdminView
+    
+    // If admin and no clinicId provided, show consolidated (null targetClinicId)
+    // Otherwise, force currentClinicId or provided clinicId
+    const targetClinicId = clinicId ? String(clinicId) : (isAdminView ? undefined : currentClinicId)
+    
+    // Robust date parsing — kompensasi UTC+7 (WIB)
+    let targetDate = new Date()
+    if (date && typeof date === 'string' && date.trim() !== '') {
+        const parsed = new Date(`${date}T23:59:59+07:00`)
+        if (!isNaN(parsed.getTime())) {
+            targetDate = parsed
+        }
+    }
+
+    const whereAccount: any = {
+      accountType: 'DETAIL',
+    }
+    if (targetClinicId) {
+       whereAccount.OR = [{ clinicId: targetClinicId }, { clinicId: null }]
+    }
+
+    // 1. Get all detail accounts
+    const accounts = await prisma.chartOfAccount.findMany({
+      where: whereAccount,
+      orderBy: { code: 'asc' }
+    })
+
+    // 2. Aggregate Journal Details up to targetDate
+    const trialBalance = await Promise.all(accounts.map(async (acc) => {
+      const aggregates = await prisma.journalDetail.aggregate({
+        where: {
+          coaId: acc.id,
+          journalEntry: {
+            date: { lte: targetDate },
+            ...(targetClinicId ? { clinicId: targetClinicId } : {})
+          }
+        },
+        _sum: {
+          debit: true,
+          credit: true
+        }
+      })
+
+      const totalDebit = (aggregates._sum.debit || 0)
+      const totalCredit = (aggregates._sum.credit || 0)
+      
+      // Calculate balance based on category
+      // Assets & Expenses: normal balance is Debit
+      // Liabilities, Equity, Revenue: normal balance is Credit
+      let debitBalance = 0
+      let creditBalance = 0
+
+      const net = totalDebit - totalCredit
+      if (acc.category === 'ASSET' || acc.category === 'EXPENSE') {
+        const bal = acc.openingBalance + net
+        if (bal >= 0) debitBalance = bal
+        else creditBalance = Math.abs(bal)
+      } else {
+        const bal = acc.openingBalance + (totalCredit - totalDebit)
+        if (bal >= 0) creditBalance = bal
+        else debitBalance = Math.abs(bal)
+      }
+
+      return {
+        id: acc.id,
+        code: acc.code,
+        name: acc.name,
+        category: acc.category,
+        debit: debitBalance,
+        credit: creditBalance
+      }
+    }))
+
+    // Filter: hanya tampilkan akun yang punya saldo atau opening balance
+    // Akun dengan saldo 0 dan tidak ada transaksi tidak perlu ditampilkan
+    const nonZeroTrialBalance = trialBalance.filter(
+      item => item.debit > 0 || item.credit > 0
+    )
+
+    res.json(nonZeroTrialBalance)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+/**
+ * Get Profit & Loss Report
+ */
+export const getProfitLoss = async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate, clinicId } = req.query
+    const currentClinicId = (req as any).clinicId
+    const isAdminView = (req as any).isAdminView
+    const targetClinicId = clinicId ? String(clinicId) : (isAdminView ? undefined : currentClinicId)
+
+    // Robust date parsing — kompensasi UTC+7 (WIB)
+    // Frontend kirim tanggal lokal, kita konversi ke UTC yang benar
+    const WIB_OFFSET = 7 * 60 * 60 * 1000
+    let start = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+    let end = new Date()
+
+    if (startDate && typeof startDate === 'string' && startDate.trim() !== '') {
+        // startDate = "2026-04-01" → jam 00:00:00 WIB = 2026-03-31T17:00:00Z
+        const parsedStart = new Date(`${startDate}T00:00:00+07:00`)
+        if (!isNaN(parsedStart.getTime())) start = parsedStart
+    } else {
+        // Default: awal bulan ini jam 00:00 WIB
+        start = new Date(Date.UTC(start.getFullYear(), start.getMonth(), 1) - WIB_OFFSET)
+    }
+    if (endDate && typeof endDate === 'string' && endDate.trim() !== '') {
+        // endDate = "2026-04-24" → jam 23:59:59 WIB = 2026-04-24T16:59:59Z
+        const parsedEnd = new Date(`${endDate}T23:59:59+07:00`)
+        if (!isNaN(parsedEnd.getTime())) end = parsedEnd
+    } else {
+        // Default: sekarang
+        end = new Date()
+    }
+
+    console.log('[ProfitLoss] WIB-corrected UTC Range:', { start: start.toISOString(), end: end.toISOString(), targetClinicId })
+
+    // 1. Get all revenue and expense accounts
+    const accounts = await prisma.chartOfAccount.findMany({
+      where: {
+        accountType: 'DETAIL',
+        category: { in: ['REVENUE', 'EXPENSE'] },
+        ...(targetClinicId ? {
+          OR: [
+            { clinicId: targetClinicId },
+            { clinicId: null }
+          ]
+        } : {})
+      }
+    })
+
+    console.log(`[ProfitLoss] Found ${accounts.length} accounts to check.`)
+
+    const reportData = await Promise.all(accounts.map(async (acc) => {
+      const aggregates = await prisma.journalDetail.aggregate({
+        where: {
+          coaId: acc.id,
+          journalEntry: {
+            date: { gte: start, lte: end },
+            ...(targetClinicId ? { clinicId: targetClinicId } : {})
+          }
+        },
+        _sum: { debit: true, credit: true }
+      })
+
+      const totalDebit = aggregates._sum.debit || 0
+      const totalCredit = aggregates._sum.credit || 0
+      
+      // Profit/Loss ignore opening balance for the period
+      const balance = acc.category === 'REVENUE' ? (totalCredit - totalDebit) : (totalDebit - totalCredit)
+
+      return {
+        code: acc.code,
+        name: acc.name,
+        category: acc.category,
+        balance
+      }
+    }))
+
+    const revenueItems = reportData.filter(d => d.category === 'REVENUE' && d.balance !== 0)
+    const expenseItems = reportData.filter(d => d.category === 'EXPENSE' && d.balance !== 0)
+
+    const totalRevenue = revenueItems.reduce((sum, i) => sum + i.balance, 0)
+    const totalExpense = expenseItems.reduce((sum, i) => sum + i.balance, 0)
+
+    res.json({
+      period: { start, end },
+      revenue: revenueItems,
+      totalRevenue,
+      expenses: expenseItems,
+      totalExpense,
+      netProfit: totalRevenue - totalExpense
+    })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+/**
+ * Get Balance Sheet (Neraca)
+ */
+export const getBalanceSheet = async (req: Request, res: Response) => {
+  try {
+    const { date, clinicId } = req.query
+    const targetClinicId = clinicId ? String(clinicId) : (req as any).clinicId
+    
+    // Robust date parsing — kompensasi UTC+7 (WIB)
+    let targetDate = new Date()
+    if (date && typeof date === 'string' && date.trim() !== '') {
+        // "2026-04-24" → jam 23:59:59 WIB = 2026-04-24T16:59:59Z
+        const parsed = new Date(`${date}T23:59:59+07:00`)
+        if (!isNaN(parsed.getTime())) {
+            targetDate = parsed
+        }
+    }
+
+    // 1. Calculate Profit/Loss up to targetDate (for "Laba Tahun Berjalan")
+    const plAccounts = await prisma.chartOfAccount.findMany({
+      where: {
+        accountType: 'DETAIL',
+        category: { in: ['REVENUE', 'EXPENSE'] },
+        ...(targetClinicId ? {
+          OR: [
+            { clinicId: targetClinicId },
+            { clinicId: null }
+          ]
+        } : {})
+      }
+    })
+
+    const plResult = await Promise.all(plAccounts.map(async (acc) => {
+      const aggregates = await prisma.journalDetail.aggregate({
+        where: {
+          coaId: acc.id,
+          journalEntry: { 
+            date: { lte: targetDate }, 
+            ...(targetClinicId ? { clinicId: targetClinicId } : {}) 
+          }
+        },
+        _sum: { debit: true, credit: true }
+      })
+      const totalDebit = aggregates._sum.debit || 0
+      const totalCredit = aggregates._sum.credit || 0
+      // Revenue: kredit normal → positif menambah laba
+      // Expense: debit normal  → negatif mengurangi laba
+      if (acc.category === 'REVENUE') {
+        return (totalCredit - totalDebit)   // positif = pendapatan
+      } else {
+        return -(totalDebit - totalCredit)  // negatif = beban (mengurangi laba)
+      }
+    }))
+
+    const currentYearEarnings = plResult.reduce((sum, val) => sum + val, 0)
+
+    // 2. Get Balance Sheet Accounts (Asset, Liability, Equity)
+    const bsAccounts = await prisma.chartOfAccount.findMany({
+      where: {
+        accountType: 'DETAIL',
+        category: { in: ['ASSET', 'LIABILITY', 'EQUITY'] },
+        OR: [{ clinicId: targetClinicId }, { clinicId: null }]
+      },
+      orderBy: { code: 'asc' }
+    })
+
+    const balances = await Promise.all(bsAccounts.map(async (acc) => {
+      const aggregates = await prisma.journalDetail.aggregate({
+        where: {
+          coaId: acc.id,
+          journalEntry: {
+            date: { lte: targetDate },
+            ...(targetClinicId ? { clinicId: targetClinicId } : {})
+          }
+        },
+        _sum: { debit: true, credit: true }
+      })
+
+      const totalDebit = aggregates._sum.debit || 0
+      const totalCredit = aggregates._sum.credit || 0
+      const net = totalDebit - totalCredit
+      
+      let balance = 0
+      if (acc.category === 'ASSET') {
+        balance = acc.openingBalance + net
+      } else {
+        // Liability & Equity normal balance is Credit
+        balance = acc.openingBalance + (totalCredit - totalDebit)
+      }
+
+      return { code: acc.code, name: acc.name, category: acc.category, balance }
+    }))
+
+    const assets = balances.filter(b => b.category === 'ASSET')
+    const liabilities = balances.filter(b => b.category === 'LIABILITY')
+    const equities = balances.filter(b => b.category === 'EQUITY')
+
+    const totalAssets = assets.reduce((sum, i) => sum + i.balance, 0)
+    const totalLiabilities = liabilities.reduce((sum, i) => sum + i.balance, 0)
+    const totalEquityOnly = equities.reduce((sum, i) => sum + i.balance, 0)
+
+    res.json({
+      date: targetDate,
+      assets,
+      totalAssets,
+      liabilities,
+      totalLiabilities,
+      equity: [
+        ...equities,
+        { code: '3-9999', name: 'Laba Tahun Berjalan', category: 'EQUITY', balance: currentYearEarnings }
+      ],
+      currentYearEarnings,
+      totalEquity: totalEquityOnly + currentYearEarnings,
+      totalLiabilitiesAndEquity: totalLiabilities + totalEquityOnly + currentYearEarnings
+    })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+/**
+ * Get General Ledger (Rincian per Akun)
+ */
+export const getGeneralLedger = async (req: Request, res: Response) => {
+  try {
+    const { coaId, startDate, endDate, clinicId, page, limit } = req.query
+    const currentClinicId = (req as any).clinicId
+    const isAdminView = (req as any).isAdminView
+    const targetClinicId = clinicId ? String(clinicId) : (isAdminView ? undefined : currentClinicId)
+
+    // Date parsing — kompensasi UTC+7 (WIB)
+    let start = new Date(new Date().getFullYear(), 0, 1) // default: awal tahun ini
+    let end = new Date()
+
+    if (startDate && typeof startDate === 'string' && startDate.trim() !== '') {
+        const parsedStart = new Date(`${startDate}T00:00:00+07:00`)
+        if (!isNaN(parsedStart.getTime())) start = parsedStart
+    }
+    if (endDate && typeof endDate === 'string' && endDate.trim() !== '') {
+        const parsedEnd = new Date(`${endDate}T23:59:59+07:00`)
+        if (!isNaN(parsedEnd.getTime())) end = parsedEnd
+    }
+
+    const l = Number(limit) || 50
+    const skip = (Number(page || 1) - 1) * l
+    const p = Number(page) || 1
+
+    // --- Mode A: Global Ledger (No specific COA) ---
+    // Tampilkan per JournalEntry (bukan per JournalDetail) agar lebih mudah dibaca
+    if (!coaId || coaId === '' || coaId === 'all') {
+      const totalJournals = await prisma.journalEntry.count({
+        where: {
+          date: { gte: start, lte: end },
+          ...(targetClinicId ? { clinicId: targetClinicId } : {})
+        }
+      })
+
+      const journals = await prisma.journalEntry.findMany({
+        where: {
+          date: { gte: start, lte: end },
+          ...(targetClinicId ? { clinicId: targetClinicId } : {})
+        },
+        include: {
+          details: {
+            include: { coa: { select: { code: true, name: true, category: true } } },
+            orderBy: { debit: 'desc' } // Debit entries first within each journal
+          }
+        },
+        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }], // Terbaru di atas
+        skip,
+        take: l
+      })
+
+      const transactions = journals.map(j => ({
+        id: j.id,
+        date: j.date,
+        description: j.description,
+        referenceNo: j.referenceNo,
+        entryType: j.entryType,
+        totalDebit: j.details.reduce((s, d) => s + d.debit, 0),
+        totalCredit: j.details.reduce((s, d) => s + d.credit, 0),
+        details: j.details.map(d => ({
+          id: d.id,
+          coaCode: d.coa.code,
+          coaName: d.coa.name,
+          coaCategory: d.coa.category,
+          debit: d.debit,
+          credit: d.credit,
+          description: d.description
+        }))
+      }))
+
+      return res.json({
+        account: { code: 'ALL', name: 'Semua Akun', category: 'ALL' },
+        period: { start, end },
+        initialBalance: 0,
+        transactions,
+        finalBalance: 0,
+        meta: {
+          total: totalJournals,
+          page: p,
+          limit: l,
+          totalPages: Math.ceil(totalJournals / l)
+        }
+      })
+    }
+
+    // --- Mode B: Specific Account Ledger ---
+    const account = await prisma.chartOfAccount.findUnique({ where: { id: coaId as string } })
+    if (!account) return res.status(404).json({ message: 'Account not found' })
+
+    // 1. Saldo awal (sebelum startDate)
+    const beforeStartAgg = await prisma.journalDetail.aggregate({
+      where: {
+        coaId: account.id,
+        journalEntry: {
+          date: { lt: start },
+          ...(targetClinicId ? { clinicId: targetClinicId } : {})
+        }
+      },
+      _sum: { debit: true, credit: true }
+    })
+
+    const prevDebit = beforeStartAgg._sum.debit || 0
+    const prevCredit = beforeStartAgg._sum.credit || 0
+
+    let initialBalance = account.openingBalance
+    if (account.category === 'ASSET' || account.category === 'EXPENSE') {
+      initialBalance += (prevDebit - prevCredit)
+    } else {
+      initialBalance += (prevCredit - prevDebit)
+    }
+
+    // 2. Total transaksi dalam periode
+    const totalTransactions = await prisma.journalDetail.count({
+      where: {
+        coaId: account.id,
+        journalEntry: {
+          date: { gte: start, lte: end },
+          ...(targetClinicId ? { clinicId: targetClinicId } : {})
+        }
+      }
+    })
+
+    // 3. Saldo sebelum halaman ini (untuk running balance yang benar)
+    const previousInPeriod = await prisma.journalDetail.findMany({
+      where: {
+        coaId: account.id,
+        journalEntry: {
+          date: { gte: start, lte: end },
+          ...(targetClinicId ? { clinicId: targetClinicId } : {})
+        }
+      },
+      take: skip,
+      orderBy: [{ journalEntry: { date: 'asc' } }, { id: 'asc' }],
+      select: { debit: true, credit: true }
+    })
+
+    const inPeriodPrevDebit = previousInPeriod.reduce((sum, d) => sum + d.debit, 0)
+    const inPeriodPrevCredit = previousInPeriod.reduce((sum, d) => sum + d.credit, 0)
+
+    let pageInitialBalance = initialBalance
+    if (account.category === 'ASSET' || account.category === 'EXPENSE') {
+      pageInitialBalance += (inPeriodPrevDebit - inPeriodPrevCredit)
+    } else {
+      pageInitialBalance += (inPeriodPrevCredit - inPeriodPrevDebit)
+    }
+
+    // 4. Ambil transaksi halaman ini — urutan ASC untuk running balance yang benar
+    const details = await prisma.journalDetail.findMany({
+      where: {
+        coaId: account.id,
+        journalEntry: {
+          date: { gte: start, lte: end },
+          ...(targetClinicId ? { clinicId: targetClinicId } : {})
+        }
+      },
+      include: { journalEntry: true },
+      orderBy: [{ journalEntry: { date: 'asc' } }, { id: 'asc' }],
+      skip,
+      take: l
+    })
+
+    // 5. Hitung running balance ASC dulu, lalu balik urutan untuk tampilan DESC
+    let currentBalance = pageInitialBalance
+    const transactionsAsc = details.map(d => {
+      if (account.category === 'ASSET' || account.category === 'EXPENSE') {
+        currentBalance += (d.debit - d.credit)
+      } else {
+        currentBalance += (d.credit - d.debit)
+      }
+      return {
+        id: d.id,
+        date: d.journalEntry.date,
+        description: d.description || d.journalEntry.description,
+        referenceNo: d.journalEntry.referenceNo,
+        entryType: d.journalEntry.entryType,
+        debit: d.debit,
+        credit: d.credit,
+        balance: currentBalance
+      }
+    })
+
+    // Tampilkan terbaru di atas (DESC) — saldo sudah dihitung dengan benar
+    const transactions = [...transactionsAsc].reverse()
+
+    // 6. Saldo akhir keseluruhan periode
+    const afterStartAgg = await prisma.journalDetail.aggregate({
+      where: {
+        coaId: account.id,
+        journalEntry: {
+          date: { gte: start, lte: end },
+          ...(targetClinicId ? { clinicId: targetClinicId } : {})
+        }
+      },
+      _sum: { debit: true, credit: true }
+    })
+    const inPeriodDebit = afterStartAgg._sum.debit || 0
+    const inPeriodCredit = afterStartAgg._sum.credit || 0
+    let finalBalance = initialBalance
+    if (account.category === 'ASSET' || account.category === 'EXPENSE') {
+      finalBalance += (inPeriodDebit - inPeriodCredit)
+    } else {
+      finalBalance += (inPeriodCredit - inPeriodDebit)
+    }
+
+    res.json({
+      account: { code: account.code, name: account.name, category: account.category },
+      period: { start, end },
+      initialBalance: pageInitialBalance,
+      openingBalance: initialBalance, // Saldo awal periode (bukan per halaman)
+      transactions,
+      finalBalance,
+      meta: {
+        total: totalTransactions,
+        page: p,
+        limit: l,
+        totalPages: Math.ceil(totalTransactions / l)
+      }
+    })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+/**
+ * Create Journal Entry (Manual)
+ */
+export const createJournalEntry = async (req: Request, res: Response) => {
+  try {
+    const { date, description, referenceNo, details, clinicId } = req.body
+    const targetClinicId = clinicId || (req as any).clinicId
+
+    if (!details || !Array.isArray(details) || details.length < 2) {
+      return res.status(400).json({ message: 'Jurnal minimal terdiri dari 2 baris (Debet & Kredit)' })
+    }
+
+    // Validate balance
+    const totalDebit = details.reduce((sum, d) => sum + (Number(d.debit) || 0), 0)
+    const totalCredit = details.reduce((sum, d) => sum + (Number(d.credit) || 0), 0)
+
+    if (Math.abs(totalDebit - totalCredit) > 0.01) {
+      return res.status(400).json({ message: `Jurnal tidak seimbang (D: ${totalDebit}, K: ${totalCredit}). Selisih: ${totalDebit - totalCredit}` })
+    }
+
+    const journal = await prisma.journalEntry.create({
+      data: {
+        date: new Date(date),
+        description,
+        referenceNo,
+        clinicId: targetClinicId,
+        details: {
+          create: details.map(d => ({
+            coaId: d.coaId,
+            debit: Number(d.debit) || 0,
+            credit: Number(d.credit) || 0,
+            description: d.description
+          }))
+        }
+      },
+      include: { details: { include: { coa: true } } }
+    })
+
+    res.status(201).json(journal)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+/**
+ * Process Year-End Closing (Tutup Buku)
+ */
+export const postYearEndClosing = async (req: Request, res: Response) => {
+    try {
+        const { year, clinicId } = req.body
+        const currentClinicId = (req as any).clinicId
+        const isAdminView = (req as any).isAdminView
+        const targetClinicId = clinicId ? String(clinicId) : (isAdminView ? undefined : currentClinicId)
+
+        if (!year) return res.status(400).json({ message: 'Tahun (Year) wajib diisi' })
+
+        const start = new Date(Number(year), 0, 1)
+        const end = new Date(Number(year), 11, 31, 23, 59, 59)
+
+        // 1. Check if already closed
+        const existingClosing = await prisma.journalEntry.findFirst({
+            where: {
+                entryType: 'CLOSING',
+                date: { gte: start, lte: end },
+                ...(targetClinicId ? { clinicId: targetClinicId } : {})
+            }
+        })
+
+        if (existingClosing) {
+            return res.status(400).json({ message: `Tutup Buku untuk tahun ${year} sudah dilakukan.` })
+        }
+
+        // 2. Fetch all Rev/Exp Detail accounts
+        const accounts = await prisma.chartOfAccount.findMany({
+            where: {
+                accountType: 'DETAIL',
+                category: { in: ['REVENUE', 'EXPENSE'] },
+                OR: [{ clinicId: targetClinicId }, { clinicId: null }]
+            }
+        })
+
+        // 3. Find Retained Earnings account
+        const sysAccount = await prisma.systemAccount.findFirst({
+            where: { key: 'RETAINED_EARNINGS', OR: [{ clinicId: targetClinicId }, { clinicId: null }] }
+        })
+        
+        // Fallback to searching by code if not mapped — gunakan 3-2001 (Laba Ditahan)
+        const reCoa = sysAccount
+            ? await prisma.chartOfAccount.findUnique({ where: { id: sysAccount.coaId } })
+            : await prisma.chartOfAccount.findFirst({
+                where: { code: '3-2001', OR: [{ clinicId: targetClinicId }, { clinicId: null }] },
+                orderBy: { clinicId: 'desc' }
+              })
+
+        if (!reCoa) {
+            throw new Error('Akun Laba Ditahan (Retained Earnings) tidak ditemukan atau belum dipetakan di System Accounts.')
+        }
+
+        // 4. Calculate Net Balances for each account
+        const result = await prisma.$transaction(async (tx) => {
+            const closingDetails = []
+            let totalProfitLoss = 0
+
+            for (const acc of accounts) {
+                const aggregates = await tx.journalDetail.aggregate({
+                    where: {
+                        coaId: acc.id,
+                        journalEntry: {
+                            date: { gte: start, lte: end },
+                            ...(targetClinicId ? { clinicId: targetClinicId } : {})
+                        }
+                    },
+                    _sum: { debit: true, credit: true }
+                })
+
+                const debit = aggregates._sum.debit || 0
+                const credit = aggregates._sum.credit || 0
+                const balance = acc.category === 'REVENUE' ? (credit - debit) : (debit - credit)
+
+                if (balance !== 0) {
+                    if (acc.category === 'REVENUE') {
+                        // Revenue is Credit, so reverse it with DEBIT
+                        closingDetails.push({
+                            coaId: acc.id,
+                            debit: balance,
+                            credit: 0,
+                            description: `Penutupan Akun ${acc.name} - Tahun ${year}`
+                        })
+                        totalProfitLoss += balance
+                    } else {
+                        // Expense is Debit, so reverse it with CREDIT
+                        closingDetails.push({
+                            coaId: acc.id,
+                            debit: 0,
+                            credit: balance,
+                            description: `Penutupan Akun ${acc.name} - Tahun ${year}`
+                        })
+                        totalProfitLoss -= balance
+                    }
+                }
+            }
+
+            if (closingDetails.length === 0) {
+                throw new Error('Tidak ada transaksi untuk ditutup pada tahun ini.')
+            }
+
+            // 5. Add Retained Earnings entry
+            if (totalProfitLoss > 0) {
+                // Net Profit -> Credit Equity
+                closingDetails.push({
+                    coaId: reCoa.id,
+                    debit: 0,
+                    credit: totalProfitLoss,
+                    description: `Pemindahan Laba Bersih Tahun ${year} ke Laba Ditahan`
+                })
+            } else if (totalProfitLoss < 0) {
+                // Net Loss -> Debit Equity
+                closingDetails.push({
+                    coaId: reCoa.id,
+                    debit: Math.abs(totalProfitLoss),
+                    credit: 0,
+                    description: `Pemindahan Rugi Bersih Tahun ${year} ke Laba Ditahan`
+                })
+            }
+
+            // 6. Create Closing Journal
+            const journal = await tx.journalEntry.create({
+                data: {
+                    date: end,
+                    description: `Tutup Buku Tahunan - Periode ${year}`,
+                    referenceNo: `CLOSE-${year}`,
+                    entryType: 'CLOSING',
+                    clinicId: targetClinicId || currentClinicId,
+                    details: {
+                        create: closingDetails
+                    }
+                }
+            })
+
+            return journal
+        })
+
+        res.status(201).json({ message: 'Tutup Buku berhasil diproses.', data: result })
+    } catch (e) {
+        res.status(500).json({ message: (e as Error).message })
+    }
+}

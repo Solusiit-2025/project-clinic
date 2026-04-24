@@ -12,9 +12,11 @@ const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
 const EMPTY = { categoryName: '', description: '', isActive: true }
 
 type ExpenseCategory = {
-  id: string; categoryName: string; description?: string; isActive: boolean
-  createdAt: string; _count?: { expenses: number }
+  id: string; categoryName: string; description?: string; isActive: boolean; coaId?: string;
+  createdAt: string; _count?: { expenses: number }; coa?: { code: string; name: string }
 }
+
+type COA = { id: string; code: string; name: string; category: string }
 
 export default function ExpenseCategoriesPage() {
   const { token, activeClinicId } = useAuthStore()
@@ -23,25 +25,30 @@ export default function ExpenseCategoriesPage() {
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<ExpenseCategory | null>(null)
-  const [form, setForm] = useState(EMPTY)
+  const [form, setForm] = useState({ ...EMPTY, coaId: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [coas, setCoas] = useState<COA[]>([])
   const headers = { Authorization: `Bearer ${token}` }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const { data } = await axios.get(`${API}/expense-categories`, { headers, params: search ? { search } : {} })
-      setData(data)
+      const [{ data: cats }, { data: coaArr }] = await Promise.all([
+        axios.get(`${API}/expense-categories`, { headers, params: search ? { search } : {} }),
+        axios.get(API.replace('/master', '/accounting/chart-of-accounts'), { headers })
+      ])
+      setData(cats)
+      setCoas(Array.isArray(coaArr) ? coaArr.filter((c: any) => c.category === 'EXPENSE' || c.category === 'OTHER_EXPENSE') : [])
     } finally { setLoading(false) }
   }, [search, token, activeClinicId])
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  const openAdd = () => { setEditing(null); setForm(EMPTY); setError(''); setModalOpen(true) }
+  const openAdd = () => { setEditing(null); setForm({ ...EMPTY, coaId: '' }); setError(''); setModalOpen(true) }
   const openEdit = (r: ExpenseCategory) => {
     setEditing(r)
-    setForm({ categoryName: r.categoryName, description: r.description || '', isActive: r.isActive })
+    setForm({ categoryName: r.categoryName, description: r.description || '', isActive: r.isActive, coaId: r.coaId || '' })
     setError(''); setModalOpen(true)
   }
 
@@ -65,9 +72,12 @@ export default function ExpenseCategoriesPage() {
     { key: 'categoryName', label: 'Nama Kategori', render: (r) => <span className="text-sm font-bold text-gray-800">{r.categoryName}</span> },
     { key: 'description', label: 'Keterangan', mobileHide: true, render: (r) => <span className="text-sm text-gray-500">{r.description || '—'}</span> },
     { key: '_count', label: 'Total Pengeluaran', mobileHide: true, render: (r) => (
-      <span className="text-xs font-bold bg-orange-50 text-orange-700 px-2.5 py-1 rounded-full">
-        {r._count?.expenses || 0} transaksi
-      </span>
+      <div className="flex flex-col gap-1">
+        <span className="text-xs font-bold bg-orange-50 text-orange-700 px-2.5 py-1 rounded-full w-fit">
+          {r._count?.expenses || 0} transaksi
+        </span>
+        {r.coa && <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest ml-1">Account: {r.coa.code}</span>}
+      </div>
     )},
     { key: 'isActive', label: 'Status', render: (r) => (
       <span className={`text-xs font-semibold px-2.5 py-1 rounded-full inline-flex items-center gap-1.5 ${r.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
@@ -102,8 +112,18 @@ export default function ExpenseCategoriesPage() {
               className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 font-medium" />
           </div>
           <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1.5">Link Akun COA *</label>
+            <select value={form.coaId} onChange={(e) => setForm(p => ({...p, coaId: e.target.value}))}
+              className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 font-medium">
+              <option value="">-- Pilih Akun Biaya --</option>
+              {coas.map(c => (
+                <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="block text-xs font-bold text-gray-700 mb-1.5">Keterangan</label>
-            <textarea value={form.description} onChange={(e) => setForm(p => ({...p, description: e.target.value}))} rows={3} placeholder="Deskripsi singkat kategori..."
+            <textarea value={form.description} onChange={(e) => setForm(p => ({...p, description: e.target.value}))} rows={2} placeholder="Deskripsi singkat kategori..."
               className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 font-medium resize-none" />
           </div>
           <div className="flex items-center gap-3">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import api from '@/lib/api'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
@@ -25,21 +25,30 @@ export default function DoctorQueue() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filter, setFilter] = useState<'all' | 'ongoing' | 'completed' | 'ready' | 'triage'>('ready')
+  const isFetchingRef = useRef(false)
+  const initialFetchedRef = useRef(false)
+  const socketRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const fetchQueues = useCallback(async () => {
+    if (isFetchingRef.current) return
+    isFetchingRef.current = true
     try {
       const { data } = await api.get('transactions/queues?today=true')
       setQueues(data || [])
     } catch (e) {
       console.error('Failed to fetch queues', e)
     } finally {
+      isFetchingRef.current = false
       setLoading(false)
     }
   }, [])
 
   useEffect(() => {
     // 1. Initial Fetch
-    fetchQueues()
+    if (!initialFetchedRef.current) {
+      initialFetchedRef.current = true
+      fetchQueues()
+    }
 
     // 2. Setup Real-time listener
     const clinicId = user?.clinics?.[0]?.clinic?.id || (user as any).clinicId
@@ -48,12 +57,19 @@ export default function DoctorQueue() {
       
       socket.on('queue-updated', (data) => {
         console.log('[Socket] Queue update received:', data)
-        fetchQueues()
+        if (socketRefreshTimerRef.current) clearTimeout(socketRefreshTimerRef.current)
+        socketRefreshTimerRef.current = setTimeout(() => {
+          fetchQueues()
+        }, 250)
       })
     }
 
     return () => {
       socket.off('queue-updated')
+      if (socketRefreshTimerRef.current) {
+        clearTimeout(socketRefreshTimerRef.current)
+        socketRefreshTimerRef.current = null
+      }
     }
   }, [fetchQueues, user])
 
@@ -62,7 +78,6 @@ export default function DoctorQueue() {
       // Step 4: Update status to 'called' if it's currently 'ready'
       if (q.status === 'ready') {
         await api.patch(`transactions/queues/${q.id}/status`, { status: 'called' })
-        fetchQueues()
       }
       
       // Announce the patient

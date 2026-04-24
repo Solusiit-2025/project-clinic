@@ -25,6 +25,7 @@ interface Stock {
     productName: string
     productCode: string
     isMedicine: boolean
+    purchasePrice: number
   }
   batch?: {
     batchNumber: string
@@ -78,8 +79,11 @@ export default function InventoryDashboard() {
     return matchesSearch
   })
 
-  const lowStockItems = stocks.filter(s => s.onHandQty <= s.minStockAlert)
-  const totalAssetValue = stocks.reduce((sum, s) => sum + (s.onHandQty * (s.batch?.purchasePrice || 0)), 0)
+  const lowStockItems = stocks.filter(s => (s.onHandQty || 0) <= (s.minStockAlert || 0))
+  const totalAssetValue = stocks.reduce((sum, s) => {
+    const price = s.batch?.purchasePrice || s.product?.purchasePrice || 0;
+    return sum + ((s.onHandQty || 0) * price);
+  }, 0)
 
   return (
     <div className="p-6 w-full mx-auto min-h-screen">
@@ -98,7 +102,7 @@ export default function InventoryDashboard() {
         <div className="flex items-center gap-3">
           <div className="bg-white border border-gray-100 rounded-2xl px-6 py-2.5 flex flex-col items-end shadow-sm">
             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Nilai Aset</span>
-            <span className="text-xl font-black text-primary">Rp {totalAssetValue.toLocaleString('id-ID')}</span>
+            <span className="text-xl font-black text-primary">Rp {(totalAssetValue || 0).toLocaleString('id-ID')}</span>
           </div>
           <button 
             onClick={fetchStocks}
@@ -134,8 +138,8 @@ export default function InventoryDashboard() {
                   {lowStockItems.slice(0, 3).map((item) => (
                     <div key={item.id} className="flex items-center gap-4 p-4 rounded-2xl bg-red-50/50 border border-red-100">
                       <div className="flex-1">
-                        <p className="text-sm font-black text-gray-900 truncate">{item.product.productName}</p>
-                        <p className="text-xs font-bold text-red-600">Sisa: {item.onHandQty} unit (Min: {item.minStockAlert})</p>
+                        <p className="text-sm font-black text-gray-900 truncate">{item.product?.productName || 'Unknown'}</p>
+                        <p className="text-xs font-bold text-red-600">Sisa: {item.onHandQty || 0} unit (Min: {item.minStockAlert || 0})</p>
                       </div>
                       <button className="px-3 py-1.5 bg-red-100 text-red-700 text-[10px] font-black rounded-lg hover:bg-red-200 transition-colors uppercase">
                         Order
@@ -198,6 +202,7 @@ export default function InventoryDashboard() {
                 <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Item / Batch</th>
                 <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Tipe</th>
                 <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Stok Fisik</th>
+                <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Proses (Apotek)</th>
                 <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Tersedia</th>
                 <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Harga Beli</th>
                 <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Total Nilai</th>
@@ -225,8 +230,11 @@ export default function InventoryDashboard() {
                 </tr>
               ) : (
                 filteredStocks.map((stock) => {
-                  const available = stock.onHandQty - stock.reservedQty;
-                  const isLow = stock.onHandQty <= stock.minStockAlert;
+                  const onHand = stock.onHandQty || 0;
+                  const reserved = stock.reservedQty || 0;
+                  const available = onHand - reserved;
+                  const isLow = onHand <= (stock.minStockAlert || 0);
+                  const price = stock.batch?.purchasePrice || stock.product?.purchasePrice || 0;
                   
                   return (
                     <motion.tr 
@@ -238,14 +246,14 @@ export default function InventoryDashboard() {
                     >
                       <td className="px-6 py-5">
                         <div className="flex items-center gap-4">
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black ${stock.product.isMedicine ? 'bg-indigo-50 text-indigo-600' : 'bg-blue-50 text-blue-600'}`}>
-                            {stock.product.productName[0]}
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black ${stock.product?.isMedicine ? 'bg-indigo-50 text-indigo-600' : 'bg-blue-50 text-blue-600'}`}>
+                            {stock.product?.productName?.[0] || '?'}
                           </div>
                           <div>
-                            <p className="font-black text-gray-900 leading-none">{stock.product.productName}</p>
+                            <p className="font-black text-gray-900 leading-none">{stock.product?.productName || 'Unknown Product'}</p>
                             <div className="flex items-center gap-2 mt-1.5">
                               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-100 px-1.5 py-0.5 rounded">
-                                {stock.product.productCode}
+                                {stock.product?.productCode || 'N/A'}
                               </span>
                               {stock.batch && (
                                 <span className="text-[10px] font-black text-primary uppercase tracking-widest">
@@ -257,16 +265,23 @@ export default function InventoryDashboard() {
                         </div>
                       </td>
                       <td className="px-6 py-5">
-                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${stock.product.isMedicine ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700'}`}>
-                          {stock.product.isMedicine ? 'Obat' : 'Aset'}
+                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${stock.product?.isMedicine ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {stock.product?.isMedicine ? 'Obat' : 'Aset'}
                         </div>
                       </td>
                       <td className="px-6 py-5">
                         <div className="flex items-center gap-2">
                           <span className={`text-lg font-black ${isLow ? 'text-red-600' : 'text-gray-900'}`}>
-                            {stock.onHandQty}
+                            {onHand}
                           </span>
                           <span className="text-xs font-bold text-gray-400 uppercase">Unit</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5 text-center">
+                        <div className="flex flex-col items-center">
+                          <span className={`text-lg font-black ${reserved > 0 ? 'text-orange-600' : 'text-gray-400'}`}>
+                            {reserved}
+                          </span>
                         </div>
                       </td>
                       <td className="px-6 py-5">
@@ -279,13 +294,13 @@ export default function InventoryDashboard() {
                       <td className="px-6 py-5">
                         <div className="flex flex-col">
                            <span className="text-xs font-black text-gray-400 uppercase tracking-widest mb-0.5">Satuan</span>
-                           <span className="font-black text-gray-900 leading-none">Rp {(stock.batch?.purchasePrice || 0).toLocaleString('id-ID')}</span>
+                           <span className="font-black text-gray-900 leading-none">Rp {price.toLocaleString('id-ID')}</span>
                         </div>
                       </td>
                       <td className="px-6 py-5">
                         <div className="flex flex-col">
                            <span className="text-xs font-black text-gray-400 uppercase tracking-widest mb-0.5">Value</span>
-                           <span className="font-black text-primary leading-none text-lg">Rp {(stock.onHandQty * (stock.batch?.purchasePrice || 0)).toLocaleString('id-ID')}</span>
+                           <span className="font-black text-primary leading-none text-lg">Rp {(onHand * price).toLocaleString('id-ID')}</span>
                         </div>
                       </td>
                       <td className="px-6 py-5">

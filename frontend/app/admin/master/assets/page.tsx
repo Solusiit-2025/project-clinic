@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios'
-import { FiBox, FiAlertCircle, FiUpload, FiX, FiCamera, FiTag, FiSearch } from 'react-icons/fi'
+import { FiBox, FiAlertCircle, FiUpload, FiX, FiCamera, FiTag, FiSearch, FiDollarSign } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
 import PageHeader from '@/components/admin/master/PageHeader'
@@ -21,6 +21,9 @@ const EMPTY = {
   manufacturer: '', 
   model: '', 
   purchasePrice: 0,
+  salvageValue: 0,
+  usefulLifeYears: 5,
+  depreciationMethod: 'STRAIGHT_LINE',
   condition: 'excellent', 
   status: 'active', 
   purchaseDate: new Date().toISOString().substring(0, 10),
@@ -34,6 +37,7 @@ type Clinic = { id: string; name: string; code: string }
 type Asset = {
   id: string; assetCode: string; assetName: string; assetType: string; category: string;
   description?: string; manufacturer?: string; model?: string; purchasePrice: number;
+  salvageValue: number; usefulLifeYears: number; depreciationMethod: string;
   condition: string; status: string; purchaseDate: string; clinicId: string;
   image?: string;
   clinic?: { name: string; code: string };
@@ -65,10 +69,14 @@ export default function AssetsPage() {
     try {
       const params: any = {}
       if (search) params.search = search
-      if (filterClinic) params.clinicId = filterClinic // Only send if not empty
+      if (filterClinic) params.clinicId = filterClinic 
       if (filterCategory) params.category = filterCategory
-      const { data } = await axios.get(`${API}/assets`, { headers, params })
-      setData(data)
+      const { data: resData } = await axios.get(`${API}/assets`, { headers, params })
+      const assetList = Array.isArray(resData) ? resData : (resData?.data || [])
+      setData(assetList)
+    } catch (e) {
+      console.error('Failed to fetch assets', e)
+      setData([])
     } finally { setLoading(false) }
   }, [search, token, filterClinic, filterCategory, activeClinicId])
 
@@ -81,9 +89,13 @@ export default function AssetsPage() {
 
   const fetchMasters = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${API}/products`, { headers })
-      setMasters(data)
-    } catch (e) { console.error('Failed to fetch masters', e) }
+      const { data: resData } = await axios.get(`${API}/products`, { headers })
+      const masterList = Array.isArray(resData) ? resData : (resData?.data || [])
+      setMasters(masterList)
+    } catch (e) { 
+      console.error('Failed to fetch masters', e) 
+      setMasters([])
+    }
   }, [token])
 
   useEffect(() => { 
@@ -192,6 +204,16 @@ export default function AssetsPage() {
         </span>
       </div>
     )},
+    { key: 'financial', label: 'Penyusutan', render: (r) => (
+      <div className="flex flex-col">
+        <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md mb-1 inline-block w-fit uppercase tracking-tighter border border-emerald-100">
+          {r.depreciationMethod === 'STRAIGHT_LINE' ? 'Garis Lurus' : 'Saldo Menurun'}
+        </span>
+        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+          {r.usefulLifeYears} Tahun
+        </span>
+      </div>
+    )},
     { key: 'condition', label: 'Kondisi', render: (r) => {
       const colors: any = { excellent: 'text-emerald-700 bg-emerald-50 border-emerald-100', good: 'text-blue-700 bg-blue-50 border-blue-100', fair: 'text-amber-700 bg-amber-50 border-amber-100', poor: 'text-rose-700 bg-rose-50 border-rose-100' }
       return <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-lg border shadow-sm ${colors[r.condition] || 'bg-gray-50'}`}>{r.condition}</span>
@@ -214,7 +236,9 @@ export default function AssetsPage() {
     },
   ]
 
-  const categories = Array.from(new Set(data.map(item => item.category))).filter(Boolean).sort()
+  const categories = Array.isArray(data) 
+    ? Array.from(new Set(data.map(item => item.category))).filter(Boolean).sort()
+    : []
   const activeBranch = clinics.find(c => c.id === activeClinicId)
   const isPusat = activeBranch?.code === 'K001'
 
@@ -283,6 +307,9 @@ export default function AssetsPage() {
             clinicId: r.clinicId || '',
             masterProductId: r.masterProductId || '',
             purchaseDate: r.purchaseDate ? r.purchaseDate.substring(0, 10) : new Date().toISOString().substring(0, 10),
+            salvageValue: r.salvageValue || 0,
+            usefulLifeYears: r.usefulLifeYears || 5,
+            depreciationMethod: r.depreciationMethod || 'STRAIGHT_LINE',
             image: r.image || null
           }); 
           setFormImagePreview(r.image ? process.env.NEXT_PUBLIC_API_URL + r.image : null);
@@ -349,7 +376,7 @@ export default function AssetsPage() {
                <SearchableSelect 
                 label="Pilih dari Katalog Master Produk"
                 placeholder="Cari nama atau kode aset (ex: Alat Medis)..."
-                options={masters.map(m => ({
+                options={(Array.isArray(masters) ? masters : []).map(m => ({
                   id: m.id,
                   label: m.masterName,
                   code: m.masterCode,
@@ -406,6 +433,52 @@ export default function AssetsPage() {
             </div>
 
             {inp('Tanggal Pembelian', 'purchaseDate', 'date')}
+
+            <div className="md:col-span-2 p-6 bg-emerald-50/50 border-2 border-emerald-100/50 rounded-[2.5rem] mt-2">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
+                  <FiDollarSign className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-emerald-900 uppercase tracking-tight">Konfigurasi Akuntansi</h4>
+                  <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Metode Penyusutan & Nilai Buku</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-[10px] font-black text-emerald-800/40 uppercase tracking-widest mb-1.5">Metode Penyusutan</label>
+                  <select 
+                    value={form.depreciationMethod} 
+                    onChange={(e) => setForm(p => ({...p, depreciationMethod: e.target.value}))}
+                    className="w-full px-4 py-3 text-sm border border-emerald-100 bg-white rounded-2xl focus:outline-none focus:border-emerald-500 font-black text-emerald-900 shadow-sm transition-all"
+                  >
+                    <option value="STRAIGHT_LINE">STRAIGHT LINE (GARIS LURUS)</option>
+                    <option value="DECLINING_BALANCE">DOUBLE DECLINING (SALDO MENURUN)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-emerald-800/40 uppercase tracking-widest mb-1.5">Umur Ekonomis (Tahun)</label>
+                  <input 
+                    type="number" value={form.usefulLifeYears} 
+                    onChange={(e) => setForm(p => ({...p, usefulLifeYears: Number(e.target.value)}))} 
+                    className="w-full px-4 py-3 text-sm border border-emerald-100 bg-white rounded-2xl focus:outline-none focus:border-emerald-500 font-black text-emerald-900 shadow-sm transition-all" 
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-black text-emerald-800/40 uppercase tracking-widest mb-1.5">Nilai Residu / Sisa (Rp)</label>
+                  <input 
+                    type="number" value={form.salvageValue} 
+                    onChange={(e) => setForm(p => ({...p, salvageValue: Number(e.target.value)}))} 
+                    placeholder="Nilai aset di akhir umur ekonomis..."
+                    className="w-full px-4 py-3 text-sm border border-emerald-100 bg-white rounded-2xl focus:outline-none focus:border-emerald-500 font-black text-emerald-900 shadow-sm transition-all" 
+                  />
+                  <p className="text-[9px] text-emerald-500 font-bold mt-2 italic">* Sistem akan berhenti menyusutkan aset saat mencapai nilai residu ini.</p>
+                </div>
+              </div>
+            </div>
 
             <div className="md:col-span-2 p-5 bg-primary/[0.03] border-2 border-primary/10 rounded-[2rem]">
               <label className="block text-[9px] font-black text-primary uppercase tracking-[0.2em] mb-2.5">Unit Penanggung Jawab *</label>

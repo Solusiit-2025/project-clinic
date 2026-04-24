@@ -8,6 +8,7 @@ import {
   TrendingDown, TrendingUp, AlertCircle
 } from 'lucide-react'
 import api from '@/lib/api'
+import { useAuthStore } from '@/lib/store/useAuthStore'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 
@@ -36,6 +37,7 @@ interface StockMutationDialogProps {
 }
 
 export default function StockMutationDialog({ isOpen, onClose, stock }: StockMutationDialogProps) {
+  const { activeClinicId } = useAuthStore()
   const [mutations, setMutations] = useState<Mutation[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -51,8 +53,8 @@ export default function StockMutationDialog({ isOpen, onClose, stock }: StockMut
       setIsLoading(true)
       const res = await api.get('/inventory/mutations', {
         params: { 
-          branchId: stock.branchId,
-          productId: stock.productId
+          branchId: stock?.branchId || activeClinicId,
+          productId: stock?.productId
         }
       })
       setMutations(res.data)

@@ -17,6 +17,8 @@ import clinicalRoutes from './routes/clinical.routes';
 import publicRoutes from './routes/public.routes';
 import pharmacyRoutes from './routes/pharmacy.routes';
 import inventoryRoutes from './routes/inventory.routes';
+import accountingRoutes from './routes/accounting.routes'
+import inventoryLedgerRoutes from './routes/inventoryLedger.routes';
 
 // Load environment variables
 dotenv.config();
@@ -58,6 +60,11 @@ app.use(express.json());
 
 // Request logger
 app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`[Response] ${req.method} ${req.url} ${res.statusCode} (${duration}ms)`);
+  });
   console.log(`[Request] ${req.method} ${req.url}`);
   next();
 });
@@ -76,10 +83,16 @@ app.use('/api/clinical', clinicalRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/pharmacy', pharmacyRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/accounting', accountingRoutes)
+app.use('/api/inventory-ledger', inventoryLedgerRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Server is running', socketConnected: io.sockets.adapter.rooms.size });
+});
+
+app.get('/api/test-route', (req, res) => {
+  res.json({ message: 'Test route is working' });
 });
 
 // Error handling middleware

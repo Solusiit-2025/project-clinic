@@ -2,6 +2,13 @@ import { Router } from 'express';
 import * as InventoryController from '../controllers/inventory.controller';
 import * as ProcurementController from '../controllers/procurement.controller';
 import * as TransferController from '../controllers/transfer.controller';
+import {
+  payProcurement,
+  receiveCash,
+  getProcurementPayments,
+  getOutstandingPayables,
+} from '../controllers/procurementPayment.controller';
+import { uploadBon } from '../middleware/procurementUpload.middleware';
 
 const router = Router();
 
@@ -11,12 +18,27 @@ router.get('/stocks', InventoryController.getBranchStocks);
 router.get('/mutations', InventoryController.getStockMutations);
 router.post('/adjust', InventoryController.adjustStock);
 
+// --- Stock Opname ---
+router.get('/opname/session', InventoryController.getOrCreateOpnameSession);
+router.get('/opname/products', InventoryController.getOpnameProducts);
+router.post('/opname/item', InventoryController.addOrUpdateOpnameItem);
+router.delete('/opname/item/:id', InventoryController.deleteOpnameItem);
+router.post('/opname/finalize', InventoryController.finalizeOpname);
+router.post('/opname/cancel', InventoryController.cancelOpname);
+router.post('/opname/bulk-load', InventoryController.bulkLoadInventory);
+
 // --- Procurement (PR/PO/GRN) ---
+router.get('/procurement/outstanding-payables', getOutstandingPayables);
 router.get('/procurement', ProcurementController.getProcurements);
 router.get('/procurement/:id', ProcurementController.getProcurementById);
 router.post('/procurement', ProcurementController.createProcurement);
 router.patch('/procurement/:id/approve', ProcurementController.approveProcurement);
 router.post('/procurement/:id/receive', ProcurementController.receiveGoods);
+
+// --- Procurement Payment (Bayar Hutang / Bon Tunai) ---
+router.get('/procurement/:id/payments', getProcurementPayments);
+router.post('/procurement/:id/pay', uploadBon.single('receiptFile'), payProcurement);
+router.post('/procurement/:id/receive-cash', uploadBon.single('receiptFile'), receiveCash);
 
 // --- Inter-branch Transfer ---
 router.get('/transfer', TransferController.getTransfers);

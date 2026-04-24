@@ -3,7 +3,8 @@ import { authMiddleware } from '../middleware/auth.middleware'
 import { 
   getPharmacyQueues,
   getPrescriptionById,
-  updateDispenseStatus
+  updateDispenseStatus,
+  updatePrescriptionItems
 } from '../controllers/pharmacy.controller'
 
 const router = Router()
@@ -19,5 +20,8 @@ router.get('/prescriptions/:id', getPrescriptionById)
 
 // Update dispense status (preparing, ready, dispensed) & deduct inventory
 router.patch('/prescriptions/:id/status', updateDispenseStatus)
+
+// Update prescription items (Adjustment/Substitution)
+router.put('/prescriptions/:id/items', updatePrescriptionItems)
 
 export default router

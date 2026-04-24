@@ -14,7 +14,8 @@ import toast, { Toaster } from 'react-hot-toast'
 
 export default function SettingsPage() {
   const { user } = useAuthStore()
-  const [activeTab, setActiveTab] = useState('database')
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  const [activeTab, setActiveTab] = useState(isSuperAdmin ? 'database' : 'setup')
   const [backups, setBackups] = useState<any[]>([])
   const [templates, setTemplates] = useState<any[]>([])
   const [displayVideos, setDisplayVideos] = useState<any[]>([])
@@ -36,10 +37,12 @@ export default function SettingsPage() {
   })
 
   useEffect(() => {
-    fetchBackups()
+    if (isSuperAdmin) {
+      fetchBackups()
+    }
     fetchTemplates()
     fetchDisplaySettings()
-  }, [])
+  }, [isSuperAdmin])
 
   const fetchDisplaySettings = async () => {
     try {
@@ -242,7 +245,7 @@ export default function SettingsPage() {
           {/* Sidebar Nav */}
           <aside className="xl:col-span-3 space-y-2">
             {[
-              { id: 'database', label: 'Database & Backup', icon: FiDatabase },
+              ...(isSuperAdmin ? [{ id: 'database', label: 'Database & Backup', icon: FiDatabase }] : []),
               { id: 'setup', label: 'Setup Templates', icon: FiActivity },
               { id: 'monitor', label: 'Monitor Display', icon: FiMonitor },
               { id: 'security', label: 'Security & Access', icon: FiShield },

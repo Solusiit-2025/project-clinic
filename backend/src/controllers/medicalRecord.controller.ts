@@ -328,6 +328,7 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
  * Get Medical Record by Registration ID (to load draft for Nurse/Doctor)
  */
 export const getMedicalRecordByRegistration = async (req: Request, res: Response) => {
+    const startedAt = Date.now()
     try {
         const { id } = req.params
         const isAdminView = (req as any).isAdminView
@@ -361,6 +362,7 @@ export const getMedicalRecordByRegistration = async (req: Request, res: Response
         }
         
         console.log(`[DEBUG] Medical Record found: ${mr.id}, Vitals count: ${mr.vitals?.length || 0}`)
+        console.log(`[Perf] getMedicalRecordByRegistration took ${Date.now() - startedAt}ms`)
         res.json(mr)
     } catch (e) {
         res.status(500).json({ message: (e as Error).message })
@@ -370,30 +372,29 @@ export const getMedicalRecordByRegistration = async (req: Request, res: Response
  * Get all Medical Records for a specific patient (Medical History)
  */
 export const getMedicalRecordsByPatient = async (req: Request, res: Response) => {
+    const startedAt = Date.now()
     try {
         const { id } = req.params // patientId
         
         const history = await prisma.medicalRecord.findMany({
             where: { patientId: id },
-            include: {
-                vitals: { orderBy: { recordedAt: 'desc' } },
-                services: { include: { service: true } },
-                prescriptions: { 
-                  include: { 
-                    items: { 
-                      include: { 
-                        medicine: true 
-                      } 
-                    } 
-                  } 
-                },
-                doctor: true,
-                clinic: true
+            select: {
+                id: true,
+                recordDate: true,
+                diagnosis: true,
+                treatmentPlan: true,
+                doctor: {
+                  select: {
+                    id: true,
+                    name: true
+                  }
+                }
             },
             orderBy: { recordDate: 'desc' }
         })
         
         res.json(history)
+        console.log(`[Perf] getMedicalRecordsByPatient took ${Date.now() - startedAt}ms`)
     } catch (e) {
         res.status(500).json({ message: (e as Error).message })
     }

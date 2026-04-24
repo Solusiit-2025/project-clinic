@@ -16,6 +16,18 @@ import {
   getInventoryProducts, createInventoryProduct, updateInventoryProduct, deleteInventoryProduct,
   getPatients, getPatientById, getNextMRNo, createPatient, updatePatient, deletePatient
 } from '../controllers/master.controller'
+import { getCOAs, createCOA, updateCOA, deleteCOA } from '../controllers/coa.controller'
+import { getBanks, createBank, updateBank, deleteBank } from '../controllers/bank.controller'
+import { getSystemAccounts, updateSystemAccount, seedSystemAccounts } from '../controllers/systemAccount.controller'
+import {
+  getAllMaintenance, getAssetMaintenance, createAssetMaintenance, updateAssetMaintenance, deleteAssetMaintenance,
+  getAssetTransfers, createAssetTransfer, approveAssetTransfer, rejectAssetTransfer,
+  getAssetAuditLogs, getAssetInsurance, upsertAssetInsurance, deleteAssetInsurance,
+  getMaintenanceSchedule, getExpiringInsurance
+} from '../controllers/assetManagement.controller'
+import {
+  depreciateAsset, depreciateAllAssets, disposeAsset, getAssetRegister, syncAssetOpeningBalance
+} from '../controllers/assetFinance.controller'
 
 import { upload } from '../middleware/upload.middleware'
 
@@ -98,6 +110,38 @@ masterRoutes.post('/assets', upload.single('image'), createAsset)
 masterRoutes.put('/assets/:id', upload.single('image'), updateAsset)
 masterRoutes.delete('/assets/:id', deleteAsset)
 
+// Asset Maintenance
+masterRoutes.get('/maintenance/all', getAllMaintenance)
+masterRoutes.get('/assets/:id/maintenance', getAssetMaintenance)
+masterRoutes.post('/assets/:id/maintenance', createAssetMaintenance)
+masterRoutes.put('/assets/maintenance/:maintenanceId', updateAssetMaintenance)
+masterRoutes.delete('/assets/maintenance/:maintenanceId', deleteAssetMaintenance)
+
+// Asset Transfers
+masterRoutes.get('/assets/:id/transfers', getAssetTransfers)
+masterRoutes.post('/assets/:id/transfer', createAssetTransfer)
+masterRoutes.put('/assets/transfer/:transferId/approve', approveAssetTransfer)
+masterRoutes.put('/assets/transfer/:transferId/reject', rejectAssetTransfer)
+
+// Asset Audit Logs
+masterRoutes.get('/assets/:id/audit-logs', getAssetAuditLogs)
+
+// Asset Insurance
+masterRoutes.get('/assets/:id/insurance', getAssetInsurance)
+masterRoutes.post('/assets/:id/insurance', upsertAssetInsurance)
+masterRoutes.delete('/assets/:id/insurance', deleteAssetInsurance)
+
+// Asset Reports
+masterRoutes.get('/assets/reports/maintenance-schedule', getMaintenanceSchedule)
+masterRoutes.get('/assets/reports/expiring-insurance', getExpiringInsurance)
+
+// Asset Finance
+masterRoutes.post('/assets/:id/depreciate', depreciateAsset)
+masterRoutes.post('/assets/depreciate-all', depreciateAllAssets)
+masterRoutes.post('/assets/:id/dispose', disposeAsset)
+masterRoutes.get('/assets/register', getAssetRegister)
+masterRoutes.post('/assets/sync-opening-balance', syncAssetOpeningBalance)
+
 // Inventory (Products)
 masterRoutes.get('/inventory', getInventoryProducts)
 masterRoutes.post('/inventory', upload.single('image'), createInventoryProduct)
@@ -111,5 +155,22 @@ masterRoutes.get('/patients/:id', getPatientById)
 masterRoutes.post('/patients', createPatient)
 masterRoutes.put('/patients/:id', updatePatient)
 masterRoutes.delete('/patients/:id', deletePatient)
+
+// Chart of Accounts (COA)
+masterRoutes.get('/coa', getCOAs)
+masterRoutes.post('/coa', createCOA)
+masterRoutes.put('/coa/:id', updateCOA)
+masterRoutes.delete('/coa/:id', deleteCOA)
+
+// Banks
+masterRoutes.get('/banks', getBanks)
+masterRoutes.post('/banks', createBank)
+masterRoutes.put('/banks/:id', updateBank)
+masterRoutes.delete('/banks/:id', deleteBank)
+
+// System Accounts
+masterRoutes.get('/system-accounts', getSystemAccounts)
+masterRoutes.post('/system-accounts', updateSystemAccount)
+masterRoutes.post('/system-accounts/seed', seedSystemAccounts)
 
 export default masterRoutes

@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
+import { InventoryService } from '../services/inventory.service';
+import { syncInventoryToLedger } from '../services/inventoryLedger.service';
 
 export const createProcurement = async (req: Request, res: Response) => {
   try {
@@ -97,12 +99,38 @@ export const receiveGoods = async (req: Request, res: Response) => {
 
     const procurement = await prisma.procurement.findUnique({
       where: { id },
-      include: { items: true },
+      include: { 
+        items: {
+          include: { product: true }
+        }
+      },
     });
 
     if (!procurement) return res.status(404).json({ message: 'Procurement record not found' });
 
-    await prisma.$transaction(async (tx) => {
+    // Validasi status — hanya bisa receive jika sudah APPROVED atau ORDERED
+    if (!['APPROVED', 'ORDERED'].includes(procurement.status)) {
+      return res.status(400).json({
+        message: `Tidak dapat menerima barang. Status procurement saat ini: ${procurement.status}. Harus APPROVED atau ORDERED terlebih dahulu.`
+      });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const modifiedProductIds = Array.from(new Set(items.map((i: any) => {
+        const originalItem = procurement.items.find(oi => oi.id === i.itemId);
+        return originalItem?.productId;
+      }).filter(Boolean))) as string[];
+
+      // 1. Pre-fetch all existing batches for these products to avoid in-loop queries
+      const existingBatches = await tx.inventoryBatch.findMany({
+        where: {
+          branchId: procurement.branchId,
+          productId: { in: modifiedProductIds },
+        },
+      });
+
+      const duplicateBatchProductNames: string[] = [];
+
       for (const receiveItem of items) {
         const originalItem = procurement.items.find(i => i.id === receiveItem.itemId);
         if (!originalItem) continue;
@@ -117,6 +145,16 @@ export const receiveGoods = async (req: Request, res: Response) => {
           },
         });
 
+        // 1.5 Check if batch already exists using the pre-fetched cache
+        const isDuplicate = existingBatches.some(b => 
+          b.productId === originalItem.productId && 
+          b.batchNumber === receiveItem.batchNumber
+        );
+
+        if (isDuplicate) {
+          duplicateBatchProductNames.push(originalItem.product.productName);
+        }
+
         // 2. Create/Update Inventory Batch
         const batch = await tx.inventoryBatch.upsert({
           where: {
@@ -128,6 +166,7 @@ export const receiveGoods = async (req: Request, res: Response) => {
           },
           update: {
             currentQty: { increment: receiveItem.receivedQty },
+            purchasePrice: originalItem.unitPrice, // Update harga beli terbaru
           },
           create: {
             branchId: procurement.branchId,
@@ -138,6 +177,12 @@ export const receiveGoods = async (req: Request, res: Response) => {
             initialQty: receiveItem.receivedQty,
             currentQty: receiveItem.receivedQty,
           },
+        });
+
+        // 2.5 Update purchasePrice di Product agar HPP selalu akurat (harga beli terbaru)
+        await tx.product.update({
+          where: { id: originalItem.productId },
+          data: { purchasePrice: originalItem.unitPrice }
         });
 
         // 3. Update Global Stock per Batch
@@ -159,7 +204,7 @@ export const receiveGoods = async (req: Request, res: Response) => {
         });
 
         // 4. Record IN Mutation
-        await tx.inventoryMutation.create({
+        const newMutation = await tx.inventoryMutation.create({
           data: {
             branchId: procurement.branchId,
             productId: originalItem.productId,
@@ -172,19 +217,49 @@ export const receiveGoods = async (req: Request, res: Response) => {
             userId,
           },
         });
+
+        // 5. Sync ke General Ledger (per mutasi, atomic, idempotent)
+        // Menggunakan InventoryLedgerService: Debit 1-1301/1302/1303, Kredit 2-1101
+        try {
+          await syncInventoryToLedger(newMutation.id, { tx, idempotent: true });
+        } catch (glErr) {
+          // GL sync gagal tidak boleh membatalkan penerimaan barang
+          // Error dicatat di log, admin bisa re-sync manual via /api/inventory-ledger/sync/:id
+          console.error(`[GRN] GL sync gagal untuk mutasi ${newMutation.id}:`, (glErr as Error).message);
+        }
       }
 
-      // Final status update
+      // 6. Synchronize total quantities (Bulk sync)
+      await InventoryService.syncMultipleProductsQuantity(tx, modifiedProductIds, procurement.branchId);
+
+      // 7. Final status update
       await tx.procurement.update({
         where: { id },
         data: { status: 'RECEIVED' },
       });
-    });
 
-    res.json({ message: 'Goods received and stock updated successfully' });
-  } catch (error) {
-    console.error('Error receiving goods:', error);
-    res.status(500).json({ message: (error as Error).message });
+      return {
+        warning: duplicateBatchProductNames.length > 0 
+          ? `No. Batch sudah terdaftar untuk produk: ${[...new Set(duplicateBatchProductNames)].join(', ')}. Stok telah digabungkan.`
+          : null
+      };
+    }, { timeout: 120000 }); // 2 minutes timeout for very large PRs
+
+    res.json({ 
+      message: 'Goods received and stock updated successfully',
+      warning: result.warning 
+    });
+  } catch (error: any) {
+    console.error('CRITICAL ERROR during Goods Receipt:', error);
+    // Provide a more detailed message if it's a Prisma constraint error
+    let message = error.message;
+    if (error.code === 'P2002') message = 'Gagal menyimpan: Nomor Batch sudah ada di gudang ini.';
+    
+    res.status(500).json({ 
+      message, 
+      code: error.code,
+      meta: error.meta 
+    });
   }
 };
 
@@ -216,6 +291,7 @@ export const getProcurementById = async (req: Request, res: Response) => {
     const procurement = await prisma.procurement.findUnique({
       where: { id },
       include: {
+        branch: true,
         items: {
           include: {
             product: { select: { productName: true, productCode: true, masterProduct: { select: { medicineId: true } } } }

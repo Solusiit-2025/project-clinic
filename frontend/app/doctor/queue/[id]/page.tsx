@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import api from '@/lib/api'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useParams, useRouter } from 'next/navigation'
@@ -61,6 +61,7 @@ interface Medicine {
   masterCode: string
   medicineId: string | null
   stock: number
+  availableStock?: number
   unit: string
   medicine?: {
     genericName: string
@@ -112,6 +113,7 @@ export default function DoctorConsultationPage() {
 
   const [isMedDropdownOpen, setIsMedDropdownOpen] = useState(false)
   const [isServiceDropdownOpen, setIsServiceDropdownOpen] = useState(false)
+  const hasFetchedRef = useRef<string | null>(null)
 
   const isReadOnly = useMemo(() => queue?.status === 'completed', [queue])
 
@@ -121,16 +123,35 @@ export default function DoctorConsultationPage() {
 
   const fetchData = useCallback(async () => {
     if (!token || !id) return
+    const fetchKey = `${String(id)}-${token}`
+    if (hasFetchedRef.current === fetchKey) return
+    hasFetchedRef.current = fetchKey
     setLoading(true)
     try {
       // Fetch specific queue
       const qRes = await api.get(`transactions/queues/${id}`)
       const qData = qRes.data
       setQueue(qData)
+      const queueHeaders = qData?.clinicId ? { 'x-clinic-id': qData.clinicId } : undefined
+
+      // Fetch independent resources in parallel to reduce total load time
+      const [medicalRecordRes, historyRes, svcRes, templateRes] = await Promise.all([
+        qData.registrationId
+          ? api.get(`transactions/medical-records/registration/${qData.registrationId}`)
+          : Promise.resolve({ data: null }),
+        qData.patientId
+          ? api.get(`transactions/medical-records/patient/${qData.patientId}`)
+          : Promise.resolve({ data: [] }),
+        api.get('master/services', {
+          params: { isActive: true, allClinics: true },
+          headers: queueHeaders
+        }),
+        api.get('clinical/templates')
+      ])
 
       // Fetch draft medical record
       if (qData.registrationId) {
-        const { data } = await api.get(`transactions/medical-records/registration/${qData.registrationId}`)
+        const data = medicalRecordRes.data
         setMedicalRecord(data)
         if (data) {
           setSubjective(data.subjective || '')
@@ -175,28 +196,28 @@ export default function DoctorConsultationPage() {
            }
         }
 
-        if (qData.patientId) {
-          const historyRes = await api.get(`transactions/medical-records/patient/${qData.patientId}`)
-          setHistory(historyRes.data.filter((h: any) => h.id !== data?.id))
-        }
+        setHistory((historyRes.data || []).filter((h: any) => h.id !== data?.id))
+      } else {
+        setMedicalRecord(null)
+        setHistory(historyRes.data || [])
       }
 
-      // Fetch services for tindakan
-      const svcRes = await api.get('master/services', { params: { isActive: true } })
+      // Fetch services for tindakan based on queue's clinic context
       setAllServices(svcRes.data)
 
       // Fetch templates
-      const templateRes = await api.get('clinical/templates')
       setTemplates(templateRes.data)
 
     } catch (e) {
       console.error('Failed to fetch consultation data', e)
+      hasFetchedRef.current = null
     } finally {
       setLoading(false)
     }
   }, [id, token])
 
   useEffect(() => {
+    hasFetchedRef.current = null
     fetchData()
   }, [fetchData])
 
@@ -212,6 +233,7 @@ export default function DoctorConsultationPage() {
       }
       try {
         const medRes = await api.get('master/products', { 
+          headers: queue?.clinicId ? { 'x-clinic-id': queue.clinicId } : undefined,
           params: { 
             isActive: true, 
             search: searchMed || undefined, 
@@ -220,8 +242,8 @@ export default function DoctorConsultationPage() {
           },
           signal: controller.signal
         })
-        // Backend returns array if 'page' is not provided
-        setSearchMedicines(Array.isArray(medRes.data) ? medRes.data.filter((m: any) => m.medicineId) : [])
+        const list = medRes.data.data || medRes.data
+        setSearchMedicines(Array.isArray(list) ? list.filter((m: any) => m.medicineId) : [])
       } catch (e: any) {
         if (e.name === 'CanceledError' || e.name === 'AbortError') {
           // Silently ignore aborted requests
@@ -592,8 +614,8 @@ export default function DoctorConsultationPage() {
                                     <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase italic">{m.medicine?.genericName} • {m.medicine?.strength}</p>
                                   </div>
                                   <div className="text-right">
-                                    <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${m.stock > 10 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                                      Stok: {m.stock} {m.unit}
+                                    <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${(m.availableStock ?? m.stock) > 10 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                      Stok Tersedia: {(m.availableStock ?? m.stock)} {m.unit}
                                     </span>
                                   </div>
                                 </button>

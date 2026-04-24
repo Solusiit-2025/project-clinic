@@ -10,11 +10,29 @@ import { getPaginationOptions, PaginatedResult } from '../utils/pagination'
  * Create a new registration and generate a queue number
  */
 export const createRegistration = async (req: Request, res: Response) => {
+  const startedAt = Date.now()
   try {
     const { patientId, clinicId, doctorId, departmentId, visitType, referralFrom } = req.body
     
     if (!patientId || !clinicId) {
       return res.status(400).json({ message: 'Patient ID dan Clinic ID wajib diisi' })
+    }
+
+    // 0. Validation: Check if patient has already registered in the last 2 hours
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000)
+    const existingRegistration = await prisma.registration.findFirst({
+      where: {
+        patientId,
+        createdAt: { gte: twoHoursAgo },
+        status: 'completed'
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    if (existingRegistration) {
+      return res.status(400).json({ 
+        message: 'Pasien sudah terdaftar dalam 2 jam terakhir. Mohon tunggu sebelum melakukan pendaftaran kembali.' 
+      })
     }
 
     const today = new Date()
@@ -126,7 +144,10 @@ export const createRegistration = async (req: Request, res: Response) => {
       const dateStrInv = todayInv.toISOString().split('T')[0].replace(/-/g, '')
       todayInv.setHours(0, 0, 0, 0)
       const invCount = await tx.invoice.count({
-        where: { createdAt: { gte: todayInv } }
+        where: { 
+          clinicId,
+          createdAt: { gte: todayInv } 
+        }
       })
       const invoiceNo = `INV-${dateStrInv}-${(invCount + 1).toString().padStart(4, '0')}`
 
@@ -164,6 +185,7 @@ export const createRegistration = async (req: Request, res: Response) => {
     }
 
     res.status(201).json(result)
+    console.log(`[Perf] createRegistration took ${Date.now() - startedAt}ms`)
   } catch (e) {
     console.error('Registration Error:', e)
     res.status(500).json({ 
@@ -177,6 +199,7 @@ export const createRegistration = async (req: Request, res: Response) => {
  * Get active queues for a clinic today (Now with Pagination & Optimized Joins)
  */
 export const getQueues = async (req: Request, res: Response) => {
+  const startedAt = Date.now()
   try {
     const { clinicId, date, doctorId: filterDoctorId, departmentId: filterDepartmentId } = req.query
     const currentClinicId = (req as any).clinicId
@@ -222,7 +245,7 @@ export const getQueues = async (req: Request, res: Response) => {
           registration: {
             include: {
               medicalRecord: {
-                include: { vitals: true }
+                include: { vitals: { orderBy: { recordedAt: 'desc' }, take: 1 } }
               }
             }
           }
@@ -256,6 +279,7 @@ export const getQueues = async (req: Request, res: Response) => {
     }
 
     res.json(result)
+    console.log(`[Perf] getQueues took ${Date.now() - startedAt}ms`)
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })
   }
@@ -265,6 +289,7 @@ export const getQueues = async (req: Request, res: Response) => {
  * Update queue status (call, skip, ongoing, etc)
  */
 export const updateQueueStatus = async (req: Request, res: Response) => {
+  const startedAt = Date.now()
   try {
     const { id } = req.params
     const { status } = req.body
@@ -281,7 +306,14 @@ export const updateQueueStatus = async (req: Request, res: Response) => {
       include: {
         patient: { select: { id: true, name: true, medicalRecordNo: true, gender: true } },
         doctor: { select: { id: true, name: true, specialization: true } },
-        department: { select: { id: true, name: true } }
+        department: { select: { id: true, name: true } },
+        registration: {
+          select: {
+            medicalRecord: {
+              select: { id: true }
+            }
+          }
+        }
       }
     })
 
@@ -291,16 +323,11 @@ export const updateQueueStatus = async (req: Request, res: Response) => {
       io.to(`clinic:${queue.clinicId}`).emit('queue-updated', { type: 'STATUS_CHANGED', queueId: id, status })
     }
 
-    // Add hasMedicalRecord flag
-    const mr = queue.registrationId ? await prisma.medicalRecord.findUnique({
-      where: { registrationId: queue.registrationId },
-      select: { id: true }
-    }) : null
-
     res.json({
       ...queue,
-      hasMedicalRecord: !!mr
+      hasMedicalRecord: !!queue.registration?.medicalRecord
     })
+    console.log(`[Perf] updateQueueStatus took ${Date.now() - startedAt}ms`)
   } catch (e) {
     console.error('[updateQueueStatus] Error:', e)
     res.status(500).json({ message: (e as Error).message })

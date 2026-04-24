@@ -10,7 +10,11 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "seed:coa": "tsx scripts/seed-coa-pro.ts",
+    "seed:system-accounts": "tsx scripts/seed-inventory-system-accounts.ts",
+    "inventory:sync": "tsx scripts/retroactive-inventory-sync.ts",
+    "inventory:sync:dry": "tsx scripts/retroactive-inventory-sync.ts --dry-run"
   },
   "keywords": [],
   "author": "",

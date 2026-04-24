@@ -194,7 +194,7 @@ const flattenDepartments = (depts: any[], parentId: string | null = null): any[]
 
 export const getDepartments = async (req: Request, res: Response) => {
   try {
-    const { search, parentId, allClinics, clinicId } = req.query
+    const { search, parentId, allClinics, clinicId, minimal } = req.query
     const currentClinicId = (req as any).clinicId
     const currentUser = (req as any).user
 
@@ -216,6 +216,8 @@ export const getDepartments = async (req: Request, res: Response) => {
     // Overrule if allClinics explicitly requested by admin
     const shouldShowAllClinics = isAdminView && (allClinics === 'true' || !clinicId)
 
+    const isMinimal = minimal === 'true' || minimal === '1'
+
     // Fetch all needed data
     let departments = await prisma.department.findMany({
       where: {
@@ -228,12 +230,16 @@ export const getDepartments = async (req: Request, res: Response) => {
         ...(search ? { name: { contains: String(search), mode: 'insensitive' } } : {}),
         ...(parentId !== undefined && parentId !== 'all' ? { parentId: parentId === 'null' ? null : String(parentId) } : {}),
       },
-      include: {
-        clinic: { select: { id: true, name: true, code: true } },
-        parent: { select: { id: true, name: true } },
-        head: { select: { id: true, name: true } },
-        _count: { select: { children: true } }
-      }
+      ...((isMinimal
+        ? { select: { id: true, name: true, clinicId: true, parentId: true, level: true, sortOrder: true } }
+        : {
+            include: {
+              clinic: { select: { id: true, name: true, code: true } },
+              parent: { select: { id: true, name: true } },
+              head: { select: { id: true, name: true } },
+              _count: { select: { children: true } }
+            }
+          }) as any)
     })
 
     // If not searching, sort hierarchically
@@ -329,13 +335,15 @@ export const deleteDepartment = async (req: Request, res: Response) => {
 // ==================== DOCTORS ====================
 export const getDoctors = async (req: Request, res: Response) => {
   try {
-    const { search, specialization, isActive, departmentId, clinicId } = req.query
+    const { search, specialization, isActive, departmentId, clinicId, minimal } = req.query
     const currentClinicId = (req as any).clinicId
     const isAdminView = (req as any).isAdminView
 
     // If clinicId is explicitly passed in query, use it. 
     // Otherwise, if not admin view, use the session's currentClinicId.
     const targetClinicId = clinicId ? String(clinicId) : (isAdminView ? undefined : currentClinicId)
+
+    const isMinimal = minimal === 'true' || minimal === '1'
 
     const doctors = await prisma.doctor.findMany({
       where: {
@@ -356,10 +364,21 @@ export const getDoctors = async (req: Request, res: Response) => {
         ...(departmentId ? { departments: { some: { id: String(departmentId) } } } : {}),
         ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
       },
-      include: {
-        departments: { include: { clinic: true } },
-        user: { select: { id: true, username: true } }
-      },
+      ...((isMinimal
+        ? {
+            select: {
+              id: true,
+              name: true,
+              specialization: true,
+              departments: { select: { id: true, name: true } }
+            }
+          }
+        : {
+            include: {
+              departments: { include: { clinic: true } },
+              user: { select: { id: true, username: true } }
+            }
+          }) as any),
       orderBy: { name: 'asc' },
     })
     res.json(doctors)
@@ -550,17 +569,20 @@ export const deleteSchedule = async (req: Request, res: Response) => {
 // ==================== SERVICES ====================
 export const getServices = async (req: Request, res: Response) => {
   try {
-    const { search, categoryId, isActive } = req.query
+    const { search, categoryId, isActive, clinicId, allClinics } = req.query
     const currentClinicId = (req as any).clinicId
     const isAdminView = (req as any).isAdminView
+    const targetClinicId = clinicId ? String(clinicId) : currentClinicId
+    const shouldShowAllClinics = allClinics === 'true'
 
     const services = await prisma.service.findMany({
       where: {
-        ...(!isAdminView ? { 
-            OR: [
-                { clinicId: currentClinicId },
-                { clinic: { isMain: true } }
-            ]
+        ...(!isAdminView && !shouldShowAllClinics ? {
+          OR: [
+            { clinicId: targetClinicId },
+            { clinic: { isMain: true } },
+            { clinicId: null }
+          ]
         } : {}),
         ...(search ? {
           OR: [
@@ -571,7 +593,7 @@ export const getServices = async (req: Request, res: Response) => {
         ...(categoryId ? { categoryId: String(categoryId) } : {}),
         ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
       },
-      include: { serviceCategory: true },
+      include: { serviceCategory: true, coa: true },
       orderBy: { serviceName: 'asc' },
     })
     res.json(services)
@@ -732,11 +754,11 @@ export const getMedicines = async (req: Request, res: Response) => {
         ]
       },
       include: { 
-        clinic: true, // Include clinic details for branch column
+        clinic: true,
         productMaster: {
           include: {
             products: {
-              where: { clinicId: targetClinicId },
+              where: targetClinicId ? { clinicId: targetClinicId } : {},
               include: { clinic: true }
             }
           }
@@ -744,7 +766,39 @@ export const getMedicines = async (req: Request, res: Response) => {
       },
       orderBy: { medicineName: 'asc' },
     })
-    res.json(medicines)
+
+    // Map to unified stock format using synced quantity field and reserved calculation
+    const allProdIds = medicines.flatMap(m => m.productMaster?.products?.map(p => p.id) || [])
+    const stockRecs = await prisma.inventoryStock.findMany({
+      where: { 
+         productId: { in: allProdIds },
+         branchId: targetClinicId || undefined
+      }
+    })
+    const reservedByProduct = stockRecs.reduce((acc, s) => {
+      acc[s.productId] = (acc[s.productId] || 0) + (s.reservedQty || 0)
+      return acc
+    }, {} as Record<string, number>)
+
+    const data = medicines.map(m => {
+      const products = m.productMaster?.products || []
+      const physicalStock = products.reduce((sum, p) => sum + (p.quantity || 0), 0)
+      const reservedStock = products.reduce((sum, p) => sum + (reservedByProduct[p.id] || 0), 0)
+      const totalAvailable = Math.max(0, physicalStock - reservedStock)
+      const primaryProduct = products[0]
+      
+      const primaryReserved = primaryProduct ? (reservedByProduct[primaryProduct.id] || 0) : 0
+      
+      return {
+        ...m,
+        totalStock: physicalStock,
+        stock: targetClinicId && primaryProduct ? Math.max(0, primaryProduct.quantity - primaryReserved) : totalAvailable,
+        availableStock: totalAvailable,
+        unit: primaryProduct?.usedUnit || primaryProduct?.unit || 'Unit'
+      }
+    })
+
+    res.json(data)
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })
   }
@@ -834,17 +888,29 @@ export const updateMedicine = async (req: Request, res: Response) => {
       } 
     })
 
-    // AUTO-SYNC: Update linked Product Master
+    // AUTO-SYNC: Update linked Product Master and propagate to clinic products
     try {
-      await prisma.productMaster.updateMany({
-        where: { medicineId: id },
-        data: {
-          masterName: med.medicineName,
-          description: med.description,
-          image: med.image,
-          isActive: med.isActive
-        }
-      })
+      const pm = await prisma.productMaster.findFirst({ where: { medicineId: id } })
+      if (pm) {
+        await prisma.productMaster.update({
+          where: { id: pm.id },
+          data: {
+            masterName: med.medicineName,
+            description: med.description,
+            image: med.image,
+            isActive: med.isActive
+          }
+        });
+
+        await prisma.product.updateMany({
+          where: { masterProductId: pm.id },
+          data: {
+            productName: med.medicineName,
+            description: med.description,
+            isActive: med.isActive
+          }
+        });
+      }
     } catch (syncError) {
       console.error('Failed to sync medicine update:', syncError)
     }
@@ -871,6 +937,7 @@ export const getExpenseCategories = async (req: Request, res: Response) => {
     const cats = await prisma.expenseCategory.findMany({
       where: search ? { categoryName: { contains: String(search), mode: 'insensitive' } } : {},
       include: { 
+        coa: true,
         _count: { 
           select: { expenses: { where: { clinicId: (req as any).clinicId } } } 
         } 
@@ -885,7 +952,14 @@ export const getExpenseCategories = async (req: Request, res: Response) => {
 
 export const createExpenseCategory = async (req: Request, res: Response) => {
   try {
-    const cat = await prisma.expenseCategory.create({ data: req.body })
+    const { categoryName, description, coaId } = req.body
+    if (!categoryName) return res.status(400).json({ message: 'Nama kategori wajib diisi' })
+    if (!coaId) return res.status(400).json({ message: 'Akun COA wajib dipilih agar pengeluaran bisa masuk ke Buku Besar' })
+
+    const cat = await prisma.expenseCategory.create({
+      data: { categoryName, description, coaId, isActive: true },
+      include: { coa: { select: { code: true, name: true } } }
+    })
     res.status(201).json(cat)
   } catch (e: any) {
     if (e.code === 'P2002') return res.status(400).json({ message: 'Nama kategori sudah ada' })
@@ -915,7 +989,13 @@ export const deleteExpenseCategory = async (req: Request, res: Response) => {
 export const getProductMasters = async (req: Request, res: Response) => {
   try {
     const { search, categoryId, isActive, clinicId } = req.query
-    const targetClinicId = clinicId ? String(clinicId) : (req as any).clinicId
+    const currentClinicId = (req as any).clinicId
+    const isAdminView = (req as any).isAdminView
+
+    // SECURITY: Enforce clinic filtering for non-authorized users
+    const targetClinicId = isAdminView
+      ? (clinicId === 'all' ? undefined : (clinicId ? String(clinicId) : undefined))
+      : currentClinicId
 
     const { skip, take, page, limit } = getPaginationOptions(req.query)
 
@@ -924,18 +1004,14 @@ export const getProductMasters = async (req: Request, res: Response) => {
         OR: [
           { masterName: { contains: String(search), mode: 'insensitive' } },
           { masterCode: { contains: String(search), mode: 'insensitive' } },
+          { sku: { contains: String(search), mode: 'insensitive' } }
         ]
       } : {}),
       ...(categoryId ? { categoryId: String(categoryId) } : {}),
       ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
-      products: {
-        some: {
-          clinicId: targetClinicId
-        }
-      }
     }
 
-    const [total, products] = await Promise.all([
+    const [total, results] = await Promise.all([
       prisma.productMaster.count({ where }),
       prisma.productMaster.findMany({
         where,
@@ -943,10 +1019,8 @@ export const getProductMasters = async (req: Request, res: Response) => {
           productCategory: true,
           medicine: true,
           products: { 
-            where: { clinicId: targetClinicId },
-            include: {
-              inventoryStocks: true
-            }
+            where: targetClinicId ? { clinicId: targetClinicId } : {},
+            include: { clinic: true }
           }
         },
         orderBy: { masterName: 'asc' },
@@ -955,15 +1029,34 @@ export const getProductMasters = async (req: Request, res: Response) => {
       })
     ])
     
-    // Calculate total stock
-    const data = products.map(p => {
-      const branchProduct = p.products[0]
-      const totalStock = (branchProduct?.inventoryStocks || []).reduce((acc, curr) => acc + (curr.onHandQty || 0), 0)
+    // Aggregation of physical and available stock (Reserved subtraction)
+    const allProdIds = results.flatMap(p => p.products?.map(bp => bp.id) || [])
+    const stockRecs = await prisma.inventoryStock.findMany({
+      where: { 
+        productId: { in: allProdIds },
+        branchId: targetClinicId || undefined
+      }
+    })
+    const reservedByProduct = stockRecs.reduce((acc, s) => {
+      acc[s.productId] = (acc[s.productId] || 0) + (s.reservedQty || 0)
+      return acc
+    }, {} as Record<string, number>)
+
+    const data = results.map(p => {
+      const branchProducts = p.products || []
+      const physicalStock = branchProducts.reduce((sum, bp) => sum + (bp.quantity || 0), 0)
+      const reservedStock = branchProducts.reduce((sum, bp) => sum + (reservedByProduct[bp.id] || 0), 0)
+      const totalAvailable = Math.max(0, physicalStock - reservedStock)
+      const primaryProduct = branchProducts[0]
+
+      const primaryReserved = primaryProduct ? (reservedByProduct[primaryProduct.id] || 0) : 0
       
       return {
         ...p,
-        stock: totalStock,
-        unit: branchProduct?.usedUnit || branchProduct?.unit || 'Unit'
+        totalStock: physicalStock,
+        stock: targetClinicId && primaryProduct ? Math.max(0, primaryProduct.quantity - primaryReserved) : totalAvailable,
+        availableStock: totalAvailable,
+        unit: primaryProduct?.usedUnit || primaryProduct?.unit || p.defaultUnit || 'Unit'
       }
     })
 
@@ -1039,6 +1132,26 @@ export const updateProductMaster = async (req: Request, res: Response) => {
       data,
       include: { productCategory: true }
     })
+
+    // AUTO-SYNC: Push changes to all linked branch products
+    try {
+      const syncData: any = {}
+      if (data.purchasePrice !== undefined) syncData.purchasePrice = data.purchasePrice
+      if (data.sellingPrice !== undefined) syncData.sellingPrice = data.sellingPrice
+      if (data.masterName !== undefined) syncData.productName = data.masterName
+      if (data.description !== undefined) syncData.description = data.description
+      if (data.isActive !== undefined) syncData.isActive = data.isActive
+
+      if (Object.keys(syncData).length > 0) {
+        await prisma.product.updateMany({
+          where: { masterProductId: product.id },
+          data: syncData
+        })
+      }
+    } catch (syncError) {
+      console.error('Failed to sync ProductMaster changes to branch products:', syncError)
+    }
+
     res.json(product)
   } catch (e: any) {
     console.error('Update Product Master Error:', e)
@@ -1192,6 +1305,28 @@ export const deleteClinic = async (req: Request, res: Response) => {
 }
 
 // ==================== ASSETS ====================
+
+/**
+ * Resolve COA akun aset berdasarkan assetType
+ * equipment/clinical-device → 1-2101 Peralatan Medis
+ * furniture/computer/other  → 1-2201 Inventaris & Furnitur
+ * vehicle                   → 1-2201 Inventaris (atau bisa tambah COA kendaraan)
+ * land/building             → 1-2301 Tanah & Bangunan
+ */
+async function resolveAssetCOA(assetType: string, clinicId: string) {
+  let coaCode = '1-2201' // default: Inventaris
+  if (assetType === 'equipment' || assetType === 'clinical-device') coaCode = '1-2101'
+  if (assetType === 'land' || assetType === 'building') coaCode = '1-2301'
+
+  const coa = await prisma.chartOfAccount.findFirst({
+    where: { code: coaCode, OR: [{ clinicId }, { clinicId: null }] }
+  })
+  const accumDep = await prisma.chartOfAccount.findFirst({
+    where: { code: '1-2102', OR: [{ clinicId }, { clinicId: null }] }
+  })
+  return { coa, accumDep }
+}
+
 // Helper to process and save asset photo as WebP
 const processAssetPhoto = async (file: Express.Multer.File): Promise<string> => {
   const fileName = `asset-${Date.now()}.webp`
@@ -1253,27 +1388,88 @@ export const getAssets = async (req: Request, res: Response) => {
 
 export const createAsset = async (req: Request, res: Response) => {
   try {
-    const { purchasePrice, purchaseDate, currentValue, clinic, masterProduct, id, createdAt, updatedAt, ...otherData } = req.body
-    
+    const { purchasePrice, purchaseDate, currentValue, salvageValue, usefulLifeYears,
+            depreciationMethod, clinic, masterProduct, id, createdAt, updatedAt, ...otherData } = req.body
+    const clinicId = req.body.clinicId || (req as any).clinicId
+
     let image = null
     if (req.file) {
       image = await processAssetPhoto(req.file)
     }
 
-    const data = { 
-      ...otherData,
-      image,
-      purchasePrice: purchasePrice ? Number(purchasePrice) : 0,
-      currentValue: currentValue ? Number(currentValue) : undefined,
-      purchaseDate: purchaseDate ? new Date(purchaseDate) : new Date(),
-      clinicId: req.body.clinicId || (req as any).clinicId,
-      masterProductId: req.body.masterProductId || undefined
-    }
-    const asset = await prisma.asset.create({ 
-      data,
-      include: { masterProduct: true, clinic: true }
+    const price = purchasePrice ? Number(purchasePrice) : 0
+    const salvage = salvageValue ? Number(salvageValue) : 0
+    const lifeYears = usefulLifeYears ? Number(usefulLifeYears) : 5
+
+    // Resolve COA berdasarkan tipe aset
+    const { coa: assetCoa, accumDep: accumDepCoa } = await resolveAssetCOA(otherData.assetType || 'equipment', clinicId)
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Buat record aset
+      const asset = await tx.asset.create({
+        data: {
+          ...otherData,
+          image,
+          purchasePrice: price,
+          salvageValue: salvage,
+          usefulLifeYears: lifeYears,
+          depreciationMethod: depreciationMethod || 'STRAIGHT_LINE',
+          currentValue: price, // Nilai buku awal = harga beli
+          totalDepreciated: 0,
+          coaAssetId: assetCoa?.id || null,
+          coaAccumDepId: accumDepCoa?.id || null,
+          purchaseDate: purchaseDate ? new Date(`${purchaseDate}T00:00:00+07:00`) : new Date(),
+          clinicId,
+          masterProductId: req.body.masterProductId || undefined
+        } as any,
+        include: { masterProduct: true, clinic: true }
+      })
+
+      // 2. Buat jurnal GL pembelian aset (jika ada COA dan harga > 0)
+      if (assetCoa && price > 0) {
+        // Resolve sumber dana (default: Kas Kecil, bisa dikonfigurasi)
+        const cashCoa = await tx.systemAccount.findFirst({
+          where: { key: 'CASH_ACCOUNT', OR: [{ clinicId }, { clinicId: null }] },
+          include: { coa: true },
+          orderBy: { clinicId: 'desc' }
+        })
+        const creditCoa = cashCoa?.coa || await tx.chartOfAccount.findFirst({
+          where: { code: '1-1101', OR: [{ clinicId }, { clinicId: null }] }
+        })
+
+        if (creditCoa) {
+          await tx.journalEntry.create({
+            data: {
+              date: purchaseDate ? new Date(`${purchaseDate}T00:00:00+07:00`) : new Date(),
+              description: `Pembelian Aset: ${otherData.assetName} (${asset.assetCode})`,
+              referenceNo: `ASSET-${asset.assetCode}`,
+              entryType: 'SYSTEM',
+              clinicId,
+              details: {
+                create: [
+                  {
+                    coaId: assetCoa.id,
+                    debit: price,
+                    credit: 0,
+                    description: `Aset Tetap: ${otherData.assetName}`
+                  },
+                  {
+                    coaId: creditCoa.id,
+                    debit: 0,
+                    credit: price,
+                    description: `Pembayaran Aset: ${asset.assetCode}`
+                  }
+                ]
+              }
+            }
+          })
+        }
+      }
+
+      return asset
     })
-    res.status(201).json(asset)
+
+    res.status(201).json(result)
   } catch (e: any) {
     if (e.code === 'P2002') return res.status(400).json({ message: 'Kode aset sudah ada' })
     res.status(500).json({ message: e.message })
@@ -1282,7 +1478,10 @@ export const createAsset = async (req: Request, res: Response) => {
 
 export const updateAsset = async (req: Request, res: Response) => {
   try {
-    const { purchasePrice, purchaseDate, currentValue, clinic, masterProduct, id, createdAt, updatedAt, clinicId, ...otherData } = req.body
+    const { 
+      purchasePrice, purchaseDate, currentValue, salvageValue, usefulLifeYears, totalDepreciated,
+      clinic, masterProduct, id, createdAt, updatedAt, clinicId, ...otherData 
+    } = req.body
     
     let image = req.body.image
     if (req.file) {
@@ -1297,6 +1496,9 @@ export const updateAsset = async (req: Request, res: Response) => {
         clinicId: clinicId || undefined,
         purchasePrice: purchasePrice ? Number(purchasePrice) : undefined,
         currentValue: currentValue ? Number(currentValue) : undefined,
+        salvageValue: salvageValue ? Number(salvageValue) : undefined,
+        usefulLifeYears: usefulLifeYears ? Number(usefulLifeYears) : undefined,
+        totalDepreciated: totalDepreciated ? Number(totalDepreciated) : undefined,
         purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
       },
       include: { masterProduct: true, clinic: true }
@@ -1420,6 +1622,13 @@ export const createInventoryProduct = async (req: Request, res: Response) => {
   try {
     const { clinicIds, sku, productCode, ...rest } = req.body
     
+    // 1. Fetch Master Info for Name Synchronization
+    let masterName = rest.productName
+    if (rest.masterProductId) {
+      const pm = await prisma.productMaster.findUnique({ where: { id: rest.masterProductId } })
+      if (pm) masterName = pm.masterName
+    }
+
     // Process image if uploaded
     let imagePath = null
     if (req.file) {
@@ -1449,6 +1658,7 @@ export const createInventoryProduct = async (req: Request, res: Response) => {
       const suffix = clinic?.code || ''
       return {
         ...rest,
+        productName: masterName, // Enforce Master Name
         clinicId: cid,
         sku: sku.includes(`-${suffix}`) ? sku : `${sku}-${suffix}`,
         productCode: productCode.includes(`-${suffix}`) ? productCode : `${productCode}-${suffix}`
@@ -1487,6 +1697,12 @@ export const createInventoryProduct = async (req: Request, res: Response) => {
 export const updateInventoryProduct = async (req: Request, res: Response) => {
   try {
     const { clinicIds, masterProduct, clinic, ...rest } = req.body
+
+    // Sync Name from Master if linked
+    if (rest.masterProductId) {
+      const pm = await prisma.productMaster.findUnique({ where: { id: rest.masterProductId } })
+      if (pm) rest.productName = pm.masterName
+    }
     
     // Process image if uploaded
     if (req.file) {
@@ -1645,7 +1861,7 @@ export const getPatients = async (req: Request, res: Response) => {
           where,
           skip,
           take: limit,
-          orderBy: { createdAt: 'desc' }
+          orderBy: { name: 'asc' }
         })
       ])
 
@@ -1662,7 +1878,7 @@ export const getPatients = async (req: Request, res: Response) => {
 
     const patients = await prisma.patient.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { name: 'asc' },
     })
     
     res.json(patients)

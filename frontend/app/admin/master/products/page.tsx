@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import axios from 'axios'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import api from '@/lib/api'
 import toast from 'react-hot-toast'
 import { FiShoppingBag, FiAlertCircle, FiPlus, FiHash, FiImage, FiUpload, FiX, FiCamera } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -11,9 +11,7 @@ import MasterModal from '@/components/admin/master/MasterModal'
 import { StatusBadge, CategoryBadge } from '@/components/admin/master/StatusBadge'
 import DeleteConfirmModal from '@/components/admin/master/DeleteConfirmModal'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useRef } from 'react'
 
-const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
 const EMPTY = { 
   masterProductId: '', 
   productCode: '', 
@@ -64,6 +62,10 @@ type ProductInventory = {
   storageUnit?: string;
   usedUnit?: string;
   supplier?: string;
+  totalStock?: number;
+  stock?: number;
+  unit?: string;
+  products?: any[];
 }
 
 export default function ProductsPage() {
@@ -85,35 +87,43 @@ export default function ProductsPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<ProductInventory | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   
-  const headers = { Authorization: `Bearer ${token}` }
-  const isPusat = user?.clinics?.find(c => c.id === activeClinicId)?.code === 'K001' || user?.role === 'SUPER_ADMIN'
+  const isPusat = user?.clinics?.some(c => c.clinic?.isMain) || user?.role === 'SUPER_ADMIN'
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const params: any = {}
+      const params: any = { 
+        page, 
+        limit: 100 // Show more items for Master data
+      }
       if (search) params.search = search
       if (catFilter) params.categoryId = catFilter
-      const { data } = await axios.get(`${API}/inventory`, { headers, params })
-      setData(data)
+      if (clinicFilter) params.clinicId = clinicFilter
+      
+      const { data } = await api.get('/master/products', { params })
+      const results = data?.data || []
+      setData(results)
+      setTotalPages(data?.meta?.totalPages || 1)
+    } catch (err) {
+      console.error('Failed to fetch products', err)
     } finally { setLoading(false) }
-  }, [search, catFilter, token])
+  }, [search, catFilter, clinicFilter, page, isPusat])
 
   const fetchDependencies = useCallback(async () => {
     try {
-      const [catRes, masterRes, clinicRes] = await Promise.all([
-        axios.get(`${API}/product-categories`, { headers }),
-        axios.get(`${API}/products`, { headers }), // Fetch global catalog
-        axios.get(`${API}/clinics`, { headers })
+      const [catRes, clinicRes] = await Promise.all([
+        api.get('/master/product-categories'),
+        api.get('/master/clinics')
       ])
       setCategories(catRes.data)
-      setMasters(masterRes.data)
       setClinics(clinicRes.data)
     } catch { }
-  }, [token])
+  }, [])
 
   useEffect(() => { 
     fetchData()
@@ -322,47 +332,53 @@ export default function ProductsPage() {
         </div>
       </div>
     )},
-    { key: 'logistics', label: 'Logistik', width: '180px', render: (r: ProductInventory) => (
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center gap-2">
-            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Unit:</span>
-            <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md uppercase">{r.defaultUnit || 'pcs'}</span>
+    { key: 'stock', label: 'STOK CABANG', width: '120px', render: (r: ProductInventory) => {
+      const isGlobal = (r.products?.length || 0) > 1 && !clinicFilter
+      const displayStock = r.stock ?? 0
+      const unit = r.unit || r.defaultUnit || 'Unit'
+      
+      return (
+        <div className="flex flex-col">
+          <div className="flex items-baseline gap-1.5">
+            <span className={`text-sm font-black ${displayStock <= (r.minStock || 0) ? 'text-rose-600 animate-pulse' : 'text-gray-900'}`}>
+              {displayStock}
+            </span>
+            <span className="text-[10px] font-bold text-gray-400 lowercase">{unit}</span>
+          </div>
+          {isGlobal && <span className="text-[9px] font-black text-blue-500 uppercase tracking-tighter">Total Global</span>}
+          {displayStock <= (r.minStock || 0) && !isGlobal && <span className="text-[9px] font-black text-rose-500 uppercase tracking-tighter">Low Stock</span>}
         </div>
-        <div className="flex items-center gap-3">
-            <div className="flex flex-col">
-                <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">Min Stock</span>
-                <span className="text-[11px] font-black text-gray-700">{r.minStock || 0}</span>
-            </div>
-            <div className="w-px h-6 bg-gray-100" />
-            <div className="flex flex-col">
-                <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">Reorder</span>
-                <span className="text-[11px] font-black text-amber-600">{r.reorderPoint || 0}</span>
-            </div>
+      )
+    }},
+    { key: 'pricing', label: 'Harga & SKU', width: '220px', render: (r: ProductInventory) => {
+      const products = r.products || []
+      const prices = products.map(p => p.sellingPrice).filter(p => p > 0)
+      const minPrice = prices.length > 0 ? Math.min(...prices) : (r.sellingPrice || 0)
+      const isRange = prices.length > 1 && Math.min(...prices) !== Math.max(...prices) && !clinicFilter
+
+      return (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2 mb-0.5">
+              <span className="text-[8px] font-black bg-gray-900 text-white px-1.5 py-0.5 rounded tracking-widest uppercase">SKU</span>
+              <span className="text-[10px] font-bold text-gray-600 font-mono tracking-tight">{r.sku || 'N/A'}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col">
+                  <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">Beli (Est)</span>
+                  <span className="text-[11px] font-black text-slate-500">
+                      Rp {(r.purchasePrice || 0).toLocaleString('id-ID')}
+                  </span>
+              </div>
+              <div className="flex flex-col">
+                  <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">Jual</span>
+                  <span className="text-[11px] font-black text-emerald-600">
+                      {isRange ? `Mulai Rp ${minPrice.toLocaleString('id-ID')}` : `Rp ${minPrice.toLocaleString('id-ID')}`}
+                  </span>
+              </div>
+          </div>
         </div>
-      </div>
-    )},
-    { key: 'pricing', label: 'Harga & SKU', width: '220px', render: (r: ProductInventory) => (
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-[8px] font-black bg-gray-900 text-white px-1.5 py-0.5 rounded tracking-widest uppercase">SKU</span>
-            <span className="text-[10px] font-bold text-gray-600 font-mono tracking-tight">{r.sku || 'N/A'}</span>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col">
-                <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">Beli (Est)</span>
-                <span className="text-[11px] font-black text-slate-500">
-                    Rp {new Intl.NumberFormat('id-ID').format(r.purchasePrice || 0)}
-                </span>
-            </div>
-            <div className="flex flex-col">
-                <span className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">Jual Global</span>
-                <span className="text-[11px] font-black text-emerald-600">
-                    Rp {new Intl.NumberFormat('id-ID').format(r.sellingPrice || 0)}
-                </span>
-            </div>
-        </div>
-      </div>
-    )},
+      )
+    }},
     { key: 'category', label: 'Kategori', width: '150px', render: (r: ProductInventory) => (
        <div className="flex items-center gap-2">
           <CategoryBadge category={r.productCategory?.categoryName || 'General'} />
@@ -382,13 +398,24 @@ export default function ProductsPage() {
       <DataTable
         data={data} columns={columns} loading={loading}
         groupBy={(r: ProductInventory) => r.productCategory?.categoryName || 'Uncategorized'}
-        searchValue={search} onSearchChange={setSearch}
+        searchValue={search} onSearchChange={(v) => { setSearch(v); setPage(1) }}
         searchPlaceholder="Cari kode atau nama produk..."
         onEdit={openEdit} onDelete={handleDelete}
         emptyText="Belum ada data master produk."
+        // Pagination Props
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
         extraFilters={
           <div className="flex gap-2">
-            <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)}
+            {isPusat && (
+                <select value={clinicFilter} onChange={(e) => { setClinicFilter(e.target.value); setPage(1) }}
+                  className="text-[11px] font-bold bg-white border border-gray-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-primary capitalize shadow-sm">
+                  <option value="">Seluruh Cabang</option>
+                  {clinics.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+            )}
+            <select value={catFilter} onChange={(e) => { setCatFilter(e.target.value); setPage(1) }}
               className="text-[11px] font-bold bg-white border border-gray-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-primary capitalize shadow-sm">
               <option value="">Semua Kategori</option>
               {categories.map(c => <option key={c.id} value={c.id}>{c.categoryName}</option>)}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import axios from 'axios'
-import { FiActivity, FiAlertCircle, FiRefreshCw } from 'react-icons/fi'
+import { FiActivity, FiAlertCircle, FiRefreshCw, FiBookOpen } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
 import PageHeader from '@/components/admin/master/PageHeader'
@@ -10,12 +10,13 @@ import MasterModal from '@/components/admin/master/MasterModal'
 import { StatusBadge, CategoryBadge } from '@/components/admin/master/StatusBadge'
 
 const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
-const EMPTY = { serviceCode: '', serviceName: '', description: '', categoryId: '', unit: 'session', price: '', isActive: true }
+const EMPTY = { serviceCode: '', serviceName: '', description: '', categoryId: '', unit: 'session', price: '', coaId: '', isActive: true }
 
 type ServiceCategory = { id: string; categoryName: string }
 type Service = {
   id: string; serviceCode: string; serviceName: string; description?: string
-  categoryId?: string; serviceCategory?: ServiceCategory; unit?: string; price: number; isActive: boolean
+  categoryId?: string; serviceCategory?: ServiceCategory; unit?: string; price: number; isActive: boolean;
+  coaId?: string; coa?: { name: string; code: string }
 }
 
 const formatRupiah = (v: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(v)
@@ -25,6 +26,7 @@ export default function ServicesPage() {
   const activeClinicId = useAuthStore(state => state.activeClinicId)
   const [data, setData] = useState<Service[]>([])
   const [categories, setCategories] = useState<ServiceCategory[]>([])
+  const [coas, setCoas] = useState<{id: string, name: string, code: string}[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState('')
@@ -54,10 +56,19 @@ export default function ServicesPage() {
     } catch (e) { }
   }, [headers])
 
+  const fetchCOAs = useCallback(async () => {
+    try {
+      // Fetch only REVENUE accounts for mapping
+      const { data } = await axios.get(`${API}/coa?category=REVENUE`, { headers })
+      setCoas(data)
+    } catch (e) { }
+  }, [headers, API])
+
   useEffect(() => { 
     fetchData()
     fetchCategories()
-  }, [fetchData, fetchCategories])
+    fetchCOAs()
+  }, [fetchData, fetchCategories, fetchCOAs])
 
   const fetchNextCode = useCallback(async () => {
     try {
@@ -82,6 +93,7 @@ export default function ServicesPage() {
       categoryId: r.categoryId || '', 
       unit: r.unit || 'session', 
       price: String(r.price), 
+      coaId: r.coaId || '',
       isActive: r.isActive 
     })
     setError(''); setModalOpen(true)
@@ -112,7 +124,12 @@ export default function ServicesPage() {
     { key: 'serviceName', label: 'Nama Layanan', render: (r) => <span className="text-sm font-semibold text-gray-800">{r.serviceName}</span> },
     { key: 'categoryId', label: 'Kategori', render: (r) => <CategoryBadge category={r.serviceCategory?.categoryName || 'Uncategorized'} /> },
     { key: 'price', label: 'Harga', render: (r) => <span className="text-sm font-bold text-emerald-700">{formatRupiah(r.price)}</span> },
-    { key: 'unit', label: 'Satuan', mobileHide: true, render: (r) => <span className="text-xs text-gray-500">{r.unit}</span> },
+    { key: 'coaId', label: 'Pemetaan Akun', render: (r) => r.coa ? (
+      <div className="flex flex-col">
+        <span className="text-xs font-bold text-gray-700">{r.coa.name}</span>
+        <span className="text-[10px] font-medium text-gray-400">{r.coa.code}</span>
+      </div>
+    ) : <span className="text-xs italic text-gray-400">Gunakan Default</span> },
     { key: 'isActive', label: 'Status', render: (r) => <StatusBadge active={r.isActive} /> },
   ]
 
@@ -181,6 +198,18 @@ export default function ServicesPage() {
               <label className="block text-xs font-bold text-gray-700 mb-1.5">Satuan</label>
               <input value={form.unit} onChange={(e) => setForm(p => ({...p, unit: e.target.value}))} placeholder="session, item, package"
                 className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-medium" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center gap-1.5">
+                <FiBookOpen className="w-3.5 h-3.5 text-primary" />
+                <span>Pemetaan Akun Pendapatan (COA)</span>
+              </label>
+              <select value={form.coaId} onChange={(e) => setForm(p => ({...p, coaId: e.target.value}))}
+                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary bg-white font-medium">
+                <option value="">Gunakan Default (Sistem Account)</option>
+                {coas.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
+              </select>
+              <p className="mt-1.5 text-[10px] text-gray-500 italic">Pilih akun spesifik untuk layanan ini agar pencatatan jurnal lebih akurat.</p>
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-gray-700 mb-1.5">Deskripsi</label>

@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import axios from 'axios'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   FiUserPlus, FiSearch, FiCalendar, FiClock, 
   FiArrowRight, FiCheckCircle, FiUser, FiActivity,
   FiMapPin, FiCreditCard, FiAlertCircle, FiChevronRight,
-  FiPlus
+  FiPlus, FiChevronDown
 } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import Link from 'next/link'
@@ -24,6 +24,7 @@ interface Patient {
   gender: string
   dateOfBirth: string
   identityNumber: string
+  address: string
 }
 
 interface Doctor {
@@ -75,6 +76,7 @@ export default function RegistrationPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [patients, setPatients] = useState<Patient[]>([])
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
+  const [isFetchAll, setIsFetchAll] = useState(false)
   
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
@@ -84,7 +86,9 @@ export default function RegistrationPage() {
   const [referralFrom, setReferralFrom] = useState('')
   
   const [submitting, setSubmitting] = useState(false)
+  const [regError, setRegError] = useState('')
   const [result, setResult] = useState<any>(null)
+  const fetchedSelectablesRef = useRef<string | null>(null)
 
   const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
 
@@ -93,21 +97,26 @@ export default function RegistrationPage() {
     const fetchSelectables = async () => {
       try {
         const [docsRes, deptsRes] = await Promise.all([
-          axios.get(`${API}/master/doctors`, { headers, params: { clinicId: activeClinicId } }),
-          axios.get(`${API}/master/departments`, { headers, params: { clinicId: activeClinicId } })
+          axios.get(`${API}/master/doctors`, { headers, params: { clinicId: activeClinicId, minimal: true } }),
+          axios.get(`${API}/master/departments`, { headers, params: { clinicId: activeClinicId, minimal: true } })
         ])
         console.log('Fetched D&D:', docsRes.data.length, deptsRes.data.length)
         setDoctors(docsRes.data)
         setDepartments(deptsRes.data)
       } catch (e) { console.error(e) }
     }
-    if (token && activeClinicId) fetchSelectables()
+    if (token && activeClinicId) {
+      const key = `${token}-${activeClinicId}`
+      if (fetchedSelectablesRef.current === key) return
+      fetchedSelectablesRef.current = key
+      fetchSelectables()
+    }
   }, [token, activeClinicId, headers])
 
   // Search Patient
   useEffect(() => {
     const timeout = setTimeout(async () => {
-      if (!searchQuery) {
+      if (!searchQuery && !isFetchAll) {
         setPatients([])
         return
       }
@@ -125,7 +134,7 @@ export default function RegistrationPage() {
       }
     }, 500)
     return () => clearTimeout(timeout)
-  }, [searchQuery, headers])
+  }, [searchQuery, isFetchAll, headers])
 
   const handleRegistration = async () => {
     if (!selectedPatient || !activeClinicId) return
@@ -143,7 +152,8 @@ export default function RegistrationPage() {
       setResult(data)
       setStep(4) // Success Step
     } catch (e: any) {
-      alert(e.response?.data?.message || 'Gagal melakukan pendaftaran')
+      setRegError(e.response?.data?.message || 'Gagal melakukan pendaftaran')
+      // Scroll to top of the modal if needed, or just let the user see it
     } finally {
       setSubmitting(false)
     }
@@ -248,21 +258,28 @@ export default function RegistrationPage() {
               </div>
             </div>
 
-            <div className="relative">
-              <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input 
-                type="text" 
-                placeholder="Cari Pasien (Nama, No. RM, No. HP, atau No. KTP)..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-white border border-gray-100 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
-              />
-              {searching && (
-                <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                   <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                </div>
-              )}
-            </div>
+              <div className="relative group">
+                <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 group-hover:text-primary transition-colors" />
+                <input 
+                  type="text" 
+                  placeholder="Cari Pasien (Nama, No. RM, No. HP, atau No. KTP)..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-12 pr-14 py-4 bg-white border border-gray-100 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
+                />
+                <button 
+                  onClick={() => setIsFetchAll(true)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-2 hover:bg-gray-50 rounded-xl text-gray-400 hover:text-primary transition-all border border-transparent hover:border-gray-200"
+                  title="Tampilkan Semua Pasien"
+                >
+                  <FiChevronDown className={`w-5 h-5 transition-transform ${isFetchAll ? 'rotate-180' : ''}`} />
+                </button>
+                {searching && (
+                  <div className="absolute right-14 top-1/2 -translate-y-1/2">
+                     <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                  </div>
+                )}
+              </div>
 
             <div className="grid grid-cols-1 gap-3">
               {patients.length > 0 ? patients.map((p) => (
@@ -276,8 +293,24 @@ export default function RegistrationPage() {
                       <FiUser className="w-6 h-6" />
                     </div>
                     <div>
-                      <p className="font-bold text-gray-900">{p.name} <span className="text-xs font-black text-primary bg-primary/5 px-2 py-0.5 rounded ml-2">{p.medicalRecordNo}</span></p>
-                      <p className="text-xs text-gray-500 font-medium">{p.phone} • {p.gender === 'M' ? 'Laki-laki' : 'Perempuan'} • {p.identityNumber || 'No KTP -'}</p>
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-black text-gray-900 text-base">{p.name}</p>
+                        <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-0.5 rounded border border-primary/20">{p.medicalRecordNo}</span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1">
+                        <p className="text-xs text-gray-500 font-medium flex items-center gap-1.5">
+                          <FiUser className="w-3 h-3 text-gray-400" />
+                          {p.gender === 'M' ? 'Laki-laki' : 'Perempuan'} • {p.dateOfBirth ? new Date(p.dateOfBirth).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Tgl Lahir -'}
+                        </p>
+                        <p className="text-xs text-gray-500 font-medium flex items-center gap-1.5">
+                          <FiActivity className="w-3 h-3 text-gray-400" />
+                          {p.phone}
+                        </p>
+                        <p className="text-xs text-gray-400 font-medium md:col-span-2 flex items-start gap-1.5 mt-1 border-t border-gray-50 pt-1">
+                          <FiMapPin className="w-3 h-3 mt-0.5 text-gray-300" />
+                          <span className="italic">{p.address || 'Alamat tidak tersedia'}</span>
+                        </p>
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -432,6 +465,13 @@ export default function RegistrationPage() {
                     <p className="text-sm font-bold text-gray-800 mt-1 uppercase">{visitType}</p>
                   </div>
                 </div>
+
+                {regError && (
+                  <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-700 animate-pulse">
+                    <FiAlertCircle className="w-5 h-5 flex-shrink-0" />
+                    <p className="text-sm font-bold">{regError}</p>
+                  </div>
+                )}
 
                 <div className="pt-8 flex gap-4 border-t border-gray-50">
                   <button 
