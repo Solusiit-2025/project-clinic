@@ -557,6 +557,13 @@ export const getAssetRegister = async (req: Request, res: Response) => {
  * Kredit 1-2102 Akumulasi Penyusutan (total yg sudah disusutkan)
  * Kredit 3-1001 Modal Disetor (selisih = nilai buku)
  */
+/**
+ * POST /api/assets/sync-opening-balance
+ * Body: { goLiveDate: "2026-01-01", clinicId? }
+ *
+ * Sinkronisasi Saldo Awal Aset Tetap ke GL berdasarkan selisih saldo saat ini.
+ * Menghitung Total Nilai Aset di Registry vs Saldo di GL (Account 1-2xxx).
+ */
 export const syncAssetOpeningBalance = async (req: Request, res: Response) => {
   try {
     const { goLiveDate, clinicId: bodyClinicId } = req.body
@@ -565,68 +572,117 @@ export const syncAssetOpeningBalance = async (req: Request, res: Response) => {
 
     if (!goLiveDate) return res.status(400).json({ message: 'goLiveDate wajib diisi' })
 
+    const clinic = await prisma.clinic.findUnique({ where: { id: targetClinicId } })
+    if (!clinic) return res.status(404).json({ message: 'Cabang tidak ditemukan' })
+
+    // 1. Ambil semua aset aktif yang punya COA
     const assets = await prisma.asset.findMany({
-      where: { clinicId: targetClinicId, status: { not: 'retired' }, purchasePrice: { gt: 0 } },
+      where: { clinicId: targetClinicId, status: { not: 'retired' }, coaAssetId: { not: null } },
     })
 
-    let created = 0, skipped = 0
+    if (assets.length === 0) {
+      return res.json({ success: true, message: 'Tidak ada aset untuk disinkronkan.', totalValue: 0 })
+    }
 
+    // 2. Resolve Balancing Account (Equity/Modal)
+    const capitalCoa = await resolveCoa('RETAINED_EARNINGS', '3-1101', targetClinicId).catch(() => null)
+    if (!capitalCoa) return res.status(400).json({ message: 'Akun Laba Ditahan (3-1101) belum diatur di System Accounts.' })
+
+    // 3. Group by COA and Calculate Registry Totals
+    const registryMap: any = {}
     for (const asset of assets) {
-      const referenceNo = `ASSET-OB-${asset.assetCode}`
-      const existing = await prisma.journalEntry.findFirst({ where: { referenceNo } })
-      if (existing) { skipped++; continue }
+      const aid = asset.coaAssetId as string
+      const cost = asset.purchasePrice || 0
+      const dep = asset.totalDepreciated || 0
+      const did = asset.coaAccumDepId
 
-      const assetClinicId = asset.clinicId || currentClinicId
-      const bookValue = asset.purchasePrice - asset.totalDepreciated
+      if (!registryMap[aid]) registryMap[aid] = { totalCost: 0, totalDep: 0, depCoaId: did }
+      registryMap[aid].totalCost += cost
+      registryMap[aid].totalDep += dep
+    }
 
-      const assetCoa = asset.coaAssetId
-        ? await prisma.chartOfAccount.findUnique({ where: { id: asset.coaAssetId } })
-        : await resolveCoa('FIXED_ASSET', '1-2101', assetClinicId).catch(() => null)
+    const results: any[] = []
+    let totalAdjustment = 0
 
-      const accumDepCoa = asset.coaAccumDepId
-        ? await prisma.chartOfAccount.findUnique({ where: { id: asset.coaAccumDepId } })
-        : await resolveCoa('ACCUM_DEPRECIATION', '1-2102', assetClinicId).catch(() => null)
+    await prisma.$transaction(async (tx) => {
+      const journalDetails: any[] = []
 
-      const capitalCoa = await resolveCoa('OWNER_CAPITAL', '3-1001', assetClinicId).catch(() => null)
+      for (const coaId of Object.keys(registryMap)) {
+        const reg = registryMap[coaId]
+        
+        // 4. Cek Saldo Saat Ini di GL untuk COA tersebut (Join dengan journal_entries untuk clinicId)
+        const glBalances: any[] = await tx.$queryRaw`
+          SELECT SUM(d.debit - d.credit) as balance 
+          FROM journal_details d
+          JOIN journal_entries e ON d."journalEntryId" = e.id
+          WHERE d."coaId" = ${coaId} AND e."clinicId" = ${targetClinicId}
+        `
+        const currentGLBalance = Number(glBalances[0]?.balance || 0)
+        const diff = reg.totalCost - currentGLBalance
 
-      if (!assetCoa || !capitalCoa) { skipped++; continue }
+        if (Math.abs(diff) > 1) { // Jika ada selisih > Rp 1
+          journalDetails.push({
+            coaId,
+            debit: diff > 0 ? diff : 0,
+            credit: diff < 0 ? Math.abs(diff) : 0,
+            description: `Penyesuaian Saldo Awal Aset Registry (${clinic.name})`
+          })
+          totalAdjustment += diff
+        }
 
-      const details: any[] = [
-        { coaId: assetCoa.id, debit: asset.purchasePrice, credit: 0, description: `Saldo Awal Aset: ${asset.assetName}` },
-      ]
+        // 5. Cek Saldo Akumulasi Penyusutan jika ada
+        if (reg.depCoaId) {
+          const depBalances: any[] = await tx.$queryRaw`
+            SELECT SUM(d.credit - d.debit) as balance 
+            FROM journal_details d
+            JOIN journal_entries e ON d."journalEntryId" = e.id
+            WHERE d."coaId" = ${reg.depCoaId} AND e."clinicId" = ${targetClinicId}
+          `
+          const currentDepBalance = Number(depBalances[0]?.balance || 0)
+          const depDiff = reg.totalDep - currentDepBalance
 
-      if (accumDepCoa && asset.totalDepreciated > 0) {
-        details.push({
-          coaId: accumDepCoa.id, debit: 0, credit: asset.totalDepreciated,
-          description: `Akumulasi Penyusutan Awal: ${asset.assetName}`,
-        })
+          if (Math.abs(depDiff) > 1) {
+            journalDetails.push({
+              coaId: reg.depCoaId,
+              debit: depDiff < 0 ? Math.abs(depDiff) : 0,
+              credit: depDiff > 0 ? depDiff : 0,
+              description: `Penyesuaian Saldo Awal Akum. Penyusutan Registry (${clinic.name})`
+            })
+            totalAdjustment -= depDiff
+          }
+        }
       }
 
-      details.push({
-        coaId: capitalCoa.id, debit: 0, credit: bookValue,
-        description: `Modal Awal Aset: ${asset.assetName}`,
-      })
+      if (journalDetails.length > 0) {
+        // Balanskan ke Modal / Laba Ditahan
+        journalDetails.push({
+          coaId: capitalCoa.id,
+          debit: totalAdjustment < 0 ? Math.abs(totalAdjustment) : 0,
+          credit: totalAdjustment > 0 ? totalAdjustment : 0,
+          description: `Penyeimbang Saldo Awal Aset vs GL`
+        })
 
-      await prisma.journalEntry.create({
-        data: {
-          date: new Date(`${goLiveDate}T00:00:00+07:00`),
-          description: `Saldo Awal Aset Go-Live: ${asset.assetName} (${asset.assetCode})`,
-          referenceNo,
-          entryType: 'SYSTEM',
-          clinicId: assetClinicId,
-          details: { create: details },
-        },
-      })
-      created++
-    }
+        await tx.journalEntry.create({
+          data: {
+            date: new Date(`${goLiveDate}T00:00:00+07:00`),
+            description: `[AUTO-SYNC] Penyesuaian Saldo Awal Aset - ${clinic.name}`,
+            referenceNo: `SYNC-ASSET-${Date.now()}`,
+            entryType: 'SYSTEM',
+            clinicId: targetClinicId,
+            details: { create: journalDetails }
+          }
+        })
+      }
+    })
 
     res.json({
       success: true,
-      message: `${created} jurnal saldo awal aset dibuat`,
-      created,
-      skipped,
+      message: totalAdjustment === 0 ? 'Saldo sudah sinkron.' : 'Jurnal penyesuaian saldo awal berhasil dibuat.',
+      adjustmentValue: totalAdjustment
     })
+
   } catch (err: any) {
+    console.error('❌ [syncAssetOpeningBalance] Error:', err)
     res.status(500).json({ message: err.message })
   }
 }

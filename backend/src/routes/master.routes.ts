@@ -21,7 +21,7 @@ import { getBanks, createBank, updateBank, deleteBank } from '../controllers/ban
 import { getSystemAccounts, updateSystemAccount, seedSystemAccounts } from '../controllers/systemAccount.controller'
 import {
   getAllMaintenance, getAssetMaintenance, createAssetMaintenance, postMaintenanceToGL, updateAssetMaintenance, deleteAssetMaintenance,
-  getAssetTransfers, createAssetTransfer, approveAssetTransfer, rejectAssetTransfer,
+  getAllAssetTransfers, getAssetTransfers, createAssetTransfer, approveAssetTransfer, rejectAssetTransfer,
   getAssetAuditLogs, getAssetInsurance, upsertAssetInsurance, deleteAssetInsurance,
   getMaintenanceSchedule, getExpiringInsurance
 } from '../controllers/assetManagement.controller'
@@ -119,6 +119,7 @@ masterRoutes.put('/assets/maintenance/:maintenanceId', updateAssetMaintenance)
 masterRoutes.delete('/assets/maintenance/:maintenanceId', deleteAssetMaintenance)
 
 // Asset Transfers
+masterRoutes.get('/assets/transfers/all', getAllAssetTransfers)
 masterRoutes.get('/assets/:id/transfers', getAssetTransfers)
 masterRoutes.post('/assets/:id/transfer', createAssetTransfer)
 masterRoutes.put('/assets/transfer/:transferId/approve', approveAssetTransfer)

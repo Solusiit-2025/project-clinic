@@ -713,11 +713,14 @@ model AssetTransfer {
   fromClinicId  String
   toClinicId    String
   transferDate  DateTime
-  transferValue Float
+  transferValue Float    @default(0)
   reason        String?
   approvedBy    String?
   status        String   @default("pending")
   notes         String?
+  isPosted      Boolean  @default(false)
+  journalIdOrigin String?
+  journalIdDest   String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   asset         Asset    @relation(fields: [assetId], references: [id])

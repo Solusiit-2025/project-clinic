@@ -336,6 +336,42 @@ export const deleteAssetMaintenance = async (req: Request, res: Response) => {
 // ─── 2. ASSET TRANSFER ──────────────────────────────────────────────────────
 
 /**
+ * GET /api/assets/transfers/all
+ * Get all transfer records across clinics
+ */
+export const getAllAssetTransfers = async (req: Request, res: Response) => {
+  try {
+    const { status, fromClinicId, toClinicId } = req.query
+    const isAdminView = (req as any).role === 'SUPERADMIN' || (req as any).role === 'ADMIN'
+    const currentClinicId = (req as any).clinicId
+
+    const transfers = await prisma.assetTransfer.findMany({
+      where: {
+        ...(status ? { status: String(status) } : {}),
+        ...(fromClinicId ? { fromClinicId: String(fromClinicId) } : {}),
+        ...(toClinicId ? { toClinicId: String(toClinicId) } : {}),
+        ...(!isAdminView ? { 
+          OR: [
+            { fromClinicId: currentClinicId },
+            { toClinicId: currentClinicId }
+          ]
+        } : {})
+      },
+      orderBy: { transferDate: 'desc' },
+      include: {
+        asset: true,
+        fromClinic: { select: { id: true, name: true, code: true } },
+        toClinic: { select: { id: true, name: true, code: true } }
+      }
+    })
+
+    res.json(transfers)
+  } catch (err: any) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+/**
  * GET /api/assets/:id/transfers
  * Get all transfer records for an asset
  */
@@ -473,16 +509,70 @@ export const approveAssetTransfer = async (req: Request, res: Response) => {
     if (transfer.status !== 'pending') return res.status(400).json({ message: `Transfer sudah ${transfer.status}` })
 
     const result = await prisma.$transaction(async (tx) => {
-      // Update transfer status
+      const asset = transfer.asset
+      const cost = asset.purchasePrice || 0
+      const accDep = asset.totalDepreciated || 0
+      const netBookValue = cost - accDep
+
+      // Resolve Accounts
+      const clearingCoa = await resolveCoa('INTER_BRANCH_CLEARING', '1-1105', transfer.fromClinicId)
+      if (!clearingCoa) throw new Error('Akun Kliring Antar Cabang (1-1105) belum diatur di System Accounts')
+
+      const assetCoaId = asset.coaAssetId
+      const accDepCoaId = asset.coaAccumDepId
+
+      if (!assetCoaId) throw new Error(`Akun Aset untuk ${asset.assetName} belum diatur`)
+
+      // 1. Journal Entry Origin (From Clinic)
+      const journalOrigin = await tx.journalEntry.create({
+        data: {
+          date: transfer.transferDate,
+          description: `Transfer Aset Keluar: ${asset.assetName} (${transfer.transferNo})`,
+          referenceNo: transfer.transferNo,
+          entryType: 'SYSTEM',
+          clinicId: transfer.fromClinicId,
+          details: {
+            create: [
+              { coaId: clearingCoa.id, debit: netBookValue, credit: 0, description: `Inter-Branch Clearing - Transfer ke ${transfer.toClinic.name}` },
+              ...(accDep > 0 && accDepCoaId ? [{ coaId: accDepCoaId, debit: accDep, credit: 0, description: `Pembalikan Akum. Penyusutan Transfer` }] : []),
+              { coaId: assetCoaId, debit: 0, credit: cost, description: `Pelepasan Aset - Transfer ke ${transfer.toClinic.name}` }
+            ]
+          }
+        }
+      })
+
+      // 2. Journal Entry Destination (To Clinic)
+      const journalDest = await tx.journalEntry.create({
+        data: {
+          date: transfer.transferDate,
+          description: `Transfer Aset Masuk: ${asset.assetName} (${transfer.transferNo})`,
+          referenceNo: transfer.transferNo,
+          entryType: 'SYSTEM',
+          clinicId: transfer.toClinicId,
+          details: {
+            create: [
+              { coaId: assetCoaId, debit: cost, credit: 0, description: `Penerimaan Aset - Transfer dari ${transfer.fromClinic.name}` },
+              ...(accDep > 0 && accDepCoaId ? [{ coaId: accDepCoaId, debit: 0, credit: accDep, description: `Akum. Penyusutan Transfer` }] : []),
+              { coaId: clearingCoa.id, debit: 0, credit: netBookValue, description: `Inter-Branch Clearing - Transfer dari ${transfer.fromClinic.name}` }
+            ]
+          }
+        }
+      })
+
+      // 3. Update transfer status and GL links
       const updatedTransfer = await tx.assetTransfer.update({
         where: { id: transferId },
         data: {
           status: 'approved',
-          approvedBy: approvedBy || userId
+          approvedBy: approvedBy || userId,
+          isPosted: true,
+          journalIdOrigin: journalOrigin.id,
+          journalIdDest: journalDest.id,
+          transferValue: netBookValue
         }
       })
 
-      // Update asset clinic and status
+      // 4. Update asset clinic and status
       await tx.asset.update({
         where: { id: transfer.assetId },
         data: {
@@ -492,7 +582,7 @@ export const approveAssetTransfer = async (req: Request, res: Response) => {
         }
       })
 
-      // Create audit log
+      // 5. Create audit log
       await tx.assetAuditLog.create({
         data: {
           assetId: transfer.assetId,
@@ -501,7 +591,7 @@ export const approveAssetTransfer = async (req: Request, res: Response) => {
           oldValue: transfer.fromClinicId,
           newValue: transfer.toClinicId,
           changedBy: userId,
-          notes: `Transfer approved to ${transfer.toClinic.name}`
+          notes: `Transfer approved. Journal IDs: ${journalOrigin.id} & ${journalDest.id}`
         }
       })
 

@@ -1314,16 +1314,24 @@ export const deleteClinic = async (req: Request, res: Response) => {
  * land/building             → 1-2301 Tanah & Bangunan
  */
 async function resolveAssetCOA(assetType: string, clinicId: string) {
-  let coaCode = '1-2201' // default: Inventaris
-  if (assetType === 'equipment' || assetType === 'clinical-device') coaCode = '1-2101'
-  if (assetType === 'land' || assetType === 'building') coaCode = '1-2301'
+  let key = 'ASSET_INVENTORY' // default
+  if (assetType === 'equipment' || assetType === 'clinical-device') key = 'ASSET_EQUIPMENT'
+  if (assetType === 'land' || assetType === 'building') key = 'ASSET_LAND_BUILDING'
 
-  const coa = await prisma.chartOfAccount.findFirst({
-    where: { code: coaCode, OR: [{ clinicId }, { clinicId: null }] }
+  const mapping = await prisma.systemAccount.findFirst({
+    where: { key, OR: [{ clinicId }, { clinicId: null }] },
+    include: { coa: true },
+    orderBy: { clinicId: 'desc' }
   })
-  const accumDep = await prisma.chartOfAccount.findFirst({
-    where: { code: '1-2102', OR: [{ clinicId }, { clinicId: null }] }
+  const coa = mapping?.coa || null
+
+  const depMapping = await prisma.systemAccount.findFirst({
+    where: { key: 'ACCUM_DEP_GENERAL', OR: [{ clinicId }, { clinicId: null }] },
+    include: { coa: true },
+    orderBy: { clinicId: 'desc' }
   })
+  const accumDep = depMapping?.coa || null
+
   return { coa, accumDep }
 }
 
@@ -1418,7 +1426,11 @@ export const createAsset = async (req: Request, res: Response) => {
           totalDepreciated: 0,
           coaAssetId: assetCoa?.id || null,
           coaAccumDepId: accumDepCoa?.id || null,
-          purchaseDate: purchaseDate ? new Date(`${purchaseDate}T00:00:00+07:00`) : new Date(),
+          purchaseDate: (() => {
+            if (!purchaseDate) return new Date()
+            const d = new Date(purchaseDate)
+            return isNaN(d.getTime()) ? new Date() : d
+          })(),
           clinicId,
           masterProductId: req.body.masterProductId || undefined
         } as any,

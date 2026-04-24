@@ -27,6 +27,11 @@ const SYSTEM_KEYS = [
   { key: 'EXPENSE_SALARY', name: 'Beban Gaji Karyawan', desc: 'Beban gaji, bonus, dan tunjangan staf.', category: 'EXPENSE' },
   { key: 'EXPENSE_UTILITY', name: 'Beban Listrik/Air/Internet', desc: 'Beban biaya rutin utilitas bulanan.', category: 'EXPENSE' },
   { key: 'MAINTENANCE_EXPENSE', name: 'Beban Maintenance Alat', desc: 'Akun beban untuk pemeliharaan dan perbaikan aset/alat medis.', category: 'EXPENSE' },
+  { key: 'INTER_BRANCH_CLEARING', name: 'Kliring Antar Cabang', desc: 'Akun perantara untuk transfer aset antar cabang/klinik.', category: 'ASSET' },
+  { key: 'ASSET_EQUIPMENT', name: 'Aset Tetap: Peralatan Medis', desc: 'Akun neraca untuk peralatan medis dan alat klinis.', category: 'ASSET' },
+  { key: 'ASSET_INVENTORY', name: 'Aset Tetap: Inventaris & Furnitur', desc: 'Akun neraca untuk mebel, komputer, dan peralatan kantor.', category: 'ASSET' },
+  { key: 'ASSET_LAND_BUILDING', name: 'Aset Tetap: Tanah & Bangunan', desc: 'Akun neraca untuk tanah dan properti bangunan.', category: 'ASSET' },
+  { key: 'ACCUM_DEP_GENERAL', name: 'Akumulasi Penyusutan (General)', desc: 'Akun kontra-aset untuk menampung akumulasi penyusutan aset tetap.', category: 'ASSET' },
   { key: 'RETAINED_EARNINGS', name: 'Laba Ditahan', desc: 'Akumulasi laba bersih tahun-tahun sebelumnya.', category: 'EQUITY' },
 ]
 

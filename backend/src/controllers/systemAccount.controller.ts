@@ -107,6 +107,11 @@ export const seedSystemAccounts = async (req: Request, res: Response) => {
             { key: 'EXPENSE_SALARY', name: 'Beban Gaji Karyawan' },
             { key: 'EXPENSE_UTILITY', name: 'Beban Listrik, Air & Internet' },
             { key: 'MAINTENANCE_EXPENSE', name: 'Beban Maintenance Alat' },
+            { key: 'INTER_BRANCH_CLEARING', name: 'Kliring Antar Cabang' },
+            { key: 'ASSET_EQUIPMENT', name: 'Aset Tetap: Peralatan Medis' },
+            { key: 'ASSET_INVENTORY', name: 'Aset Tetap: Inventaris & Furnitur' },
+            { key: 'ASSET_LAND_BUILDING', name: 'Aset Tetap: Tanah & Bangunan' },
+            { key: 'ACCUM_DEP_GENERAL', name: 'Akumulasi Penyusutan (General)' },
             { key: 'RETAINED_EARNINGS', name: 'Laba Ditahan' },
         ]
 
