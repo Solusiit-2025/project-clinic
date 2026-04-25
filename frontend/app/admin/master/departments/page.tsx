@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { FiBriefcase, FiAlertCircle, FiChevronRight, FiCornerDownRight } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
@@ -9,8 +9,7 @@ import PageHeader from '@/components/admin/master/PageHeader'
 import MasterModal from '@/components/admin/master/MasterModal'
 import { StatusBadge } from '@/components/admin/master/StatusBadge'
 
-const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
-const EMPTY = { name: '', code: '', description: '', parentId: '', isActive: true, location: '', phone: '', email: '', color: '', icon: '', headId: '', operatingHours: '' }
+const EMPTY = { name: '', code: '', description: '', parentId: '', isActive: true, location: '', phone: '', email: '', color: '', icon: '', headId: '', operatingHours: '', clinicId: '' }
 
 type Dept = { 
   id: string; 
@@ -34,18 +33,18 @@ type Dept = {
 }
 
 export default function DepartmentsPage() {
-  const { token, activeClinicId } = useAuthStore()
+  const { activeClinicId } = useAuthStore()
   const [data, setData] = useState<Dept[]>([])
   const [doctors, setDoctors] = useState<{id: string, name: string, specialization: string}[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [levelFilter, setLevelFilter] = useState('all')
+  const [clinics, setClinics] = useState<{id: string, name: string, code: string}[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Dept | null>(null)
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const headers = { Authorization: `Bearer ${token}` }
 
   const fetch = useCallback(async () => {
     setLoading(true)
@@ -54,19 +53,26 @@ export default function DepartmentsPage() {
       if (search) params.search = search
       if (levelFilter === 'root') params.parentId = 'null'
       
-      const { data } = await axios.get(`${API}/departments`, { headers, params })
+      const { data } = await api.get('/master/departments', { params })
       setData(data)
     } finally { setLoading(false) }
-  }, [search, levelFilter, token, activeClinicId])
+  }, [search, levelFilter, activeClinicId])
 
   const fetchDoctors = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${API}/doctors`, { headers })
+      const { data } = await api.get('/master/doctors')
       setDoctors(data)
     } catch {}
-  }, [token])
+  }, [])
 
-  useEffect(() => { fetch(); fetchDoctors() }, [fetch, fetchDoctors])
+  const fetchClinics = useCallback(async () => {
+    try {
+      const { data } = await api.get('/master/clinics')
+      setClinics(data)
+    } catch {}
+  }, [])
+
+  useEffect(() => { fetch(); fetchDoctors(); fetchClinics() }, [fetch, fetchDoctors, fetchClinics])
 
   const openAdd = () => { setEditing(null); setForm(EMPTY); setError(''); setModalOpen(true) }
   const openEdit = (r: Dept) => { 
@@ -83,7 +89,8 @@ export default function DepartmentsPage() {
       color: r.color || '',
       icon: r.icon || '',
       headId: r.headId || '',
-      operatingHours: typeof r.operatingHours === 'string' ? r.operatingHours : (r.operatingHours ? JSON.stringify(r.operatingHours) : '')
+      operatingHours: typeof r.operatingHours === 'string' ? r.operatingHours : (r.operatingHours ? JSON.stringify(r.operatingHours) : ''),
+      clinicId: r.clinic?.id || ''
     })
     setError(''); 
     setModalOpen(true) 
@@ -96,8 +103,8 @@ export default function DepartmentsPage() {
     setSaving(true); setError('')
     try {
       const payload = { ...form, parentId: form.parentId || null }
-      if (editing) await axios.put(`${API}/departments/${editing.id}`, payload, { headers })
-      else await axios.post(`${API}/departments`, payload, { headers })
+      if (editing) await api.put(`/master/departments/${editing.id}`, payload)
+      else await api.post('/master/departments', payload)
       setModalOpen(false); fetch()
     } catch (e: any) { setError(e.response?.data?.message || 'Terjadi kesalahan') }
     finally { setSaving(false) }
@@ -105,7 +112,7 @@ export default function DepartmentsPage() {
 
   const handleDelete = async (r: Dept) => {
     if (!confirm(`Hapus departemen "${r.name}"?`)) return
-    try { await axios.delete(`${API}/departments/${r.id}`, { headers }); fetch() } catch { }
+    try { await api.delete(`/master/departments/${r.id}`); fetch() } catch { }
   }
 
   const columns: Column<Dept>[] = [
@@ -249,6 +256,21 @@ export default function DepartmentsPage() {
               ))}
             </select>
             <p className="mt-1 text-[10px] text-gray-400 font-medium italic">Kosongkan jika ingin menjadikan ini departemen utama.</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1.5">Penugasan Klinik / Cabang *</label>
+            <select 
+              value={form.clinicId} 
+              onChange={(e) => setForm(p => ({ ...p, clinicId: e.target.value }))}
+              className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary bg-white font-medium shadow-sm transition-all"
+            >
+              <option value="">— Bagikan ke Semua Cabang (Global) —</option>
+              {clinics.map(c => (
+                <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
+              ))}
+            </select>
+            <p className="mt-1 text-[10px] text-gray-400 font-medium italic">Pilih klinik tertentu atau kosongkan agar bisa diakses oleh semua cabang.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

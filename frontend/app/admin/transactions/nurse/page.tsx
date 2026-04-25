@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   FiActivity, FiUsers, FiClock, FiCheckCircle, 
@@ -13,7 +13,6 @@ import { useAuthStore } from '@/lib/store/useAuthStore'
 import MasterModal from '@/components/admin/master/MasterModal'
 import { announceQueue } from '@/lib/utils/speech'
 
-const API = process.env.NEXT_PUBLIC_API_URL + '/api/transactions'
 
 interface Queue {
   id: string
@@ -30,7 +29,7 @@ interface Queue {
 }
 
 export default function NurseStation() {
-  const { token, activeClinicId } = useAuthStore()
+  const { activeClinicId } = useAuthStore()
   const [queues, setQueues] = useState<Queue[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
@@ -54,13 +53,11 @@ export default function NurseStation() {
   const [toast, setToast] = useState<{ queueNo: string; name: string } | null>(null)
   const [filterDoctorId, setFilterDoctorId] = useState<string>('all')
 
-  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
 
   const fetchQueues = useCallback(async () => {
-    if (!token || !activeClinicId) return
+    if (!activeClinicId) return
     try {
-      const { data } = await axios.get(`${API}/queues`, { 
-        headers, 
+      const { data } = await api.get('/transactions/queues', { 
         params: { clinicId: activeClinicId } 
       })
       // Only show patients waiting for triage (waiting, called, active triage, OR already ready but not yet ongoing)
@@ -70,7 +67,7 @@ export default function NurseStation() {
     } finally {
       setLoading(false)
     }
-  }, [token, activeClinicId, headers])
+  }, [activeClinicId])
 
   useEffect(() => {
     fetchQueues()
@@ -81,7 +78,7 @@ export default function NurseStation() {
   const handleCallPatient = async (q: Queue) => {
     try {
       // Always notify backend to increment callCounter (triggers Monitor Voice/Overlay)
-      await axios.patch(`${API}/queues/${q.id}/status`, { status: 'called' }, { headers })
+      await api.patch(`/transactions/queues/${q.id}/status`, { status: 'called' })
       fetchQueues()
       
       // Trigger Toast
@@ -119,7 +116,7 @@ export default function NurseStation() {
     // If status is 'ready' or data exists, fetch existing data to edit
     if ((q.status === 'ready' || q.hasMedicalRecord) && q.registrationId) {
       try {
-        const { data } = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/transactions/medical-records/registration/${q.registrationId}`, { headers })
+        const { data } = await api.get(`/transactions/medical-records/registration/${q.registrationId}`)
         if (data) {
           const v = data.vitals?.[0] || {}
           setForm({
@@ -147,7 +144,7 @@ export default function NurseStation() {
     // Set status to 'triage' when opening the modal so the dashboard knows they are with the nurse
     if (q.status !== 'ready' && q.status !== 'triage') {
         try {
-            await axios.patch(`${API}/queues/${q.id}/status`, { status: 'triage' }, { headers })
+            await api.patch(`/transactions/queues/${q.id}/status`, { status: 'triage' })
             fetchQueues()
         } catch (err) {
             console.error('Failed to update status to triage', err)
@@ -161,7 +158,7 @@ export default function NurseStation() {
     if (!selectedQueue) return
     setSaving(true)
     try {
-      await axios.post(`${API}/medical-records/nurse`, {
+      await api.post('/transactions/medical-records/nurse', {
         queueId: selectedQueue.id,
         patientId: selectedQueue.patientId,
         clinicId: selectedQueue.clinicId,
@@ -169,7 +166,7 @@ export default function NurseStation() {
         doctorId: selectedQueue.doctorId,
         chiefComplaint: form.chiefComplaint,
         vitals: form.vitals
-      }, { headers })
+      })
       
       setModalOpen(false)
       fetchQueues()

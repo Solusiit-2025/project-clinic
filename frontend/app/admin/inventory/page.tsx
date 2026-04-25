@@ -86,32 +86,32 @@ export default function InventoryDashboard() {
   }, 0)
 
   return (
-    <div className="p-6 w-full mx-auto min-h-screen">
+    <div className="p-4 w-full mx-auto min-h-screen">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
-            <div className="p-2.5 bg-primary/10 rounded-2xl">
-              <Package className="w-8 h-8 text-primary" />
+          <h1 className="text-lg font-black text-gray-900 tracking-tight flex items-center gap-2 uppercase">
+            <div className="p-2 bg-primary/10 rounded-xl">
+              <Package className="w-5 h-5 text-primary" />
             </div>
             Stok & Inventaris
           </h1>
-          <p className="text-gray-500 font-medium mt-1">Pantau ketersediaan obat dan aset di cabang ini.</p>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Ketersediaan obat dan aset cabang.</p>
         </div>
         
-        <div className="flex items-center gap-3">
-          <div className="bg-white border border-gray-100 rounded-2xl px-6 py-2.5 flex flex-col items-end shadow-sm">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Nilai Aset</span>
-            <span className="text-xl font-black text-primary">Rp {(totalAssetValue || 0).toLocaleString('id-ID')}</span>
+        <div className="flex items-center gap-2">
+          <div className="bg-white border border-gray-100 rounded-xl px-4 py-1.5 flex flex-col items-end shadow-sm">
+            <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Total Nilai Aset</span>
+            <span className="text-sm font-black text-primary leading-none">Rp {(totalAssetValue || 0).toLocaleString('id-ID')}</span>
           </div>
           <button 
             onClick={fetchStocks}
-            className="p-2.5 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 transition-all text-gray-600 active:scale-95"
+            className="p-2 bg-white border border-gray-100 rounded-lg hover:bg-gray-50 transition-all text-gray-400 active:scale-95"
           >
-            <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
-          <button className="px-5 py-2.5 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center gap-2 active:scale-95">
-            Laporan Stok
+          <button className="px-4 py-2 bg-primary text-white font-black rounded-lg shadow-lg shadow-primary/20 hover:shadow-xl transition-all text-[10px] uppercase tracking-widest flex items-center gap-2 active:scale-95">
+            Laporan
           </button>
         </div>
       </div>
@@ -120,37 +120,25 @@ export default function InventoryDashboard() {
       <AnimatePresence>
         {lowStockItems.length > 0 && (
           <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="mb-8"
+            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+            className="mb-6"
           >
-            <div className="bg-gradient-to-r from-red-500 to-orange-500 p-1 rounded-3xl overflow-hidden group shadow-xl shadow-red-200">
-              <div className="bg-white/95 backdrop-blur-md rounded-[calc(1.5rem-1px)] p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-red-100 rounded-lg">
-                    <ShieldAlert className="w-5 h-5 text-red-600 animate-pulse" />
-                  </div>
-                  <h2 className="text-lg font-black text-red-900 uppercase tracking-tight">Kritis: Peringatan Stok Rendah</h2>
+            <div className="bg-white border-l-4 border-l-red-500 border border-gray-100 rounded-xl overflow-hidden shadow-sm">
+              <div className="p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <ShieldAlert className="w-4 h-4 text-red-500" />
+                  <h2 className="text-[10px] font-black text-red-900 uppercase tracking-[0.2em]">Peringatan Stok Rendah</h2>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {lowStockItems.slice(0, 3).map((item) => (
-                    <div key={item.id} className="flex items-center gap-4 p-4 rounded-2xl bg-red-50/50 border border-red-100">
-                      <div className="flex-1">
-                        <p className="text-sm font-black text-gray-900 truncate">{item.product?.productName || 'Unknown'}</p>
-                        <p className="text-xs font-bold text-red-600">Sisa: {item.onHandQty || 0} unit (Min: {item.minStockAlert || 0})</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+                  {lowStockItems.slice(0, 4).map((item) => (
+                    <div key={item.id} className="flex items-center gap-3 p-2 rounded-lg bg-red-50/50 border border-red-100">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-black text-gray-900 truncate uppercase">{item.product?.productName || 'Unknown'}</p>
+                        <p className="text-[9px] font-bold text-red-600 uppercase tracking-tighter">Sisa: {item.onHandQty} / Min: {item.minStockAlert}</p>
                       </div>
-                      <button className="px-3 py-1.5 bg-red-100 text-red-700 text-[10px] font-black rounded-lg hover:bg-red-200 transition-colors uppercase">
-                        Order
-                      </button>
                     </div>
                   ))}
-                  {lowStockItems.length > 3 && (
-                    <div className="flex items-center justify-center p-4 rounded-2xl border-2 border-dashed border-red-200 text-red-600 font-bold text-sm cursor-pointer hover:bg-red-50 transition-colors">
-                      +{lowStockItems.length - 3} Item Lainnya
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -159,34 +147,34 @@ export default function InventoryDashboard() {
       </AnimatePresence>
 
       {/* Filtering & Search */}
-      <div className="flex flex-col xl:flex-row gap-4 mb-6">
+      <div className="flex flex-col xl:flex-row gap-2 mb-4">
         <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input 
             type="text" 
-            placeholder="Cari nama obat, kode, atau batch..."
+            placeholder="Cari item..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 bg-white border border-gray-100 rounded-2xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all font-medium text-gray-700 shadow-sm"
+            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-100 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm font-bold text-gray-700 shadow-sm"
           />
         </div>
         
-        <div className="flex items-center gap-2 p-1 bg-white border border-gray-100 rounded-2xl shadow-sm self-start">
+        <div className="flex items-center p-1 bg-white border border-gray-100 rounded-xl shadow-sm self-start">
           <button 
             onClick={() => setFilterType('all')}
-            className={`px-6 py-2 rounded-xl text-sm font-black transition-all ${filterType === 'all' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'text-gray-400 hover:text-gray-700'}`}
+            className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${filterType === 'all' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'text-gray-400'}`}
           >
             SEMUA
           </button>
           <button 
             onClick={() => setFilterType('medicine')}
-            className={`px-6 py-2 rounded-xl text-sm font-black transition-all ${filterType === 'medicine' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-gray-400 hover:text-gray-700'}`}
+            className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${filterType === 'medicine' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-gray-400'}`}
           >
             OBAT
           </button>
           <button 
             onClick={() => setFilterType('asset')}
-            className={`px-6 py-2 rounded-xl text-sm font-black transition-all ${filterType === 'asset' ? 'bg-blue-600 text-white shadow-md shadow-blue-200' : 'text-gray-400 hover:text-gray-700'}`}
+            className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${filterType === 'asset' ? 'bg-blue-600 text-white shadow-md shadow-blue-200' : 'text-gray-400'}`}
           >
             ASET
           </button>
@@ -194,20 +182,20 @@ export default function InventoryDashboard() {
       </div>
 
       {/* Main Table Container */}
-      <div className="bg-white rounded-[32px] border border-gray-100 shadow-xl shadow-gray-200/50 overflow-hidden ring-1 ring-gray-100">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto text-[11px]">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50/50">
-                <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Item / Batch</th>
-                <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Tipe</th>
-                <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Stok Fisik</th>
-                <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Proses (Apotek)</th>
-                <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Tersedia</th>
-                <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Harga Beli</th>
-                <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Total Nilai</th>
-                <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Status</th>
-                <th className="px-6 py-5"></th>
+              <tr className="bg-gray-50/50 border-b border-gray-100">
+                <th className="px-4 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-[8px]">Item / Batch</th>
+                <th className="px-3 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-[8px]">Tipe</th>
+                <th className="px-3 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-[8px]">Fisik</th>
+                <th className="px-3 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-[8px]">Proses</th>
+                <th className="px-3 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-[8px]">Avail</th>
+                <th className="px-3 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-[8px]">Beli</th>
+                <th className="px-3 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-[8px]">Total</th>
+                <th className="px-3 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-[8px]">Status</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -238,25 +226,23 @@ export default function InventoryDashboard() {
                   
                   return (
                     <motion.tr 
-                      layout
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
+                      layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                       key={stock.id} 
-                      className="hover:bg-gray-50/50 transition-colors group"
+                      className="hover:bg-gray-50/50 transition-colors group border-b border-gray-50"
                     >
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black ${stock.product?.isMedicine ? 'bg-indigo-50 text-indigo-600' : 'bg-blue-50 text-blue-600'}`}>
+                      <td className="px-4 py-2">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black ${stock.product?.isMedicine ? 'bg-indigo-50 text-indigo-600' : 'bg-blue-50 text-blue-600'}`}>
                             {stock.product?.productName?.[0] || '?'}
                           </div>
                           <div>
-                            <p className="font-black text-gray-900 leading-none">{stock.product?.productName || 'Unknown Product'}</p>
-                            <div className="flex items-center gap-2 mt-1.5">
-                              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-100 px-1.5 py-0.5 rounded">
+                            <p className="font-bold text-gray-900 leading-tight text-[11px] uppercase">{stock.product?.productName || 'Unknown Product'}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[8px] font-black text-gray-400 uppercase tracking-tighter bg-gray-100 px-1 py-0.5 rounded leading-none">
                                 {stock.product?.productCode || 'N/A'}
                               </span>
                               {stock.batch && (
-                                <span className="text-[10px] font-black text-primary uppercase tracking-widest">
+                                <span className="text-[8px] font-black text-primary uppercase tracking-tighter leading-none">
                                   BN: {stock.batch.batchNumber}
                                 </span>
                               )}
@@ -264,71 +250,55 @@ export default function InventoryDashboard() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-5">
-                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${stock.product?.isMedicine ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700'}`}>
+                      <td className="px-3 py-2">
+                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter ${stock.product?.isMedicine ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700'}`}>
                           {stock.product?.isMedicine ? 'Obat' : 'Aset'}
                         </div>
                       </td>
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-lg font-black ${isLow ? 'text-red-600' : 'text-gray-900'}`}>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1">
+                          <span className={`text-[11px] font-black ${isLow ? 'text-red-600' : 'text-gray-900'}`}>
                             {onHand}
                           </span>
-                          <span className="text-xs font-bold text-gray-400 uppercase">Unit</span>
+                          <span className="text-[8px] font-bold text-gray-300 uppercase">u</span>
                         </div>
                       </td>
-                      <td className="px-6 py-5 text-center">
-                        <div className="flex flex-col items-center">
-                          <span className={`text-lg font-black ${reserved > 0 ? 'text-orange-600' : 'text-gray-400'}`}>
-                            {reserved}
-                          </span>
-                        </div>
+                      <td className="px-3 py-2 text-center text-[11px] font-bold text-orange-600/50">
+                        {reserved}
                       </td>
-                      <td className="px-6 py-5">
-                        <div className="flex flex-col">
-                          <span className={`text-xl font-black ${available <= 0 ? 'text-red-500' : 'text-primary'}`}>
-                            {available}
-                          </span>
-                        </div>
+                      <td className="px-3 py-2">
+                        <span className={`text-[11px] font-black ${available <= 0 ? 'text-red-500' : 'text-primary'}`}>
+                          {available}
+                        </span>
                       </td>
-                      <td className="px-6 py-5">
-                        <div className="flex flex-col">
-                           <span className="text-xs font-black text-gray-400 uppercase tracking-widest mb-0.5">Satuan</span>
-                           <span className="font-black text-gray-900 leading-none">Rp {price.toLocaleString('id-ID')}</span>
-                        </div>
+                      <td className="px-3 py-2">
+                        <span className="text-gray-900 font-bold leading-none">Rp {price.toLocaleString('id-ID')}</span>
                       </td>
-                      <td className="px-6 py-5">
-                        <div className="flex flex-col">
-                           <span className="text-xs font-black text-gray-400 uppercase tracking-widest mb-0.5">Value</span>
-                           <span className="font-black text-primary leading-none text-lg">Rp {(onHand * price).toLocaleString('id-ID')}</span>
-                        </div>
+                      <td className="px-3 py-2">
+                        <span className="font-bold text-primary leading-none text-[11px]">Rp {(onHand * price).toLocaleString('id-ID')}</span>
                       </td>
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-2">
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1">
                           {isLow ? (
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-xl border border-red-100">
-                               <AlertTriangle className="w-3.5 h-3.5" />
-                               <span className="text-[10px] font-black uppercase tracking-tight">Kritis</span>
+                            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-red-50 text-red-600 rounded-md border border-red-100">
+                               <AlertTriangle className="w-2.5 h-2.5" />
+                               <span className="text-[8px] font-black uppercase tracking-tighter leading-none">Kritis</span>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-600 rounded-xl border border-green-100">
-                               <ShieldAlert className="w-3.5 h-3.5" />
-                               <span className="text-[10px] font-black uppercase tracking-tight">Aman</span>
+                            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded-md border border-emerald-100">
+                               <span className="text-[8px] font-black uppercase tracking-tighter leading-none">Aman</span>
                             </div>
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-5 text-right">
-                        <div className="flex justify-end gap-2 text-right">
-                          <button 
-                            onClick={() => openMutationHistory(stock)}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-gray-50 hover:bg-primary/5 text-gray-400 hover:text-primary rounded-xl border border-transparent hover:border-primary/10 transition-all active:scale-95 group/btn shadow-sm"
-                            title="Lihat Histori Mutasi"
-                          >
-                            <History className="w-4 h-4" />
-                            <span className="text-[10px] font-black uppercase tracking-tight">Histori</span>
-                          </button>
-                        </div>
+                      <td className="px-4 py-2 text-right">
+                        <button 
+                          onClick={() => openMutationHistory(stock)}
+                          className="p-1.5 text-gray-300 hover:text-primary transition-colors active:scale-95"
+                          title="Histori"
+                        >
+                          <History className="w-3.5 h-3.5" />
+                        </button>
                       </td>
                     </motion.tr>
                   )

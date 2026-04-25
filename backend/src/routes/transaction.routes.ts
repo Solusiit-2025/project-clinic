@@ -12,6 +12,14 @@ import {
   getMedicalRecordByRegistration,
   getMedicalRecordsByPatient
 } from '../controllers/medicalRecord.controller'
+import {
+  getAppointments,
+  createAppointment,
+  updateAppointmentStatus,
+  updateAppointment,
+  checkInAppointment,
+  deleteAppointment
+} from '../controllers/appointment.controller'
 
 const router = Router()
 
@@ -23,6 +31,14 @@ router.post('/registrations', createRegistration)
 router.get('/queues', getQueues)
 router.get('/queues/:id', getQueueById)
 router.patch('/queues/:id/status', updateQueueStatus)
+
+// Appointments
+router.get('/appointments', getAppointments)
+router.post('/appointments', createAppointment)
+router.patch('/appointments/:id/status', updateAppointmentStatus)
+router.put('/appointments/:id', updateAppointment)
+router.post('/appointments/:id/check-in', checkInAppointment)
+router.delete('/appointments/:id', deleteAppointment)
 
 // Pemeriksaan Medis (2 Tahapan)
 router.post('/medical-records/nurse', saveNurseVitals)

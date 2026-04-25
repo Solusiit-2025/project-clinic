@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import axios from 'axios'
@@ -17,11 +17,23 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [sessionMessage, setSessionMessage] = useState('')
+
+  // Read logout reason set by api.ts forceLogout()
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const reason = sessionStorage.getItem('logout_reason')
+      if (reason) {
+        setSessionMessage(reason)
+        sessionStorage.removeItem('logout_reason')
+      }
+    }
+  }, [])
   
   // Selection states
   const [step, setStep] = useState<Step>('login')
   const [userData, setUserData] = useState<any>(null)
-  const [token, setToken] = useState<string | null>(null)
+  // No token state — token lives in HttpOnly cookie set by backend
   
   const router = useRouter()
   const { setAuth } = useAuthStore()
@@ -36,21 +48,22 @@ export default function LoginPage() {
       const response = await axios.post(`${apiBase}/api/auth/login`, {
         email,
         password
+      }, {
+        withCredentials: true, // Allow browser to receive and store the HttpOnly cookie
       })
 
-      const { user, token: authToken } = response.data
-      
+      // Backend returns { user } only — token is in the HttpOnly cookie
+      const { user } = response.data
+
       if (!user.clinics || user.clinics.length === 0) {
         throw new Error('Akun Anda tidak memiliki akses ke cabang manapun. Silakan hubungi Administrator.')
       }
 
       if (user.clinics.length > 1) {
         setUserData(user)
-        setToken(authToken)
         setStep('select-clinic')
       } else {
-        // Direct login
-        handleFinalLogin(user, authToken, user.clinics[0].id)
+        handleFinalLogin(user, user.clinics[0].id)
       }
     } catch (err: any) {
       setError(err.response?.data?.message || err.message || 'Gagal login. Periksa kembali email dan password Anda.')
@@ -59,8 +72,9 @@ export default function LoginPage() {
     }
   }
 
-  const handleFinalLogin = (user: any, authToken: string, clinicId: string) => {
-    setAuth(user, authToken, clinicId)
+  const handleFinalLogin = (user: any, clinicId: string) => {
+    // Token is already in HttpOnly cookie — just save user state
+    setAuth(user, clinicId)
     
     // Redirect based on role
     if (user.role === 'DOCTOR') {
@@ -116,6 +130,14 @@ export default function LoginPage() {
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Selamat Datang</h1>
                 <p className="text-gray-500 font-medium tracking-tight">Masuk ke pengelolaan Klinik Yasfina</p>
               </div>
+
+              {/* Session expired message */}
+              {sessionMessage && (
+                <div className="mb-4 p-3.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-3">
+                  <div className="w-4 h-4 bg-amber-400 rounded-full flex-shrink-0" />
+                  <p className="text-amber-700 text-xs font-semibold">{sessionMessage}</p>
+                </div>
+              )}
 
               {/* Error message */}
               {error && (
@@ -222,7 +244,7 @@ export default function LoginPage() {
                 {userData?.clinics.map((clinic: any) => (
                   <button
                     key={clinic.id}
-                    onClick={() => handleFinalLogin(userData, token!, clinic.id)}
+                    onClick={() => handleFinalLogin(userData, clinic.id)}
                     className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-gray-50 hover:border-primary/30 hover:bg-primary/5 transition-all group text-left"
                   >
                     <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">

@@ -9,6 +9,7 @@ interface Clinic {
   name: string
   code: string
   address?: string
+  isMain?: boolean
 }
 
 interface User {
@@ -23,63 +24,58 @@ interface User {
 
 interface AuthState {
   user: User | null
-  token: string | null
   activeClinicId: string | null
   isAuthenticated: boolean
-  setAuth: (user: User, token: string, clinicId?: string) => void
+  sessionExpiredMessage: string | null
+  // Token lives in HttpOnly cookie — never stored in JS
+  setAuth: (user: User, clinicId?: string) => void
   setActiveClinicId: (id: string) => void
-  logout: () => void
+  logout: () => Promise<void>
   checkAuth: () => Promise<void>
+  clearSessionMessage: () => void
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
-      token: null,
       activeClinicId: null,
       isAuthenticated: false,
+      sessionExpiredMessage: null,
 
-      setAuth: (user, token, clinicId) => {
-        const activeId = clinicId || (user.clinics && user.clinics.length > 0 ? user.clinics[0].id : null)
-        
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('token', token)
-          if (activeId) localStorage.setItem('activeClinicId', activeId)
+      setAuth: (user, clinicId) => {
+        const activeId = clinicId || user.clinics?.[0]?.id || null
+        if (typeof window !== 'undefined' && activeId) {
+          localStorage.setItem('activeClinicId', activeId)
         }
-
-        set({ user, token, isAuthenticated: true, activeClinicId: activeId })
+        set({ user, isAuthenticated: true, activeClinicId: activeId, sessionExpiredMessage: null })
       },
 
       setActiveClinicId: (id) => {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('activeClinicId', id)
-        }
+        if (typeof window !== 'undefined') localStorage.setItem('activeClinicId', id)
         set({ activeClinicId: id })
       },
 
-      logout: () => {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('token')
-          localStorage.removeItem('activeClinicId')
+      logout: async () => {
+        try {
+          // Backend clears BOTH auth_token and refresh_token cookies
+          await api.post('auth/logout')
+        } catch {
+          // Proceed even if network fails
+        } finally {
+          _clearLocalState()
+          set({ user: null, activeClinicId: null, isAuthenticated: false, sessionExpiredMessage: null })
+          window.location.href = '/login'
         }
-        set({ user: null, token: null, activeClinicId: null, isAuthenticated: false })
-        window.location.href = '/login'
       },
 
       checkAuth: async () => {
-        const { token, activeClinicId } = get()
-        if (!token) {
-          set({ isAuthenticated: false, user: null })
-          return
-        }
-
         try {
           const response = await api.get('auth/me')
           const userData = response.data
-          
-          let currentActiveId = activeClinicId
-          if (!currentActiveId && userData.clinics && userData.clinics.length > 0) {
+
+          let currentActiveId = get().activeClinicId
+          if (!currentActiveId && userData.clinics?.length > 0) {
             currentActiveId = userData.clinics[0].id
             if (typeof window !== 'undefined' && currentActiveId) {
               localStorage.setItem('activeClinicId', currentActiveId)
@@ -87,17 +83,30 @@ export const useAuthStore = create<AuthState>()(
           }
 
           set({ user: userData, activeClinicId: currentActiveId, isAuthenticated: true })
-        } catch (error) {
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('token')
-            localStorage.removeItem('activeClinicId')
-          }
-          set({ user: null, token: null, activeClinicId: null, isAuthenticated: false })
+        } catch {
+          // Cookie expired or invalid — clear state but don't redirect here
+          // (api.ts interceptor handles redirect for non-login pages)
+          _clearLocalState()
+          set({ user: null, activeClinicId: null, isAuthenticated: false })
         }
       },
+
+      clearSessionMessage: () => set({ sessionExpiredMessage: null }),
     }),
     {
       name: 'auth-storage',
+      // Only persist non-sensitive UI state — token is in HttpOnly cookie
+      partialize: (state) => ({
+        user: state.user,
+        activeClinicId: state.activeClinicId,
+        isAuthenticated: state.isAuthenticated,
+      }),
     }
   )
 )
+
+function _clearLocalState() {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem('activeClinicId')
+  localStorage.removeItem('token') // clean up any legacy token
+}

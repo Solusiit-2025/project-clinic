@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { 
   FiBox, FiTrendingDown, FiDollarSign, FiActivity, 
   FiCalendar, FiPieChart, FiBarChart2, FiArrowRight 
@@ -44,7 +44,7 @@ type SummaryData = {
 }
 
 export default function AssetRegisterPage() {
-  const { token, activeClinicId } = useAuthStore()
+  const { activeClinicId } = useAuthStore()
   const [data, setData] = useState<AssetRegister[]>([])
   const [totals, setTotals] = useState<SummaryData>({
     count: 0,
@@ -58,7 +58,6 @@ export default function AssetRegisterPage() {
   const [clinics, setClinics] = useState<any[]>([])
   const [filterClinic, setFilterClinic] = useState('')
 
-  const headers = { Authorization: `Bearer ${token}` }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -67,7 +66,9 @@ export default function AssetRegisterPage() {
       if (filterType) params.assetType = filterType
       if (filterClinic) params.clinicId = filterClinic
       
-      const { data: resData } = await axios.get(`${API}/assets/register`, { headers, params })
+      const { data: resData } = await api.get('/master/assets/register', { 
+        params: { ...params, _t: Date.now() } 
+      })
       setData(resData.assets || [])
       setTotals(resData.totals || { count: 0, grandTotalCost: 0, grandTotalDepreciated: 0, grandTotalBookValue: 0 })
     } catch (e) {
@@ -75,14 +76,14 @@ export default function AssetRegisterPage() {
     } finally {
       setLoading(false)
     }
-  }, [token, filterType, filterClinic])
+  }, [filterType, filterClinic])
 
   const fetchClinics = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${API}/clinics`, { headers })
+      const { data } = await api.get('/master/clinics')
       setClinics(data)
     } catch (e) { console.error('Failed to fetch clinics', e) }
-  }, [token])
+  }, [])
 
   useEffect(() => {
     fetchData()

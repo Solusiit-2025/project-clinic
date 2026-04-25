@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import { prisma } from './lib/prisma';
 import path from 'path';
@@ -19,6 +20,7 @@ import pharmacyRoutes from './routes/pharmacy.routes';
 import inventoryRoutes from './routes/inventory.routes';
 import accountingRoutes from './routes/accounting.routes'
 import inventoryLedgerRoutes from './routes/inventoryLedger.routes';
+import dashboardRoutes from './routes/dashboard.routes';
 
 // Load environment variables
 dotenv.config();
@@ -55,7 +57,14 @@ io.on('connection', (socket) => {
 });
 
 // Middleware
-app.use(cors());
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3004'
+app.use(cors({
+  origin: [FRONTEND_URL, 'http://localhost:3000', 'http://127.0.0.1:3004'],
+  credentials: true, // Required for cookies to be sent cross-origin
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-clinic-id'],
+}));
+app.use(cookieParser());
 app.use(express.json());
 
 // Request logger
@@ -85,6 +94,7 @@ app.use('/api/pharmacy', pharmacyRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/accounting', accountingRoutes)
 app.use('/api/inventory-ledger', inventoryLedgerRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

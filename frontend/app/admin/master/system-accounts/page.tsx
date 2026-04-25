@@ -1,15 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { FiCpu, FiAlertCircle, FiCheckCircle, FiLink, FiSave, FiSettings, FiBriefcase } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import PageHeader from '@/components/admin/master/PageHeader'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004'
-const API_SYSTEM = API_BASE + '/api/master/system-accounts'
-const API_COA = API_BASE + '/api/master/coa'
 
 const SYSTEM_KEYS = [
   { key: 'ACCOUNTS_RECEIVABLE', name: 'Piutang Usaha (AR)', desc: 'Hak tagih invoice penjualan kepada pelanggan.', category: 'ASSET' },
@@ -36,7 +33,6 @@ const SYSTEM_KEYS = [
 ]
 
 export default function SystemAccountsPage() {
-  const { token } = useAuthStore()
   const [mappings, setMappings] = useState<any[]>([])
   const [coaList, setCoaList] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,17 +40,15 @@ export default function SystemAccountsPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
-  const headers = { Authorization: `Bearer ${token}` }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       const [sysRes, coaRes] = await Promise.all([
-        axios.get(API_SYSTEM, { headers }),
-        axios.get(API_COA, { headers })
+        api.get('/master/system-accounts'),
+        api.get('/master/coa')
       ])
       setMappings(sysRes.data)
-      // Only DETAIL accounts are usable for transactions
       setCoaList(coaRes.data.filter((a: any) => a.accountType === 'DETAIL'))
     } catch (err: any) {
       console.error('Failed to fetch data:', err)
@@ -62,7 +56,7 @@ export default function SystemAccountsPage() {
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [])
 
   useEffect(() => {
     fetchData()
@@ -76,7 +70,7 @@ export default function SystemAccountsPage() {
     setSuccess('')
     
     try {
-      await axios.post(API_SYSTEM, { key, coaId, name }, { headers })
+      await api.post('/master/system-accounts', { key, coaId, name })
       setSuccess(`Berhasil memperbarui pemetaan untuk ${key}`)
       fetchData()
       setTimeout(() => setSuccess(''), 3000)
@@ -108,7 +102,7 @@ export default function SystemAccountsPage() {
           onClick={async () => {
             if (confirm('Sinkronisasi kunci akun sistem default?')) {
               try {
-                await axios.post(`${API_SYSTEM}/seed`, {}, { headers })
+                await api.post('/master/system-accounts/seed', {})
                 fetchData()
                 setSuccess('Kunci akun sistem berhasil disinkronkan.')
               } catch (e) {

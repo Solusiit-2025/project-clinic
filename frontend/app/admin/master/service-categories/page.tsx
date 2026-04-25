@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { FiTag, FiAlertCircle } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
@@ -17,7 +17,6 @@ type ServiceCategory = {
 }
 
 export default function ServiceCategoriesPage() {
-  const token = useAuthStore(state => state.token)
   const activeClinicId = useAuthStore(state => state.activeClinicId)
   const [data, setData] = useState<ServiceCategory[]>([])
   const [loading, setLoading] = useState(true)
@@ -27,15 +26,14 @@ export default function ServiceCategoriesPage() {
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const { data } = await axios.get(`${API}/service-categories`, { headers, params: search ? { search } : {} })
+      const { data } = await api.get('/master/service-categories', { params: search ? { search } : {} })
       setData(data)
     } finally { setLoading(false) }
-  }, [search, token, activeClinicId])
+  }, [search, activeClinicId])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -50,8 +48,8 @@ export default function ServiceCategoriesPage() {
     if (!form.categoryName) { setError('Nama kategori wajib diisi'); return }
     setSaving(true); setError('')
     try {
-      if (editing) await axios.put(`${API}/service-categories/${editing.id}`, form, { headers })
-      else await axios.post(`${API}/service-categories`, form, { headers })
+      if (editing) await api.put(`/master/service-categories/${editing.id}`, form)
+      else await api.post('/master/service-categories', form)
       setModalOpen(false); fetchData()
     } catch (e: any) { setError(e.response?.data?.message || 'Terjadi kesalahan') }
     finally { setSaving(false) }
@@ -59,7 +57,7 @@ export default function ServiceCategoriesPage() {
 
   const handleDelete = async (r: ServiceCategory) => {
     if (!confirm(`Hapus kategori "${r.categoryName}"?`)) return
-    try { await axios.delete(`${API}/service-categories/${r.id}`, { headers }); fetchData() } catch { }
+    try { await api.delete(`/master/service-categories/${r.id}`); fetchData() } catch { }
   }
 
   const columns: Column<ServiceCategory>[] = [

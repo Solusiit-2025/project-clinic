@@ -69,7 +69,7 @@ type ProductInventory = {
 }
 
 export default function ProductsPage() {
-  const { token, activeClinicId, user } = useAuthStore()
+  const { activeClinicId, user } = useAuthStore()
   const [data, setData] = useState<ProductInventory[]>([])
   const [categories, setCategories] = useState<ProductCategory[]>([])
   const [masters, setMasters] = useState<ProductMaster[]>([])
@@ -92,7 +92,7 @@ export default function ProductsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   
-  const isPusat = user?.clinics?.some(c => c.clinic?.isMain) || user?.role === 'SUPER_ADMIN'
+  const isPusat = user?.clinics?.some(c => c.isMain) || user?.role === 'SUPER_ADMIN'
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -232,12 +232,12 @@ export default function ProductsPage() {
       }
 
       if (editing) {
-        await axios.put(`${API}/products/${editing.id}`, formData, { 
-          headers: { ...headers, 'Content-Type': 'multipart/form-data' } 
+        await api.put(`/master/products/${editing.id}`, formData, { 
+          headers: { 'Content-Type': 'multipart/form-data' } 
         })
       } else {
-        await axios.post(`${API}/products`, formData, { 
-          headers: { ...headers, 'Content-Type': 'multipart/form-data' } 
+        await api.post('/master/products', formData, { 
+          headers: { 'Content-Type': 'multipart/form-data' } 
         })
       }
 
@@ -257,7 +257,7 @@ export default function ProductsPage() {
     setDeleteModalOpen(false)
     setIsDeleting(true)
     try { 
-      await axios.delete(`${API}/products/${itemToDelete.id}`, { headers })
+      await api.delete(`/master/products/${itemToDelete.id}`)
       fetchData() 
       toast.success('Master produk berhasil dihapus')
     } catch (e: any) {

@@ -103,13 +103,13 @@ export default function DataTable<T extends Record<string, any>>({
         <div className="flex flex-col sm:flex-row gap-3 p-4 sm:p-5 border-b border-gray-100 bg-gray-50/60">
           {onSearchChange && (
             <div className="relative flex-1">
-              <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
               <input
                 type="text"
                 value={searchValue}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-medium placeholder:text-gray-400"
+                className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-gray-100 rounded-lg focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/5 transition-all font-bold placeholder:text-gray-300"
               />
             </div>
           )}
@@ -127,19 +127,19 @@ export default function DataTable<T extends Record<string, any>>({
 
       {/* Table — desktop */}
       <div className="hidden md:block overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50/40">
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider ${col.className || ''}`}
+                  className={`px-3 py-2 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest ${col.className || ''}`}
                 >
                   {col.label}
                 </th>
               ))}
               {(onView || onEdit || onDuplicate || onDelete) && (
-                <th className="px-4 py-3 text-right text-xs font-bold text-gray-400 uppercase tracking-wider w-24">Aksi</th>
+                <th className="px-3 py-2 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest w-20">OPSI</th>
               )}
             </tr>
           </thead>
@@ -201,48 +201,48 @@ export default function DataTable<T extends Record<string, any>>({
                         {columns.map((col) => (
                           <td
                             key={col.key}
-                            className={`px-4 py-3.5 text-gray-700 font-medium ${col.className || ''}`}
+                            className={`px-3 py-1.5 text-gray-900 font-bold ${col.className || ''}`}
                           >
-                            {col.render ? col.render(row) : (row[col.key] ?? <span className="text-gray-300">—</span>)}
+                            {col.render ? col.render(row) : (row[col.key] ?? <span className="text-gray-200">—</span>)}
                           </td>
                         ))}
                         {(onView || onEdit || onDuplicate || onDelete) && (
-                          <td className="px-4 py-3.5">
-                            <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <td className="px-3 py-1.5">
+                            <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               {onDuplicate && (
                                 <button
                                   onClick={() => onDuplicate(row)}
-                                  className="p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-all"
+                                  className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-all"
                                   title="Salin/Duplikat"
                                 >
-                                  <FiCopy className="w-3.5 h-3.5" />
+                                  <FiCopy className="w-3 h-3" />
                                 </button>
                               )}
                               {onView && (
                                 <button
                                   onClick={() => onView(row)}
-                                  className="p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-all"
+                                  className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-all"
                                   title="Lihat Profil"
                                 >
-                                  <FiEye className="w-3.5 h-3.5" />
+                                  <FiEye className="w-3 h-3" />
                                 </button>
                               )}
                               {onEdit && (
                                 <button
                                   onClick={() => onEdit(row)}
-                                  className="p-2 rounded-lg bg-primary/5 hover:bg-primary/10 text-primary transition-all"
+                                  className="p-1.5 rounded-lg bg-primary/5 hover:bg-primary/10 text-primary transition-all"
                                   title="Edit"
                                 >
-                                  <FiEdit2 className="w-3.5 h-3.5" />
+                                  <FiEdit2 className="w-3 h-3" />
                                 </button>
                               )}
                               {onDelete && (
                                 <button
                                   onClick={() => onDelete(row)}
-                                  className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 transition-all"
+                                  className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 transition-all"
                                   title="Hapus"
                                 >
-                                  <FiTrash2 className="w-3.5 h-3.5" />
+                                  <FiTrash2 className="w-3 h-3" />
                                 </button>
                               )}
                             </div>
@@ -366,7 +366,7 @@ export default function DataTable<T extends Record<string, any>>({
       {/* Footer & Pagination */}
       {!loading && (data.length > 0 || page > 1) && (
         <div className="px-4 sm:px-5 py-3 border-t border-gray-100 bg-gray-50/40 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">
+          <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">
             Menampilkan <span className="text-gray-900">{data.length}</span> data 
             {totalPages > 1 && <> — Halaman <span className="text-primary">{page}</span> dari {totalPages}</>}
           </p>
@@ -390,9 +390,9 @@ export default function DataTable<T extends Record<string, any>>({
                       <button
                         key={p}
                         onClick={() => onPageChange(p)}
-                        className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${
+                        className={`w-7 h-7 rounded-lg text-[10px] font-black transition-all ${
                           page === p 
-                            ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110' 
+                            ? 'bg-primary text-white shadow-md shadow-primary/20 scale-105' 
                             : 'bg-white border border-gray-200 text-gray-400 hover:border-primary/30 hover:text-primary'
                         }`}
                       >

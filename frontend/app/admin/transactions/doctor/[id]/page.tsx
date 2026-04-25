@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useParams, useRouter } from 'next/navigation'
 import { 
@@ -52,7 +52,7 @@ interface Service {
 export default function DoctorConsultationPage() {
   const { id } = useParams()
   const router = useRouter()
-  const { user, token, activeClinicId } = useAuthStore()
+  const { user, activeClinicId } = useAuthStore()
   
   const [queue, setQueue] = useState<Queue | null>(null)
   const [loading, setLoading] = useState(true)
@@ -78,20 +78,19 @@ export default function DoctorConsultationPage() {
     return medicalRecord?.vitals?.[0] || null
   }, [medicalRecord])
 
-  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
 
   const fetchData = useCallback(async () => {
-    if (!token || !id) return
+    if (!id) return
     setLoading(true)
     try {
       // Fetch specific queue
-      const qRes = await axios.get(`${API_TRANSACTIONS}/queues/${id}`, { headers })
+      const qRes = await api.get(`/transactions/queues/${id}`)
       const qData = qRes.data
       setQueue(qData)
 
       // Fetch draft medical record
       if (qData.registrationId) {
-        const { data } = await axios.get(`${API_TRANSACTIONS}/medical-records/registration/${qData.registrationId}`, { headers })
+        const { data } = await api.get(`/transactions/medical-records/registration/${qData.registrationId}`)
         setMedicalRecord(data)
         if (data) {
           setDiagnosis(data.diagnosis || '')
@@ -125,18 +124,18 @@ export default function DoctorConsultationPage() {
 
         // [NEW] Fetch patient medical history - Move outside if(data) to always load history
         if (qData.patientId) {
-          const historyRes = await axios.get(`${API_TRANSACTIONS}/medical-records/patient/${qData.patientId}`, { headers })
+          const historyRes = await api.get(`/transactions/medical-records/patient/${qData.patientId}`)
           // Filter out current session's record if it exists
           setHistory(historyRes.data.filter((h: any) => h.id !== data?.id))
         }
       }
 
       // Fetch medicines for prescription
-      const medRes = await axios.get(`${API_MASTER}/products`, { headers, params: { isActive: true } })
+      const medRes = await api.get('/master/products', { params: { isActive: true } })
       setMedicines(medRes.data)
 
       // Fetch services for tindakan
-      const svcRes = await axios.get(`${API_MASTER}/services`, { headers, params: { isActive: true } })
+      const svcRes = await api.get('/master/services', { params: { isActive: true } })
       setServices(svcRes.data)
 
     } catch (e) {
@@ -144,7 +143,7 @@ export default function DoctorConsultationPage() {
     } finally {
       setLoading(false)
     }
-  }, [id, token, headers])
+  }, [id])
 
   useEffect(() => {
     fetchData()
@@ -191,7 +190,7 @@ export default function DoctorConsultationPage() {
     if (!queue || !medicalRecord) return
     setSaving(true)
     try {
-      await axios.post(`${API_TRANSACTIONS}/medical-records/doctor`, {
+      await api.post('/transactions/medical-records/doctor', {
         queueId: queue.id,
         medicalRecordId: medicalRecord.id,
         diagnosis,
@@ -202,7 +201,7 @@ export default function DoctorConsultationPage() {
         services: serviceItems.map(s => ({ serviceId: s.serviceId, quantity: s.quantity, price: s.price })),
         prescriptions: prescriptionItems,
         isFinal
-      }, { headers })
+      })
       
       if (isFinal) {
         router.push('/admin/transactions/doctor')

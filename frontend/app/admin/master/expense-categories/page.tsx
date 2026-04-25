@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { FiList, FiAlertCircle } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
@@ -19,7 +19,7 @@ type ExpenseCategory = {
 type COA = { id: string; code: string; name: string; category: string }
 
 export default function ExpenseCategoriesPage() {
-  const { token, activeClinicId } = useAuthStore()
+  const { activeClinicId } = useAuthStore()
   const [data, setData] = useState<ExpenseCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -29,19 +29,18 @@ export default function ExpenseCategoriesPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [coas, setCoas] = useState<COA[]>([])
-  const headers = { Authorization: `Bearer ${token}` }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       const [{ data: cats }, { data: coaArr }] = await Promise.all([
-        axios.get(`${API}/expense-categories`, { headers, params: search ? { search } : {} }),
-        axios.get(API.replace('/master', '/accounting/chart-of-accounts'), { headers })
+        api.get('/master/expense-categories', { params: search ? { search } : {} }),
+        api.get('/accounting/chart-of-accounts')
       ])
       setData(cats)
       setCoas(Array.isArray(coaArr) ? coaArr.filter((c: any) => c.category === 'EXPENSE' || c.category === 'OTHER_EXPENSE') : [])
     } finally { setLoading(false) }
-  }, [search, token, activeClinicId])
+  }, [search])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -56,8 +55,8 @@ export default function ExpenseCategoriesPage() {
     if (!form.categoryName) { setError('Nama kategori wajib diisi'); return }
     setSaving(true); setError('')
     try {
-      if (editing) await axios.put(`${API}/expense-categories/${editing.id}`, form, { headers })
-      else await axios.post(`${API}/expense-categories`, form, { headers })
+      if (editing) await api.put(`/master/expense-categories/${editing.id}`, form)
+      else await api.post('/master/expense-categories', form)
       setModalOpen(false); fetchData()
     } catch (e: any) { setError(e.response?.data?.message || 'Terjadi kesalahan') }
     finally { setSaving(false) }
@@ -65,7 +64,7 @@ export default function ExpenseCategoriesPage() {
 
   const handleDelete = async (r: ExpenseCategory) => {
     if (!confirm(`Hapus kategori "${r.categoryName}"?`)) return
-    try { await axios.delete(`${API}/expense-categories/${r.id}`, { headers }); fetchData() } catch { }
+    try { await api.delete(`/master/expense-categories/${r.id}`); fetchData() } catch { }
   }
 
   const columns: Column<ExpenseCategory>[] = [

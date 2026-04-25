@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   FiUserPlus, FiSearch, FiCalendar, FiClock, 
@@ -14,7 +14,6 @@ import Link from 'next/link'
 import MasterModal from '@/components/admin/master/MasterModal'
 import { FiRefreshCw as FiRefresh } from 'react-icons/fi'
 
-const API = process.env.NEXT_PUBLIC_API_URL + '/api'
 
 interface Patient {
   id: string
@@ -62,7 +61,7 @@ const EMPTY_PATIENT = {
 }
 
 export default function RegistrationPage() {
-  const { token, activeClinicId } = useAuthStore()
+  const { activeClinicId } = useAuthStore()
   const [step, setStep] = useState(1) // 1: Select Patient, 2: Select Service/Doctor, 3: Confirmation
   
   // States - Patient Master (Quick Add)
@@ -89,29 +88,30 @@ export default function RegistrationPage() {
   const [regError, setRegError] = useState('')
   const [result, setResult] = useState<any>(null)
   const fetchedSelectablesRef = useRef<string | null>(null)
+  const [isMounted, setIsMounted] = useState(false) // Buat handle Hydration
 
-  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
 
   // Fetch initial data
   useEffect(() => {
     const fetchSelectables = async () => {
       try {
         const [docsRes, deptsRes] = await Promise.all([
-          axios.get(`${API}/master/doctors`, { headers, params: { clinicId: activeClinicId, minimal: true } }),
-          axios.get(`${API}/master/departments`, { headers, params: { clinicId: activeClinicId, minimal: true } })
+          api.get('/master/doctors', { params: { clinicId: activeClinicId, minimal: true } }),
+          api.get('/master/departments', { params: { clinicId: activeClinicId, minimal: true } })
         ])
         console.log('Fetched D&D:', docsRes.data.length, deptsRes.data.length)
         setDoctors(docsRes.data)
         setDepartments(deptsRes.data)
       } catch (e) { console.error(e) }
     }
-    if (token && activeClinicId) {
-      const key = `${token}-${activeClinicId}`
-      if (fetchedSelectablesRef.current === key) return
-      fetchedSelectablesRef.current = key
+    if (activeClinicId) {
       fetchSelectables()
     }
-  }, [token, activeClinicId, headers])
+  }, [activeClinicId])
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   // Search Patient
   useEffect(() => {
@@ -122,8 +122,7 @@ export default function RegistrationPage() {
       }
       setSearching(true)
       try {
-        const { data } = await axios.get(`${API}/master/patients`, { 
-          headers, 
+        const { data } = await api.get('/master/patients', { 
           params: { search: searchQuery } 
         })
         setPatients(data)
@@ -134,20 +133,20 @@ export default function RegistrationPage() {
       }
     }, 500)
     return () => clearTimeout(timeout)
-  }, [searchQuery, isFetchAll, headers])
+  }, [searchQuery, isFetchAll])
 
   const handleRegistration = async () => {
     if (!selectedPatient || !activeClinicId) return
     setSubmitting(true)
     try {
-      const { data } = await axios.post(`${API}/transactions/registrations`, {
+      const { data } = await api.post('/transactions/registrations', {
         patientId: selectedPatient.id,
         clinicId: activeClinicId,
         doctorId: selectedDoctorId || null,
         departmentId: selectedDeptId || null,
         visitType,
         referralFrom
-      }, { headers })
+      })
       
       setResult(data)
       setStep(4) // Success Step
@@ -161,10 +160,10 @@ export default function RegistrationPage() {
 
   const fetchNextMR = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${API}/master/patients/next-mr`, { headers })
+      const { data } = await api.get('/master/patients/next-mr')
       setPatientForm(p => ({ ...p, medicalRecordNo: data.nextCode }))
     } catch (e) { console.error('Failed to fetch next MR No', e) }
-  }, [headers])
+  }, [])
 
   const openQuickAddPatient = () => {
     setPatientForm(EMPTY_PATIENT)
@@ -181,7 +180,7 @@ export default function RegistrationPage() {
     setPatientSaving(true)
     setPatientError('')
     try {
-      const { data } = await axios.post(`${API}/master/patients`, patientForm, { headers })
+      const { data } = await api.post('/master/patients', patientForm)
       setSelectedPatient(data)
       setPatientModalOpen(false)
       setStep(2)
@@ -206,21 +205,21 @@ export default function RegistrationPage() {
 
   // UI Helpers
   const StepIndicator = () => (
-    <div className="flex items-center gap-4 mb-8">
+    <div className="flex items-center gap-4 mb-6">
       {[1, 2, 3].map((s) => (
         <div key={s} className="flex items-center gap-2">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
+          <div className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-xs transition-all ${
             step === s ? 'bg-primary text-white shadow-lg' : 
             step > s ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400'
           }`}>
-            {step > s ? <FiCheckCircle /> : s}
+            {step > s ? <FiCheckCircle className="w-3.5 h-3.5" /> : s}
           </div>
           <div className="flex flex-col">
-            <span className={`text-[10px] font-black uppercase tracking-widest ${step === s ? 'text-primary' : 'text-gray-400'}`}>
-              {s === 1 ? 'Cari Pasien' : s === 2 ? 'Layanan & Dokter' : 'Konfirmasi'}
+            <span className={`text-[9px] font-black uppercase tracking-widest ${step === s ? 'text-primary' : 'text-gray-400'}`}>
+              {s === 1 ? 'Pasien' : s === 2 ? 'Layanan' : 'Konfirmasi'}
             </span>
           </div>
-          {s < 3 && <div className={`w-8 h-0.5 rounded-full mx-2 ${step > s ? 'bg-emerald-500' : 'bg-gray-100'}`} />}
+          {s < 3 && <div className={`w-6 h-0.5 rounded-full mx-1 ${step > s ? 'bg-emerald-500' : 'bg-gray-100'}`} />}
         </div>
       ))}
     </div>
@@ -229,16 +228,16 @@ export default function RegistrationPage() {
   return (
     <div className="p-6 mx-auto pb-20 w-full">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Pendaftaran Kunjungan</h1>
-          <p className="text-sm text-gray-500 font-medium">Layanan Front-Desk & Antrian Pasien</p>
+          <h1 className="text-lg font-black text-gray-900 tracking-tight uppercase">Pendaftaran Kunjungan</h1>
+          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">Front-Desk & Antrian</p>
         </div>
         <button 
           onClick={openQuickAddPatient}
-          className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl text-xs font-black hover:bg-indigo-700 transition-all shadow-lg shadow-primary/20"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-[10px] font-black hover:bg-indigo-700 transition-all shadow-lg shadow-primary/20"
         >
-          <FiPlus className="w-4 h-4" /> REGISTRASI PASIEN BARU
+          <FiPlus className="w-3.5 h-3.5" /> PASIEN BARU
         </button>
       </div>
 
@@ -248,24 +247,24 @@ export default function RegistrationPage() {
       <AnimatePresence mode="wait">
         {step === 1 && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
-            <div className="bg-indigo-50/50 p-6 rounded-3xl border border-indigo-100/50 flex items-center gap-4 mb-4">
-              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-primary shadow-sm">
-                <FiSearch className="w-6 h-6" />
+            <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100/50 flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-primary shadow-sm">
+                <FiSearch className="w-5 h-5" />
               </div>
               <div>
-                <p className="font-black text-gray-900 leading-tight">Cari Pasien Terdaftar</p>
-                <p className="text-xs text-indigo-600 font-medium mt-0.5">Cari berdasarkan Nama, No. RM, atau HP lalu klik "Pilih & Daftar" untuk registrasi periksa.</p>
+                <p className="text-xs font-black text-gray-900 leading-tight">Cari Pasien Terdaftar</p>
+                <p className="text-[10px] text-indigo-600 font-bold mt-0.5 lowercase">Gunakan Nama, RM, atau No HP.</p>
               </div>
             </div>
 
               <div className="relative group">
-                <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 group-hover:text-primary transition-colors" />
+                <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 group-hover:text-primary transition-colors" />
                 <input 
                   type="text" 
-                  placeholder="Cari Pasien (Nama, No. RM, No. HP, atau No. KTP)..."
+                  placeholder="Cari Pasien (Nama, No. RM, HP)..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-14 py-4 bg-white border border-gray-100 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
+                  className="w-full pl-10 pr-12 py-3 bg-white border border-gray-100 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-bold"
                 />
                 <button 
                   onClick={() => setIsFetchAll(true)}
@@ -282,11 +281,12 @@ export default function RegistrationPage() {
               </div>
 
             <div className="grid grid-cols-1 gap-3">
-              {patients.length > 0 ? patients.map((p) => (
+              {patients.length > 0 ? patients.slice(0, 20).map((p, i) => (
                 <button
                   key={p.id}
                   onClick={() => { setSelectedPatient(p); setStep(2); }}
-                  className="flex items-center justify-between p-4 bg-white border border-gray-100 rounded-2xl hover:border-primary hover:shadow-md transition-all group text-left"
+                  className="flex items-center justify-between p-4 bg-white border border-gray-100 rounded-2xl hover:border-primary hover:shadow-md transition-all group text-left animate-in fade-in slide-in-from-top-1"
+                  style={{ animationDelay: `${i * 30}ms` }}
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-primary/10 group-hover:text-primary transition-all">
@@ -435,15 +435,15 @@ export default function RegistrationPage() {
         {step === 3 && selectedPatient && (
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="max-w-2xl mx-auto">
             <div className="bg-white rounded-3xl border border-gray-100 shadow-xl overflow-hidden">
-              <div className="bg-gray-50 p-8 border-b border-gray-100 text-center">
-                <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mx-auto mb-4 border border-gray-100">
-                  <FiPlus className="w-8 h-8 text-primary" />
+              <div className="bg-gray-50 p-6 border-b border-gray-100 text-center">
+                <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center mx-auto mb-3 border border-gray-100">
+                  <FiPlus className="w-6 h-6 text-primary" />
                 </div>
-                <h2 className="text-xl font-black text-gray-900">Konfirmasi Registrasi</h2>
-                <p className="text-xs text-gray-500 font-medium">Harap periksa kembali detail pendaftaran di bawah</p>
+                <h2 className="text-lg font-black text-gray-900 uppercase">Konfirmasi Registrasi</h2>
+                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">Periksa kembali detail pendaftaran</p>
               </div>
               
-              <div className="p-8 space-y-6">
+              <div className="p-6 space-y-5">
                 <div className="grid grid-cols-2 gap-8">
                   <div>
                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Data Pasien</label>
@@ -457,8 +457,8 @@ export default function RegistrationPage() {
                   </div>
                   <div>
                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Waktu Kedatangan</label>
-                    <p className="text-sm font-bold text-gray-800 mt-1">{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-                    <p className="text-xs text-gray-500 font-medium">{new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB</p>
+                    <p className="text-sm font-bold text-gray-800 mt-1">{isMounted ? new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }) : '-'}</p>
+                    <p className="text-xs text-gray-500 font-medium">{isMounted ? new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '--:--'} WIB</p>
                   </div>
                   <div>
                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Jenis Kunjungan</label>
@@ -512,10 +512,10 @@ export default function RegistrationPage() {
                 <p className="text-xs text-gray-500 font-medium mt-1">Silakan berikan nomor antrian ini kepada pasien</p>
               </div>
 
-              <div className="py-8 bg-gray-50 rounded-3xl border border-gray-100">
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mb-2">Nomor Antrian</p>
-                <h1 className="text-6xl font-black text-primary tracking-tighter">{result.queueNumber?.queueNo}</h1>
-                <p className="text-xs font-bold text-emerald-600 mt-4 bg-emerald-50 py-1 px-4 rounded-full w-fit mx-auto border border-emerald-100">
+              <div className="py-6 bg-gray-900 rounded-3xl border border-slate-800">
+                <p className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em] mb-1">Nomor Antrian</p>
+                <h1 className="text-5xl font-black text-white tracking-tighter">{result.queueNumber?.queueNo}</h1>
+                <p className="text-[10px] font-black text-primary mt-2 bg-primary/10 py-1 px-4 rounded-full w-fit mx-auto border border-primary/20 uppercase tracking-widest">
                   {visitType.toUpperCase()}
                 </p>
               </div>

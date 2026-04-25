@@ -30,14 +30,14 @@ interface Queue {
 }
 
 export default function QueueDashboard() {
-  const { user, token, activeClinicId } = useAuthStore()
+  const { user, activeClinicId } = useAuthStore()
   const [queues, setQueues] = useState<Queue[]>([])
   const [loading, setLoading] = useState(true)
   const [callingId, setCallingId] = useState<string | null>(null)
   const [isSoundEnabled, setIsSoundEnabled] = useState(false)
   const [toast, setToast] = useState<{ queueNo: string; name: string; room: string } | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
 
-  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
   
   const announceQueueLocal = (queueNo: string, name: string, isTriageDone: boolean) => {
     if (!isSoundEnabled) return
@@ -46,7 +46,7 @@ export default function QueueDashboard() {
   }
 
   const fetchQueues = useCallback(async () => {
-    if (!token || !activeClinicId) return
+    if (!activeClinicId) return
     try {
       const { data } = await api.get(`${TX_API}/queues`, { 
         params: { clinicId: activeClinicId } 
@@ -57,7 +57,11 @@ export default function QueueDashboard() {
     } finally {
       setLoading(false)
     }
-  }, [token, activeClinicId, headers])
+  }, [activeClinicId])
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   useEffect(() => {
     fetchQueues()
@@ -104,6 +108,17 @@ export default function QueueDashboard() {
     return user?.clinics?.find((c: any) => c.id === activeClinicId)?.code
   }, [user, activeClinicId])
 
+  // Memoize active doctors list for the monitor dropdown to prevent re-calculating on every render
+  const activeDoctors = useMemo(() => {
+    return Array.from(
+      new Map(
+        queues
+          .filter(q => q.doctor && q.doctorId)
+          .map(q => [q.doctorId!, { id: q.doctorId!, name: q.doctor!.name, dept: q.department?.name }])
+      ).values()
+    )
+  }, [queues])
+
   return (
     <div className="p-6 mx-auto pb-20 w-full">
 
@@ -147,7 +162,7 @@ export default function QueueDashboard() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-black text-gray-900 tracking-tight">Dashboard Antrian</h1>
-          <p className="text-sm text-gray-500 font-medium">Monitoring Pasien Aktif - {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+          <p className="text-sm text-gray-500 font-medium">Monitoring Pasien Aktif - {isMounted ? new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</p>
         </div>
         <div className="flex items-center gap-3">
           {/* MONITOR LINK BUTTONS */}
@@ -171,9 +186,7 @@ export default function QueueDashboard() {
                     <p className="text-[9px] text-gray-400 font-medium">Monitor ruang tunggu pusat</p>
                   </div>
                 </Link>
-                {Array.from(
-                  new Map(queues.filter(q => q.doctor && q.doctorId).map(q => [q.doctorId!, { id: q.doctorId!, name: q.doctor!.name, dept: q.department?.name }])).values()
-                ).map((doc: any) => (
+                {activeDoctors.map((doc: any) => (
                   <Link
                     key={doc.id}
                     href={`/display/queue${activeClinicCode ? `?clinic=${activeClinicCode}` : '?'}${doc.id ? `&doctor=${doc.id}` : ''}`}

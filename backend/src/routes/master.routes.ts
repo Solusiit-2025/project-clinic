@@ -22,7 +22,7 @@ import { getSystemAccounts, updateSystemAccount, seedSystemAccounts } from '../c
 import {
   getAllMaintenance, getAssetMaintenance, createAssetMaintenance, postMaintenanceToGL, updateAssetMaintenance, deleteAssetMaintenance,
   getAllAssetTransfers, getAssetTransfers, createAssetTransfer, approveAssetTransfer, rejectAssetTransfer,
-  getAssetAuditLogs, getAssetInsurance, upsertAssetInsurance, deleteAssetInsurance,
+  getAssetAuditLogs, getAssetInsurance, upsertAssetInsurance, deleteAssetInsurance, postAssetInsuranceToGL,
   getMaintenanceSchedule, getExpiringInsurance
 } from '../controllers/assetManagement.controller'
 import {
@@ -132,6 +132,7 @@ masterRoutes.get('/assets/:id/audit-logs', getAssetAuditLogs)
 masterRoutes.get('/assets/:id/insurance', getAssetInsurance)
 masterRoutes.post('/assets/:id/insurance', upsertAssetInsurance)
 masterRoutes.delete('/assets/:id/insurance', deleteAssetInsurance)
+masterRoutes.post('/assets/:id/insurance/post-gl', postAssetInsuranceToGL)
 
 // Asset Reports
 masterRoutes.get('/assets/reports/maintenance-schedule', getMaintenanceSchedule)

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { FiActivity, FiSearch, FiCalendar, FiFilter, FiDownload, FiCheckCircle, FiAlertCircle, FiArrowRight, FiLayers } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -19,23 +19,18 @@ interface TrialBalanceItem {
 }
 
 export default function TrialBalancePage() {
-   const { token, activeClinicId } = useAuthStore()
+   const { activeClinicId } = useAuthStore()
    const [data, setData] = useState<TrialBalanceItem[]>([])
    const [loading, setLoading] = useState(true)
    const [search, setSearch] = useState('')
    const [targetDate, setTargetDate] = useState(new Date().toISOString().substring(0, 10))
 
-   const headers = useMemo(() => ({
-      Authorization: `Bearer ${token}`,
-      'x-clinic-id': activeClinicId
-   }), [token, activeClinicId])
 
    const fetchData = useCallback(async () => {
-      if (!token || !activeClinicId) return
+      if (!activeClinicId) return
       setLoading(true)
       try {
-         const { data: resData } = await axios.get(`${API}/trial-balance`, {
-            headers,
+         const { data: resData } = await api.get('/accounting/trial-balance', {
             params: { date: targetDate }
          })
          setData(resData)
@@ -45,7 +40,7 @@ export default function TrialBalancePage() {
       } finally {
          setLoading(false)
       }
-   }, [headers, targetDate, activeClinicId, token])
+   }, [targetDate, activeClinicId])
 
    useEffect(() => {
       fetchData()
@@ -79,15 +74,15 @@ export default function TrialBalancePage() {
       <div className="w-full px-[10px] py-6 space-y-10 text-left">
 
          {/* HEADER SECTION */}
-         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 px-4">
-            <div className="space-y-2">
+         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-2">
+            <div className="space-y-1">
                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-indigo-600 rounded-2xl text-white shadow-lg shadow-indigo-200">
-                     <FiActivity className="w-6 h-6" />
+                  <div className="p-2.5 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-200">
+                     <FiActivity className="w-5 h-5" />
                   </div>
-                  <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Trial Balance</h1>
+                  <h1 className="text-2xl font-black text-slate-900 tracking-tighter uppercase">Trial Balance</h1>
                </div>
-               <p className="text-slate-400 font-medium text-sm ml-14">Neraca Saldo Real-time untuk validasi keseimbangan akun keuangan.</p>
+               <p className="text-slate-400 font-bold text-[11px] ml-12 uppercase tracking-wide">Neraca Saldo Real-time untuk validasi keseimbangan akun keuangan.</p>
             </div>
 
             <div className="flex items-center gap-4">
@@ -112,43 +107,43 @@ export default function TrialBalancePage() {
          </div>
 
          {/* FILTER BAR */}
-         <div className="bg-white p-4 rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center mx-4">
-            <div className="relative flex-1">
-               <FiSearch className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+         <div className="bg-white p-3 rounded-3xl border border-slate-200 shadow-sm flex flex-col xl:flex-row gap-3 items-center mx-2">
+            <div className="relative flex-1 w-full">
+               <FiSearch className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                <input
                   type="text" placeholder="Cari Kode atau Nama Akun..."
-                  className="w-full pl-16 pr-8 py-5 bg-slate-50 border border-slate-100 rounded-[2.25rem] text-sm font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all text-slate-800"
+                  className="w-full pl-12 pr-6 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/10 transition-all text-slate-800"
                   value={search} onChange={(e) => setSearch(e.target.value)}
                />
             </div>
 
-            <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 p-2 rounded-[2.25rem]">
-               <div className="flex items-center gap-2 px-6 py-3 bg-white rounded-full border border-slate-100 shadow-sm">
-                  <FiCalendar className="text-indigo-600 w-4 h-4" />
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Saldo Per Tanggal</span>
+            <div className="flex flex-wrap items-center gap-2">
+               <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl shadow-sm">
+                  <FiCalendar className="text-indigo-600 w-3.5 h-3.5" />
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Per Tanggal</span>
                   <input
-                     type="date" className="bg-transparent border-none focus:outline-none text-sm font-black text-slate-800 ml-2"
+                     type="date" className="bg-transparent border-none focus:outline-none text-xs font-black text-slate-800 ml-1"
                      value={targetDate} onChange={(e) => setTargetDate(e.target.value)}
                   />
                </div>
                <button
                   onClick={fetchData}
-                  className="bg-indigo-600 text-white px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all"
+                  className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95"
                >
-                  Tampilkan Data
+                  Tampilkan
                </button>
             </div>
          </div>
 
          {/* REPORT TABLE */}
-         <div className="bg-white rounded-[3.5rem] border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden mx-4">
+         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden mx-2">
             <table className="w-full text-left border-collapse">
                <thead>
                   <tr className="bg-slate-50/50 border-b border-slate-100">
-                     <th className="px-12 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Kode Akun</th>
-                     <th className="px-8 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Deskripsi Akun</th>
-                     <th className="px-8 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Debet (DR)</th>
-                     <th className="px-12 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Kredit (CR)</th>
+                     <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Kode Akun</th>
+                     <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Deskripsi Akun</th>
+                     <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Debet (DR)</th>
+                     <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Kredit (CR)</th>
                   </tr>
                </thead>
                <tbody className="divide-y divide-slate-50">
@@ -165,22 +160,22 @@ export default function TrialBalancePage() {
                               key={row.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                               className="hover:bg-indigo-50/30 transition-all group"
                            >
-                              <td className="px-12 py-6">
-                                 <span className="text-[11px] font-black bg-white border border-slate-200 text-slate-600 px-3 py-1.5 rounded-xl tracking-widest shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-600 transition-all">
+                              <td className="px-6 py-3.5">
+                                 <span className="text-[10px] font-black bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded-lg tracking-widest shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-600 transition-all">
                                     {row.code}
                                  </span>
                               </td>
-                              <td className="px-8 py-6">
-                                 <p className="text-sm font-black text-slate-800 tracking-tight">{row.name}</p>
-                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 opacity-60 group-hover:opacity-100 transition-all">{row.category}</p>
+                              <td className="px-6 py-3.5">
+                                 <p className="text-xs font-black text-slate-800 tracking-tight leading-none uppercase">{row.name}</p>
+                                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1.5 opacity-60 group-hover:opacity-100 transition-all">{row.category}</p>
                               </td>
-                              <td className="px-8 py-6 text-right">
-                                 <span className={`text-base font-black tracking-tight ${row.debit > 0 ? 'text-slate-900' : 'text-slate-200'}`}>
+                              <td className="px-6 py-3.5 text-right">
+                                 <span className={`text-sm font-black tracking-tight ${row.debit > 0 ? 'text-slate-900' : 'text-slate-200'}`}>
                                     {row.debit > 0 ? formatCurrency(row.debit) : '-'}
                                  </span>
                               </td>
-                              <td className="px-12 py-6 text-right">
-                                 <span className={`text-base font-black tracking-tight ${row.credit > 0 ? 'text-slate-900' : 'text-slate-200'}`}>
+                              <td className="px-6 py-3.5 text-right">
+                                 <span className={`text-sm font-black tracking-tight ${row.credit > 0 ? 'text-slate-900' : 'text-slate-200'}`}>
                                     {row.credit > 0 ? formatCurrency(row.credit) : '-'}
                                  </span>
                               </td>
@@ -199,24 +194,24 @@ export default function TrialBalancePage() {
                   </AnimatePresence>
                </tbody>
                {/* TOTALS FOOTER */}
-               <tfoot className="bg-slate-900 text-white">
-                  <tr>
-                     <td colSpan={2} className="px-12 py-10">
-                        <div className="flex items-center gap-4">
-                           <h4 className="text-2xl font-black uppercase tracking-widest">Grand Total</h4>
-                           <div className="h-1.5 w-16 bg-white/20 rounded-full" />
-                        </div>
-                     </td>
-                     <td className="px-8 py-10 text-right">
-                        <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-2 leading-none">Total Debit</p>
-                        <p className="text-3xl font-bold tracking-tighter">{formatCurrency(totals.debit)}</p>
-                     </td>
-                     <td className="px-12 py-10 text-right underline decoration-indigo-500/50 decoration-[6px] underline-offset-8">
-                        <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-2 leading-none">Total Kredit</p>
-                        <p className="text-3xl font-bold tracking-tighter">{formatCurrency(totals.credit)}</p>
-                     </td>
-                  </tr>
-               </tfoot>
+                <tfoot className="bg-slate-900 text-white">
+                   <tr>
+                      <td colSpan={2} className="px-6 py-6">
+                         <div className="flex items-center gap-3">
+                            <h4 className="text-lg font-black uppercase tracking-widest">Grand Total</h4>
+                            <div className="h-1 w-10 bg-white/20 rounded-full" />
+                         </div>
+                      </td>
+                      <td className="px-6 py-6 text-right">
+                         <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1.5 leading-none">Total Debit</p>
+                         <p className="text-xl font-bold tracking-tighter">{formatCurrency(totals.debit)}</p>
+                      </td>
+                      <td className="px-6 py-6 text-right">
+                         <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1.5 leading-none">Total Kredit</p>
+                         <p className="text-xl font-bold tracking-tighter">{formatCurrency(totals.credit)}</p>
+                      </td>
+                   </tr>
+                </tfoot>
             </table>
          </div>
 

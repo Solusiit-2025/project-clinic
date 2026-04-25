@@ -1,11 +1,30 @@
-import { PrismaClient, Role } from '@prisma/client'
+import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 
 const prisma = new PrismaClient()
-const JWT_SECRET = process.env.JWT_SECRET || 'clinic-secret-key-2026'
+
+// JWT_SECRET must be set in environment variables for security
+const JWT_SECRET = process.env.JWT_SECRET
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is not defined in environment variables!')
+  console.error('Please set JWT_SECRET in your .env file')
+  console.error('Generate a strong secret with: node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"')
+  process.exit(1)
+}
+
+// Type assertion since we've validated JWT_SECRET exists
+const jwtSecret: string = JWT_SECRET
+
+const ACCESS_TOKEN_EXPIRY  = '15m'   // Short-lived — rotated via refresh
+const REFRESH_TOKEN_EXPIRY = '7d'    // Long-lived — stored in separate HttpOnly cookie
 
 export class AuthService {
+  static generateTokens(payload: { id: string; email: string; role: string; clinics: string[] }) {
+    const accessToken = jwt.sign(payload, jwtSecret, { expiresIn: ACCESS_TOKEN_EXPIRY })
+    const refreshToken = jwt.sign({ id: payload.id }, jwtSecret, { expiresIn: REFRESH_TOKEN_EXPIRY })
+    return { accessToken, refreshToken }
+  }
   static async login(email: string, password: string) {
     const user = await prisma.user.findUnique({
       where: { email },
@@ -14,18 +33,19 @@ export class AuthService {
       }
     })
 
+    // Generic error message to prevent email enumeration
     if (!user) {
-      throw new Error('User tidak ditemukan')
+      throw new Error('Email atau password salah')
     }
 
     if (!user.isActive) {
-      throw new Error('Akun Anda dinonaktifkan')
+      throw new Error('Akun Anda dinonaktifkan. Hubungi administrator.')
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password)
 
     if (!isPasswordValid) {
-      throw new Error('Password salah')
+      throw new Error('Email atau password salah')
     }
 
     // Update last login
@@ -41,28 +61,56 @@ export class AuthService {
 
     const clinics = userClinics.map((uc) => uc.clinic)
 
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, clinics: clinics.map(c => c.id) },
-      JWT_SECRET,
-      { expiresIn: '1d' }
-    )
+    const { accessToken, refreshToken } = AuthService.generateTokens({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      clinics: clinics.map(c => c.id),
+    })
 
     const { password: _, doctor, ...userWithoutPassword } = user as any
     const profileImage = userWithoutPassword.image || doctor?.profilePicture || null
 
-    return { 
-      user: {
-        ...userWithoutPassword,
-        image: profileImage,
-        clinics
-      }, 
-      token 
+    return {
+      user: { ...userWithoutPassword, image: profileImage, clinics },
+      accessToken,
+      refreshToken,
+    }
+  }
+
+  static async refreshAccessToken(refreshToken: string) {
+    try {
+      const decoded = jwt.verify(refreshToken, jwtSecret) as any
+
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.id },
+        include: {
+          clinics: { include: { clinic: true } },
+        },
+      })
+
+      if (!user || !user.isActive) {
+        throw new Error('Sesi tidak valid')
+      }
+
+      const clinics = user.clinics.map((uc: any) => uc.clinic)
+
+      // Issue a new access token — refresh token stays the same
+      const accessToken = jwt.sign(
+        { id: user.id, email: user.email, role: user.role, clinics: clinics.map((c: any) => c.id) },
+        jwtSecret,
+        { expiresIn: ACCESS_TOKEN_EXPIRY }
+      )
+
+      return { accessToken }
+    } catch (error) {
+      throw new Error('Refresh token tidak valid atau sudah kadaluarsa. Silakan login kembali.')
     }
   }
 
   static async verifyToken(token: string) {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as any
+      const decoded = jwt.verify(token, jwtSecret) as any
       const user = await prisma.user.findUnique({
         where: { id: decoded.id },
         include: {

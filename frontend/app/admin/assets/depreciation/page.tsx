@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { 
   FiTrendingDown, FiPlay, FiCheckCircle, FiAlertCircle, 
   FiCalendar, FiInfo, FiActivity, FiArrowLeft
@@ -11,7 +11,6 @@ import DataTable, { Column } from '@/components/admin/master/DataTable'
 import PageHeader from '@/components/admin/master/PageHeader'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
 
 type AssetToDepreciate = {
   id: string;
@@ -27,7 +26,7 @@ type AssetToDepreciate = {
 }
 
 export default function DepreciationPage() {
-  const { token, activeClinicId } = useAuthStore()
+  const { activeClinicId } = useAuthStore()
   const [data, setData] = useState<AssetToDepreciate[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -35,15 +34,13 @@ export default function DepreciationPage() {
   const [processing, setProcessing] = useState(false)
   const [result, setResult] = useState<any>(null)
 
-  const headers = { Authorization: `Bearer ${token}` }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       // Reuse the register endpoint to get assets and their monthly depreciation
-      const { data: resData } = await axios.get(`${API}/assets/register`, { 
-        headers, 
-        params: { status: 'active' } 
+      const { data: resData } = await api.get('/master/assets/register', { 
+        params: { status: 'active', _t: Date.now() } 
       })
       setData(resData.assets || [])
     } catch (e) {
@@ -51,7 +48,7 @@ export default function DepreciationPage() {
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [])
 
   useEffect(() => {
     fetchData()
@@ -63,10 +60,10 @@ export default function DepreciationPage() {
     setProcessing(true)
     setResult(null)
     try {
-      const { data: res } = await axios.post(`${API}/assets/depreciate-all`, { 
+      const { data: res } = await api.post('/master/assets/depreciate-all', { 
         period,
         clinicId: activeClinicId
-      }, { headers })
+      })
       setResult(res)
       fetchData()
     } catch (e: any) {

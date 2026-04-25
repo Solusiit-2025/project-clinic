@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { 
   FiSettings, FiPlus, FiTool, FiCalendar, FiDollarSign, 
   FiUser, FiAlertCircle, FiCheckCircle, FiClock, FiSearch,
@@ -14,7 +14,6 @@ import MasterModal from '@/components/admin/master/MasterModal'
 import SearchableSelect from '@/components/admin/master/SearchableSelect'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
 
 type Asset = {
   id: string;
@@ -51,7 +50,6 @@ const EMPTY_FORM = {
 }
 
 export default function MaintenancePage() {
-  const { token } = useAuthStore()
   const [data, setData] = useState<MaintenanceRecord[]>([])
   const [assets, setAssets] = useState<Asset[]>([])
   const [coas, setCoas] = useState<any[]>([])
@@ -70,32 +68,31 @@ export default function MaintenancePage() {
   const [selectedCreditCoa, setSelectedCreditCoa] = useState('')
   const [postingLoading, setPostingLoading] = useState(false)
 
-  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const { data: res } = await axios.get(`${API}/maintenance/all`, { headers })
+      const { data: res } = await api.get('/master/maintenance/all')
       setData(res)
     } catch (e) {
       console.error('Failed to fetch maintenance', e)
     } finally {
       setLoading(false)
     }
-  }, [headers])
+  }, [])
 
   const fetchAssets = useCallback(async () => {
     try {
-      const { data: res } = await axios.get(`${API}/assets`, { headers })
+      const { data: res } = await api.get('/master/assets')
       setAssets(res)
     } catch (e) { console.error('Failed to fetch assets', e) }
-  }, [headers])
+  }, [])
 
   const fetchCoasAndBalances = useCallback(async () => {
     try {
       const [{ data: resCoa }, { data: resBal }] = await Promise.all([
-        axios.get(`${API}/coa`, { headers }),
-        axios.get(`${API}/coa/balances`, { headers })
+        api.get('/master/coa'),
+        api.get('/master/coa/balances')
       ])
       
       const balMap: Record<string, number> = {}
@@ -107,15 +104,13 @@ export default function MaintenancePage() {
       setCoas(filtered)
       if (filtered.length > 0) setSelectedCreditCoa(filtered[0].id)
     } catch (e) { console.error('Failed to fetch COAs/Balances', e) }
-  }, [headers])
+  }, [])
 
   useEffect(() => {
-    if (token) {
-      fetchData()
-      fetchAssets()
-      fetchCoasAndBalances()
-    }
-  }, [token, fetchData, fetchAssets, fetchCoasAndBalances])
+    fetchData()
+    fetchAssets()
+    fetchCoasAndBalances()
+  }, [fetchData, fetchAssets, fetchCoasAndBalances])
 
   const assetOptions = useMemo(() => assets.map(a => ({
     id: a.id,
@@ -140,9 +135,9 @@ export default function MaintenancePage() {
     setError('')
     try {
       if (editing) {
-        await axios.put(`${API}/assets/maintenance/${editing.id}`, form, { headers })
+        await api.put(`/master/assets/maintenance/${editing.id}`, form)
       } else {
-        await axios.post(`${API}/assets/${form.assetId}/maintenance`, form, { headers })
+        await api.post(`/master/assets/${form.assetId}/maintenance`, form)
       }
       setModalOpen(false)
       fetchData()
@@ -164,9 +159,9 @@ export default function MaintenancePage() {
 
     setPostingLoading(true)
     try {
-      await axios.post(`${API}/assets/maintenance/${postingRecord.id}/post`, {
+      await api.post(`/master/assets/maintenance/${postingRecord.id}/post`, {
         creditCoaId: selectedCreditCoa
-      }, { headers })
+      })
       setPostingModalOpen(false)
       fetchData()
       fetchCoasAndBalances() // Refresh balances

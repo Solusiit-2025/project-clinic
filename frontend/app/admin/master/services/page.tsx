@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { FiActivity, FiAlertCircle, FiRefreshCw, FiBookOpen } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
@@ -22,7 +22,6 @@ type Service = {
 const formatRupiah = (v: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(v)
 
 export default function ServicesPage() {
-  const token = useAuthStore(state => state.token)
   const activeClinicId = useAuthStore(state => state.activeClinicId)
   const [data, setData] = useState<Service[]>([])
   const [categories, setCategories] = useState<ServiceCategory[]>([])
@@ -36,7 +35,6 @@ export default function ServicesPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -44,25 +42,25 @@ export default function ServicesPage() {
       const params: any = {}
       if (search) params.search = search
       if (catFilter) params.categoryId = catFilter
-      const { data } = await axios.get(`${API}/services`, { headers, params })
+      const { data } = await api.get('/master/services', { params })
       setData(data)
     } finally { setLoading(false) }
-  }, [search, catFilter, token, activeClinicId])
+  }, [search, catFilter, activeClinicId])
 
   const fetchCategories = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${API}/service-categories`, { headers })
+      const { data } = await api.get('/master/service-categories')
       setCategories(data)
     } catch (e) { }
-  }, [headers])
+  }, [])
 
   const fetchCOAs = useCallback(async () => {
     try {
       // Fetch only REVENUE accounts for mapping
-      const { data } = await axios.get(`${API}/coa?category=REVENUE`, { headers })
+      const { data } = await api.get('/master/coa?category=REVENUE')
       setCoas(data)
     } catch (e) { }
-  }, [headers, API])
+  }, [])
 
   useEffect(() => { 
     fetchData()
@@ -72,10 +70,10 @@ export default function ServicesPage() {
 
   const fetchNextCode = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${API}/services/next-code`, { headers })
+      const { data } = await api.get('/master/services/next-code')
       setForm(p => ({ ...p, serviceCode: data.nextCode }))
     } catch (e) { console.error('Failed to fetch next code', e) }
-  }, [headers])
+  }, [])
 
   const openAdd = () => { 
     setEditing(null); 
@@ -107,8 +105,8 @@ export default function ServicesPage() {
     setSaving(true); setError('')
     try {
       const payload = { ...form, price: Number(form.price) }
-      if (editing) await axios.put(`${API}/services/${editing.id}`, payload, { headers })
-      else await axios.post(`${API}/services`, payload, { headers })
+      if (editing) await api.put(`/master/services/${editing.id}`, payload)
+      else await api.post('/master/services', payload)
       setModalOpen(false); fetchData()
     } catch (e: any) { setError(e.response?.data?.message || 'Terjadi kesalahan') }
     finally { setSaving(false) }
@@ -116,7 +114,7 @@ export default function ServicesPage() {
 
   const handleDelete = async (r: Service) => {
     if (!confirm(`Hapus layanan "${r.serviceName}"?`)) return
-    try { await axios.delete(`${API}/services/${r.id}`, { headers }); fetchData() } catch { }
+    try { await api.delete(`/master/services/${r.id}`); fetchData() } catch { }
   }
 
   const columns: Column<Service>[] = [

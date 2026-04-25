@@ -2,12 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import axios from 'axios'
+import api from '@/lib/api'
 import { format } from 'date-fns'
 import { id as idLocale } from 'date-fns/locale'
 import { FiPrinter, FiArrowLeft } from 'react-icons/fi'
-
-const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
 
 export default function PrintTransferNote() {
   const { id } = useParams()
@@ -17,10 +15,8 @@ export default function PrintTransferNote() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const token = localStorage.getItem('token')
-        const headers = { Authorization: `Bearer ${token}` }
         // We use the same getAll endpoint but filter by ID for simplicity
-        const res = await axios.get(`${API}/assets/transfers/all`, { headers })
+        const res = await api.get('/master/assets/transfers/all')
         const record = res.data.find((r: any) => r.id === id)
         setData(record)
       } catch (e: any) {

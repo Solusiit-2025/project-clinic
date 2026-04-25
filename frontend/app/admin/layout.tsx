@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import Sidebar from '@/components/admin/Sidebar'
 import AdminNavbar from '@/components/admin/AdminNavbar'
+import SessionGuard from '@/components/admin/SessionGuard'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function AdminLayout({
@@ -56,24 +57,25 @@ export default function AdminLayout({
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-screen">
         <AdminNavbar />
+        <SessionGuard />
         
-        <main className="p-1.5 flex-1 pt-16 lg:pt-4 sm:pt-4">
+        <main className="p-4 flex-1">
           <AnimatePresence mode="wait">
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.4 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.3 }}
             >
               {children}
             </motion.div>
           </AnimatePresence>
         </main>
 
-        <footer className="px-10 py-8 border-t border-gray-100 bg-white text-gray-400 text-xs font-medium flex justify-between items-center">
+        <footer className="px-8 py-5 border-t border-gray-100 bg-white text-gray-400 text-[10px] font-medium flex justify-between items-center">
           <p>&copy; 2026 {user?.name || 'Klinik Yasfina'}. Professional Medical Management System.</p>
-          <div className="flex gap-6">
-            <a href="#" className="hover:text-primary transition-colors">Privacy Policy</a>
+          <div className="flex gap-4">
+            <a href="#" className="hover:text-primary transition-colors">Privacy</a>
             <a href="#" className="hover:text-primary transition-colors">Documentation</a>
             <a href="#" className="hover:text-primary transition-colors">Support</a>
           </div>

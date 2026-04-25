@@ -1,14 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { FiBookOpen, FiSearch, FiCalendar, FiDownload, FiActivity, FiLayers, FiChevronDown, FiChevronRight } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'react-hot-toast'
 
-const ACCT_API = process.env.NEXT_PUBLIC_API_URL + '/api/accounting'
-const MASTER_API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,7 +91,7 @@ const CATEGORY_COLOR: Record<string, string> = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function GeneralLedgerPage() {
-  const { token, activeClinicId } = useAuthStore()
+  const { activeClinicId } = useAuthStore()
   const [coaList, setCoaList] = useState<COA[]>([])
   const [selectedCoaId, setSelectedCoaId] = useState('')
   const [report, setReport] = useState<LedgerReport | null>(null)
@@ -108,23 +106,18 @@ export default function GeneralLedgerPage() {
   )
   const [endDate, setEndDate] = useState(new Date().toISOString().substring(0, 10))
 
-  const headers = useMemo(() => ({
-    Authorization: `Bearer ${token}`,
-    'x-clinic-id': activeClinicId
-  }), [token, activeClinicId])
 
   const fetchCOA = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${MASTER_API}/coa`, { headers })
+      const { data } = await api.get('/master/coa')
       setCoaList(data.filter((a: COA) => a.accountType === 'DETAIL'))
     } catch { /* silent */ }
-  }, [headers])
+  }, [])
 
   const fetchLedger = useCallback(async (p: number = 1) => {
     setLoading(true)
     try {
-      const { data } = await axios.get(`${ACCT_API}/general-ledger`, {
-        headers,
+      const { data } = await api.get('/accounting/general-ledger', {
         params: { coaId: selectedCoaId, startDate, endDate, page: p, limit: 50 }
       })
       setReport(data)
@@ -139,9 +132,9 @@ export default function GeneralLedgerPage() {
     } finally {
       setLoading(false)
     }
-  }, [headers, selectedCoaId, startDate, endDate])
+  }, [selectedCoaId, startDate, endDate])
 
-  useEffect(() => { if (token) fetchCOA() }, [fetchCOA, token])
+  useEffect(() => { fetchCOA() }, [fetchCOA])
   useEffect(() => { fetchLedger(1) }, [selectedCoaId, startDate, endDate])
 
   const isGlobalView = !selectedCoaId || selectedCoaId === 'all'
@@ -163,15 +156,15 @@ export default function GeneralLedgerPage() {
     <div className="w-full px-[10px] py-6 space-y-8 text-left">
 
       {/* ── Header ── */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-2">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-indigo-600 rounded-2xl text-white shadow-lg shadow-indigo-200">
-              <FiBookOpen className="w-6 h-6" />
+            <div className="p-2.5 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-200">
+              <FiBookOpen className="w-5 h-5" />
             </div>
-            <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Buku Besar</h1>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tighter uppercase">Buku Besar</h1>
           </div>
-          <p className="text-slate-400 font-medium text-sm ml-14">
+          <p className="text-slate-400 font-bold text-[11px] ml-12 uppercase tracking-wide">
             {isGlobalView
               ? `${meta.total} jurnal ditemukan — tampil per entri jurnal`
               : `Kartu akun: ${report?.account.code} - ${report?.account.name}`}
@@ -180,17 +173,17 @@ export default function GeneralLedgerPage() {
       </div>
 
       {/* ── Filter Bar ── */}
-      <div className="bg-white p-5 rounded-[2.5rem] border border-slate-200 shadow-sm mx-4">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
+      <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm mx-2">
+        <div className="flex flex-wrap xl:flex-nowrap gap-4 items-end">
           {/* COA Selector */}
-          <div className="lg:col-span-2 space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-3">Filter Akun</label>
+          <div className="flex-1 min-w-[300px] space-y-1.5">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-3">Filter Akun</label>
             <div className="relative">
-              <FiLayers className="absolute left-5 top-1/2 -translate-y-1/2 text-indigo-500 w-4 h-4 pointer-events-none" />
+              <FiLayers className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500 w-3.5 h-3.5 pointer-events-none" />
               <select
                 value={selectedCoaId}
                 onChange={e => setSelectedCoaId(e.target.value)}
-                className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 appearance-none"
+                className="w-full pl-10 pr-6 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 appearance-none"
               >
                 <option value="">[ SEMUA AKUN — Jurnal Umum ]</option>
                 {/* Group by category */}
@@ -210,21 +203,21 @@ export default function GeneralLedgerPage() {
           </div>
 
           {/* Date Range */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-3">Periode</label>
-            <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl">
-              <FiCalendar className="text-indigo-500 w-4 h-4 flex-shrink-0" />
+          <div className="flex-shrink-0 space-y-1.5">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-3">Periode</label>
+            <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-xl">
+              <FiCalendar className="text-indigo-500 w-3.5 h-3.5 flex-shrink-0" />
               <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                className="bg-transparent border-none focus:outline-none text-xs font-bold text-slate-700 w-full" />
+                className="bg-transparent border-none focus:outline-none text-[11px] font-bold text-slate-700 w-28" />
               <span className="text-slate-300 text-xs">–</span>
               <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-                className="bg-transparent border-none focus:outline-none text-xs font-bold text-slate-700 w-full" />
+                className="bg-transparent border-none focus:outline-none text-[11px] font-bold text-slate-700 w-28" />
             </div>
           </div>
 
           <button
             onClick={() => fetchLedger(1)} disabled={loading}
-            className="h-[52px] bg-indigo-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all disabled:opacity-50 active:scale-95"
+            className="flex-shrink-0 h-[44px] px-8 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all disabled:opacity-50 active:scale-95"
           >
             {loading ? 'Memuat...' : 'Tampilkan'}
           </button>

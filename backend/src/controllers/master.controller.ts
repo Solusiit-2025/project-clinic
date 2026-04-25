@@ -280,7 +280,7 @@ export const createDepartment = async (req: Request, res: Response) => {
         code, location, phone, email, 
         headId: parsedHeadId, 
         color, icon, operatingHours,
-        clinicId: (req as any).clinicId
+        clinicId: req.body.clinicId === '' ? null : (req.body.clinicId || (req as any).clinicId)
       } 
     })
     res.status(201).json(dept)
@@ -314,7 +314,8 @@ export const updateDepartment = async (req: Request, res: Response) => {
         sortOrder: sortOrder ? Number(sortOrder) : 0, 
         code, location, phone, email, 
         headId: parsedHeadId, 
-        color, icon, operatingHours 
+        color, icon, operatingHours,
+        clinicId: req.body.clinicId === '' ? null : (req.body.clinicId || undefined)
       } 
     })
     res.json(dept)
@@ -1384,7 +1385,8 @@ export const getAssets = async (req: Request, res: Response) => {
         },
         masterProduct: {
           select: { id: true, masterName: true, masterCode: true, categoryId: true }
-        }
+        },
+        insurance: true
       },
       orderBy: { assetCode: 'asc' },
     })
@@ -1422,8 +1424,8 @@ export const createAsset = async (req: Request, res: Response) => {
           salvageValue: salvage,
           usefulLifeYears: lifeYears,
           depreciationMethod: depreciationMethod || 'STRAIGHT_LINE',
-          currentValue: price, // Nilai buku awal = harga beli
-          totalDepreciated: 0,
+          currentValue: req.body.currentValue ? Number(req.body.currentValue) : price,
+          totalDepreciated: req.body.totalDepreciated ? Number(req.body.totalDepreciated) : 0,
           coaAssetId: assetCoa?.id || null,
           coaAccumDepId: accumDepCoa?.id || null,
           purchaseDate: (() => {

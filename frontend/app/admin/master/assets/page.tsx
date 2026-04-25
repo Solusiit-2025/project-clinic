@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { FiBox, FiAlertCircle, FiUpload, FiX, FiCamera, FiTag, FiSearch, FiDollarSign } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
@@ -29,6 +29,8 @@ const EMPTY = {
   purchaseDate: new Date().toISOString().substring(0, 10),
   clinicId: '',
   masterProductId: '',
+  totalDepreciated: 0,
+  currentValue: 0,
   image: null as File | string | null
 }
 
@@ -42,10 +44,12 @@ type Asset = {
   image?: string;
   clinic?: { name: string; code: string };
   masterProductId?: string;
+  totalDepreciated: number;
+  currentValue: number;
 }
 
 export default function AssetsPage() {
-  const { token, activeClinicId } = useAuthStore()
+  const { activeClinicId } = useAuthStore()
   const [data, setData] = useState<Asset[]>([])
   const [clinics, setClinics] = useState<Clinic[]>([])
   const [masters, setMasters] = useState<any[]>([])
@@ -62,7 +66,6 @@ export default function AssetsPage() {
   const [formImagePreview, setFormImagePreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const headers = { Authorization: `Bearer ${token}` }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -71,32 +74,32 @@ export default function AssetsPage() {
       if (search) params.search = search
       if (filterClinic) params.clinicId = filterClinic 
       if (filterCategory) params.category = filterCategory
-      const { data: resData } = await axios.get(`${API}/assets`, { headers, params })
+      const { data: resData } = await api.get('/master/assets', { params })
       const assetList = Array.isArray(resData) ? resData : (resData?.data || [])
       setData(assetList)
     } catch (e) {
       console.error('Failed to fetch assets', e)
       setData([])
     } finally { setLoading(false) }
-  }, [search, token, filterClinic, filterCategory, activeClinicId])
+  }, [search, filterClinic, filterCategory, activeClinicId])
 
   const fetchClinics = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${API}/clinics`, { headers })
+      const { data } = await api.get('/master/clinics')
       setClinics(data)
     } catch (e) { console.error('Failed to fetch clinics', e) }
-  }, [token])
+  }, [])
 
   const fetchMasters = useCallback(async () => {
     try {
-      const { data: resData } = await axios.get(`${API}/products`, { headers })
+      const { data: resData } = await api.get('/master/products')
       const masterList = Array.isArray(resData) ? resData : (resData?.data || [])
       setMasters(masterList)
     } catch (e) { 
       console.error('Failed to fetch masters', e) 
       setMasters([])
     }
-  }, [token])
+  }, [])
 
   useEffect(() => { 
     fetchData()
@@ -131,8 +134,8 @@ export default function AssetsPage() {
         }
       })
 
-      if (editing) await axios.put(`${API}/assets/${editing.id}`, formData, { headers })
-      else await axios.post(`${API}/assets`, formData, { headers })
+      if (editing) await api.put(`/master/assets/${editing.id}`, formData)
+      else await api.post('/master/assets', formData)
       
       setModalOpen(false); fetchData()
     } catch (e: any) { setError(e.response?.data?.message || 'Terjadi kesalahan') }
@@ -310,13 +313,15 @@ export default function AssetsPage() {
             salvageValue: r.salvageValue || 0,
             usefulLifeYears: r.usefulLifeYears || 5,
             depreciationMethod: r.depreciationMethod || 'STRAIGHT_LINE',
+            totalDepreciated: r.totalDepreciated || 0,
+            currentValue: r.currentValue || 0,
             image: r.image || null
           }); 
           setFormImagePreview(r.image ? process.env.NEXT_PUBLIC_API_URL + r.image : null);
           setError('');
           setModalOpen(true) 
         }}
-        onDelete={async (r) => { if (confirm(`Hapus data aset "${r.assetName}"?`)) { await axios.delete(`${API}/assets/${r.id}`, { headers }); fetchData() } }}
+        onDelete={async (r) => { if (confirm(`Hapus data aset "${r.assetName}"?`)) { await api.delete(`/master/assets/${r.id}`); fetchData() } }}
       />
 
       <MasterModal isOpen={modalOpen} onClose={() => setModalOpen(false)}
@@ -456,6 +461,23 @@ export default function AssetsPage() {
                     <option value="STRAIGHT_LINE">STRAIGHT LINE (GARIS LURUS)</option>
                     <option value="DECLINING_BALANCE">DOUBLE DECLINING (SALDO MENURUN)</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-emerald-800/40 uppercase tracking-widest mb-1.5">Akum. Penyusutan Saat Ini (Rp)</label>
+                  <input 
+                    type="number" value={form.totalDepreciated} 
+                    onChange={(e) => {
+                      const totalDep = Number(e.target.value)
+                      setForm(p => ({
+                        ...p, 
+                        totalDepreciated: totalDep,
+                        currentValue: (p.purchasePrice || 0) - totalDep
+                      }))
+                    }} 
+                    className="w-full px-4 py-3 text-sm border border-emerald-100 bg-white rounded-2xl focus:outline-none focus:border-emerald-500 font-black text-emerald-900 shadow-sm transition-all" 
+                    placeholder="Isi jika aset lama/go-live..."
+                  />
                 </div>
 
                 <div>

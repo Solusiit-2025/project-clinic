@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiBriefcase, FiCreditCard, FiUser, FiActivity } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import PageHeader from '@/components/admin/master/PageHeader'
@@ -33,7 +33,7 @@ const EMPTY = {
 }
 
 export default function BanksPage() {
-  const { token, activeClinicId } = useAuthStore()
+  const { activeClinicId } = useAuthStore()
   const [data, setData] = useState<Bank[]>([])
   const [coaList, setCoaList] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -43,17 +43,13 @@ export default function BanksPage() {
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
 
-  const headers = { 
-    Authorization: `Bearer ${token}`,
-    'x-clinic-id': activeClinicId
-  }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       const [{ data: banks }, { data: coas }] = await Promise.all([
-        axios.get(`${API}/banks`, { headers, params: { search } }),
-        axios.get(`${API}/coa`, { headers })
+        api.get('/master/banks', { params: { search } }),
+        api.get('/master/coa')
       ])
       setData(banks)
       setCoaList(coas.filter((c: any) => c.accountType === 'DETAIL'))
@@ -63,11 +59,11 @@ export default function BanksPage() {
     } finally {
       setLoading(false)
     }
-  }, [search, token, activeClinicId])
+  }, [search])
 
   useEffect(() => {
-    if (token) fetchData()
-  }, [fetchData, token])
+    fetchData()
+  }, [fetchData])
 
   const handleOpenAdd = () => {
     setEditing(null)
@@ -90,7 +86,7 @@ export default function BanksPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Hapus data bank ini?')) return
     try {
-      await axios.delete(`${API}/banks/${id}`, { headers })
+      await api.delete(`/master/banks/${id}`)
       toast.success('Bank berhasil dihapus')
       fetchData()
     } catch (e) {
@@ -103,10 +99,10 @@ export default function BanksPage() {
     setSaving(true)
     try {
       if (editing) {
-        await axios.put(`${API}/banks/${editing.id}`, form, { headers })
+        await api.put(`/master/banks/${editing.id}`, form)
         toast.success('Bank berhasil diperbarui')
       } else {
-        await axios.post(`${API}/banks`, { ...form, clinicId: activeClinicId }, { headers })
+        await api.post('/master/banks', { ...form, clinicId: activeClinicId })
         toast.success('Bank baru berhasil ditambahkan')
       }
       setModalOpen(false)

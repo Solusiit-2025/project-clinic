@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { FiGlobe, FiAlertCircle, FiPhone, FiMail, FiMapPin, FiHash } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
@@ -28,7 +28,6 @@ type Clinic = {
 }
 
 export default function ClinicsPage() {
-  const { token } = useAuthStore()
   const [data, setData] = useState<Clinic[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -38,13 +37,11 @@ export default function ClinicsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const headers = { Authorization: `Bearer ${token}` }
 
   const fetchClinics = useCallback(async () => {
     setLoading(true)
     try {
-      const response = await axios.get(API, { 
-        headers,
+      const response = await api.get('/master/clinics', { 
         params: search ? { search } : {} 
       })
       setData(response.data)
@@ -53,7 +50,7 @@ export default function ClinicsPage() {
     } finally {
       setLoading(false)
     }
-  }, [search, token])
+  }, [search])
 
   useEffect(() => {
     fetchClinics()
@@ -91,9 +88,9 @@ export default function ClinicsPage() {
     setError('')
     try {
       if (editing) {
-        await axios.put(`${API}/${editing.id}`, form, { headers })
+        await api.put(`/master/clinics/${editing.id}`, form)
       } else {
-        await axios.post(API, form, { headers })
+        await api.post('/master/clinics', form)
       }
       setModalOpen(false)
       fetchClinics()
@@ -108,7 +105,7 @@ export default function ClinicsPage() {
   const handleDelete = async (clinic: Clinic) => {
     if (!confirm(`Apakah Anda yakin ingin menghapus cabang "${clinic.name}"?`)) return
     try {
-      await axios.delete(`${API}/${clinic.id}`, { headers })
+      await api.delete(`/master/clinics/${clinic.id}`)
       fetchClinics()
     } catch (err: any) {
       alert(err.response?.data?.message || 'Gagal menghapus cabang.')

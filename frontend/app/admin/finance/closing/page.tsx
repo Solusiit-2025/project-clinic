@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { 
   FiLock, FiUnlock, FiCalendar, FiActivity, FiArrowRight, 
   FiCheckCircle, FiAlertTriangle, FiInfo, FiTrendingUp, FiTrendingDown, 
@@ -14,7 +14,7 @@ import { toast } from 'react-hot-toast'
 const ACCT_API = process.env.NEXT_PUBLIC_API_URL + '/api/accounting'
 
 export default function YearEndClosingPage() {
-  const { token, activeClinicId } = useAuthStore()
+  const { activeClinicId } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [summary, setSummary] = useState<any>(null)
@@ -22,10 +22,6 @@ export default function YearEndClosingPage() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [step, setStep] = useState(1) // 1: Preview, 2: processing
 
-  const headers = useMemo(() => ({ 
-    Authorization: `Bearer ${token}`,
-    'x-clinic-id': activeClinicId
-  }), [token, activeClinicId])
 
   const fetchSummary = useCallback(async () => {
     setLoading(true)
@@ -33,8 +29,7 @@ export default function YearEndClosingPage() {
       // We use the Profit & Loss API to get a preview of the year's performance
       const start = `${selectedYear}-01-01`
       const end = `${selectedYear}-12-31`
-      const { data } = await axios.get(`${ACCT_API}/profit-loss`, { 
-        headers, 
+      const { data } = await api.get('/accounting/profit-loss', { 
         params: { startDate: start, endDate: end } 
       })
       setSummary(data)
@@ -44,19 +39,19 @@ export default function YearEndClosingPage() {
     } finally {
       setLoading(false)
     }
-  }, [headers, selectedYear])
+  }, [selectedYear])
 
   useEffect(() => {
-    if (token) fetchSummary()
-  }, [fetchSummary, token])
+    fetchSummary()
+  }, [fetchSummary])
 
   const handleRunClosing = async () => {
     setProcessing(true)
     setStep(2)
     try {
-      await axios.post(`${ACCT_API}/close-year`, {
+      await api.post('/accounting/close-year', {
         year: selectedYear
-      }, { headers })
+      })
       
       toast.success(`Tutup Buku Tahun ${selectedYear} Berhasil!`)
       fetchSummary()

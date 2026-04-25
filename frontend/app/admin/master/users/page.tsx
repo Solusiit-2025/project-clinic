@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { FiUsers, FiAlertCircle } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
@@ -9,7 +9,6 @@ import PageHeader from '@/components/admin/master/PageHeader'
 import MasterModal from '@/components/admin/master/MasterModal'
 import { StatusBadge, RoleBadge } from '@/components/admin/master/StatusBadge'
 
-const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
 const ROLES = ['SUPER_ADMIN','ADMIN','DOCTOR','RECEPTIONIST','FARMASI','ACCOUNTING','LOGISTIC','STAFF']
 
 type User = {
@@ -23,7 +22,7 @@ type ClinicShort = { id: string; name: string; code: string }
 const EMPTY_FORM = { email:'', username:'', password:'', name:'', phone:'', role:'STAFF', isActive: true, clinicIds: [] as string[] }
 
 export default function UsersPage() {
-  const { token, activeClinicId } = useAuthStore()
+  const { activeClinicId } = useAuthStore()
   const [data, setData] = useState<User[]>([])
   const [clinics, setClinics] = useState<ClinicShort[]>([])
   const [loading, setLoading] = useState(true)
@@ -35,14 +34,13 @@ export default function UsersPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const headers = { Authorization: `Bearer ${token}` }
 
   const fetchClinics = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${API}/clinics`, { headers })
+      const { data } = await api.get('/master/clinics')
       setClinics(data)
     } catch { /* ignore */ }
-  }, [token])
+  }, [])
 
   const fetch = useCallback(async () => {
     setLoading(true)
@@ -50,13 +48,12 @@ export default function UsersPage() {
       const params: any = {}
       if (search) params.search = search
       if (roleFilter) params.role = roleFilter
-      const res = await axios.get(`${API}/users`, { headers, params })
-      // Extract the data array from the paginated response object if necessary
+      const res = await api.get('/master/users', { params })
       const usersArray = Array.isArray(res.data) ? res.data : (res.data.data || [])
       setData(usersArray)
     } catch { /* ignore */ }
     finally { setLoading(false) }
-  }, [search, roleFilter, token, activeClinicId])
+  }, [search, roleFilter, activeClinicId])
 
   useEffect(() => { 
     fetch()
@@ -99,9 +96,9 @@ export default function UsersPage() {
       const payload: any = { ...form }
       if (editing && !payload.password) delete payload.password
       if (editing) {
-        await axios.put(`${API}/users/${editing.id}`, payload, { headers })
+        await api.put(`/master/users/${editing.id}`, payload)
       } else {
-        await axios.post(`${API}/users`, payload, { headers })
+        await api.post('/master/users', payload)
       }
       setModalOpen(false); fetch()
     } catch (e: any) {
@@ -111,7 +108,7 @@ export default function UsersPage() {
 
   const handleDelete = async (row: User) => {
     if (!confirm(`Hapus user "${row.name}"?`)) return
-    try { await axios.delete(`${API}/users/${row.id}`, { headers }); fetch() } catch { /* */ }
+    try { await api.delete(`/master/users/${row.id}`); fetch() } catch { /* */ }
   }
 
   const columns: Column<User>[] = [

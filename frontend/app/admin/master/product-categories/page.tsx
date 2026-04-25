@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import toast from 'react-hot-toast'
 import { FiTag, FiAlertCircle, FiPackage } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -10,7 +10,6 @@ import PageHeader from '@/components/admin/master/PageHeader'
 import MasterModal from '@/components/admin/master/MasterModal'
 import DeleteConfirmModal from '@/components/admin/master/DeleteConfirmModal'
 
-const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
 const EMPTY = { categoryName: '', description: '', isActive: true }
 
 type ProductCategory = {
@@ -19,7 +18,6 @@ type ProductCategory = {
 }
 
 export default function ProductCategoriesPage() {
-  const token = useAuthStore(state => state.token)
   const activeClinicId = useAuthStore(state => state.activeClinicId)
   const [data, setData] = useState<ProductCategory[]>([])
   const [loading, setLoading] = useState(true)
@@ -32,15 +30,14 @@ export default function ProductCategoriesPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<ProductCategory | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const { data } = await axios.get(`${API}/product-categories`, { headers, params: search ? { search } : {} })
+      const { data } = await api.get('/master/product-categories', { params: search ? { search } : {} })
       setData(data)
     } finally { setLoading(false) }
-  }, [search, token, activeClinicId])
+  }, [search, activeClinicId])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -55,8 +52,8 @@ export default function ProductCategoriesPage() {
     if (!form.categoryName) { setError('Nama kategori wajib diisi'); return }
     setSaving(true); setError('')
     try {
-      if (editing) await axios.put(`${API}/product-categories/${editing.id}`, form, { headers })
-      else await axios.post(`${API}/product-categories`, form, { headers })
+      if (editing) await api.put(`/master/product-categories/${editing.id}`, form)
+      else await api.post('/master/product-categories', form)
       setModalOpen(false); fetchData()
       toast.success(editing ? 'Kategori diperbarui' : 'Kategori baru ditambahkan')
     } catch (e: any) { setError(e.response?.data?.message || 'Terjadi kesalahan') }
@@ -73,7 +70,7 @@ export default function ProductCategoriesPage() {
     setDeleteModalOpen(false)
     setIsDeleting(true)
     try { 
-      await axios.delete(`${API}/product-categories/${itemToDelete.id}`, { headers })
+      await api.delete(`/master/product-categories/${itemToDelete.id}`)
       fetchData() 
       toast.success('Kategori berhasil dihapus')
     } catch (e: any) {

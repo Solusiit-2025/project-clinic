@@ -9,7 +9,7 @@ import {
 } from 'react-icons/fi'
 import { toast } from 'react-hot-toast'
 import { useAuthStore } from '@/lib/store/useAuthStore'
-import axios from 'axios'
+import api from '@/lib/api'
 
 interface InvoiceItem {
   id: string
@@ -81,7 +81,7 @@ interface ReceiptPreviewData {
 }
 
 export default function FinanceDashboard() {
-  const { token, user, activeClinicId } = useAuthStore()
+  const { user, activeClinicId } = useAuthStore()
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [availableBanks, setAvailableBanks] = useState<Bank[]>([])
   const [activeClinicProfile, setActiveClinicProfile] = useState<ClinicProfile | null>(null)
@@ -116,20 +116,14 @@ export default function FinanceDashboard() {
   const [invoiceToPost, setInvoiceToPost] = useState<Invoice | null>(null)
   const [confirmBankId, setConfirmBankId] = useState('')
   
-  const headers = useMemo(() => ({ 
-    Authorization: `Bearer ${token}`,
-    'x-clinic-id': activeClinicId
-  }), [token, activeClinicId])
 
   const fetchData = useCallback(async () => {
-    if (!token || !activeClinicId) return
+    if (!activeClinicId) return
     try {
       setLoading(true)
-      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/api'
-      
+
       const [invRes, sumRes, bankRes, clinicRes] = await Promise.all([
-        axios.get(`${baseUrl}/finance/invoices`, { 
-          headers,
+        api.get('/finance/invoices', {
           params: { 
             search: search || undefined,
             status: statusFilter === 'all' ? undefined : statusFilter,
@@ -137,9 +131,9 @@ export default function FinanceDashboard() {
             limit: 10
           }
         }),
-        axios.get(`${baseUrl}/finance/summary`, { headers }),
-        axios.get(`${baseUrl}/master/banks`, { headers }),
-        axios.get(`${baseUrl}/master/clinics`, { headers })
+        api.get('/finance/summary'),
+        api.get('/master/banks'),
+        api.get('/master/clinics')
       ])
       
       // Handle PaginatedResult or Array format robustly
@@ -165,13 +159,13 @@ export default function FinanceDashboard() {
     } finally {
       setLoading(false)
     }
-  }, [headers, search, statusFilter, page])
+  }, [search, statusFilter, page, activeClinicId])
 
   useEffect(() => {
-    if (token && activeClinicId) {
+    if (activeClinicId) {
       fetchData()
     }
-  }, [fetchData, token, activeClinicId])
+  }, [fetchData, activeClinicId])
 
   // Keyboard Shortcuts Hook
   useEffect(() => {
@@ -301,14 +295,13 @@ export default function FinanceDashboard() {
     
     try {
       setProcessing(true)
-      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/api'
-      const { data } = await axios.post(`${baseUrl}/finance/payments`, {
+      const { data } = await api.post('/finance/payments', {
         invoiceId: selectedInvoice.id,
         amount: paymentData.amount,
         paymentMethod: paymentData.method,
         notes: paymentData.notes,
         bankId: paymentData.bankId || null
-      }, { headers })
+      })
       
       toast.success('Pembayaran berhasil diproses')
       setShowPaymentModal(false)
@@ -377,11 +370,10 @@ export default function FinanceDashboard() {
     if (!selectedInvoiceToEdit) return
     setBankUpdating(true)
     try {
-      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/api'
-      await axios.put(`${baseUrl}/finance/invoices/bank`, {
+      await api.put('/finance/invoices/bank', {
         invoiceId: selectedInvoiceToEdit.id,
         bankId: editBankDraftId || null
-      }, { headers })
+      })
       toast.success('Informasi bank berhasil diperbarui')
       closeEditBankModal()
       fetchData()
@@ -396,11 +388,10 @@ export default function FinanceDashboard() {
     if (!selectedInvoice) return
     setBankUpdating(true)
     try {
-        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/api'
-        const { data: updated } = await axios.put(`${baseUrl}/finance/invoices/bank`, {
+        const { data: updated } = await api.put('/finance/invoices/bank', {
            invoiceId: selectedInvoice.id,
            bankId: bankId || null
-        }, { headers })
+        })
         
         setSelectedInvoice(updated)
         // Refresh invoice list to update the item locally
@@ -416,11 +407,10 @@ export default function FinanceDashboard() {
   const handlePostToLedger = async (inv: Invoice) => {
     try {
       setProcessing(true)
-      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/api'
 
-      await axios.post(`${baseUrl}/finance/invoices/post-to-ledger`, {
+      await api.post('/finance/invoices/post-to-ledger', {
         invoiceId: inv.id
-      }, { headers })
+      })
       
       toast.success('Invoice berhasil terposting ke Buku Besar')
       setShowPostConfirmModal(false)
@@ -460,51 +450,52 @@ export default function FinanceDashboard() {
     <div className="w-full px-[6px] py-4 space-y-10">
       
       {/* TOP STATS */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 px-2">
           <motion.div 
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm flex items-center gap-6"
+            initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
+            className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4"
           >
-            <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
-                <FiDollarSign className="w-8 h-8" />
+            <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
+                <FiDollarSign className="w-6 h-6" />
             </div>
             <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Pendapatan Hari Ini</p>
-                <h3 className="text-2xl font-black text-slate-900 tracking-tight">{formatCurrency(summary.todayRevenue)}</h3>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Pendapatan Hari Ini</p>
+                <h3 className="text-lg font-black text-slate-900 tracking-tight">{formatCurrency(summary.todayRevenue)}</h3>
             </div>
           </motion.div>
 
           <motion.div 
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-            className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm flex items-center gap-6"
+            initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+            className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4"
           >
-            <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-600">
-                <FiClock className="w-8 h-8" />
+            <div className="w-12 h-12 bg-rose-50 rounded-xl flex items-center justify-center text-rose-600">
+                <FiClock className="w-6 h-6" />
             </div>
             <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Piutang Berjalan</p>
-                <h3 className="text-2xl font-black text-slate-900 tracking-tight text-rose-600">{formatCurrency(summary.pendingRevenue)}</h3>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Piutang Berjalan</p>
+                <h3 className="text-lg font-black text-slate-900 tracking-tight text-rose-600">{formatCurrency(summary.pendingRevenue)}</h3>
             </div>
           </motion.div>
       </div>
 
       {/* FILTER & SEARCH */}
-      <section className="bg-white p-6 rounded-[3rem] border border-slate-200 shadow-sm mx-2">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-              <div className="flex items-center gap-4 bg-slate-50 px-6 py-2 rounded-2xl border border-slate-100 flex-1 w-full">
-                  <FiSearch className="text-slate-400 w-5 h-5 pointer-events-none" />
+      {/* FILTER & SEARCH */}
+      <section className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm mx-2">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <div className="flex items-center gap-3 bg-slate-50 px-4 py-1.5 rounded-xl border border-slate-100 flex-1 w-full">
+                  <FiSearch className="text-slate-400 w-4 h-4 pointer-events-none" />
                   <input 
                     type="text" value={search} onChange={(e) => setSearch(e.target.value)}
                     placeholder="Cari Invoice # atau Nama Pasien..."
-                    className="bg-transparent border-none focus:outline-none text-sm font-black text-slate-700 w-full py-3"
+                    className="bg-transparent border-none focus:outline-none text-[11px] font-black text-slate-700 w-full py-2.5 uppercase"
                   />
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                   {['all', 'paid', 'unpaid', 'partial'].map((s) => (
                     <button 
                       key={s} onClick={() => setStatusFilter(s)}
-                      className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === s ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+                      className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${statusFilter === s ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
                     >
                       {s}
                     </button>
@@ -515,17 +506,17 @@ export default function FinanceDashboard() {
 
       {/* INVOICE TABLE */}
       <section className="mx-2">
-          <div className="bg-white rounded-[3.5rem] border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
             <table className="w-full text-left">
                 <thead>
                   <tr className="bg-slate-50/50 border-b border-slate-100">
-                      <th className="px-10 py-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">No. Invoice</th>
-                      <th className="px-8 py-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tanggal</th>
-                      <th className="px-8 py-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Pasien</th>
-                      <th className="px-8 py-8 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Total</th>
-                      <th className="px-8 py-8 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
-                      <th className="px-8 py-8 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Sync</th>
-                      <th className="px-10 py-8 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
+                      <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">No. Invoice</th>
+                      <th className="px-5 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Tanggal</th>
+                      <th className="px-5 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Pasien</th>
+                      <th className="px-5 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Total</th>
+                      <th className="px-5 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                      <th className="px-5 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Sync</th>
+                      <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -698,94 +689,94 @@ export default function FinanceDashboard() {
             />
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 30 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 30 }}
-              className="relative w-full max-w-5xl bg-white rounded-[4rem] shadow-2xl overflow-hidden pointer-events-auto"
+              className="relative w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden pointer-events-auto"
             >
-              <div className="p-14 space-y-12 max-h-[90vh] overflow-y-auto custom-scrollbar text-left">
+              <div className="p-8 space-y-8 max-h-[90vh] overflow-y-auto custom-scrollbar text-left">
                  <div className="flex justify-between items-start">
-                    <div className="space-y-3">
-                       <h3 className="text-4xl font-black text-slate-900 tracking-tighter leading-none">Detail Invoice</h3>
-                       <div className="flex items-center gap-3">
-                          <span className="px-4 py-1.5 bg-slate-100 text-slate-700 rounded-full text-[11px] font-black uppercase tracking-widest border border-slate-200">{selectedInvoice.invoiceNo}</span>
+                    <div className="space-y-1">
+                       <h3 className="text-xl font-black text-slate-900 tracking-tighter leading-none uppercase underline decoration-indigo-500/20 underline-offset-4">Detail Invoice</h3>
+                       <div className="flex items-center gap-2 pt-2">
+                          <span className="px-3 py-1 bg-slate-100 text-slate-700 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-200">{selectedInvoice.invoiceNo}</span>
                           {getStatusBadge(selectedInvoice.status)}
                        </div>
                     </div>
-                    <div className="text-right space-y-2">
-                       <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Tanggal Terbit</p>
-                       <p className="text-lg font-black text-slate-900">{new Date(selectedInvoice.invoiceDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    <div className="text-right space-y-1">
+                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tanggal Terbit</p>
+                       <p className="text-sm font-black text-slate-900">{new Date(selectedInvoice.invoiceDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                     </div>
                  </div>
 
-                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Patient Info */}
-                    <div className="bg-slate-50 p-8 rounded-[3rem] border border-slate-100 transition-all hover:bg-white hover:shadow-xl hover:shadow-slate-100 group">
-                       <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-8 flex items-center gap-3">
-                          <FiFileText className="w-4 h-4 text-indigo-500" /> Informasi Pasien
+                    <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 transition-all group">
+                       <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                          <FiFileText className="w-3.5 h-3.5 text-indigo-500" /> Pasien
                        </h4>
-                       <div className="space-y-6">
+                       <div className="space-y-4">
                           <div>
-                             <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">Nama Lengkap</p>
-                             <p className="text-lg font-black text-slate-800">{selectedInvoice.patient.name}</p>
+                             <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Nama Lengkap</p>
+                             <p className="text-sm font-black text-slate-800 uppercase">{selectedInvoice.patient.name}</p>
                           </div>
                           <div>
-                             <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">No. Rekam Medis</p>
-                             <p className="text-lg font-black text-slate-800 tracking-widest font-mono">{selectedInvoice.patient.medicalRecordNo}</p>
+                             <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">No. Rekam Medis</p>
+                             <p className="text-sm font-black text-slate-800 tracking-widest font-mono">{selectedInvoice.patient.medicalRecordNo}</p>
                           </div>
                           <div>
-                             <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">Kontak</p>
-                             <p className="text-lg font-black text-slate-800">{selectedInvoice.patient.phone || '-'}</p>
+                             <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Kontak</p>
+                             <p className="text-sm font-black text-slate-800">{selectedInvoice.patient.phone || '-'}</p>
                           </div>
                        </div>
                     </div>
 
                     {/* Financial Resume */}
-                    <div className="bg-indigo-600 p-10 rounded-[3.5rem] shadow-2xl shadow-indigo-200 text-white relative overflow-hidden group">
-                       <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-1000" />
-                       <h4 className="text-[11px] font-black text-white/40 uppercase tracking-widest mb-10 flex items-center gap-3 relative z-10">
-                          <FiDollarSign className="w-4 h-4" /> Resume Finansial
+                    <div className="bg-indigo-600 p-8 rounded-3xl shadow-xl shadow-indigo-100 text-white relative overflow-hidden group">
+                       <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-1000" />
+                       <h4 className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-8 flex items-center gap-2 relative z-10">
+                          <FiDollarSign className="w-3.5 h-3.5" /> Resume Finansial
                        </h4>
-                       <div className="space-y-6 relative z-10">
-                          <div className="flex justify-between items-center text-sm font-bold text-white/60">
-                             <span>Subtotal</span>
+                       <div className="space-y-5 relative z-10">
+                          <div className="flex justify-between items-center text-xs font-bold text-white/60">
+                             <span>TOTAL</span>
                              <span className="font-black text-white">{formatCurrency(selectedInvoice.total)}</span>
                           </div>
-                          <div className="flex justify-between items-center text-sm font-bold text-white/60">
-                             <span>Terbayar</span>
+                          <div className="flex justify-between items-center text-xs font-bold text-white/60">
+                             <span>PAID</span>
                              <span className="font-black text-emerald-300">{formatCurrency(selectedInvoice.amountPaid || 0)}</span>
                           </div>
-                          <div className="pt-8 border-t border-white/10 mt-6">
-                             <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">Sisa Tagihan</p>
-                             <h5 className="text-4xl font-black text-white tracking-tightest">{formatCurrency(selectedInvoice.total - (selectedInvoice.amountPaid || 0))}</h5>
+                          <div className="pt-6 border-t border-white/10 mt-4">
+                             <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">Outstanding</p>
+                             <h5 className="text-2xl font-black text-white tracking-tightest">{formatCurrency(selectedInvoice.total - (selectedInvoice.amountPaid || 0))}</h5>
                           </div>
                        </div>
                     </div>
 
                     {/* Billing/Bank Info */}
-                    <div className="bg-white p-8 rounded-[3rem] border border-indigo-100 shadow-xl shadow-indigo-50 flex flex-col justify-between">
+                    <div className="bg-white p-6 rounded-2xl border border-indigo-100 shadow-xl shadow-indigo-50 flex flex-col justify-between">
                        <div>
-                          <h4 className="text-[11px] font-black text-indigo-400 uppercase tracking-widest mb-8 flex items-center gap-3">
-                             <FiBriefcase className="w-4 h-4" /> Instruksi Pembayaran
+                          <h4 className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                             <FiBriefcase className="w-3.5 h-3.5" /> Pembayaran
                           </h4>
                           
                           {selectedInvoice.bank ? (
-                            <div className="space-y-6">
-                                <div className="flex items-center gap-4">
-                                   <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100">
-                                      <FiCreditCard className="w-6 h-6" />
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-3">
+                                   <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100">
+                                      <FiCreditCard className="w-5 h-5" />
                                    </div>
                                    <div>
-                                      <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none mb-1">Rekening Tujuan</p>
-                                      <p className="text-base font-black text-slate-800 tracking-tight">{selectedInvoice.bank.bankName}</p>
+                                      <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">Bank Tujuan</p>
+                                      <p className="text-sm font-black text-slate-800 uppercase">{selectedInvoice.bank.bankName}</p>
                                    </div>
                                 </div>
                                 <div>
-                                   <p className="text-[11px] font-black text-slate-300 uppercase tracking-widest mb-1">Nomor Rekening</p>
-                                   <p className="text-xl font-black text-indigo-600 tracking-widest font-mono">{selectedInvoice.bank.accountNumber}</p>
-                                   <p className="text-xs font-bold text-slate-500 mt-2 italic">a.n {selectedInvoice.bank.accountHolder}</p>
+                                   <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-0.5">No. Rekening</p>
+                                   <p className="text-lg font-black text-indigo-600 tracking-widest font-mono leading-none">{selectedInvoice.bank.accountNumber}</p>
+                                   <p className="text-[10px] font-bold text-slate-500 mt-2 uppercase tracking-wide">A.N {selectedInvoice.bank.accountHolder}</p>
                                 </div>
                             </div>
                           ) : (
-                            <div className="py-6 px-4 bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-center">
-                               <p className="text-[11px] font-bold text-slate-400 uppercase italic">Bank belum dipilih</p>
+                            <div className="py-4 px-4 bg-slate-50 border border-dashed border-slate-200 rounded-xl text-center">
+                               <p className="text-[9px] font-bold text-slate-400 uppercase italic">Bank belum dipilih</p>
                             </div>
                           )}
                        </div>

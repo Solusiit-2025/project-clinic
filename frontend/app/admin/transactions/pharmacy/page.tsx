@@ -57,19 +57,19 @@ export default function PharmacyQueuePage() {
 
   return (
     <div className="p-6">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Antrian Farmasi / Apotek</h1>
-          <p className="text-gray-500 text-sm mt-1">Status resep masuk dan penyerahan obat hari ini.</p>
+          <h1 className="text-lg font-black text-gray-900 tracking-tight uppercase">Antrian Farmasi / Apotek</h1>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Status resep masuk dan penyerahan obat hari ini.</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Kolom 1: Menunggu Diproses */}
-        <div className="bg-orange-50/50 rounded-2xl p-6 border border-orange-100">
-          <div className="flex items-center justify-between mb-6 border-b border-orange-100 pb-4">
-            <h2 className="text-lg font-bold text-orange-800 flex items-center">
-              <Clock className="w-5 h-5 mr-2 text-orange-500" />
+        <div className="bg-orange-50/50 rounded-xl p-4 border border-orange-100">
+          <div className="flex items-center justify-between mb-4 border-b border-orange-100 pb-3">
+            <h2 className="text-sm font-black text-orange-800 flex items-center uppercase tracking-widest">
+              <Clock className="w-4 h-4 mr-2 text-orange-500" />
               Menunggu Diramu ({pending.length})
             </h2>
           </div>
@@ -84,19 +84,19 @@ export default function PharmacyQueuePage() {
                   onClick={() => router.push(`/admin/transactions/pharmacy/${p.id}`)}
                   className="bg-white p-4 rounded-xl shadow-sm border border-orange-100 cursor-pointer hover:shadow-md hover:border-orange-300 transition-all group"
                 >
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="font-bold text-gray-800">{p.prescriptionNo}</span>
-                    <span className={`text-xs px-3 py-1 rounded-full font-bold uppercase tracking-wider ${p.dispenseStatus === 'preparing' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                  <div className="flex justify-between items-start mb-1.5">
+                    <span className="font-bold text-gray-800 text-sm">{p.prescriptionNo}</span>
+                    <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${p.dispenseStatus === 'preparing' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
                       {p.dispenseStatus}
                     </span>
                   </div>
-                  <div className="text-sm text-gray-600 mb-4">
-                    <p className="font-semibold">{p.patient.name} <span className="text-gray-400 font-normal">({p.patient.medicalRecordNo})</span></p>
-                    <p className="text-xs text-gray-500 mt-1 flex items-center"><Pill className="w-3 h-3 mr-1" /> {p.items.length} macam obat</p>
+                  <div className="text-xs text-gray-600 mb-3">
+                    <p className="font-bold">{p.patient.name} <span className="text-gray-400 font-normal">({p.patient.medicalRecordNo})</span></p>
+                    <p className="text-[10px] text-gray-400 mt-1 flex items-center uppercase font-bold tracking-tighter"><Pill className="w-2.5 h-2.5 mr-1" /> {p.items.length} Macam Obat</p>
                   </div>
-                  <div className="text-xs text-gray-400 flex items-center justify-between">
-                    <span>Dr. {p.doctor.name}</span>
-                    <span className="group-hover:text-orange-500 flex items-center transition-colors">Proses <ArrowRight className="w-3 h-3 ml-1" /></span>
+                  <div className="text-[10px] text-gray-400 flex items-center justify-between font-bold">
+                    <span>DR. {p.doctor.name.toUpperCase()}</span>
+                    <span className="group-hover:text-orange-500 flex items-center transition-colors">PROSES <ArrowRight className="w-2.5 h-2.5 ml-1" /></span>
                   </div>
                 </motion.div>
               ))
@@ -105,10 +105,10 @@ export default function PharmacyQueuePage() {
         </div>
 
         {/* Kolom 2: Siap/Selesai */}
-        <div className="bg-green-50/50 rounded-2xl p-6 border border-green-100">
-          <div className="flex items-center justify-between mb-6 border-b border-green-100 pb-4">
-            <h2 className="text-lg font-bold text-green-800 flex items-center">
-              <ClipboardCheck className="w-5 h-5 mr-2 text-green-500" />
+        <div className="bg-green-50/50 rounded-xl p-4 border border-green-100">
+          <div className="flex items-center justify-between mb-4 border-b border-green-100 pb-3">
+            <h2 className="text-sm font-black text-green-800 flex items-center uppercase tracking-widest">
+              <ClipboardCheck className="w-4 h-4 mr-2 text-green-500" />
               Siap / Selesai ({ready.length})
             </h2>
           </div>

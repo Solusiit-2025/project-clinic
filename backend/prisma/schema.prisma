@@ -247,6 +247,9 @@ model Appointment {
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
   clinicId        String?
+  reminderSent    Boolean              @default(false)
+  createdBy       String?
+  updatedBy       String?
   services        AppointmentService[]
   clinic          Clinic?              @relation(fields: [clinicId], references: [id])
   doctor          Doctor               @relation(fields: [doctorId], references: [id])
@@ -764,6 +767,9 @@ model AssetInsurance {
   contactPerson    String?
   contactPhone     String?
   notes            String?
+  isPosted         Boolean   @default(false)
+  postedAt         DateTime?
+  journalId        String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   asset            Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)

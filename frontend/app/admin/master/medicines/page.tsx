@@ -34,6 +34,7 @@ type Medicine = {
   clinicId?: string;
   clinic?: { name: string; code: string };
   totalStock?: number;
+  stock?: number;
   unit?: string;
   productMaster?: {
     products: {
@@ -50,7 +51,7 @@ type Medicine = {
 }
 
 export default function MedicinesPage() {
-  const { token, activeClinicId, user } = useAuthStore()
+  const { activeClinicId, user } = useAuthStore()
   const [data, setData] = useState<Medicine[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -66,7 +67,7 @@ export default function MedicinesPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null)
 
   // Use a derived isAdmin state for UI logic
-  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.clinics?.some(c => c.clinic?.isMain)
+  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.clinics?.some(c => c.isMain)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -158,8 +159,8 @@ export default function MedicinesPage() {
         }
       })
 
-      if (editing) await axios.put(`${API}/medicines/${editing.id}`, formData, { headers })
-      else await axios.post(`${API}/medicines`, formData, { headers })
+      if (editing) await api.put(`/master/medicines/${editing.id}`, formData)
+      else await api.post('/master/medicines', formData)
       
       setModalOpen(false); fetchData()
     } catch (e: any) { setError(e.response?.data?.message || 'Terjadi kesalahan') }
@@ -168,7 +169,7 @@ export default function MedicinesPage() {
 
   const handleDelete = async (r: Medicine) => {
     if (!confirm(`Hapus obat "${r.medicineName}"?`)) return
-    try { await axios.delete(`${API}/medicines/${r.id}`, { headers }); fetchData() } catch { }
+    try { await api.delete(`/master/medicines/${r.id}`); fetchData() } catch { }
   }
 
   const formColors: Record<string, string> = {

@@ -18,7 +18,7 @@ import {
   FiAlertCircle,
   FiRefreshCw
 } from 'react-icons/fi'
-import axios from 'axios'
+import api from '@/lib/api'
 import { format } from 'date-fns'
 import { id as idLocale } from 'date-fns/locale'
 import PageHeader from '@/components/admin/master/PageHeader'
@@ -26,7 +26,6 @@ import DataTable from '@/components/admin/master/DataTable'
 import Modal from '@/components/admin/master/MasterModal'
 import SearchableSelect from '@/components/admin/master/SearchableSelect'
 
-const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
 
 export default function AssetTransfersPage() {
   const [transfers, setTransfers] = useState<any[]>([])
@@ -60,9 +59,7 @@ export default function AssetTransfersPage() {
 
   const fetchData = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const headers = { Authorization: `Bearer ${token}` }
-      const res = await axios.get(`${API}/assets/transfers/all`, { headers })
+      const res = await api.get('/master/assets/transfers/all')
       setTransfers(res.data)
     } catch (e: any) {
       setError('Gagal memuat data transfer')
@@ -73,18 +70,14 @@ export default function AssetTransfersPage() {
 
   const fetchAssets = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const headers = { Authorization: `Bearer ${token}` }
-      const res = await axios.get(`${API}/assets`, { headers })
+      const res = await api.get('/master/assets')
       setAssets(res.data.filter((a: any) => a.status === 'active'))
     } catch (e) {}
   }
 
   const fetchClinics = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const headers = { Authorization: `Bearer ${token}` }
-      const res = await axios.get(`${API}/clinics`, { headers })
+      const res = await api.get('/master/clinics')
       setClinics(res.data)
     } catch (e) {}
   }
@@ -98,9 +91,7 @@ export default function AssetTransfersPage() {
 
     setRequestLoading(true)
     try {
-      const token = localStorage.getItem('token')
-      const headers = { Authorization: `Bearer ${token}` }
-      await axios.post(`${API}/assets/${selectedAsset.id}/transfer`, transferData, { headers })
+      await api.post(`/master/assets/${selectedAsset.id}/transfer`, transferData)
       setSuccess('Permintaan transfer berhasil dibuat')
       setRequestModalOpen(false)
       fetchData()
@@ -114,9 +105,7 @@ export default function AssetTransfersPage() {
   const handleApprove = async () => {
     setProcessingLoading(true)
     try {
-      const token = localStorage.getItem('token')
-      const headers = { Authorization: `Bearer ${token}` }
-      await axios.put(`${API}/assets/transfer/${selectedTransfer.id}/approve`, {}, { headers })
+      await api.put(`/master/assets/transfer/${selectedTransfer.id}/approve`, {})
       setSuccess('Transfer disetujui dan berhasil diposting ke GL')
       setApprovalModalOpen(false)
       fetchData()
@@ -130,9 +119,7 @@ export default function AssetTransfersPage() {
   const handleReject = async (reason: string) => {
     setProcessingLoading(true)
     try {
-      const token = localStorage.getItem('token')
-      const headers = { Authorization: `Bearer ${token}` }
-      await axios.put(`${API}/assets/transfer/${selectedTransfer.id}/reject`, { notes: reason }, { headers })
+      await api.put(`/master/assets/transfer/${selectedTransfer.id}/reject`, { notes: reason })
       setSuccess('Transfer berhasil ditolak')
       setRejectionModalOpen(false)
       fetchData()
@@ -148,9 +135,7 @@ export default function AssetTransfersPage() {
 
     setSyncLoading(true)
     try {
-      const token = localStorage.getItem('token')
-      const headers = { Authorization: `Bearer ${token}` }
-      const res = await axios.post(`${API}/assets/sync-opening-balance`, { goLiveDate: new Date().toISOString().split('T')[0] }, { headers })
+      const res = await api.post('/master/assets/sync-opening-balance', { goLiveDate: new Date().toISOString().split('T')[0] })
       setSuccess(res.data.message)
     } catch (e: any) {
       setError(e.response?.data?.message || 'Gagal sinkronisasi saldo awal')

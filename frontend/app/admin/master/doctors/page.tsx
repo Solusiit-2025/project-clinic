@@ -1,7 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import toast from 'react-hot-toast'
 import { FiUserCheck, FiAlertCircle, FiLock, FiCamera, FiX, FiUser, FiEye, FiPhone, FiMail, FiBriefcase, FiCalendar, FiMapPin, FiEdit2, FiArrowRight } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -11,7 +12,6 @@ import MasterModal from '@/components/admin/master/MasterModal'
 import { StatusBadge } from '@/components/admin/master/StatusBadge'
 import DeleteConfirmModal from '@/components/admin/master/DeleteConfirmModal'
 
-const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
 const UPLOADS_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004'
 const EMPTY = { 
   userId: '', licenseNumber: '', name: '', email: '', phone: '', 
@@ -52,7 +52,7 @@ type UnlinkedUser = { id: string; name: string; username: string }
 const SPECIALIZATIONS = ['Umum', 'Gigi', 'Anak', 'Kandungan', 'Bedah', 'Dalam', 'Saraf', 'Mata', 'THT', 'Kulit', 'Jantung', 'Orthopedi', 'Radiologi', 'Anestesi', 'Jiwa', 'Rehab Medik', 'Gizi Klinik']
 
 export default function DoctorsPage() {
-  const { token, activeClinicId } = useAuthStore()
+  const { activeClinicId } = useAuthStore()
   const [data, setData] = useState<Doctor[]>([])
   const [departments, setDepartments] = useState<Dept[]>([])
   const [clinics, setClinics] = useState<{ id: string, name: string, code: string }[]>([])
@@ -77,28 +77,27 @@ export default function DoctorsPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const headers = { Authorization: `Bearer ${token}` }
 
   const fetchDepts = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${API}/departments?allClinics=true`, { headers })
+      const { data } = await api.get('/master/departments', { params: { allClinics: true } })
       setDepartments(data)
     } catch { }
-  }, [token, activeClinicId])
+  }, [])
 
   const fetchClinics = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004'}/api/master/clinics`, { headers })
+      const { data } = await api.get('/master/clinics')
       setClinics(data)
     } catch { }
-  }, [token])
+  }, [])
 
   const fetchUnlinked = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${API}/users/unlinked-doctors`, { headers })
+      const { data } = await api.get('/master/users/unlinked-doctors')
       setUnlinkedUsers(data)
     } catch { }
-  }, [token, activeClinicId])
+  }, [])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -107,10 +106,10 @@ export default function DoctorsPage() {
       if (search) params.search = search
       if (specFilter) params.specialization = specFilter
       if (deptFilter) params.departmentId = deptFilter
-      const { data } = await axios.get(`${API}/doctors`, { headers, params })
+      const { data } = await api.get('/master/doctors', { params })
       setData(data)
     } finally { setLoading(false) }
-  }, [search, specFilter, deptFilter, token, activeClinicId])
+  }, [search, specFilter, deptFilter, activeClinicId])
 
   useEffect(() => {
     fetchData()
@@ -181,11 +180,11 @@ export default function DoctorsPage() {
         formData.append('photo', selectedFile)
       }
 
-      if (editing) await axios.put(`${API}/doctors/${editing.id}`, formData, {
-        headers: { ...headers, 'Content-Type': 'multipart/form-data' }
+      if (editing) await api.put(`/master/doctors/${editing.id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       })
-      else await axios.post(`${API}/doctors`, formData, {
-        headers: { ...headers, 'Content-Type': 'multipart/form-data' }
+      else await api.post('/master/doctors', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       })
 
       setModalOpen(false); fetchData(); fetchUnlinked()
@@ -204,7 +203,7 @@ export default function DoctorsPage() {
     setDeleteModalOpen(false)
     setIsDeleting(true)
     try { 
-      await axios.delete(`${API}/doctors/${itemToDelete.id}`, { headers })
+      await api.delete(`/master/doctors/${itemToDelete.id}`)
       fetchData()
       fetchUnlinked() 
       toast.success('Data dokter berhasil dihapus')
@@ -320,6 +319,9 @@ export default function DoctorsPage() {
         emptyText="Belum ada data dokter."
         extraFilters={
           <div className="flex gap-2">
+            <Link href="/admin/master/schedules" className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-xl text-xs font-black text-indigo-600 hover:bg-indigo-100 transition-all shadow-sm">
+               <FiCalendar className="w-3.5 h-3.5" /> Lihat Jadwal
+            </Link>
             <select value={specFilter} onChange={(e) => setSpecFilter(e.target.value)}
               className="text-xs font-semibold bg-white border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-primary">
               <option value="">Semua Spesialisasi</option>
@@ -465,9 +467,9 @@ export default function DoctorsPage() {
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {departments
-                            .filter(d => d.clinic?.id === clinic.id)
+                            .filter(d => !d.clinic || d.clinic?.id === clinic.id)
                             .map(d => (
-                              <label key={d.id} className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-gray-50 transition-all cursor-pointer border border-transparent hover:border-gray-100">
+                              <label key={d.id} className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-gray-50 transition-all cursor-pointer border border-transparent hover:border-gray-100 group">
                                 <input 
                                   type="checkbox"
                                   checked={form.departmentIds.includes(d.id)}
@@ -479,12 +481,15 @@ export default function DoctorsPage() {
                                   }}
                                   className="w-4 h-4 rounded-md border-gray-300 text-primary focus:ring-primary/20 transition-all"
                                 />
-                                <span className="text-[11px] font-bold text-gray-600">
-                                  {'-'.repeat(d.level)} {d.name}
-                                </span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-gray-600 group-hover:text-primary transition-colors">
+                                    {'-'.repeat(d.level)} {d.name}
+                                  </span>
+                                  {!d.clinic && <span className="text-[8px] font-black text-emerald-500 uppercase tracking-tighter">Unit Global (Semua Cabang)</span>}
+                                </div>
                               </label>
                             ))}
-                          {departments.filter(d => d.clinic?.id === clinic.id).length === 0 && (
+                          {departments.filter(d => !d.clinic || d.clinic?.id === clinic.id).length === 0 && (
                             <p className="text-[10px] text-orange-500 font-medium italic p-2">Belum ada unit terdaftar di cabang ini.</p>
                           )}
                         </div>

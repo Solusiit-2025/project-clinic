@@ -10,12 +10,23 @@
 
 html {
   scroll-behavior: smooth;
+  font-size: 13px;
 }
 
 body {
   font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 13px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  color: #334155;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: -0.02em !important;
+}
+
+p {
+  line-height: 1.5;
 }
 
 @layer components {
@@ -86,3 +97,47 @@ body {
   background: #cbd5e1;
 }
 
+/* Tooltip Blue Premium */
+.has-tooltip {
+  position: relative;
+  display: inline-flex;
+}
+
+.tooltip-blue {
+  visibility: hidden;
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%) translateY(5px);
+  background: #0ea5e9; /* Sky Blue sesuai screenshot */
+  color: white;
+  text-align: center;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+  z-index: 100;
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 10px 15px -3px rgba(14, 165, 233, 0.3);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.tooltip-blue::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #0ea5e9 transparent transparent transparent;
+}
+
+.has-tooltip:hover .tooltip-blue {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}

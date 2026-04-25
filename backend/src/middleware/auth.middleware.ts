@@ -3,86 +3,107 @@ import jwt from 'jsonwebtoken'
 import { PrismaClient, Role } from '@prisma/client'
 
 const prisma = new PrismaClient()
-const JWT_SECRET = process.env.JWT_SECRET || 'clinic-secret-key-2026'
+
+const JWT_SECRET = process.env.JWT_SECRET
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is not defined in environment variables!')
+  process.exit(1)
+}
+const jwtSecret: string = JWT_SECRET
 
 export async function authMiddleware(req: any, res: Response, next: NextFunction) {
   try {
-    const authHeader = req.headers.authorization
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ message: 'Akses ditolak, token tidak valid' })
+    // 1. HttpOnly cookie (preferred)
+    let token = req.cookies?.auth_token
+
+    // 2. Fallback: Authorization header (API clients / mobile)
+    if (!token) {
+      const authHeader = req.headers.authorization
+      if (authHeader?.startsWith('Bearer ')) {
+        token = authHeader.split(' ')[1]
+      }
     }
 
-    const token = authHeader.split(' ')[1]
-    const decoded = jwt.verify(token, JWT_SECRET) as any
-    
+    if (!token) {
+      return res.status(401).json({
+        message: 'Akses ditolak. Silakan login terlebih dahulu.',
+        code: 'NO_TOKEN',
+      })
+    }
+
+    // Verify — throws TokenExpiredError or JsonWebTokenError
+    const decoded = jwt.verify(token, jwtSecret) as any
+
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
       include: {
         doctor: true,
-        clinics: {
-          include: { clinic: true }
-        }
-      }
+        clinics: { include: { clinic: true } },
+      },
     })
 
     if (!user || !user.isActive) {
-      return res.status(401).json({ message: 'User tidak ditemukan atau tidak aktif' })
+      res.clearCookie('auth_token', { path: '/' })
+      return res.status(401).json({
+        message: 'Sesi tidak valid atau akun dinonaktifkan.',
+        code: 'INVALID_SESSION',
+      })
     }
 
     const { password: _, doctor, clinics: userClinics, ...userWithoutPassword } = user as any
-    const profileImage = userWithoutPassword.image || doctor?.profilePicture || null
-    
-    // Map clinics to flat array
     const clinics = userClinics.map((uc: any) => uc.clinic)
 
     req.user = {
       ...userWithoutPassword,
-      image: profileImage,
+      image: userWithoutPassword.image || doctor?.profilePicture || null,
       clinics,
-      doctor // Include doctor profile if exists
+      doctor,
     }
 
-    // Multi-clinic support: Extract clinicId from header
+    // Resolve active clinic from x-clinic-id header
     const requestedClinicId = req.headers['x-clinic-id']
-    
-    // Get user's clinics to verify access
     const assignedClinicIds = clinics.map((c: any) => c.id)
-
-    // console.log('[Auth] Processing request for clinic:', requestedClinicId, 'Assigned IDs:', assignedClinicIds)
 
     if (requestedClinicId && assignedClinicIds.includes(String(requestedClinicId))) {
       req.clinicId = String(requestedClinicId)
-    } else if (clinics.length > 0) {
-      // Default to first assigned clinic if none requested or invalid requested
-      req.clinicId = clinics[0].id
-      // console.log('[Auth] Fallback clinic used:', req.clinicId)
     } else {
-      // If no clinic assigned (should not happen if seeded), set null or handle error
-      req.clinicId = null
+      req.clinicId = clinics[0]?.id || null
     }
 
-    // Determine if user has "Global Admin View" (Pusat)
-    // 1. SUPER_ADMIN is always global
-    // 2. ADMIN in a clinic marked as isMain is also global
+    // Global admin view
     let isAdminView = user.role === 'SUPER_ADMIN'
     if (!isAdminView && user.role === 'ADMIN' && req.clinicId) {
-       const activeClinic = clinics.find((c: any) => c.id === req.clinicId)
-       if (activeClinic?.isMain) {
-         isAdminView = true
-       }
+      const activeClinic = clinics.find((c: any) => c.id === req.clinicId)
+      if (activeClinic?.isMain) isAdminView = true
     }
     req.isAdminView = isAdminView
 
     next()
-  } catch (error) {
-    res.status(401).json({ message: 'Token tidak valid atau sudah kadaluarsa' })
+  } catch (error: any) {
+    // Always clear the bad access token cookie
+    res.clearCookie('auth_token', { path: '/' })
+
+    if (error.name === 'TokenExpiredError') {
+      // Signal frontend to attempt silent refresh
+      return res.status(401).json({
+        message: 'Token kadaluarsa.',
+        code: 'TOKEN_EXPIRED',
+      })
+    }
+
+    // Invalid signature or malformed token
+    res.clearCookie('refresh_token', { path: '/api/auth' })
+    return res.status(401).json({
+      message: 'Sesi tidak valid. Silakan login kembali.',
+      code: 'INVALID_TOKEN',
+    })
   }
 }
 
 export function roleMiddleware(roles: Role[]) {
   return (req: any, res: Response, next: NextFunction) => {
     if (!req.user || !roles.includes(req.user.role)) {
-      return res.status(403).json({ message: 'Akses terbatas, Anda tidak memiliki izin' })
+      return res.status(403).json({ message: 'Akses terbatas. Anda tidak memiliki izin.' })
     }
     next()
   }

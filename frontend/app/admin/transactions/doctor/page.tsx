@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   FiActivity, FiUsers, FiClock, FiCheckCircle, 
@@ -46,20 +46,18 @@ interface Medicine {
 
 export default function DoctorStation() {
   const router = useRouter()
-  const { user, token, activeClinicId } = useAuthStore()
+  const { user, activeClinicId } = useAuthStore()
   const [queues, setQueues] = useState<Queue[]>([])
   const [medicines, setMedicines] = useState<Medicine[]>([])
   const [loading, setLoading] = useState(true)
   const [isSoundEnabled, setIsSoundEnabled] = useState(false)
   const [toast, setToast] = useState<{ queueNo: string; name: string } | null>(null)
 
-  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
 
   const fetchQueues = useCallback(async () => {
-    if (!token || !activeClinicId) return
+    if (!activeClinicId) return
     try {
-      const { data } = await axios.get(`${API_TRANSACTIONS}/queues`, { 
-        headers, 
+      const { data } = await api.get('/transactions/queues', { 
         params: { clinicId: activeClinicId } 
       })
       setQueues(data)
@@ -68,7 +66,7 @@ export default function DoctorStation() {
     } finally {
       setLoading(false)
     }
-  }, [token, activeClinicId, headers])
+  }, [activeClinicId])
 
   useEffect(() => {
     fetchQueues()
@@ -79,7 +77,7 @@ export default function DoctorStation() {
   const handleCallPatient = async (q: Queue) => {
     try {
       // Notify backend (increments callCounter for Monitor)
-      await axios.patch(`${API_TRANSACTIONS}/queues/${q.id}/status`, { status: 'called' }, { headers })
+      await api.patch(`/transactions/queues/${q.id}/status`, { status: 'called' })
       fetchQueues()
       
       // Trigger Toast

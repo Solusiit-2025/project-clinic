@@ -863,6 +863,128 @@ export const deleteAssetInsurance = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * POST /api/master/assets/:id/insurance/post-gl
+ * Post insurance payment to General Ledger
+ */
+export const postAssetInsuranceToGL = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { paymentMethod, bankId, notes } = req.body
+    const currentClinicId = (req as any).clinicId
+    const userId = (req as any).userId
+
+    // 1. Fetch Insurance Data
+    const insurance = await prisma.assetInsurance.findUnique({
+      where: { assetId: id },
+      include: { asset: true }
+    })
+
+    if (!insurance) return res.status(404).json({ message: 'Informasi asuransi tidak ditemukan' })
+    if (insurance.isPosted) return res.status(400).json({ message: 'Asuransi ini sudah diposting ke keuangan' })
+    if (insurance.premium <= 0) return res.status(400).json({ message: 'Jumlah premi asuransi tidak valid' })
+
+    const targetClinicId = insurance.asset.clinicId || currentClinicId
+
+    // 2. Resolve COA Accounts
+    // Debit: Beban Asuransi (6-1502 fallback)
+    const sysExpense = await prisma.systemAccount.findFirst({
+      where: { key: 'INSURANCE_EXPENSE', OR: [{ clinicId: targetClinicId }, { clinicId: null }] },
+      include: { coa: true },
+      orderBy: { clinicId: 'desc' }
+    })
+    const debitCoa = sysExpense?.coa || await prisma.chartOfAccount.findFirst({ 
+      where: { code: '6-1502', OR: [{ clinicId: targetClinicId }, { clinicId: null }] } 
+    })
+
+    if (!debitCoa) return res.status(400).json({ message: 'Akun Beban Asuransi (6-1502) belum diatur di COA.' })
+
+    // Credit: Kas/Bank
+    let creditCoaId: string | undefined
+    if (paymentMethod === 'cash') {
+      const sysCash = await prisma.systemAccount.findFirst({
+        where: { key: 'CASH_ACCOUNT', OR: [{ clinicId: targetClinicId }, { clinicId: null }] },
+        include: { coa: true },
+        orderBy: { clinicId: 'desc' }
+      })
+      creditCoaId = sysCash?.coaId
+      if (!creditCoaId) return res.status(400).json({ message: 'Konfigurasi Akun Kas Utama belum diatur.' })
+    } else {
+      if (!bankId) return res.status(400).json({ message: 'Akun Bank harus dipilih untuk pembayaran non-tunai.' })
+      const bank = await prisma.bank.findUnique({ where: { id: bankId } })
+      creditCoaId = bank?.coaId
+      if (!creditCoaId) return res.status(400).json({ message: 'Akun Bank tujuan belum terhubung ke COA.' })
+    }
+
+    // 3. Update & Post in Transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // a. Create Journal Entry
+      const referenceNo = `INS-${insurance.asset.assetCode}-${Date.now().toString().slice(-4)}`
+      const journal = await tx.journalEntry.create({
+        data: {
+          date: new Date(),
+          description: `Pembayaran Asuransi: ${insurance.asset.assetName} (${insurance.policyNumber})`,
+          referenceNo,
+          entryType: 'SYSTEM',
+          clinicId: targetClinicId,
+          details: {
+            create: [
+              {
+                coaId: debitCoa.id,
+                debit: insurance.premium,
+                credit: 0,
+                description: `Beban Asuransi ${insurance.asset.assetName} - Polis ${insurance.policyNumber}`
+              },
+              {
+                coaId: creditCoaId!,
+                debit: 0,
+                credit: insurance.premium,
+                description: `Pembayaran Asuransi via ${paymentMethod.toUpperCase()}`
+              }
+            ]
+          }
+        }
+      })
+
+      // b. Update Insurance Record
+      const updated = await tx.assetInsurance.update({
+        where: { id: insurance.id },
+        data: {
+          isPosted: true,
+          postedAt: new Date(),
+          journalId: journal.id,
+          notes: `${insurance.notes || ''}\n[POSTED ${new Date().toISOString()}] ${notes || ''}`.trim()
+        }
+      })
+
+      // c. Audit Log
+      await tx.assetAuditLog.create({
+        data: {
+          assetId: id,
+          action: 'POST_INSURANCE_GL',
+          fieldChanged: 'isPosted',
+          oldValue: 'false',
+          newValue: 'true',
+          changedBy: userId,
+          notes: `Posting pembayaran asuransi ke GL: ${journal.id}`
+        }
+      })
+
+      return { updated, journal }
+    })
+
+    res.json({
+      success: true,
+      message: 'Berhasil memposting pembayaran asuransi ke Laporan Keuangan',
+      data: result
+    })
+
+  } catch (err: any) {
+    console.error('❌ [AssetInsurance] Post GL Error:', err)
+    res.status(500).json({ message: err.message })
+  }
+}
+
 // ─── 5. ASSET REPORTS ──────────────────────────────────────────────────────
 
 /**

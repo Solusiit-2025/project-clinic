@@ -18,7 +18,6 @@ import ClinicSwitcher from './ClinicSwitcher'
 // --- Types & Constants ---
 const MAIN_MENU = [
   { icon: FiHome, label: 'Dashboard', href: '/admin' },
-  { icon: FiCalendar, label: 'Appointments', href: '/admin/appointments' },
 ]
 
 const LAYANAN_UTAMA_GROUPS = [
@@ -26,6 +25,7 @@ const LAYANAN_UTAMA_GROUPS = [
     label: 'Pendaftaran & Antrian',
     icon: FiUserPlus,
     items: [
+      { icon: FiCalendar, label: 'Janji Temu (Appointment)', href: '/admin/transactions/appointment' },
       { icon: FiPlus, label: 'Registrasi Baru', href: '/admin/transactions/registration' },
       { icon: FiActivity, label: 'Antrian Pasien', href: '/admin/transactions/queue' },
     ]
@@ -194,7 +194,7 @@ const SidebarNavItem = ({
     >
       <Link
         href={item.href}
-        className={`flex items-center rounded-xl transition-all group ${isCollapsed && !isMobile ? 'justify-center w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5'
+        className={`flex items-center rounded-xl transition-all group ${isCollapsed && !isMobile ? 'justify-center w-10 h-10 mx-auto' : 'gap-2.5 px-3 py-2'
           } ${isActive
             ? 'bg-primary/10 text-primary font-bold shadow-sm shadow-primary/10'
             : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 font-semibold'
@@ -235,7 +235,7 @@ const SidebarNavGroup = ({
     <div className="relative" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
       <button
         onClick={() => toggleGroup(group.label)}
-        className={`flex items-center rounded-xl transition-all ${isCollapsed && !isMobile ? 'justify-center w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5 w-full'
+        className={`flex items-center rounded-xl transition-all ${isCollapsed && !isMobile ? 'justify-center w-10 h-10 mx-auto' : 'gap-2.5 px-3 py-2 w-full'
           } ${isGroupActive && !isOpen
             ? accentColor === 'primary' ? 'bg-primary/5 text-primary' : 'bg-indigo-50/50 text-indigo-600'
             : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
@@ -268,7 +268,7 @@ const SidebarNavGroup = ({
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all text-xs ${isActive
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-[11px] ${isActive
                       ? accentColor === 'primary'
                         ? 'bg-primary text-white font-black shadow-md shadow-primary/20'
                         : 'bg-primary/10 text-primary font-black'
@@ -309,15 +309,15 @@ const SidebarContent = ({
 }) => (
   <div className="flex flex-col h-full bg-white">
     {/* Brand */}
-    <div className={`flex-shrink-0 flex items-center transition-all duration-300 ${isCollapsed && !isMobile ? 'h-20 justify-center' : 'h-24 px-6'}`}>
+    <div className={`flex-shrink-0 flex items-center transition-all duration-300 ${isCollapsed && !isMobile ? 'h-16 justify-center' : 'h-20 px-6'}`}>
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-gradient-to-br from-primary to-indigo-600 rounded-xl flex-shrink-0 flex items-center justify-center shadow-lg shadow-primary/20 text-white font-black text-xl">
+        <div className="w-8 h-8 bg-gradient-to-br from-primary to-indigo-600 rounded-lg flex-shrink-0 flex items-center justify-center shadow-lg shadow-primary/20 text-white font-black text-lg">
           Y
         </div>
         {(!isCollapsed || isMobile) && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="whitespace-nowrap">
-            <span className="font-black text-lg text-gray-900 tracking-tight leading-none block">Yasfina</span>
-            <span className="text-[10px] text-primary font-black uppercase tracking-widest mt-1 block">Management</span>
+            <span className="font-black text-base text-gray-900 tracking-tight leading-none block">Yasfina</span>
+            <span className="text-[9px] text-primary font-black uppercase tracking-widest mt-0.5 block">Management</span>
           </motion.div>
         )}
       </div>
@@ -593,7 +593,7 @@ export default function Sidebar() {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -280, opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="lg:hidden fixed left-0 top-0 h-screen w-72 bg-white z-[60] flex flex-col shadow-2xl border-r border-gray-100"
+            className="lg:hidden fixed left-0 top-0 h-screen w-64 bg-white z-[60] flex flex-col shadow-2xl border-r border-gray-100"
           >
             <button
               onClick={() => setMobileOpen(false)}
@@ -608,7 +608,7 @@ export default function Sidebar() {
 
       {/* Desktop Sidebar */}
       <motion.aside
-        animate={{ width: isCollapsed ? 80 : 280 }}
+        animate={{ width: isCollapsed ? 70 : 240 }}
         transition={{ type: 'spring', damping: 20, stiffness: 100 }}
         className="hidden lg:flex fixed left-0 top-0 h-screen bg-white border-r border-gray-100 z-50 flex-col shadow-[4px_0_24px_-10px_rgba(0,0,0,0.05)] overflow-hidden"
       >
@@ -617,7 +617,7 @@ export default function Sidebar() {
 
       {/* Spacer to push content */}
       <motion.div
-        animate={{ width: isCollapsed ? 80 : 280 }}
+        animate={{ width: isCollapsed ? 70 : 240 }}
         className="hidden lg:block transition-all"
       />
     </>

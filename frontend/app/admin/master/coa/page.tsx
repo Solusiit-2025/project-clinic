@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { FiList, FiAlertCircle, FiPlus, FiEdit2, FiTrash2, FiSearch, FiLayers, FiFolder, FiFileText, FiRefreshCcw, FiChevronDown, FiChevronRight } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
@@ -48,7 +48,7 @@ interface HierarchicalCOA extends COA {
 }
 
 export default function COAPage() {
-  const { token, activeClinicId } = useAuthStore()
+  const { activeClinicId } = useAuthStore()
   const [rawData, setRawData] = useState<COA[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -59,7 +59,6 @@ export default function COAPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const headers = { Authorization: `Bearer ${token}` }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -68,7 +67,7 @@ export default function COAPage() {
       if (search) params.search = search
       if (filterCategory) params.category = filterCategory
       
-      const { data: resData } = await axios.get(`${API}/coa`, { headers, params })
+      const { data: resData } = await api.get('/master/coa', { params })
       setRawData(resData)
     } catch (e) {
       console.error('Failed to fetch COA', e)
@@ -76,11 +75,11 @@ export default function COAPage() {
     } finally {
       setLoading(false)
     }
-  }, [search, filterCategory, token])
+  }, [search, filterCategory])
 
   useEffect(() => {
-    if (token) fetchData()
-  }, [fetchData, token])
+    fetchData()
+  }, [fetchData])
 
   // Hierarchical Transformation Logic
   const hierarchicalData = useMemo(() => {
@@ -131,10 +130,10 @@ export default function COAPage() {
       }
 
       if (editing) {
-        await axios.put(`${API}/coa/${editing.id}`, payload, { headers })
+        await api.put(`/master/coa/${editing.id}`, payload)
         toast.success('Akun berhasil diperbarui')
       } else {
-        await axios.post(`${API}/coa`, payload, { headers })
+        await api.post('/master/coa', payload)
         toast.success('Akun baru berhasil ditambahkan')
       }
       
@@ -150,7 +149,7 @@ export default function COAPage() {
   const handleDelete = async (r: COA) => {
     if (confirm(`Hapus akun "${r.code} - ${r.name}"? Operasi ini tidak dapat dibatalkan.`)) {
       try {
-        await axios.delete(`${API}/coa/${r.id}`, { headers })
+        await api.delete(`/master/coa/${r.id}`)
         toast.success('Akun berhasil dihapus')
         fetchData()
       } catch (e: any) {

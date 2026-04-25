@@ -18,7 +18,7 @@ export const siteConfig = {
     description:
       'Kami hadir untuk memberikan solusi kesehatan yang komprehensif bagi Anda dan keluarga. Dengan tim dokter spesialis dan fasilitas modern, kami siap melayani kebutuhan medis Anda.',
     primaryCta: 'Buat Janji Temu',
-    primaryHref: '/appointment',
+    primaryHref: '/register',
     secondaryCta: 'Layanan Kami',
     secondaryHref: '#services',
     stats: [

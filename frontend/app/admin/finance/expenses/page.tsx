@@ -10,7 +10,7 @@ import {
 } from 'react-icons/fi'
 import { toast } from 'react-hot-toast'
 import { useAuthStore } from '@/lib/store/useAuthStore'
-import axios from 'axios'
+import api from '@/lib/api'
 
 interface ExpenseCategory {
   id: string
@@ -41,7 +41,7 @@ interface Bank {
 }
 
 export default function ExpensesPage() {
-  const { token, activeClinicId } = useAuthStore()
+  const { activeClinicId } = useAuthStore()
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [categories, setCategories] = useState<ExpenseCategory[]>([])
   const [banks, setBanks] = useState<Bank[]>([])
@@ -70,20 +70,14 @@ export default function ExpensesPage() {
   const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const headers = useMemo(() => ({
-    Authorization: `Bearer ${token}`,
-    'x-clinic-id': activeClinicId
-  }), [token, activeClinicId])
 
   const fetchData = useCallback(async () => {
-    if (!token || !activeClinicId) return
+    if (!activeClinicId) return
     try {
       setLoading(true)
-      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/api'
 
       const [expRes, catRes, bankRes] = await Promise.all([
-        axios.get(`${baseUrl}/finance/expenses`, {
-          headers,
+        api.get('/finance/expenses', {
           params: {
             search: search || undefined,
             categoryId: categoryFilter === 'all' ? undefined : categoryFilter,
@@ -91,8 +85,8 @@ export default function ExpensesPage() {
             limit: 10
           }
         }),
-        axios.get(`${baseUrl}/master/expense-categories`, { headers }),
-        axios.get(`${baseUrl}/master/banks`, { headers })
+        api.get('/master/expense-categories'),
+        api.get('/master/banks')
       ])
 
       setExpenses(expRes.data?.data || [])
@@ -106,7 +100,7 @@ export default function ExpensesPage() {
     } finally {
       setLoading(false)
     }
-  }, [headers, search, categoryFilter, page])
+  }, [search, categoryFilter, page])
 
   useEffect(() => {
     fetchData()
@@ -121,14 +115,13 @@ export default function ExpensesPage() {
 
     try {
       setIsSubmitting(true)
-      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/api'
 
       const fd = new FormData()
       Object.entries(formData).forEach(([k, v]) => { if (v) fd.append(k, v) })
       if (attachmentFile) fd.append('attachment', attachmentFile)
 
-      await axios.post(`${baseUrl}/finance/expenses`, fd, {
-        headers: { ...headers, 'Content-Type': 'multipart/form-data' }
+      await api.post('/finance/expenses', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       })
 
       toast.success('Pengeluaran berhasil dicatat dan masuk ke Buku Besar')
@@ -152,8 +145,7 @@ export default function ExpensesPage() {
     if (!confirm(`Hapus pengeluaran ${expenseNo}? Jurnal GL terkait juga akan dihapus.`)) return
     try {
       setDeletingId(id)
-      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/api'
-      await axios.delete(`${baseUrl}/finance/expenses/${id}`, { headers })
+      await api.delete(`/finance/expenses/${id}`)
       toast.success('Pengeluaran berhasil dihapus')
       fetchData()
     } catch (error: any) {

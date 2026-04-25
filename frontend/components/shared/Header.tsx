@@ -91,7 +91,7 @@ export default function Header() {
             href="/register"
             className="btn-primary shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all"
           >
-            Daftar
+            Janji Temu
           </Link>
         </div>
 
@@ -141,7 +141,7 @@ export default function Header() {
                   className="block w-full px-6 py-4 bg-primary text-white rounded-xl text-center font-bold shadow-lg"
                   onClick={() => setIsOpen(false)}
                 >
-                  Pendaftaran Pasien
+                  Booking Online
                 </Link>
               </div>
             </div>

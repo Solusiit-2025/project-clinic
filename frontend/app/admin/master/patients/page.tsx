@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { FiUsers, FiAlertCircle, FiRefreshCw, FiPhone, FiMapPin, FiCalendar, FiUser, FiInfo, FiPlus, FiActivity } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
@@ -36,7 +36,7 @@ const EMPTY = {
 type Patient = typeof EMPTY & { id: string; createdAt: string; updatedAt: string }
 
 export default function PatientsPage() {
-  const token = useAuthStore(state => state.token)
+  const { activeClinicId } = useAuthStore()
   const [data, setData] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -46,28 +46,27 @@ export default function PatientsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       const params: any = {}
       if (search) params.search = search
-      const res = await axios.get(`${API}/patients`, { headers, params })
+      const res = await api.get('/master/patients', { params })
       // Extract the data array from the paginated response object if necessary
       const patientsArray = Array.isArray(res.data) ? res.data : (res.data.data || [])
       setData(patientsArray)
     } finally { setLoading(false) }
-  }, [search, token])
+  }, [search])
 
   useEffect(() => { fetchData() }, [fetchData])
 
   const fetchNextMR = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${API}/patients/next-mr`, { headers })
+      const { data } = await api.get('/master/patients/next-mr')
       setForm(p => ({ ...p, medicalRecordNo: data.nextCode }))
     } catch (e) { console.error('Failed to fetch next MR No', e) }
-  }, [headers])
+  }, [])
 
   const openAdd = () => { 
     setEditing(null); 
@@ -101,8 +100,8 @@ export default function PatientsPage() {
     }
     setSaving(true); setError('')
     try {
-      if (editing) await axios.put(`${API}/patients/${editing.id}`, form, { headers })
-      else await axios.post(`${API}/patients`, form, { headers })
+      if (editing) await api.put(`/master/patients/${editing.id}`, form)
+      else await api.post('/master/patients', form)
       
       // Reset flow: Clear search and close modal FIRST, then fetch
       setSearch('')
@@ -116,7 +115,7 @@ export default function PatientsPage() {
 
   const handleDelete = async (r: Patient) => {
     if (!confirm(`Hapus data pasien "${r.name}"?`)) return
-    try { await axios.delete(`${API}/patients/${r.id}`, { headers }); fetchData() } catch { }
+    try { await api.delete(`/master/patients/${r.id}`); fetchData() } catch { }
   }
 
   const columns: Column<Patient>[] = [

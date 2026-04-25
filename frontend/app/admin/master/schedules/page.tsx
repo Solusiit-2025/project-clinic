@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { FiClock, FiAlertCircle, FiGrid, FiList, FiChevronRight, FiUser, FiCalendar, FiPlus, FiMoreVertical, FiEdit3, FiTrash2 } from 'react-icons/fi'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -10,7 +10,6 @@ import PageHeader from '@/components/admin/master/PageHeader'
 import MasterModal from '@/components/admin/master/MasterModal'
 import { StatusBadge } from '@/components/admin/master/StatusBadge'
 
-const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
 const DAYS = ['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu']
 const EMPTY = { doctorId: '', dayOfWeek: 'Senin', startTime: '08:00', endTime: '12:00', isActive: true }
 
@@ -22,7 +21,7 @@ type Schedule = {
 type Doctor = { id: string; name: string; specialization: string; profilePicture?: string | null }
 
 export default function SchedulesPage() {
-  const { token, activeClinicId } = useAuthStore()
+  const { activeClinicId } = useAuthStore()
   const [data, setData] = useState<Schedule[]>([])
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [clinics, setClinics] = useState<any[]>([])
@@ -35,21 +34,20 @@ export default function SchedulesPage() {
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const headers = { Authorization: `Bearer ${token}` }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       const [schRes, docRes, cliRes] = await Promise.all([
-        axios.get(`${API}/schedules`, { headers, params: { doctorId: doctorFilter, clinicId: clinicFilter } }),
-        axios.get(`${API}/doctors`, { headers }),
-        axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/master/clinics`, { headers })
+        api.get('/master/schedules', { params: { doctorId: doctorFilter, clinicId: clinicFilter } }),
+        api.get('/master/doctors'),
+        api.get('/master/clinics')
       ])
       setData(schRes.data)
       setDoctors(docRes.data)
       setClinics(cliRes.data)
     } finally { setLoading(false) }
-  }, [doctorFilter, clinicFilter, token, activeClinicId])
+  }, [doctorFilter, clinicFilter, activeClinicId])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -64,8 +62,8 @@ export default function SchedulesPage() {
     if (!form.doctorId) { setError('Pilih dokter terlebih dahulu'); return }
     setSaving(true); setError('')
     try {
-      if (editing) await axios.put(`${API}/schedules/${editing.id}`, form, { headers })
-      else await axios.post(`${API}/schedules`, form, { headers })
+      if (editing) await api.put(`/master/schedules/${editing.id}`, form)
+      else await api.post('/master/schedules', form)
       setModalOpen(false); fetchData()
     } catch (e: any) { setError(e.response?.data?.message || 'Terjadi kesalahan') }
     finally { setSaving(false) }
@@ -73,7 +71,7 @@ export default function SchedulesPage() {
 
   const handleDelete = async (r: Schedule) => {
     if (!confirm(`Hapus jadwal ini?`)) return
-    try { await axios.delete(`${API}/schedules/${r.id}`, { headers }); fetchData() } catch { }
+    try { await api.delete(`/master/schedules/${r.id}`); fetchData() } catch { }
   }
 
   const dayOrder = ['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu']
