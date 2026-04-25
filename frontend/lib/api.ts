@@ -99,9 +99,14 @@ function forceLogout(message?: string) {
     sessionStorage.setItem('logout_reason', message)
   }
 
-  // Avoid redirect loop if already on login page or a public display page
+  // Avoid redirect loop if already on login page, register page, or a public display page
   const path = window.location.pathname
-  if (!path.startsWith('/login') && !path.startsWith('/display')) {
+  if (
+    path !== '/' && 
+    !path.startsWith('/login') && 
+    !path.startsWith('/register') && 
+    !path.startsWith('/display')
+  ) {
     window.location.href = '/login'
   }
 }

@@ -878,7 +878,7 @@ export const postAssetInsuranceToGL = async (req: Request, res: Response) => {
     const insurance = await prisma.assetInsurance.findUnique({
       where: { assetId: id },
       include: { asset: true }
-    })
+    }) as any
 
     if (!insurance) return res.status(404).json({ message: 'Informasi asuransi tidak ditemukan' })
     if (insurance.isPosted) return res.status(400).json({ message: 'Asuransi ini sudah diposting ke keuangan' })
