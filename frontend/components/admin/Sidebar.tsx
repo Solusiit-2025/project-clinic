@@ -150,6 +150,7 @@ const MASTER_GROUPS = [
       { icon: FiGlobe, label: 'Manajemen Cabang', href: '/admin/master/clinics' },
       { icon: FiGlobe, label: 'Manajemen Website', href: '/admin/website' },
       { icon: FiSettings, label: 'Pengaturan Umum', href: '/admin/settings' },
+      { icon: FiTrendingUp, label: 'Go Live Setup (Reset)', href: '/admin/settings/go-live', role: 'SUPER_ADMIN' },
     ]
   }
 ]
@@ -217,7 +218,8 @@ const SidebarNavGroup = ({
   isMobile,
   openGroups,
   toggleGroup,
-  accentColor = 'primary'
+  accentColor = 'primary',
+  user
 }: {
   group: any;
   pathname: string;
@@ -226,6 +228,7 @@ const SidebarNavGroup = ({
   openGroups: string[];
   toggleGroup: (label: string) => void;
   accentColor?: 'primary' | 'indigo';
+  user?: any;
 }) => {
   const [hover, setHover] = useState(false)
   const isGroupActive = useMemo(() => group.items.some((i: any) => pathname === i.href), [group.items, pathname])
@@ -262,24 +265,31 @@ const SidebarNavGroup = ({
             className="overflow-hidden pl-4 mr-2"
           >
             <div className={`mt-1 space-y-1 border-l-2 ${accentColor === 'primary' ? 'border-primary/20' : 'border-gray-100'} pl-3 py-1`}>
-              {group.items.map((item: any) => {
-                const isActive = pathname === item.href
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-[11px] ${isActive
-                      ? accentColor === 'primary'
-                        ? 'bg-primary text-white font-black shadow-md shadow-primary/20'
-                        : 'bg-primary/10 text-primary font-black'
-                      : 'text-gray-500 hover:text-primary font-bold'
-                      }`}
-                  >
-                    <item.icon className="w-3.5 h-3.5" />
-                    <span className="truncate">{item.label}</span>
-                  </Link>
-                )
-              })}
+              {group.items
+                .filter((item: any) => {
+                  // If item has no role restriction, show it
+                  if (!item.role) return true;
+                  // If item has role restriction, only show if user has that role
+                  return user?.role === item.role;
+                })
+                .map((item: any) => {
+                  const isActive = pathname === item.href
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-[11px] ${isActive
+                        ? accentColor === 'primary'
+                          ? 'bg-primary text-white font-black shadow-md shadow-primary/20'
+                          : 'bg-primary/10 text-primary font-black'
+                        : 'text-gray-500 hover:text-primary font-bold'
+                        }`}
+                    >
+                      <item.icon className="w-3.5 h-3.5" />
+                      <span className="truncate">{item.label}</span>
+                    </Link>
+                  )
+                })}
             </div>
           </motion.div>
         )}
@@ -367,6 +377,7 @@ const SidebarContent = ({
             openGroups={openGroups}
             toggleGroup={toggleGroup}
             accentColor="primary"
+            user={user}
           />
         ))}
       </div>
@@ -389,6 +400,7 @@ const SidebarContent = ({
             openGroups={openGroups}
             toggleGroup={toggleGroup}
             accentColor="primary"
+            user={user}
           />
         ))}
       </div>
@@ -411,6 +423,7 @@ const SidebarContent = ({
             openGroups={openGroups}
             toggleGroup={toggleGroup}
             accentColor="primary"
+            user={user}
           />
         ))}
       </div>
@@ -433,6 +446,7 @@ const SidebarContent = ({
             openGroups={openGroups}
             toggleGroup={toggleGroup}
             accentColor="primary"
+            user={user}
           />
         ))}
       </div>
@@ -455,6 +469,7 @@ const SidebarContent = ({
             openGroups={openGroups}
             toggleGroup={toggleGroup}
             accentColor="indigo"
+            user={user}
           />
         ))}
       </div>

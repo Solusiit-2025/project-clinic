@@ -21,6 +21,7 @@ import inventoryRoutes from './routes/inventory.routes';
 import accountingRoutes from './routes/accounting.routes'
 import inventoryLedgerRoutes from './routes/inventoryLedger.routes';
 import dashboardRoutes from './routes/dashboard.routes';
+import systemRoutes from './routes/system.routes';
 
 // Load environment variables
 dotenv.config();
@@ -95,6 +96,7 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/accounting', accountingRoutes)
 app.use('/api/inventory-ledger', inventoryLedgerRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/system', systemRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
