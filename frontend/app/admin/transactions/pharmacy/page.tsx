@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import api from '@/lib/api'
 import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/Card'
-import { Pill, Clock, ClipboardCheck, ArrowRight, Activity, Beaker } from 'lucide-react'
+import { Pill, Clock, ClipboardCheck, ArrowRight, Activity, Beaker, RefreshCw } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 
 interface Prescription {
@@ -16,6 +16,11 @@ interface Prescription {
   patient: { name: string; medicalRecordNo: string; gender: string }
   doctor: { name: string }
   items: any[]
+  medicalRecord?: {
+    registration?: {
+      invoices: Array<{ status: string }>
+    }
+  }
 }
 
 export default function PharmacyQueuePage() {
@@ -23,10 +28,14 @@ export default function PharmacyQueuePage() {
   const { activeClinicId } = useAuthStore()
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const fetchQueues = async () => {
+  const fetchQueues = async (silent = false) => {
     try {
       if (!activeClinicId) return
+      if (!silent) setIsLoading(true)
+      else setIsRefreshing(true)
+
       const res = await api.get('/pharmacy/queues', {
         params: { clinicId: activeClinicId }
       })
@@ -35,12 +44,13 @@ export default function PharmacyQueuePage() {
       console.error(e)
     } finally {
       setIsLoading(false)
+      setIsRefreshing(false)
     }
   }
 
   useEffect(() => {
     fetchQueues()
-    const interval = setInterval(fetchQueues, 10000) // Poll every 10s
+    const interval = setInterval(() => fetchQueues(true), 15000) // Poll every 15s
     return () => clearInterval(interval)
   }, [activeClinicId])
 
@@ -62,6 +72,15 @@ export default function PharmacyQueuePage() {
           <h1 className="text-lg font-black text-gray-900 tracking-tight uppercase">Antrian Farmasi / Apotek</h1>
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Status resep masuk dan penyerahan obat hari ini.</p>
         </div>
+
+        <button 
+          onClick={() => fetchQueues(false)}
+          disabled={isRefreshing}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-100 text-gray-600 rounded-xl shadow-sm hover:bg-gray-50 active:scale-95 transition-all text-[10px] font-black uppercase tracking-widest"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 text-primary ${isRefreshing ? 'animate-spin' : ''}`} />
+          {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -75,7 +94,11 @@ export default function PharmacyQueuePage() {
           </div>
           <div className="space-y-4">
             {pending.length === 0 ? (
-              <p className="text-center text-sm text-gray-400 py-6 italic">Tidak ada resep baru.</p>
+              <div className="text-center py-10">
+                <Beaker className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Tidak ada resep baru</p>
+                <p className="text-[10px] text-gray-300 mt-1 px-4 italic leading-relaxed">Resep akan muncul secara otomatis di sini jika invoice pasien sudah dilunasi di bagian kasir.</p>
+              </div>
             ) : (
               pending.map((p, idx) => (
                 <motion.div
@@ -86,9 +109,19 @@ export default function PharmacyQueuePage() {
                 >
                   <div className="flex justify-between items-start mb-1.5">
                     <span className="font-bold text-gray-800 text-sm">{p.prescriptionNo}</span>
-                    <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${p.dispenseStatus === 'preparing' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
-                      {p.dispenseStatus}
-                    </span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${p.dispenseStatus === 'preparing' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                        {p.dispenseStatus}
+                      </span>
+                      {(() => {
+                        const isPaid = p.medicalRecord?.registration?.invoices?.some(inv => inv.status === 'paid');
+                        return isPaid ? (
+                          <span className="text-[8px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-black uppercase tracking-tighter">Lunas</span>
+                        ) : (
+                          <span className="text-[8px] px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded font-black uppercase tracking-tighter animate-pulse">Menunggu Bayar</span>
+                        );
+                      })()}
+                    </div>
                   </div>
                   <div className="text-xs text-gray-600 mb-3">
                     <p className="font-bold">{p.patient.name} <span className="text-gray-400 font-normal">({p.patient.medicalRecordNo})</span></p>

@@ -304,13 +304,67 @@ export const checkInAppointment = async (req: Request, res: Response) => {
             }
         })
 
-        // 5. Update Appointment
+        // 5. Create Invoice (Registration Fee)
+        let regService = await tx.service.findFirst({
+          where: { 
+            serviceName: { contains: 'Pendaftaran', mode: 'insensitive' },
+            OR: [ { clinicId: appointment.clinicId! }, { clinic: { isMain: true } } ]
+          }
+        })
+
+        if (!regService) {
+          const clinic = await tx.clinic.findUnique({ where: { id: appointment.clinicId! } })
+          const clinicSuffix = clinic?.code || appointment.clinicId!.slice(0, 4).toUpperCase()
+          regService = await tx.service.create({
+            data: {
+              serviceCode: `REG-${clinicSuffix}`,
+              serviceName: 'Biaya Pendaftaran',
+              category: 'Administrasi',
+              price: 50000,
+              isActive: true,
+              clinicId: appointment.clinicId
+            }
+          })
+        }
+
+        const dateStrInv = today.toISOString().split('T')[0].replace(/-/g, '')
+        const invCount = await tx.invoice.count({
+          where: { clinicId: appointment.clinicId, createdAt: { gte: today } }
+        })
+        const invoiceNo = `INV-${dateStrInv}-${(invCount + 1).toString().padStart(4, '0')}`
+
+        const invoice = await tx.invoice.create({
+          data: {
+            invoiceNo,
+            patientId: appointment.patientId,
+            clinicId: appointment.clinicId,
+            registrationId: registration.id,
+            appointmentId: appointment.id,
+            invoiceDate: new Date(),
+            total: regService.price,
+            subtotal: regService.price,
+            status: 'unpaid'
+          }
+        })
+
+        await tx.invoiceItem.create({
+          data: {
+            invoiceId: invoice.id,
+            serviceId: regService.id,
+            description: regService.serviceName,
+            quantity: 1,
+            price: regService.price,
+            subtotal: regService.price
+          }
+        })
+
+        // 6. Update Appointment
         await tx.appointment.update({
             where: { id },
             data: { status: 'checked-in', updatedBy: userId }
         })
 
-        return { registration, queueNo }
+        return { registration, queueNo, invoice }
     })
 
     res.json({ message: 'Check-in berhasil', ...result })

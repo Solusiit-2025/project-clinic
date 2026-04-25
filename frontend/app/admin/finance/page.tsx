@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   FiDollarSign, FiFileText, FiSearch, FiFilter, 
   FiClock, FiCheckCircle, FiMoreVertical, FiEye, 
-  FiCreditCard, FiCalendar, FiArrowRight, FiActivity, FiShare2, FiZap, FiSend, FiPlus, FiBriefcase, FiEdit2, FiX
+  FiCreditCard, FiCalendar, FiArrowRight, FiActivity, FiShare2, FiZap, FiSend, FiPlus, FiBriefcase, FiEdit2, FiX,
+  FiRotateCcw
 } from 'react-icons/fi'
 import { toast } from 'react-hot-toast'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -61,6 +62,26 @@ interface Invoice {
   bank?: Bank | null
   isPosted: boolean
   postedAt?: string
+  registration?: {
+    queueNumbers: Array<{
+      status: string
+      queueDate: string
+    }>
+  }
+}
+
+const getExamStatusBadge = (status?: string) => {
+  if (!status) return null;
+  switch (status) {
+    case 'waiting':
+      return <span className="px-2 py-0.5 bg-amber-50 text-amber-600 rounded text-[8px] font-bold uppercase border border-amber-100 flex items-center gap-1"><FiActivity className="w-2 h-2"/> Antrian</span>
+    case 'ongoing':
+      return <span className="px-2 py-0.5 bg-sky-50 text-sky-600 rounded text-[8px] font-bold uppercase border border-sky-100 flex items-center gap-1 animate-pulse"><FiActivity className="w-2 h-2"/> Diperiksa</span>
+    case 'finished':
+      return <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[8px] font-bold uppercase border border-emerald-100 flex items-center gap-1"><FiCheckCircle className="w-2 h-2"/> Selesai</span>
+    default:
+      return null;
+  }
 }
 
 interface ReceiptPreviewData {
@@ -423,6 +444,28 @@ export default function FinanceDashboard() {
     }
   }
 
+  const handleResetPayment = async (inv: Invoice) => {
+    if (inv.isPosted) {
+      toast.error('Invoice sudah diposting, pembayaran tidak dapat direset.')
+      return
+    }
+
+    if (!window.confirm(`Apakah Anda yakin ingin membatalkan SEMUA pembayaran untuk invoice ${inv.invoiceNo}? Status akan kembali ke BELUM BAYAR.`)) {
+      return
+    }
+
+    try {
+      setProcessing(true)
+      await api.post(`/finance/invoices/${inv.id}/reset-payment`)
+      toast.success('Pembayaran berhasil direset')
+      fetchData()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Gagal mereset pembayaran')
+    } finally {
+      setProcessing(false)
+    }
+  }
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -544,7 +587,10 @@ export default function FinanceDashboard() {
                                   <p className="text-sm font-black text-slate-900 tracking-tight">{formatCurrency(inv.total)}</p>
                                   {inv.amountPaid > 0 && <p className="text-[9px] font-bold text-emerald-500 mt-1 uppercase tracking-widest">Paid: {formatCurrency(inv.amountPaid)}</p>}
                               </td>
-                              <td className="px-8 py-6 flex justify-center">{getStatusBadge(inv.status)}</td>
+                              <td className="px-8 py-6 flex flex-col items-center gap-1.5 justify-center">
+                                {getStatusBadge(inv.status)}
+                                {getExamStatusBadge(inv.registration?.queueNumbers?.[0]?.status)}
+                              </td>
                               <td className="px-8 py-6 text-center">
                                   {inv.isPosted ? (
                                     <div className="flex items-center justify-center gap-2 text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full inline-flex mx-auto border border-emerald-100">
@@ -576,7 +622,7 @@ export default function FinanceDashboard() {
                                       <FiFileText className="w-4 h-4" />
                                       <span className="text-[10px] font-black uppercase tracking-widest mr-1">Print Ulang</span>
                                     </button>
-
+                                    
                                     {!inv.isPosted && (
                                        <button 
                                          onClick={() => {
@@ -591,30 +637,57 @@ export default function FinanceDashboard() {
                                        </button>
                                     )}
 
-                                    {inv.status !== 'paid' && (
+                                    {!inv.isPosted && inv.amountPaid > 0 && (
                                         <button 
-                                          onClick={() => {
-                                             const totalBill = Number(inv.total) || 0;
-                                             const alreadyPaid = Number(inv.amountPaid) || 0;
-                                             const remaining = Math.max(0, totalBill - alreadyPaid);
-
-                                             setSelectedInvoice(inv);
-                                             setReceivedAmount(remaining);
-                                             setPaymentData({ 
-                                               amount: remaining, 
-                                               method: 'cash', 
-                                               notes: '',
-                                               bankId: '' 
-                                             });
-                                             setShowPaymentModal(true);
-                                          }}
-                                          className="p-3 bg-emerald-600 text-white rounded-2xl shadow-lg shadow-emerald-500/30 hover:bg-slate-900 transition-all flex items-center gap-2"
-                                          title="Bayar Sekarang"
+                                          onClick={() => handleResetPayment(inv)}
+                                          className="p-3 bg-white border border-slate-100 text-rose-400 rounded-2xl shadow-sm hover:text-rose-600 hover:border-rose-100 hover:bg-rose-50 transition-all flex items-center gap-2"
+                                          title="Reset Pembayaran ke Belum Bayar"
+                                          disabled={processing}
                                         >
-                                          <FiCreditCard className="w-4 h-4" />
-                                          <span className="text-[10px] font-black uppercase tracking-widest mr-1">Bayar</span>
+                                          <FiRotateCcw className={`w-4 h-4 ${processing ? 'animate-spin' : ''}`} />
+                                          <span className="text-[10px] font-black uppercase tracking-widest mr-1">Reset</span>
                                         </button>
                                     )}
+
+                                    {inv.status !== 'paid' && (() => {
+                                        const queueStatus = inv.registration?.queueNumbers?.[0]?.status;
+                                        const isExamInProgress = queueStatus === 'waiting' || queueStatus === 'ongoing';
+
+                                        return (
+                                          <button 
+                                            onClick={() => {
+                                              if (isExamInProgress) {
+                                                toast.error("Pasien masih dalam antrian/pemeriksaan. Tunggu dokter selesai.");
+                                                return;
+                                              }
+
+                                              const totalBill = Number(inv.total) || 0;
+                                              const alreadyPaid = Number(inv.amountPaid) || 0;
+                                              const remaining = Math.max(0, totalBill - alreadyPaid);
+
+                                              setSelectedInvoice(inv);
+                                              setReceivedAmount(remaining);
+                                              setPaymentData({ 
+                                                amount: remaining, 
+                                                method: 'cash', 
+                                                notes: '',
+                                                bankId: '' 
+                                              });
+                                              setShowPaymentModal(true);
+                                            }}
+                                            disabled={isExamInProgress}
+                                            className={`p-3 rounded-2xl shadow-lg transition-all flex items-center gap-2 ${
+                                              isExamInProgress
+                                                ? 'bg-slate-100 text-slate-300 cursor-not-allowed opacity-60'
+                                                : 'bg-emerald-600 text-white shadow-emerald-500/30 hover:bg-slate-900 active:scale-95'
+                                            }`}
+                                            title={isExamInProgress ? "Menunggu pemeriksaan selesai" : "Bayar Sekarang"}
+                                          >
+                                            <FiCreditCard className="w-4 h-4" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest mr-1">Bayar</span>
+                                          </button>
+                                        );
+                                    })()}
                                     {!inv.isPosted && inv.status !== 'cancelled' && (
                                         <button 
                                           onClick={() => {

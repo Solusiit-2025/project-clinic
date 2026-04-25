@@ -156,6 +156,7 @@ export const createRegistration = async (req: Request, res: Response) => {
           invoiceNo,
           patientId,
           clinicId,
+          registrationId: registration.id,
           invoiceDate: new Date(),
           total: regService.price,
           subtotal: regService.price,

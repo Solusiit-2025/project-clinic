@@ -15,12 +15,11 @@ export const getPharmacyQueues = async (req: Request, res: Response) => {
     
     // If clinicId is provided, filter by patient's clinic via medical record or registration
     if (clinicId) {
-       // Assuming clinic context is obtained via medicalRecord's clinic
        whereClause.medicalRecord = {
            clinicId: clinicId as string
        }
     }
-    
+
     if (date) {
       const targetDate = new Date(date as string)
       targetDate.setHours(0, 0, 0, 0)
@@ -45,7 +44,18 @@ export const getPharmacyQueues = async (req: Request, res: Response) => {
       include: {
         patient: { select: { id: true, name: true, medicalRecordNo: true, gender: true } },
         doctor: { select: { id: true, name: true } },
-        items: { include: { medicine: true, components: { include: { medicine: true } } } }
+        items: { include: { medicine: true, components: { include: { medicine: true } } } },
+        medicalRecord: {
+          select: {
+            registration: {
+              include: {
+                invoices: {
+                  select: { status: true, total: true, amountPaid: true }
+                }
+              }
+            }
+          }
+        }
       },
       orderBy: [
         { dispenseStatus: 'asc' }, // usually 'pending', 'preparing', 'ready', 'dispensed'
@@ -173,12 +183,29 @@ export const updateDispenseStatus = async (req: Request, res: Response) => {
              }
            } 
          },
-         medicalRecord: true
+         medicalRecord: {
+           include: {
+             registration: {
+               include: {
+                 invoices: true
+               }
+             }
+           }
+         }
       }
     })
 
     if (!prescription) {
       return res.status(404).json({ message: 'Resep tidak ditemukan' })
+    }
+
+    // NEW: Block dispensing if invoice is not paid
+    if (status === 'dispensed') {
+      const invoices = prescription.medicalRecord?.registration?.invoices || []
+      const isPaid = invoices.some(inv => inv.status === 'paid')
+      if (!isPaid) {
+        return res.status(400).json({ message: 'Obat tidak dapat diserahkan karena pembayaran invoice belum lunas.' })
+      }
     }
 
     // Attempting to finish dispensing

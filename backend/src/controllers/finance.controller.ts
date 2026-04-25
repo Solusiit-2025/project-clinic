@@ -37,6 +37,15 @@ export const getInvoices = async (req: Request, res: Response) => {
         where,
         include: {
           patient: { select: { id: true, name: true, medicalRecordNo: true, phone: true } },
+          registration: {
+            include: {
+              queueNumbers: {
+                select: { status: true, queueDate: true },
+                orderBy: { createdAt: 'desc' },
+                take: 1
+              }
+            }
+          },
           bank: true,
           items: true,
           payments: true
@@ -435,6 +444,56 @@ export const getFinancialSummary = async (req: Request, res: Response) => {
         })
     } catch (e) {
         res.status(500).json({ message: (e as Error).message })
+    }
+}
+
+/**
+ * Reset all payments for an invoice (Undo Payment)
+ * Only allowed if the invoice hasn't been posted to General Ledger
+ */
+export const resetInvoicePayment = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params
+        const currentClinicId = (req as any).clinicId
+
+        const result = await prisma.$transaction(async (tx) => {
+            // 1. Fetch Invoice
+            const invoice = await tx.invoice.findUnique({
+                where: { id },
+                include: { payments: true }
+            })
+
+            if (!invoice) throw new Error('Invoice tidak ditemukan')
+            
+            // 2. SAFETY GUARD: Cannot reset if already posted
+            if (invoice.isPosted) {
+                throw new Error('Invoice sudah diposting ke Buku Besar. Pembayaran tidak dapat dibatalkan.')
+            }
+
+            if (invoice.amountPaid === 0) {
+                throw new Error('Invoice memang belum memiliki pembayaran.')
+            }
+
+            // 3. Delete all payments associated with this invoice
+            await tx.payment.deleteMany({
+                where: { invoiceId: id }
+            })
+
+            // 4. Reset Invoice status and amountPaid
+            const updated = await tx.invoice.update({
+                where: { id },
+                data: {
+                    status: 'unpaid',
+                    amountPaid: 0
+                }
+            })
+
+            return updated
+        })
+
+        res.json({ message: 'Pembayaran berhasil direset ke Belum Bayar', data: result })
+    } catch (e: any) {
+        res.status(400).json({ message: e.message })
     }
 }
 

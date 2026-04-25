@@ -146,6 +146,7 @@ model Registration {
   department       Department?    @relation(fields: [departmentId], references: [id])
   doctor           Doctor?        @relation(fields: [doctorId], references: [id])
   patient          Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  invoices         Invoice[]
 
   @@unique([registrationNo, clinicId])
   @@index([patientId])
@@ -782,8 +783,9 @@ model AssetInsurance {
 model Invoice {
   id            String        @id @default(uuid())
   invoiceNo     String        @unique
-  appointmentId String?
-  patientId     String
+  appointmentId  String?
+  registrationId String?
+  patientId      String
   invoiceDate   DateTime
   dueDate       DateTime?
   subtotal      Float         @default(0)
@@ -803,6 +805,7 @@ model Invoice {
   bank          Bank?         @relation(fields: [bankId], references: [id])
   clinic        Clinic?       @relation(fields: [clinicId], references: [id])
   patient       Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  registration  Registration? @relation(fields: [registrationId], references: [id])
   payments      Payment[]
 
   @@index([patientId])
