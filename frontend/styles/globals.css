@@ -159,15 +159,21 @@ html.dark [class*="bg-gray-50/"] { background-color: rgba(22, 27, 34, 0.6) !impo
 html.dark [class*="bg-slate-50/"] { background-color: rgba(22, 27, 34, 0.6) !important; }
 html.dark [class*="bg-primary/"] { background-color: rgba(14, 165, 233, 0.15) !important; }
 
-/* Text Overrides */
+/* Text Overrides — Mapping Tailwind utility classes to design tokens */
 html.dark .text-gray-900      { color: var(--text-primary) !important; }
 html.dark .text-slate-900     { color: var(--text-primary) !important; }
 html.dark .text-gray-800      { color: var(--text-primary) !important; }
+html.dark .text-slate-800     { color: var(--text-primary) !important; }
 html.dark .text-gray-700      { color: var(--text-secondary) !important; }
 html.dark .text-slate-700     { color: var(--text-secondary) !important; }
 html.dark .text-gray-600      { color: var(--text-muted) !important; }
+html.dark .text-slate-600     { color: var(--text-muted) !important; }
 html.dark .text-gray-500      { color: var(--text-muted) !important; }
-html.dark .text-gray-400      { color: var(--text-faint) !important; }
+html.dark .text-slate-500     { color: var(--text-muted) !important; }
+html.dark .text-gray-400      { color: var(--text-muted) !important; }
+html.dark .text-slate-400     { color: var(--text-muted) !important; }
+html.dark .text-gray-300      { color: var(--text-faint) !important; }
+html.dark .text-slate-300     { color: var(--text-faint) !important; }
 
 /* Borders */
 html.dark .border-gray-100    { border-color: var(--border) !important; }
@@ -253,9 +259,22 @@ html.dark .md\:col-span-1.bg-white::before {
 }
 
 /* --- Status Badges special handling --- */
+html.dark .bg-emerald-50      { background-color: rgba(16, 185, 129, 0.12) !important; border: 1px solid rgba(16, 185, 129, 0.2) !important; color: #34d399 !important; }
+html.dark .bg-rose-50         { background-color: rgba(244, 63, 94, 0.12) !important; border: 1px solid rgba(244, 63, 94, 0.2) !important; color: #fb7185 !important; }
+html.dark .bg-blue-50         { background-color: rgba(14, 165, 233, 0.12) !important; border: 1px solid rgba(14, 165, 233, 0.2) !important; color: #7dd3fc !important; }
 html.dark .bg-amber-50        { background-color: rgba(245, 158, 11, 0.12) !important; border: 1px solid rgba(245, 158, 11, 0.2) !important; color: #fbbf24 !important; }
+html.dark .bg-orange-50       { background-color: rgba(249, 115, 22, 0.12) !important; border: 1px solid rgba(249, 115, 22, 0.2) !important; color: #fdba74 !important; }
 html.dark .bg-indigo-50       { background-color: rgba(99, 102, 241, 0.12) !important; border: 1px solid rgba(99, 102, 241, 0.2) !important; color: #a5b4fc !important; }
 html.dark .bg-purple-50       { background-color: rgba(168, 85, 247, 0.12) !important; border: 1px solid rgba(168, 85, 247, 0.2) !important; color: #d8b4fe !important; }
+
+/* Status text overrides for specific utilities */
+html.dark .text-blue-600      { color: #7dd3fc !important; }
+html.dark .text-emerald-600   { color: #34d399 !important; }
+html.dark .text-rose-600      { color: #fb7185 !important; }
+html.dark .text-amber-600     { color: #fbbf24 !important; }
+html.dark .text-indigo-600    { color: #a5b4fc !important; }
+html.dark .text-purple-600    { color: #d8b4fe !important; }
+html.dark .text-orange-600    { color: #fdba74 !important; }
 
 /* Status Button in appointment table */
 html.dark .shadow-emerald-200  { box-shadow: 0 8px 16px -4px rgba(16, 185, 129, 0.3) !important; }
