@@ -30,19 +30,43 @@ export const saveNurseVitals = async (req: Request, res: Response) => {
       })
 
       if (!medicalRecord) {
-        const today = new Date()
-        const dateStr = today.toISOString().split('T')[0].replace(/-/g, '')
+        // Fix for Midnight Bug: Use Local Date instead of UTC ISOString
+        const now = new Date()
+        const year = now.getFullYear()
+        const month = (now.getMonth() + 1).toString().padStart(2, '0')
+        const day = now.getDate().toString().padStart(2, '0')
+        const dateStr = `${year}${month}${day}`
+        
+        const today = new Date(year, now.getMonth(), now.getDate())
+        const nextDay = new Date(year, now.getMonth(), now.getDate() + 1)
+
         const count = await tx.medicalRecord.count({
-          where: { recordDate: { gte: new Date(today.setHours(0,0,0,0)) } }
+          where: { recordDate: { gte: today, lt: nextDay } }
         })
-        const recordNo = `MR-${dateStr}-${(count + 1).toString().padStart(4, '0')}`
+
+        let nextNum = count + 1
+        let recordNo = ''
+        let isUnique = false
+
+        // Guaranteed Uniqueness Loop
+        while (!isUnique) {
+          recordNo = `MR-${dateStr}-${nextNum.toString().padStart(4, '0')}`
+          const exists = await tx.medicalRecord.findUnique({
+            where: { recordNo }
+          })
+          if (!exists) {
+            isUnique = true
+          } else {
+            nextNum++
+          }
+        }
 
         medicalRecord = await tx.medicalRecord.create({
           data: {
             recordNo,
             patientId,
             clinicId,
-            doctorId: doctorId || null, // Doctor can be null during nurse triage
+            doctorId: doctorId || null,
             registrationId,
             chiefComplaint: chiefComplaint || '',
             recordDate: new Date(),

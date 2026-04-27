@@ -35,32 +35,32 @@ export default function PageHeader({
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-100">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-gray-100">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm border border-gray-100 ring-2 ring-gray-50">
-            <span className="text-primary text-lg">{icon}</span>
+          <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm border border-gray-100">
+            <span className="text-primary text-base sm:text-lg">{icon}</span>
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-black text-gray-900 tracking-tight leading-tight uppercase">{title}</h1>
+              <h1 className="text-base sm:text-xl font-black text-gray-900 tracking-tight leading-tight uppercase truncate">{title}</h1>
               {count !== undefined && (
-                <span className="text-[9px] font-black bg-primary/5 text-primary px-2 py-0.5 rounded-full border border-primary/10 uppercase tracking-widest">
-                  {count} TOTAL
+                <span className="text-[9px] font-black bg-primary/5 text-primary px-2 py-0.5 rounded-full border border-primary/10 uppercase tracking-widest flex-shrink-0">
+                  {count}
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-gray-400 font-bold uppercase tracking-tight mt-0.5">{subtitle}</p>
+            <p className="text-[10px] sm:text-[11px] text-gray-400 font-bold uppercase tracking-tight mt-0.5">{subtitle}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {children}
           {onAdd && (
             <button
               onClick={onAdd}
-              className="flex-shrink-0 flex items-center gap-2 bg-gray-900 hover:bg-black text-white font-black text-[10px] uppercase tracking-widest px-5 py-2.5 rounded-xl shadow-lg shadow-gray-200 transition-all hover:-translate-y-0.5 active:scale-95"
+              className="flex items-center gap-2 bg-gray-900 hover:bg-black text-white font-black text-[10px] uppercase tracking-widest px-4 py-2.5 rounded-xl shadow-sm transition-all active:scale-95 w-full sm:w-auto justify-center"
             >
-              <FiPlus className="w-3.5 h-3.5" />
+              <FiPlus className="w-3.5 h-3.5 flex-shrink-0" />
               <span>{addLabel}</span>
             </button>
           )}

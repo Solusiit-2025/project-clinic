@@ -20,7 +20,7 @@ export default function FeaturesSection() {
   const features = settings.features
 
   return (
-    <section id="features" className="section-padding bg-white">
+    <section id="features" className="section-padding bg-white dark:bg-slate-950 transition-colors duration-500">
       <div className="container-custom">
         {/* Header */}
         <motion.div
@@ -30,10 +30,10 @@ export default function FeaturesSection() {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <h2 className="text-4xl sm:text-5xl font-bold mb-4 text-gray-900">
+          <h2 className="text-4xl sm:text-5xl font-bold mb-4 text-gray-900 dark:text-white">
             Fitur Unggulan
           </h2>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+          <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
             Lengkap dengan tools modern untuk manajemen klinik yang lebih efisien
           </p>
         </motion.div>
@@ -49,15 +49,15 @@ export default function FeaturesSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
                 viewport={{ once: true }}
-                className="group p-8 rounded-xl border-2 border-gray-100 hover:border-primary hover:shadow-lg transition-all duration-300"
+                className="group p-8 rounded-[2rem] border-2 border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 hover:border-primary hover:shadow-xl dark:hover:shadow-primary/5 transition-all duration-300"
               >
-                <div className="w-14 h-14 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <div className="w-14 h-14 bg-gradient-to-br from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-inner">
                   <Icon className="w-7 h-7 text-primary" />
                 </div>
-                <h3 className="text-xl font-bold mb-2 text-gray-900">
+                <h3 className="text-xl font-bold mb-3 text-gray-900 dark:text-white">
                   {feature.title}
                 </h3>
-                <p className="text-gray-600 leading-relaxed">
+                <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-sm">
                   {feature.description}
                 </p>
               </motion.div>

@@ -16,7 +16,29 @@ import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { toast } from 'react-hot-toast'
 
-// ... [Keep Queue interface]
+interface Queue {
+  id: string
+  patientId: string
+  clinicId: string
+  doctorId: string | null
+  registrationId: string | null
+  queueNo: string
+  status: 'waiting' | 'called' | 'triage' | 'ready' | 'ongoing' | 'completed' | 'no-show'
+  patient: { name: string; medicalRecordNo: string; gender: string; allergies?: string }
+  doctor: { name: string; specialization: string } | null
+  department: { name: string } | null
+  hasMedicalRecord: boolean
+  createdAt: string
+  medicalRecord?: {
+    vitals?: {
+      bloodPressure?: string
+      temperature?: number
+      weight?: number
+      height?: number
+    }
+    chiefComplaint?: string
+  }
+}
 
 export default function DoctorQueue() {
   const router = useRouter()
@@ -51,7 +73,7 @@ export default function DoctorQueue() {
     }
 
     // 2. Setup Real-time listener
-    const clinicId = user?.clinics?.[0]?.clinic?.id || (user as any).clinicId
+    const clinicId = user?.clinics?.[0]?.id || (user as any).clinicId
     if (clinicId) {
       connectSocket(clinicId)
       

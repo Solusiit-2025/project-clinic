@@ -81,7 +81,7 @@ interface Service {
 export default function DoctorConsultationPage() {
   const { id } = useParams()
   const router = useRouter()
-  const { user, token, activeClinicId } = useAuthStore()
+  const { user, activeClinicId } = useAuthStore()
   
   const [queue, setQueue] = useState<Queue | null>(null)
   const [loading, setLoading] = useState(true)
@@ -122,8 +122,8 @@ export default function DoctorConsultationPage() {
   }, [medicalRecord])
 
   const fetchData = useCallback(async () => {
-    if (!token || !id) return
-    const fetchKey = `${String(id)}-${token}`
+    if (!user || !id) return
+    const fetchKey = `${String(id)}-${user.id}`
     if (hasFetchedRef.current === fetchKey) return
     hasFetchedRef.current = fetchKey
     setLoading(true)
@@ -214,7 +214,7 @@ export default function DoctorConsultationPage() {
     } finally {
       setLoading(false)
     }
-  }, [id, token])
+  }, [id, user])
 
   useEffect(() => {
     hasFetchedRef.current = null

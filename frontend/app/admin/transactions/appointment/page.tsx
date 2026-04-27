@@ -86,7 +86,9 @@ export default function AppointmentPage() {
       const { data: res } = await api.get('/transactions/appointments', { 
         params
       })
-      setData(res.data || [])
+      // Double check filtering: only show non-checked-in items
+      const appointments = (res.data || []).filter((a: any) => a.status !== 'checked-in')
+      setData(appointments)
     } catch (e) {
       console.error('Failed to fetch appointments', e)
     } finally {
@@ -113,6 +115,12 @@ export default function AppointmentPage() {
   }, [fetchData, fetchMasters])
 
   const handleCreate = async () => {
+    // Client-side validation
+    if (!isEditing && !isNewPatient && !form.patientId) return setError('Silakan pilih pasien terlebih dahulu')
+    if (!isEditing && isNewPatient && (!form.newPatientName || !form.newPatientPhone)) return setError('Nama dan No. HP pasien baru wajib diisi')
+    if (!form.doctorId) return setError('Silakan pilih dokter tujuan')
+    if (!form.appointmentDate) return setError('Silakan tentukan tanggal janji temu')
+
     setSaving(true)
     setError('')
     try {

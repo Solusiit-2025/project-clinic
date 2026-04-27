@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   ArrowRightLeft, Plus, Search, MapPin, 
-  CheckCircle, Truck, PackageCheck, AlertTriangle 
+  CheckCircle, Truck, PackageCheck, AlertTriangle,
+  RefreshCw, MapIcon, ChevronRight, LocateFixed
 } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -99,118 +100,141 @@ export default function TransferListPage() {
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
 
   return (
-    <div className="p-6 w-full mx-auto min-h-screen">
-       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <div>
-             <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
-                <div className="p-2.5 bg-blue-50 rounded-2xl">
-                   <ArrowRightLeft className="w-8 h-8 text-blue-600" />
-                </div>
-                Transfer Barang Antar-Cabang
-             </h1>
-             <p className="text-gray-500 font-medium mt-1">Pantau pergerakan stok keluar dan masuk cabang.</p>
+    <div className="p-3 md:p-6 lg:p-8 max-w-[1600px] mx-auto min-h-screen pb-40">
+       {/* Header */}
+       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
+          <div className="flex items-center gap-4">
+             <div className="p-3.5 bg-blue-50 rounded-[2rem] shadow-sm">
+                <ArrowRightLeft className="w-6 h-6 md:w-8 md:h-8 text-blue-600" />
+             </div>
+             <div>
+                <h1 className="text-xl md:text-3xl font-black text-gray-900 tracking-tight uppercase leading-tight">Transfer Stok</h1>
+                <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-[0.2em] mt-1">Pergerakan Barang Antar Cabang</p>
+             </div>
           </div>
           
-          <div className="flex gap-3">
-             <button 
-                onClick={() => setFilterType('ALL')}
-                className={`px-4 py-2 text-xs font-black rounded-lg transition-all ${filterType === 'ALL' ? 'bg-gray-900 text-white shadow-xl' : 'bg-white text-gray-400 hover:bg-gray-50 border border-gray-100'}`}
-             >
-                SEMUA ARAH
-             </button>
-             <button 
-                onClick={() => setFilterType('IN')}
-                className={`px-4 py-2 text-xs font-black rounded-lg transition-all ${filterType === 'IN' ? 'bg-green-600 text-white shadow-xl shadow-green-200' : 'bg-white text-gray-400 hover:bg-gray-50 border border-gray-100'}`}
-             >
-                MASUK (IN)
-             </button>
-             <button 
-                onClick={() => setFilterType('OUT')}
-                className={`px-4 py-2 text-xs font-black rounded-lg transition-all ${filterType === 'OUT' ? 'bg-blue-600 text-white shadow-xl shadow-blue-200' : 'bg-white text-gray-400 hover:bg-gray-50 border border-gray-100'}`}
-             >
-                KELUAR (OUT)
-             </button>
+          <div className="flex bg-gray-100/60 p-1.5 rounded-[2.5rem] w-full lg:w-fit overflow-x-auto no-scrollbar">
+             {[
+               { id: 'ALL', label: 'SEMUA ARAH', color: 'gray' },
+               { id: 'IN', label: 'MASUK (IN)', color: 'green' },
+               { id: 'OUT', label: 'KELUAR (OUT)', color: 'blue' }
+             ].map((btn) => (
+                <button 
+                   key={btn.id} onClick={() => setFilterType(btn.id)}
+                   className={`flex-1 lg:flex-none whitespace-nowrap px-6 py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${filterType === btn.id ? 'bg-white shadow-xl shadow-gray-200/50 text-gray-900 scale-105' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                   {btn.label}
+                </button>
+             ))}
           </div>
        </div>
 
-       <div className="bg-white border border-gray-100 shadow-2xl shadow-gray-200/40 rounded-[32px] overflow-hidden">
-          <div className="overflow-x-auto">
-             <table className="w-full text-left border-collapse">
-                <thead>
-                   <tr className="bg-gray-50/50">
-                      <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Referensi & Item</th>
-                      <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Rute Pengiriman</th>
-                      <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Kuantitas</th>
-                      <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Status</th>
-                      <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-right">Tindakan</th>
-                   </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                   {isLoading ? (
-                      <tr><td colSpan={5} className="p-10 text-center font-bold text-gray-400">Memuat...</td></tr>
-                   ) : transfers.length === 0 ? (
-                      <tr><td colSpan={5} className="p-10 text-center font-bold text-gray-400">Tidak ada riwayat transfer.</td></tr>
-                   ) : (
-                      transfers.map((t) => {
-                         const isDest = activeClinicId === t.destBranchId
-                         const isSource = activeClinicId === t.sourceBranchId
-                         
-                         return (
-                            <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
-                               <td className="px-6 py-5 border-l-4 border-transparent" style={{ borderLeftColor: isDest ? '#10b981' : '#3b82f6' }}>
-                                  <p className="font-black text-gray-900">{t.transferNo}</p>
-                                  <p className="text-xs font-bold text-gray-500 mt-1">{t.product?.productName}</p>
-                                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{t.product?.productCode}</span>
-                               </td>
-                               <td className="px-6 py-5">
-                                  <div className="flex items-center gap-2">
-                                     <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded ${isSource ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'}`}>
-                                        {t.sourceBranch?.name}
-                                     </span>
-                                     <ArrowRightLeft className="w-3 h-3 text-gray-300" />
-                                     <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded ${isDest ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'}`}>
-                                        {t.destBranch?.name}
-                                     </span>
+       {/* Transfer Content */}
+       <div className="space-y-4">
+          <AnimatePresence mode="popLayout">
+             {isLoading ? (
+                <div className="py-24 text-center">
+                   <RefreshCw className="w-12 h-12 text-blue-500 animate-spin mx-auto mb-4 opacity-30" />
+                   <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Checking Logistics...</p>
+                </div>
+             ) : transfers.length === 0 ? (
+                <div className="bg-white rounded-[3rem] p-24 border-2 border-dashed border-gray-100 text-center">
+                   <LocateFixed className="w-16 h-16 text-gray-100 mx-auto mb-4" />
+                   <h3 className="text-gray-900 font-black text-lg uppercase">Kosong</h3>
+                   <p className="text-[9px] font-bold text-gray-400 uppercase tracking-[0.3em] mt-2 leading-none">Tidak ada log transfer untuk kriteria ini</p>
+                </div>
+             ) : (
+                <div className="grid grid-cols-1 gap-5 lg:gap-4">
+                   {transfers.map((t) => {
+                      const isDest = activeClinicId === t.destBranchId
+                      const isSource = activeClinicId === t.sourceBranchId
+                      
+                      return (
+                         <motion.div 
+                           key={t.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                           className="bg-white border border-gray-50 rounded-[2.5rem] md:rounded-[3rem] p-6 lg:p-8 shadow-sm hover:shadow-2xl hover:border-blue-100 transition-all group relative overflow-hidden"
+                         >
+                            {/* Visual Direction Indicator (Samping) */}
+                            <div className={`absolute left-0 top-0 bottom-0 w-2.5 ${isDest ? 'bg-green-500' : 'bg-blue-500'} opacity-20`} />
+                            
+                            <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 lg:gap-10 items-center">
+                               {/* 1. Referensi & Item */}
+                               <div className="lg:col-span-4 w-full">
+                                  <div className="flex items-center gap-4">
+                                     <div className={`p-4 rounded-3xl ${isDest ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600'} transition-all group-hover:scale-110`}>
+                                        <Truck className="w-7 h-7" />
+                                     </div>
+                                     <div className="min-w-0">
+                                        <p className="text-base font-black text-gray-900 uppercase leading-none truncate group-hover:text-blue-600 transition-colors">{t.transferNo}</p>
+                                        <p className="text-[11px] font-bold text-gray-500 mt-2 line-clamp-1 italic uppercase tracking-tight">{t.product?.productName}</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                           <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">{t.product?.productCode}</span>
+                                           <span className="w-1.5 h-1.5 rounded-full bg-gray-200" />
+                                           <span className="text-[9px] font-black text-gray-900">{t.quantity} <span className="text-gray-300">Unit</span></span>
+                                        </div>
+                                     </div>
                                   </div>
-                               </td>
-                               <td className="px-6 py-5">
-                                  <span className="text-lg font-black text-gray-900">{t.quantity}</span>
-                                  <span className="text-[10px] font-bold text-gray-400 uppercase ml-1">Unit</span>
-                               </td>
-                               <td className="px-6 py-5">
-                                  <div className={`inline-flex px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-widest ${
+                               </div>
+
+                               {/* 2. Rute Visual (Modern Route UI) */}
+                               <div className="lg:col-span-4 w-full bg-gray-50/50 p-5 rounded-[2rem] border border-gray-50">
+                                  <div className="flex items-center justify-between gap-4">
+                                     <div className="flex flex-col items-center gap-1.5 min-w-0 flex-1">
+                                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest leading-none">Dari Cabang</p>
+                                        <div className={`w-full py-2 px-3 rounded-xl border text-center transition-all ${isSource ? 'bg-blue-600 border-blue-600 text-white shadow-lg' : 'bg-white border-gray-100 text-gray-500'}`}>
+                                           <p className="text-[10px] font-black uppercase truncate">{t.sourceBranch?.name}</p>
+                                        </div>
+                                     </div>
+                                     <div className="flex flex-col items-center">
+                                         <div className="w-8 h-8 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-300 shadow-sm relative">
+                                            <ArrowRightLeft className="w-3.5 h-3.5 group-hover:rotate-180 transition-all duration-700" />
+                                         </div>
+                                     </div>
+                                     <div className="flex flex-col items-center gap-1.5 min-w-0 flex-1">
+                                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest leading-none">Ke Cabang</p>
+                                        <div className={`w-full py-2 px-3 rounded-xl border text-center transition-all ${isDest ? 'bg-green-600 border-green-600 text-white shadow-lg' : 'bg-white border-gray-100 text-gray-500'}`}>
+                                           <p className="text-[10px] font-black uppercase truncate">{t.destBranch?.name}</p>
+                                        </div>
+                                     </div>
+                                  </div>
+                               </div>
+
+                               {/* 3. Status & Tindakan */}
+                               <div className="lg:col-span-4 w-full flex flex-row lg:flex-col items-center lg:items-end justify-between lg:justify-center gap-4">
+                                  <div className={`px-5 py-2.5 rounded-2xl border text-[9px] font-black uppercase tracking-[0.2em] shadow-sm ${
                                      t.status === 'REQUESTED' ? 'bg-orange-50 text-orange-600 border-orange-100' :
-                                     t.status === 'HQ_APPROVED' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                                     t.status === 'IN_TRANSIT' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
+                                     t.status === 'HQ_APPROVED' ? 'bg-sky-50 text-sky-600 border-sky-100' :
+                                     t.status === 'IN_TRANSIT' ? 'bg-indigo-50 text-indigo-600 border-indigo-100 animate-pulse' :
                                      'bg-green-50 text-green-600 border-green-100'
                                   }`}>
                                      {t.status.replace('_', ' ')}
                                   </div>
-                               </td>
-                               <td className="px-6 py-5 text-right space-x-2">
-                                  {t.status === 'REQUESTED' && isSuperAdmin && (
-                                     <button onClick={() => handleApproveHQ(t.id)} disabled={isProcessing === t.id} className="px-4 py-2 bg-gray-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-gray-800 disabled:opacity-50">
-                                        Approve HQ
-                                     </button>
-                                  )}
-                                  {t.status === 'HQ_APPROVED' && isSource && (
-                                     <button onClick={() => handleShip(t.id)} disabled={isProcessing === t.id} className="px-4 py-2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                                        Kirim (Ship)
-                                     </button>
-                                  )}
-                                  {t.status === 'IN_TRANSIT' && isDest && (
-                                     <button onClick={() => handleReceive(t.id)} disabled={isProcessing === t.id} className="px-4 py-2 bg-green-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-green-700 disabled:opacity-50">
-                                        Terima BarCode
-                                     </button>
-                                  )}
-                               </td>
-                            </tr>
-                         )
-                      })
-                   )}
-                </tbody>
-             </table>
-          </div>
+
+                                  <div className="flex items-center gap-2">
+                                     {t.status === 'REQUESTED' && isSuperAdmin && (
+                                        <button onClick={() => handleApproveHQ(t.id)} className="px-5 py-3 bg-gray-900 text-white text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-black transition-all shadow-xl active:scale-95 disabled:opacity-50">
+                                           APPROVE HQ
+                                        </button>
+                                     )}
+                                     {t.status === 'HQ_APPROVED' && isSource && (
+                                        <button onClick={() => handleShip(t.id)} className="px-5 py-3 bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-700 transition-all shadow-xl active:scale-95 disabled:opacity-50">
+                                           KIRIM (SHIP)
+                                        </button>
+                                     )}
+                                     {t.status === 'IN_TRANSIT' && isDest && (
+                                        <button onClick={() => handleReceive(t.id)} className="px-5 py-3 bg-green-600 text-white text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-green-700 transition-all shadow-xl active:scale-95 disabled:opacity-50">
+                                           TERIMA BARCODE
+                                        </button>
+                                     )}
+                                  </div>
+                               </div>
+                            </div>
+                         </motion.div>
+                      )
+                   })}
+                </div>
+             )}
+          </AnimatePresence>
        </div>
     </div>
   )

@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
-  ShoppingBag, Plus, Search, Filter, 
-  FileText, CheckCircle, Clock, Truck, 
-  Package, MoreVertical, RefreshCw, ChevronRight
+  ShoppingBag, Plus, FileText, CheckCircle, 
+  Clock, Truck, Package, RefreshCw, ChevronRight,
+  TrendingUp, ArrowRight, Layers
 } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -52,163 +52,154 @@ export default function ProcurementListPage() {
 
   const getStatusStyle = (status: string) => {
     switch (status) {
-      case 'PENDING_APPROVAL': return 'bg-orange-50 text-orange-700 border-orange-200'
-      case 'APPROVED': return 'bg-blue-50 text-blue-700 border-blue-200'
-      case 'RECEIVED': return 'bg-green-50 text-green-700 border-green-200'
-      case 'COMPLETED': return 'bg-gray-100 text-gray-700 border-gray-200'
-      default: return 'bg-gray-100 text-gray-600 border-gray-200'
+      case 'PENDING_APPROVAL': return 'bg-amber-50 text-amber-700 border-amber-100'
+      case 'APPROVED': return 'bg-blue-50 text-blue-700 border-blue-100'
+      case 'RECEIVED': return 'bg-emerald-50 text-emerald-700 border-emerald-100'
+      case 'COMPLETED': return 'bg-slate-100 text-slate-700 border-slate-200'
+      default: return 'bg-gray-50 text-gray-600 border-gray-100'
     }
   }
 
   return (
-    <div className="p-6 w-full mx-auto min-h-screen">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+    <div className="p-4 md:p-8 max-w-[1400px] mx-auto min-h-screen pb-40">
+      {/* Dynamic Header - More Compact */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 pt-2">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
-            <div className="p-2.5 bg-primary/10 rounded-2xl">
-              <ShoppingBag className="w-8 h-8 text-primary" />
-            </div>
-            Daftar Pengadaan (PR/PO)
-          </h1>
-          <p className="text-gray-500 font-medium mt-1">Kelola permohonan pembelian dan penerimaan barang.</p>
+          <div className="flex items-center gap-2 mb-1">
+             <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+             <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Procurement System</p>
+          </div>
+          <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tighter uppercase leading-none">Pengadaan</h1>
         </div>
         
         <button 
           onClick={() => router.push('/admin/inventory/procurement/new')}
-          className="px-6 py-3 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:shadow-2xl hover:-translate-y-0.5 transition-all flex items-center gap-2 active:scale-95"
+          className="px-6 py-3.5 bg-gray-900 text-white font-black rounded-2xl shadow-xl shadow-gray-200 hover:scale-[1.02] transition-all flex items-center justify-center gap-2 active:scale-95 text-[10px] uppercase tracking-widest"
         >
-          <Plus className="w-5 h-5" />
+          <Plus className="w-4 h-4" />
           BUAT PR BARU
         </button>
       </div>
 
-      {/* Stats Quick Look */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm flex items-center gap-4">
-           <div className="p-4 bg-orange-50 rounded-2xl text-orange-600">
-              <Clock className="w-6 h-6" />
-           </div>
-           <div>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Menunggu Approval</p>
-              <p className="text-2xl font-black text-gray-900">{procurements.filter(p => p.status === 'PENDING_APPROVAL').length}</p>
-           </div>
-        </div>
-        <div className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm flex items-center gap-4">
-           <div className="p-4 bg-blue-50 rounded-2xl text-blue-600">
-              <Truck className="w-6 h-6" />
-           </div>
-           <div>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Sedang Diproses</p>
-              <p className="text-2xl font-black text-gray-900">{procurements.filter(p => p.status === 'APPROVED').length}</p>
-           </div>
-        </div>
-        <div className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm flex items-center gap-4">
-           <div className="p-4 bg-green-50 rounded-2xl text-green-600">
-              <CheckCircle className="w-6 h-6" />
-           </div>
-           <div>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Selesai Bulan Ini</p>
-              <p className="text-2xl font-black text-gray-900">{procurements.filter(p => p.status === 'RECEIVED').length}</p>
-           </div>
-        </div>
+      {/* New Stats Grid - 3 Columns on Mobile without horizontal scroll */}
+      <div className="grid grid-cols-3 gap-2.5 mb-8">
+        {[
+          { label: 'WAITING', val: procurements.filter(p => p.status === 'PENDING_APPROVAL').length, color: 'amber' },
+          { label: 'TRANSIT', val: procurements.filter(p => p.status === 'APPROVED').length, color: 'blue' },
+          { label: 'DONE', val: procurements.filter(p => p.status === 'RECEIVED').length, color: 'emerald' }
+        ].map((s, i) => (
+          <div key={i} className="bg-white p-3.5 rounded-[1.5rem] border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center group hover:border-primary/20 transition-all">
+             <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 group-hover:text-primary">{s.label}</p>
+             <p className={`text-xl font-black text-gray-900 leading-none mb-1`}>{s.val}</p>
+             <div className={`w-1 h-1 rounded-full bg-${s.color}-500/40`} />
+          </div>
+        ))}
       </div>
 
-      {/* Filter Status */}
-      <div className="flex items-center gap-2 p-1.5 bg-white border border-gray-100 rounded-2xl shadow-sm mb-6 w-fit ring-1 ring-gray-50">
-          {['all', 'PENDING_APPROVAL', 'APPROVED', 'RECEIVED'].map((s) => (
-            <button 
-              key={s}
-              onClick={() => setFilterStatus(s)}
-              className={`px-5 py-2 rounded-xl text-[10px] font-black tracking-[0.1em] uppercase transition-all ${filterStatus === s ? 'bg-primary text-white shadow-md' : 'text-gray-400 hover:text-gray-600'}`}
-            >
-              {s.replace('_', ' ')}
-            </button>
-          ))}
+      {/* Filter Tabs - Pill Style (Smaller) */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 mb-8">
+        {['all', 'PENDING_APPROVAL', 'APPROVED', 'RECEIVED'].map((s) => (
+          <button 
+            key={s} onClick={() => setFilterStatus(s)}
+            className={`whitespace-nowrap px-5 py-2.5 rounded-full text-[9px] font-black tracking-widest uppercase transition-all border ${filterStatus === s ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-white text-gray-400 border-gray-100'}`}
+          >
+            {s === 'all' ? 'SEMUA' : s.replace('PENDING_', '').replace('_', ' ')}
+          </button>
+        ))}
       </div>
 
-      {/* Procurement List */}
-      <div className="bg-white rounded-[40px] border border-gray-100 shadow-2xl shadow-gray-200/40 overflow-hidden ring-1 ring-gray-100">
-         <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-               <thead>
-                  <tr className="bg-gray-50/50">
-                     <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">No. PR / Jenis</th>
-                     <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Vendor</th>
-                     <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Item</th>
-                     <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Total Pengajuan</th>
-                     <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Status</th>
-                     <th className="px-8 py-6"></th>
-                  </tr>
-               </thead>
-               <tbody className="divide-y divide-gray-50">
-                  {isLoading ? (
-                    <tr>
-                      <td colSpan={6} className="px-8 py-20 text-center">
-                        <RefreshCw className="w-8 h-8 text-primary animate-spin mx-auto mb-4" />
-                        <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Memuat data...</p>
-                      </td>
-                    </tr>
-                  ) : procurements.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-8 py-20 text-center">
-                        <Package className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-                        <p className="text-gray-400 font-bold">Belum ada pengadaan.</p>
-                        <button 
-                          onClick={() => router.push('/admin/inventory/procurement/new')}
-                          className="mt-4 text-primary font-black text-xs hover:underline uppercase tracking-widest"
-                        >
-                          Klik untuk membuat PR pertama
-                        </button>
-                      </td>
-                    </tr>
-                  ) : (
-                    procurements.map((p, idx) => (
-                      <motion.tr 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.05 }}
-                        key={p.id}
-                        onClick={() => router.push(`/admin/inventory/procurement/${p.id}`)}
-                        className="hover:bg-gray-50/50 cursor-pointer transition-colors group"
-                      >
-                        <td className="px-8 py-6">
-                           <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary">
-                                 <FileText className="w-5 h-5" />
-                              </div>
-                              <div>
-                                 <p className="font-black text-gray-900 uppercase tracking-tight">{p.procurementNo}</p>
-                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{p.type}</p>
-                              </div>
-                           </div>
-                        </td>
-                        <td className="px-8 py-6">
-                           <p className="text-sm font-bold text-gray-700">{p.vendor?.name || '-'}</p>
-                        </td>
-                        <td className="px-8 py-6">
-                           <div className="flex items-center gap-2">
-                             <span className="text-sm font-black text-gray-900">{p._count.items}</span>
-                             <span className="text-[10px] font-bold text-gray-400 uppercase uppercase tracking-widest">Varian</span>
-                           </div>
-                        </td>
-                        <td className="px-8 py-6">
-                           <p className="text-sm font-black text-gray-900">Rp {p.totalAmount.toLocaleString('id-ID')}</p>
-                        </td>
-                        <td className="px-8 py-6">
-                           <div className={`px-4 py-2 rounded-2xl border text-[10px] font-black uppercase tracking-widest inline-block ${getStatusStyle(p.status)}`}>
-                              {p.status.replace('_', ' ')}
-                           </div>
-                        </td>
-                        <td className="px-8 py-6 text-right">
-                           <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-primary transition-all group-hover:translate-x-1" />
-                        </td>
-                      </motion.tr>
-                    ))
-                  )}
-               </tbody>
-            </table>
-         </div>
+      {/* List Content */}
+      <div className="space-y-4">
+        <AnimatePresence mode="popLayout">
+          {isLoading ? (
+            <div className="py-24 text-center">
+              <RefreshCw className="w-10 h-10 text-primary animate-spin mx-auto mb-4 opacity-20" />
+            </div>
+          ) : procurements.length === 0 ? (
+            <div className="bg-gray-50/50 rounded-[2.5rem] p-20 text-center border-2 border-dashed border-white">
+               <Package className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Kosong</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {procurements.map((p, idx) => (
+                <motion.div 
+                   key={p.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.02 }}
+                   onClick={() => router.push(`/admin/inventory/procurement/${p.id}`)}
+                   className="bg-white border border-gray-100 rounded-[2rem] md:rounded-[2.5rem] shadow-sm hover:shadow-xl hover:border-primary/30 transition-all cursor-pointer group active:scale-[0.99] overflow-hidden"
+                >
+                   {/* Mobile View */}
+                   <div className="md:hidden">
+                      <div className="p-4 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
+                         <div className="flex items-center gap-2">
+                             <FileText className="w-3.5 h-3.5 text-primary" />
+                             <p className="text-[11px] font-black text-gray-900 uppercase tracking-tighter truncate max-w-[140px]">{p.procurementNo}</p>
+                         </div>
+                         <div className={`px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-widest border ${getStatusStyle(p.status)}`}>
+                            {p.status.split('_')[0].replace('PENDING', 'WAIT')}
+                         </div>
+                      </div>
+                      
+                      <div className="p-5 flex flex-col gap-5">
+                         <div className="flex items-center justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                               <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Supplier</p>
+                               <p className="text-xs font-bold text-gray-800 truncate uppercase">{p.vendor?.name || 'BELUM DITUNJUK'}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                               <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Varian</p>
+                               <span className="text-[10px] font-black text-gray-900 bg-gray-100 px-2.5 py-1 rounded-lg uppercase">{p._count.items} SKU</span>
+                            </div>
+                         </div>
+
+                         <div className="flex items-end justify-between">
+                            <div>
+                               <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Estimasi Total</p>
+                               <p className="text-xl font-black text-indigo-600 tracking-tight">Rp {p.totalAmount.toLocaleString('id-ID')}</p>
+                            </div>
+                            <div className="w-10 h-10 bg-primary/5 rounded-xl flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">
+                               <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+
+                   {/* Desktop Layout */}
+                   <div className="hidden md:grid grid-cols-12 gap-4 items-center px-10 py-7">
+                      <div className="col-span-3 flex items-center gap-5">
+                         <div className="w-12 h-12 bg-gray-50 group-hover:bg-primary/5 rounded-2xl flex items-center justify-center text-gray-400 group-hover:text-primary transition-all">
+                            <FileText className="w-5 h-5" />
+                         </div>
+                         <div className="min-w-0">
+                            <p className="text-lg font-black text-gray-900 uppercase tracking-tight group-hover:text-primary transition-colors truncate">{p.procurementNo}</p>
+                            <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">{p.type}</span>
+                         </div>
+                      </div>
+                      <div className="col-span-3">
+                         <p className="text-xs font-black text-gray-700 uppercase">{p.vendor?.name || 'N/A'}</p>
+                      </div>
+                      <div className="col-span-2 text-center text-lg font-black text-gray-900">{p._count.items}</div>
+                      <div className="col-span-2 text-right">
+                         <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1">Total PR Value</p>
+                         <p className="text-lg font-black text-indigo-600">Rp {p.totalAmount.toLocaleString('id-ID')}</p>
+                      </div>
+                      <div className="col-span-2 flex justify-end">
+                         <div className={`px-6 py-2.5 rounded-[2rem] border text-[9px] font-black uppercase tracking-widest shadow-sm ${getStatusStyle(p.status)}`}>
+                            {p.status.replace('_', ' ')}
+                         </div>
+                      </div>
+                   </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </AnimatePresence>
       </div>
+
+      <style jsx global>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   )
 }

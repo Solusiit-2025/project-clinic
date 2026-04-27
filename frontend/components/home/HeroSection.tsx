@@ -10,7 +10,7 @@ export default function HeroSection() {
   const hero = settings.hero
 
   return (
-    <section id="home" className="relative pt-32 pb-20 md:pt-40 md:pb-32 bg-gradient-to-b from-blue-50 via-white to-white overflow-hidden">
+    <section id="home" className="relative pt-32 pb-20 md:pt-40 md:pb-32 bg-white dark:bg-slate-950 overflow-hidden transition-colors duration-500">
       {/* Background decoration */}
       <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-b from-primary/10 to-transparent rounded-full blur-3xl -z-10"></div>
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-t from-secondary/10 to-transparent rounded-full blur-3xl -z-10"></div>
@@ -37,11 +37,11 @@ export default function HeroSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.25 }}
-              className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold leading-[1.15] mb-8 text-gray-900 tracking-tight"
+              className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold leading-[1.15] mb-8 text-gray-900 dark:text-white tracking-tight"
             >
               {hero.title} <span className="relative inline-block">
                 <span className="relative z-10 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">{hero.highlight}</span>
-                <span className="absolute bottom-2 left-0 w-full h-3 bg-primary/10 -z-1 order-1"></span>
+                <span className="absolute bottom-2 left-0 w-full h-3 bg-primary/20 dark:bg-primary/10 -z-1 order-1"></span>
               </span>
             </motion.h1>
 
@@ -49,7 +49,7 @@ export default function HeroSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.4 }}
-              className="text-lg sm:text-xl text-gray-600 mb-10 leading-relaxed max-w-2xl"
+              className="text-lg sm:text-xl text-gray-600 dark:text-gray-400 mb-10 leading-relaxed max-w-2xl"
             >
               {hero.description}
             </motion.p>
@@ -69,7 +69,7 @@ export default function HeroSection() {
               </Link>
               <Link
                 href={hero.secondaryHref}
-                className="px-8 py-4 bg-white border-2 border-gray-100 rounded-2xl font-bold text-gray-700 hover:border-primary hover:text-primary transition-all flex items-center justify-center gap-3 shadow-sm hover:shadow-xl"
+                className="px-8 py-4 bg-white dark:bg-slate-900 border-2 border-gray-100 dark:border-slate-800 rounded-2xl font-bold text-gray-700 dark:text-gray-300 hover:border-primary hover:text-primary transition-all flex items-center justify-center gap-3 shadow-sm hover:shadow-xl"
               >
                 {hero.secondaryCta}
               </Link>
@@ -85,7 +85,7 @@ export default function HeroSection() {
               {hero.stats.map((stat: any, index: number) => (
                 <div key={index} className="flex flex-col">
                   <span className={`text-4xl font-extrabold tracking-tight ${stat.color} mb-1`}>{stat.value}</span>
-                  <span className="text-gray-500 font-medium text-sm">{stat.label}</span>
+                  <span className="text-gray-500 dark:text-gray-400 font-medium text-sm">{stat.label}</span>
                 </div>
               ))}
             </motion.div>
@@ -110,15 +110,15 @@ export default function HeroSection() {
               <motion.div
                 animate={{ y: [0, -15, 0], x: [0, 5, 0] }}
                 transition={{ duration: 5, repeat: Infinity }}
-                className="absolute top-12 -left-12 bg-white/80 backdrop-blur-md rounded-2xl shadow-2xl p-6 border border-white/50 w-64"
+                className="absolute top-12 -left-12 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-2xl p-6 border border-white/50 dark:border-slate-800/50 w-64"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg">
                     <FiCheckCircle className="w-6 h-6" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-tighter">Status Terverifikasi</p>
-                    <p className="text-sm font-bold text-gray-900">Klinik Terakreditasi A</p>
+                    <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-tighter">Status Terverifikasi</p>
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">Klinik Terakreditasi A</p>
                   </div>
                 </div>
               </motion.div>
@@ -126,19 +126,19 @@ export default function HeroSection() {
               <motion.div
                 animate={{ y: [0, 15, 0], x: [0, -10, 0] }}
                 transition={{ duration: 6, repeat: Infinity, delay: 1 }}
-                className="absolute bottom-12 -right-12 bg-white rounded-2xl shadow-2xl p-6 border border-gray-100 w-72"
+                className="absolute bottom-12 -right-12 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-2xl p-6 border border-gray-100 dark:border-slate-800/50 w-72"
               >
                 <div className="flex items-center gap-4 mb-4">
                   <div className="flex -space-x-3">
                     {[1,2,3].map(i => (
-                      <div key={i} className="w-10 h-10 rounded-full border-2 border-white bg-gray-200 overflow-hidden">
+                      <div key={i} className="w-10 h-10 rounded-full border-2 border-white dark:border-slate-800 bg-gray-200 dark:bg-slate-700 overflow-hidden">
                         <img src={`https://i.pravatar.cc/100?img=${i+10}`} alt="Patient" />
                       </div>
                     ))}
                   </div>
-                  <div className="text-xs font-bold text-gray-900">+50k Pasien</div>
+                  <div className="text-xs font-bold text-gray-900 dark:text-white">+50k Pasien</div>
                 </div>
-                <p className="text-sm font-medium text-gray-700">"Pelayanan dokter sangat ramah dan profesional!"</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">"Pelayanan dokter sangat ramah dan profesional!"</p>
               </motion.div>
             </div>
 

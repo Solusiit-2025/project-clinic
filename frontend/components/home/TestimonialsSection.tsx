@@ -26,7 +26,7 @@ const testimonials = [
 
 export default function TestimonialsSection() {
   return (
-    <section className="section-padding bg-gray-50 overflow-hidden">
+    <section className="section-padding bg-gray-50 dark:bg-slate-900/50 overflow-hidden transition-colors duration-500">
       <div className="container-custom">
         <div className="text-center mb-16">
           <motion.h2 
@@ -34,11 +34,11 @@ export default function TestimonialsSection() {
             whileInView={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6 }}
             viewport={{ once: true }}
-            className="text-3xl md:text-5xl font-bold text-gray-900 mb-4"
+            className="text-3xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4"
           >
             Apa Kata <span className="text-secondary">Pasien Kami</span>?
           </motion.h2>
-          <p className="text-gray-600 max-w-2xl mx-auto">
+          <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
             Kepercayaan Anda adalah motivasi kami untuk terus memberikan pelayanan kesehatan terbaik.
           </p>
         </div>
@@ -51,7 +51,7 @@ export default function TestimonialsSection() {
               whileInView={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, delay: index * 0.1 }}
               viewport={{ once: true }}
-              className="bg-white p-8 rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 flex flex-col justify-between"
+              className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-slate-800 flex flex-col justify-between group hover:border-primary/30 transition-all duration-300"
             >
               <div>
                 <div className="flex gap-1 mb-6">
@@ -59,19 +59,19 @@ export default function TestimonialsSection() {
                     <FiStar key={i} className="w-5 h-5 text-yellow-400 fill-current" />
                   ))}
                 </div>
-                <p className="text-gray-700 italic leading-relaxed mb-8">
+                <p className="text-gray-700 dark:text-gray-300 italic leading-relaxed mb-8">
                   "{testimonial.text}"
                 </p>
               </div>
-              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4">
                 <img 
                   src={testimonial.image} 
                   alt={testimonial.name} 
-                  className="w-14 h-14 rounded-full object-cover ring-4 ring-primary/10" 
+                  className="w-14 h-14 rounded-full object-cover ring-4 ring-primary/10 group-hover:ring-primary/30 transition-all" 
                 />
                 <div>
-                  <h4 className="font-bold text-gray-900 leading-tight">{testimonial.name}</h4>
-                  <p className="text-sm text-gray-500">{testimonial.role}</p>
+                  <h4 className="font-bold text-gray-900 dark:text-white leading-tight">{testimonial.name}</h4>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{testimonial.role}</p>
                 </div>
               </div>
             </motion.div>

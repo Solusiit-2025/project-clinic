@@ -6,15 +6,13 @@ import { useAuthStore } from '@/lib/store/useAuthStore'
 import Sidebar from '@/components/admin/Sidebar'
 import AdminNavbar from '@/components/admin/AdminNavbar'
 import SessionGuard from '@/components/admin/SessionGuard'
+import MobileBottomNav from '@/components/admin/MobileBottomNav'
 import { motion, AnimatePresence } from 'framer-motion'
 
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user, checkAuth } = useAuthStore()
   const [isChecking, setIsChecking] = useState(true)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -26,24 +24,14 @@ export default function AdminLayout({
   }, [checkAuth])
 
   useEffect(() => {
-    if (!isChecking && !isAuthenticated) {
-      router.push('/login')
-    }
-    if (!isChecking && isAuthenticated && user?.role === 'DOCTOR') {
-      router.push('/doctor')
-    }
+    if (!isChecking && !isAuthenticated) router.push('/login')
+    if (!isChecking && isAuthenticated && user?.role === 'DOCTOR') router.push('/doctor')
   }, [isChecking, isAuthenticated, router, user])
 
   if (isChecking) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center" style={{ backgroundColor: 'var(--bg-app)' }}>
-        <div
-          className="w-16 h-16 rounded-full animate-spin"
-          style={{
-            border: '4px solid var(--border)',
-            borderTopColor: '#0ea5e9',
-          }}
-        />
+        <div className="w-12 h-12 rounded-full animate-spin" style={{ border: '3px solid var(--border)', borderTopColor: '#0ea5e9' }} />
         <p className="mt-4 font-bold animate-pulse uppercase tracking-widest text-xs" style={{ color: 'var(--text-faint)' }}>
           Memuat Dashboard...
         </p>
@@ -52,49 +40,47 @@ export default function AdminLayout({
   }
 
   const staffRoles = ['SUPER_ADMIN', 'ADMIN', 'RECEPTIONIST', 'FARMASI', 'ACCOUNTING', 'LOGISTIC', 'STAFF']
-  if (!isAuthenticated || !staffRoles.includes(user?.role ?? '')) {
-    return null
-  }
+  if (!isAuthenticated || !staffRoles.includes(user?.role ?? '')) return null
 
   return (
     <div className="min-h-screen flex" style={{ backgroundColor: 'var(--bg-app)' }}>
-      {/* Sidebar */}
-      <Sidebar />
+      {/* Sidebar — handles its own mobile drawer internally, but we pass open state */}
+      <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
 
-      {/* Main Content Area */}
+      {/* Main Content */}
       <div className="flex-1 flex flex-col min-h-screen min-w-0">
-        <AdminNavbar />
+        <AdminNavbar onMobileMenuOpen={() => setMobileMenuOpen(true)} />
         <SessionGuard />
 
-        <main className="p-4 flex-1">
+        <main className="flex-1 p-2 sm:p-3 md:p-4 lg:p-5 pb-24 md:pb-20 lg:pb-5">
           <AnimatePresence mode="wait">
             <motion.div
-              initial={{ opacity: 0, y: 15 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              transition={{ duration: 0.3 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.25 }}
             >
               {children}
             </motion.div>
           </AnimatePresence>
         </main>
 
+        {/* Footer — hidden on mobile (bottom nav takes its place) */}
         <footer
-          className="px-8 py-5 border-t text-[10px] font-medium flex justify-between items-center"
-          style={{
-            backgroundColor: 'var(--bg-surface)',
-            borderColor: 'var(--border)',
-            color: 'var(--text-faint)',
-          }}
+          className="hidden lg:flex px-6 py-4 border-t text-[10px] font-medium justify-between items-center"
+          style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-faint)' }}
         >
           <p>&copy; 2026 {user?.name || 'Klinik Yasfina'}. Professional Medical Management System.</p>
           <div className="flex gap-4">
             <a href="#" className="hover:text-primary transition-colors">Privacy</a>
-            <a href="#" className="hover:text-primary transition-colors">Documentation</a>
+            <a href="#" className="hover:text-primary transition-colors">Docs</a>
             <a href="#" className="hover:text-primary transition-colors">Support</a>
           </div>
         </footer>
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav onMenuOpen={() => setMobileMenuOpen(true)} />
     </div>
   )
 }

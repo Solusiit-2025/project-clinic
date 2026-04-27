@@ -17,7 +17,7 @@ export const getAppointments = async (req: Request, res: Response) => {
       clinicId: isAdminView ? (clinicId ? String(clinicId) : undefined) : currentClinicId,
       ...(doctorId ? { doctorId: String(doctorId) } : {}),
       ...(patientId ? { patientId: String(patientId) } : {}),
-      ...(status ? { status: String(status) } : {}),
+      ...(status ? { status: String(status) } : { status: { not: 'checked-in' } }),
     }
 
     if (startDate || endDate) {
@@ -90,6 +90,15 @@ export const createAppointment = async (req: Request, res: Response) => {
     const userId = (req as any).user?.id
     const targetClinicId = clinicId || (req as any).clinicId
 
+    // 0. Basic Validation
+    if (!doctorId) return res.status(400).json({ message: 'Silakan pilih Dokter tujuan' })
+    if (!appointmentDate) return res.status(400).json({ message: 'Silakan tentukan Tanggal & Jam janji temu' })
+    
+    const parsedDate = new Date(appointmentDate as string)
+    if (isNaN(parsedDate.getTime())) {
+      return res.status(400).json({ message: 'Format tanggal janji temu tidak valid' })
+    }
+
     let finalPatientId = patientId
 
     // 1. Handle New Patient (Lite Registration)
@@ -131,7 +140,10 @@ export const createAppointment = async (req: Request, res: Response) => {
 
     // 2. Generate Appointment No
     const today = new Date()
-    const dStr = today.toISOString().split('T')[0].replace(/-/g, '')
+    const y = today.getFullYear()
+    const m = (today.getMonth() + 1).toString().padStart(2, '0')
+    const d = today.getDate().toString().padStart(2, '0')
+    const dStr = `${y}${m}${d}`
     
     // Cari data terakhir hari ini untuk menentukan nomor urut berikutnya
     const lastAppt = await prisma.appointment.findFirst({
@@ -155,7 +167,7 @@ export const createAppointment = async (req: Request, res: Response) => {
         patientId: finalPatientId,
         doctorId,
         clinicId: targetClinicId,
-        appointmentDate: new Date(appointmentDate),
+        appointmentDate: parsedDate,
         appDurationMin: appDurationMin || 30,
         notes,
         status: 'scheduled',
@@ -314,10 +326,10 @@ export const checkInAppointment = async (req: Request, res: Response) => {
 
         if (!regService) {
           const clinic = await tx.clinic.findUnique({ where: { id: appointment.clinicId! } })
-          const clinicSuffix = clinic?.code || appointment.clinicId!.slice(0, 4).toUpperCase()
+          const clinicSuffix = clinic?.code || (appointment.clinicId ? appointment.clinicId.slice(0, 4).toUpperCase() : 'GEN')
           regService = await tx.service.create({
             data: {
-              serviceCode: `REG-${clinicSuffix}`,
+              serviceCode: `REG-${clinicSuffix}-${Math.floor(Math.random() * 1000)}`,
               serviceName: 'Biaya Pendaftaran',
               category: 'Administrasi',
               price: 50000,

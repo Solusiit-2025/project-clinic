@@ -28,14 +28,14 @@ interface Patient {
 export default function PatientDetailPage() {
   const { id } = useParams()
   const router = useRouter()
-  const { token } = useAuthStore()
+  const { user } = useAuthStore()
   
   const [patient, setPatient] = useState<Patient | null>(null)
   const [history, setHistory] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   const fetchData = useCallback(async () => {
-    if (!token || !id) return
+    if (!user || !id) return
     setLoading(true)
     try {
       // Fetch patient basic info
@@ -50,7 +50,7 @@ export default function PatientDetailPage() {
     } finally {
       setLoading(false)
     }
-  }, [id, token])
+  }, [id, user])
 
   useEffect(() => {
     fetchData()

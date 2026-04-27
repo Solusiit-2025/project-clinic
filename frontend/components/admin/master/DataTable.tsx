@@ -97,7 +97,7 @@ export default function DataTable<T extends Record<string, any>>({
   onPageChange,
 }: DataTableProps<T>) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mx-2 sm:mx-0">
       {/* Filter Bar */}
       {(onSearchChange || extraFilters) && (
         <div className="flex flex-col sm:flex-row gap-3 p-4 sm:p-5 border-b border-gray-100 bg-gray-50/60">
@@ -258,14 +258,18 @@ export default function DataTable<T extends Record<string, any>>({
         </table>
       </div>
 
-      {/* Card List — mobile */}
-      <div className="md:hidden divide-y divide-gray-50">
+      {/* Card List — mobile (native-like) */}
+      <div className="md:hidden">
         {loading
           ? Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="p-4 space-y-2">
-              <div className="h-4 bg-gray-100 rounded animate-pulse w-3/4" />
-              <div className="h-3 bg-gray-100 rounded animate-pulse w-1/2" />
-              <div className="h-3 bg-gray-100 rounded animate-pulse w-2/3" />
+            <div key={i} className="p-4 border-b border-gray-50 space-y-2.5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gray-100 rounded-xl animate-pulse flex-shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3.5 bg-gray-100 rounded-lg animate-pulse w-3/4" />
+                  <div className="h-2.5 bg-gray-100 rounded-lg animate-pulse w-1/2" />
+                </div>
+              </div>
             </div>
           ))
           : data.length === 0
@@ -277,84 +281,93 @@ export default function DataTable<T extends Record<string, any>>({
             )
             : (() => {
                 let lastGroup = ''
-                
-                // Defensive check to ensure data is an array
                 const safeData = Array.isArray(data) ? data : []
-
-                // Sort data by group key if grouping is active
-                const sortedData = groupBy 
+                const sortedData = groupBy
                   ? [...safeData].sort((a, b) => groupBy(a).localeCompare(groupBy(b)))
                   : safeData
 
                 return sortedData.map((row, i) => {
-                  const elements = []
+                  const elements: React.ReactNode[] = []
                   const currentGroup = groupBy ? groupBy(row) : ''
-                  
+
                   if (groupBy && currentGroup !== lastGroup) {
                     elements.push(
-                      <div key={`mobile-group-${currentGroup}`} className="px-4 py-2 bg-gray-50 border-y border-gray-100">
+                      <div key={`mg-${currentGroup}`} className="px-4 py-2 bg-gray-50/80 border-y border-gray-100 sticky top-12 z-10">
                         <span className="text-[10px] font-extrabold text-primary uppercase tracking-widest">{currentGroup}</span>
                       </div>
                     )
                     lastGroup = currentGroup
                   }
 
+                  // First non-hidden column is the "title", rest are details
+                  const visibleCols = columns.filter(c => !c.mobileHide)
+                  const [titleCol, ...detailCols] = visibleCols
+
                   elements.push(
                     <motion.div
                       key={row[keyField] || i}
-                      initial={{ opacity: 0, x: -6 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.04 }}
-                      className="p-4 hover:bg-gray-50/80 transition-colors"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: Math.min(i * 0.03, 0.3) }}
+                      className="flex flex-col px-3 sm:px-4 py-2.5 sm:py-3.5 border-b border-gray-50 active:bg-gray-50 transition-colors"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0 space-y-1.5">
-                          {columns.filter(c => !c.mobileHide).map((col) => (
-                            <div key={col.key} className="flex items-start gap-2 text-xs">
-                              <span className="text-gray-400 font-medium min-w-[80px] flex-shrink-0">{col.label}</span>
-                              <span className="text-gray-700 font-semibold truncate max-w-[180px]">
-                                {col.render ? col.render(row) : (row[col.key] ?? <span className="text-gray-300">—</span>)}
-                              </span>
-                            </div>
-                          ))}
+                      {/* Top row with avatar and title */}
+                      <div className="flex items-start gap-2 sm:gap-3 mb-2 sm:mb-2.5">
+                        {/* Avatar / Icon placeholder */}
+                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-primary/8 flex items-center justify-center flex-shrink-0 text-primary font-black text-xs">
+                          {String(titleCol?.render ? '' : (row[titleCol?.key] ?? ''))[0]?.toUpperCase() || '#'}
                         </div>
-                        {(onView || onEdit || onDuplicate || onDelete) && (
-                          <div className="flex gap-1.5 flex-shrink-0">
-                            {onDuplicate && (
-                              <button
-                                onClick={() => onDuplicate(row)}
-                                className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-all"
-                              >
-                                <FiCopy className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                            {onView && (
-                              <button
-                                onClick={() => onView(row)}
-                                className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-all"
-                              >
-                                <FiEye className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                            {onEdit && (
-                              <button
-                                onClick={() => onEdit(row)}
-                                className="p-2 rounded-xl bg-primary/8 hover:bg-primary/15 text-primary transition-all"
-                              >
-                                <FiEdit2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                            {onDelete && (
-                              <button
-                                onClick={() => onDelete(row)}
-                                className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 transition-all"
-                              >
-                                <FiTrash2 className="w-3.5 h-3.5" />
-                              </button>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          {/* Title row */}
+                          <div className="flex items-center justify-between gap-1.5 sm:gap-2 mb-0.5">
+                            <span className="text-xs sm:text-sm font-bold text-gray-900 whitespace-normal break-words leading-tight">
+                              {titleCol?.render ? titleCol.render(row) : (row[titleCol?.key] ?? '—')}
+                            </span>
+                            {/* Last column as badge (if it's a status/badge) */}
+                            {detailCols.length > 0 && detailCols[detailCols.length - 1]?.render && (
+                              <span className="flex-shrink-0">
+                                {detailCols[detailCols.length - 1].render!(row)}
+                              </span>
                             )}
                           </div>
-                        )}
+                          {/* Detail rows */}
+                          <div className="flex flex-wrap gap-x-2 sm:gap-x-3 gap-y-0.5">
+                            {detailCols.slice(0, -1).map((col) => (
+                              <span key={col.key} className="text-[10px] sm:text-[11px] text-gray-400 font-medium truncate max-w-[140px] sm:max-w-[160px]">
+                                {col.render ? col.render(row) : (row[col.key] ?? '—')}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       </div>
+
+                      {/* Action buttons below */}
+                      {(onView || onEdit || onDuplicate || onDelete) && (
+                        <div className="flex gap-1.5 sm:gap-2 mt-2 sm:mt-2.5 pt-2 sm:pt-2.5 border-t border-gray-100">
+                          {onView && (
+                            <button onClick={() => onView(row)} className="flex-1 p-1.5 sm:p-2 rounded-lg sm:rounded-lg bg-indigo-50 text-indigo-600 active:bg-indigo-100 transition-all text-[9px] sm:text-xs font-bold uppercase tracking-tight">
+                              <FiEye className="w-3 h-3 sm:w-3.5 sm:h-3.5 inline mr-0.5 sm:mr-1" /> <span className="hidden sm:inline">Lihat</span>
+                            </button>
+                          )}
+                          {onEdit && (
+                            <button onClick={() => onEdit(row)} className="flex-1 p-1.5 sm:p-2 rounded-lg sm:rounded-lg bg-primary/8 text-primary active:bg-primary/15 transition-all text-[9px] sm:text-xs font-bold uppercase tracking-tight">
+                              <FiEdit2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 inline mr-0.5 sm:mr-1" /> <span className="hidden sm:inline">Edit</span>
+                            </button>
+                          )}
+                          {onDuplicate && (
+                            <button onClick={() => onDuplicate(row)} className="flex-1 p-1.5 sm:p-2 rounded-lg sm:rounded-lg bg-indigo-50 text-indigo-600 active:bg-indigo-100 transition-all text-[9px] sm:text-xs font-bold uppercase tracking-tight">
+                              <FiCopy className="w-3 h-3 sm:w-3.5 sm:h-3.5 inline mr-0.5 sm:mr-1" /> <span className="hidden sm:inline">Salin</span>
+                            </button>
+                          )}
+                          {onDelete && (
+                            <button onClick={() => onDelete(row)} className="flex-1 p-1.5 sm:p-2 rounded-lg sm:rounded-lg bg-red-50 text-red-500 active:bg-red-100 transition-all text-[9px] sm:text-xs font-bold uppercase tracking-tight">
+                              <FiTrash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 inline mr-0.5 sm:mr-1" /> <span className="hidden sm:inline">Hapus</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </motion.div>
                   )
                   return elements

@@ -6,7 +6,7 @@ import {
   Package, Search, Plus, Trash2, Save, CheckCircle, 
   Printer, History, AlertTriangle, ArrowRight, Loader2,
   FileText, TrendingUp, TrendingDown, DollarSign, ChevronDown,
-  XCircle
+  XCircle, Boxes
 } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -184,11 +184,6 @@ export default function StockOpnamePage() {
 
     try {
       setIsSubmitting(true)
-      console.log('StockOpnamePage: Performing bulk load...', {
-        sessionId: session.id,
-        branchId: activeClinicId,
-        fullUrl: `/api/inventory/opname/bulk-load`
-      })
       const res = await api.post('inventory/opname/bulk-load', {
         sessionId: session.id,
         branchId: activeClinicId
@@ -206,7 +201,6 @@ export default function StockOpnamePage() {
   const handleUpdateQty = async (item: OpnameItem, newQty: number) => {
     if (!session) return
     try {
-      // Optimistic update in UI
       const updatedItems = session.items.map(i => {
         if (i.id === item.id) {
           const diff = newQty - i.systemQty
@@ -222,7 +216,6 @@ export default function StockOpnamePage() {
       const newTotal = updatedItems.reduce((sum, i) => sum + i.subtotal, 0)
       setSession({ ...session, items: updatedItems, totalValue: newTotal })
 
-      // API Call
       await api.post('/inventory/opname/item', {
         sessionId: session.id,
         productId: item.productId,
@@ -232,14 +225,13 @@ export default function StockOpnamePage() {
       })
     } catch (error) {
       toast.error('Gagal memperbarui jumlah')
-      fetchSession() // Revert on error
+      fetchSession()
     }
   }
 
   const handleUpdatePrice = async (item: OpnameItem, newPrice: number) => {
     if (!session) return
     try {
-      // Optimistic update in UI
       const updatedItems = session.items.map(i => {
         if (i.id === item.id) {
           return { 
@@ -253,7 +245,6 @@ export default function StockOpnamePage() {
       const newTotal = updatedItems.reduce((sum, i) => sum + i.subtotal, 0)
       setSession({ ...session, items: updatedItems, totalValue: newTotal })
 
-      // API Call
       await api.post('/inventory/opname/item', {
         sessionId: session.id,
         productId: item.productId,
@@ -264,7 +255,7 @@ export default function StockOpnamePage() {
       })
     } catch (error) {
       toast.error('Gagal memperbarui harga')
-      fetchSession() // Revert on error
+      fetchSession()
     }
   }
 
@@ -289,7 +280,6 @@ export default function StockOpnamePage() {
       setCancelReason('')
       fetchSession()
     } catch (error) {
-      console.error('Cancel error:', error)
       toast.error('Gagal membatalakan sesi')
     } finally {
       setIsSubmitting(false)
@@ -302,114 +292,103 @@ export default function StockOpnamePage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="flex flex-col items-center justify-center min-h-screen opacity-50">
+        <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
+        <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Menyiapkan Sesi Opname...</p>
       </div>
     )
   }
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto min-h-screen">
+    <div className="p-3 md:p-6 lg:p-8 max-w-[1600px] mx-auto min-h-screen pb-40">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 print:hidden">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
+          <h1 className="text-xl md:text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3 uppercase">
             <div className="p-2.5 bg-primary/10 rounded-2xl">
-              <History className="w-8 h-8 text-primary" />
+              <History className="w-6 h-6 md:w-8 md:h-8 text-primary" />
             </div>
             Stock Opname
           </h1>
-          <p className="text-gray-500 font-medium mt-1">Lakukan rekonsiliasi stok fisik dengan sistem.</p>
+          <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-widest mt-1 leading-none">Rekonsiliasi stok fisik vs sistem</p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button 
             onClick={handleBulkLoad}
             disabled={isSubmitting || !session}
-            className="px-5 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-all font-bold flex items-center gap-2 shadow-sm disabled:opacity-50"
+            className="flex-1 sm:flex-none px-5 py-3 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-100 transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
           >
-            <Package className="w-4 h-4" />
-            Muat Semua Stok Sistem
+            <Boxes className="w-4 h-4" />
+            Muat Semua Stok
           </button>
           <button 
             onClick={printSheet}
-            className="px-5 py-2.5 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 transition-all text-gray-600 font-bold flex items-center gap-2 shadow-sm"
+            className="px-5 py-3 bg-white border border-gray-100 rounded-2xl hover:bg-gray-50 transition-all text-gray-600 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm"
           >
             <Printer className="w-4 h-4" />
-            Cetak Lembar Kerja
+            Cetak
           </button>
           <button 
             onClick={fetchSession}
-            className="p-2.5 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 text-gray-400"
+            className="p-3 bg-white border border-gray-100 rounded-2xl hover:bg-gray-50 text-gray-400 active:scale-95 shadow-sm"
           >
             <Loader2 className={`w-5 h-5 ${isSubmitting ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-        {/* Left Side: Input Form */}
-        <div className="xl:col-span-4 space-y-6 print:hidden">
-          <Card className="p-6 border-none shadow-xl shadow-gray-200/50 bg-white rounded-[32px]">
-            <h3 className="text-lg font-black text-gray-900 mb-6 flex items-center gap-2">
-              <Plus className="w-5 h-5 text-primary" />
-              Input Item Opname
-            </h3>
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-8">
+        {/* Left Side: Input Form - Mobile Optimized */}
+        <div className="xl:col-span-4 space-y-6 print:hidden order-2 xl:order-1">
+          <Card className="p-5 md:p-6 border-none shadow-xl shadow-gray-200/40 bg-white rounded-[2rem]">
+            <div className="flex items-center gap-2 mb-6">
+               <Plus className="w-5 h-5 text-primary" />
+               <h3 className="text-sm md:text-base font-black text-gray-900 uppercase">Input Item Opname</h3>
+            </div>
 
-            <div className="space-y-5">
+            <div className="space-y-6">
               {/* Product Search */}
               <div className="relative">
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Cari Produk</label>
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <label className="block text-[8px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Cari Produk</label>
+                <div className="relative group">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-primary transition-colors" />
                   <input 
                     type="text"
-                    placeholder="Ketik nama atau kode barang..."
-                    className="w-full pl-11 pr-12 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none transition-all font-medium text-sm"
+                    placeholder="Nama atau kode barang..."
+                    className="w-full pl-12 pr-12 py-3.5 md:py-4 bg-gray-50/50 border border-transparent rounded-2xl focus:bg-white focus:ring-4 focus:ring-primary/5 focus:border-primary outline-none transition-all font-bold text-sm"
                     value={searchTerm}
                     onChange={(e) => handleSearch(e.target.value)}
                   />
                   <button 
                     onClick={toggleShowAll}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 rounded-lg transition-colors text-gray-400"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-200 rounded-lg transition-colors text-gray-400"
                   >
                     <ChevronDown className={`w-4 h-4 transition-transform ${searchProducts.length > 0 ? 'rotate-180' : ''}`} />
                   </button>
                 </div>
 
-                {/* Search Results Dropdown */}
                 <AnimatePresence>
                   {searchProducts.length > 0 && (
                     <motion.div 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      className="absolute left-0 right-0 top-full mt-2 bg-white border border-gray-100 rounded-2xl shadow-2xl z-[50] max-h-60 overflow-y-auto overflow-hidden divide-y divide-gray-50"
+                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                      className="absolute left-0 right-0 top-full mt-2 bg-white border border-gray-100 rounded-2xl shadow-2xl z-[50] max-h-64 overflow-y-auto overflow-hidden divide-y divide-gray-50"
                     >
                       {searchProducts.map((stock, index) => (
                         <button
-                          key={index}
-                          onClick={() => selectProduct(stock)}
-                          className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+                          key={index} onClick={() => selectProduct(stock)}
+                          className="w-full px-4 py-4 flex items-center justify-between hover:bg-primary/5 transition-colors text-left"
                         >
                           <div className="flex-1 min-w-0 pr-4">
-                            <p className="text-sm font-black text-gray-900 truncate">{stock.productName}</p>
+                            <p className="text-sm font-black text-gray-900 truncate uppercase">{stock.productName}</p>
                             <div className="flex items-center gap-2 mt-1">
-                               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
-                                 {stock.productCode} {stock.batchNumber ? `• BN: ${stock.batchNumber}` : ''}
-                               </span>
-                               <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase ${
-                                 stock.status === 'IN_STOCK' ? 'bg-green-100 text-green-600' :
-                                 stock.status === 'IN_CATALOG' ? 'bg-blue-100 text-blue-600' :
-                                 'bg-gray-100 text-gray-600'
-                               }`}>
-                                 {stock.status === 'IN_STOCK' ? 'In Stock' : stock.status === 'IN_CATALOG' ? 'In Catalog' : 'Global'}
-                               </span>
+                               <span className="text-[9px] font-bold text-gray-400 uppercase">{stock.productCode}</span>
+                               {stock.batchNumber && <span className="text-[9px] font-black text-indigo-400 italic">BN: {stock.batchNumber}</span>}
                             </div>
                           </div>
                           <div className="text-right shrink-0">
-                             <p className="text-xs font-black text-primary">{stock.onHandQty} Unit</p>
-                             <p className="text-[9px] font-bold text-gray-300">Sistem</p>
+                             <p className="text-sm font-black text-primary">{stock.onHandQty}</p>
+                             <p className="text-[8px] font-black text-gray-300 uppercase tracking-widest">Sistem</p>
                           </div>
                         </button>
                       ))}
@@ -418,433 +397,262 @@ export default function StockOpnamePage() {
                 </AnimatePresence>
               </div>
 
-              {/* Selected Product Details */}
-              <AnimatePresence>
-                {selectedProduct && (
+              {/* Selected Product Form */}
+              <AnimatePresence mode="wait">
+                {selectedProduct ? (
                   <motion.div 
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="p-5 bg-primary/5 rounded-2xl border border-primary/10 space-y-4"
+                    initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                    key={selectedProduct.productId}
+                    className="p-5 bg-primary/5 rounded-[2rem] border border-primary/10 space-y-5"
                   >
                     <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-[10px] font-black text-primary/60 uppercase tracking-widest mb-1">Item Terpilih</p>
-                        <p className="font-black text-gray-900">{selectedProduct.productName}</p>
+                      <div className="min-w-0">
+                        <p className="text-[8px] font-black text-primary uppercase tracking-[0.2em] mb-1">Terpilih</p>
+                        <h4 className="font-black text-gray-900 leading-tight uppercase truncate">{selectedProduct.productName}</h4>
                       </div>
-                      <button 
-                        onClick={() => setSelectedProduct(null)}
-                        className="p-1 hover:bg-white rounded-lg transition-colors text-gray-400"
-                      >
+                      <button onClick={() => setSelectedProduct(null)} className="p-2 bg-white rounded-xl text-red-500 shadow-sm active:scale-90">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-white/50 p-3 rounded-xl border border-white">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Stok Sistem</p>
-                        <p className="text-lg font-black text-gray-900">{selectedProduct.onHandQty}</p>
-                      </div>
-                      <div className="bg-white/50 p-3 rounded-xl border border-white">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Harga Sistem</p>
-                        <p className="text-sm font-black text-primary">
-                          Rp {(selectedProduct.purchasePrice || 0).toLocaleString('id-ID')}
-                        </p>
-                      </div>
+                    <div className="grid grid-cols-2 gap-3">
+                       <div className="p-3 bg-white rounded-2xl border border-primary/10">
+                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Stok Sistem</p>
+                          <p className="text-xl font-black text-gray-900">{selectedProduct.onHandQty}</p>
+                       </div>
+                       <div className="p-3 bg-white rounded-2xl border border-primary/10">
+                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Harga Beli</p>
+                          <p className="text-sm font-black text-primary truncate">Rp {selectedProduct.purchasePrice?.toLocaleString('id-ID')}</p>
+                       </div>
                     </div>
 
-                    <div className="space-y-4 pt-2">
+                    <div className="space-y-4">
                        <div className="grid grid-cols-2 gap-3">
-                         <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Harga Beli</label>
-                            <input 
-                              type="number"
-                              className="w-full px-4 py-3 bg-white border-2 border-gray-100 rounded-xl focus:ring-4 focus:ring-primary/10 outline-none transition-all font-black text-sm text-gray-900"
-                              value={unitPrice}
-                              onChange={(e) => setUnitPrice(Number(e.target.value))}
-                            />
-                         </div>
-                         <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Jumlah Fisik</label>
-                            <input 
-                              type="number"
-                              className="w-full px-4 py-3 bg-white border-2 border-primary/20 rounded-xl focus:ring-4 focus:ring-primary/10 outline-none transition-all font-black text-sm text-primary"
-                              value={physicalQty}
-                              onChange={(e) => setPhysicalQty(Number(e.target.value))}
-                            />
-                         </div>
+                          <div>
+                             <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1 text-center">Fisik Aktu</label>
+                             <input 
+                               type="number"
+                               className="w-full px-4 py-4 bg-white border-2 border-primary/20 rounded-2xl focus:ring-4 focus:ring-primary/5 outline-none text-center font-black text-lg text-primary"
+                               value={physicalQty}
+                               onChange={(e) => setPhysicalQty(Number(e.target.value))}
+                             />
+                          </div>
+                          <div>
+                             <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1 text-center">Harga Baru</label>
+                             <input 
+                               type="number"
+                               className="w-full px-4 py-4 bg-white border-2 border-gray-100 rounded-2xl focus:ring-4 focus:ring-primary/5 outline-none text-center font-black text-base text-gray-900"
+                               value={unitPrice}
+                               onChange={(e) => setUnitPrice(Number(e.target.value))}
+                             />
+                          </div>
                        </div>
-                       <div>
-                          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Catatan / Alasan</label>
-                          <textarea 
-                            rows={2}
-                            placeholder="Contoh: Barang rusak, Saldo awal, dll"
-                            className="w-full px-4 py-3 bg-white border-none rounded-xl focus:ring-4 focus:ring-primary/10 outline-none transition-all font-medium text-xs text-gray-600"
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                          />
-                       </div>
+                       
+                       <textarea 
+                          rows={2}
+                          placeholder="Catatan penyesuaian..."
+                          className="w-full px-4 py-3 bg-white border-none rounded-2xl focus:ring-4 focus:ring-primary/5 outline-none font-bold text-xs text-gray-600 placeholder:text-gray-300"
+                          value={notes}
+                          onChange={(e) => setNotes(e.target.value)}
+                       />
                        
                        <button 
                         disabled={isSubmitting}
                         onClick={addItem}
-                        className="w-full py-4 bg-primary text-white font-black rounded-2xl shadow-lg shadow-primary/30 hover:shadow-xl hover:-translate-y-0.5 transition-all text-sm flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                        className="w-full py-5 bg-primary text-white font-black rounded-3xl shadow-xl shadow-primary/20 hover:shadow-2xl transition-all text-xs uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
                        >
                         {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                        TAMBAHKAN KE LIST
+                        Simpan ke Draft
                        </button>
                     </div>
                   </motion.div>
+                ) : (
+                  <div className="py-16 text-center border-2 border-dashed border-gray-100 rounded-[2.5rem]">
+                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                       <Package className="w-8 h-8 text-gray-200" />
+                    </div>
+                    <p className="text-xs font-black text-gray-300 uppercase tracking-widest">Pilih Item untuk Check Stok</p>
+                  </div>
                 )}
               </AnimatePresence>
-
-              {!selectedProduct && (
-                 <div className="py-12 text-center border-2 border-dashed border-gray-100 rounded-3xl">
-                    <Package className="w-12 h-12 text-gray-100 mx-auto mb-3" />
-                    <p className="text-gray-300 font-bold text-xs uppercase tracking-widest">Pilih produk untuk memulai</p>
-                 </div>
-              )}
             </div>
           </Card>
 
-          {/* Statistics Card */}
+          {/* Floating Mobile Summary or Context Summary */}
           {session && session.items.length > 0 && (
-            <Card className="p-6 border-none shadow-xl shadow-indigo-100/50 bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-[32px] text-white">
-               <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 bg-white/10 rounded-xl">
-                    <TrendingUp className="w-5 h-5 text-indigo-200" />
-                  </div>
-                  <h3 className="font-black uppercase tracking-widest text-sm">Ringkasan Draft</h3>
+            <Card className="p-6 bg-indigo-600 rounded-[2.5rem] text-white shadow-2xl shadow-indigo-200 overflow-hidden relative">
+               <div className="absolute top-[-20px] right-[-20px] opacity-10">
+                  <DollarSign className="w-32 h-32" />
                </div>
                
-               <div className="space-y-4">
-                  <div className="flex justify-between items-end">
-                    <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest">Total Item</span>
-                    <span className="text-2xl font-black">{session.items.length}</span>
+               <div className="relative z-10 space-y-6">
+                  <div className="flex justify-between items-center pb-4 border-b border-white/10">
+                    <div>
+                       <p className="text-[10px] font-black text-indigo-200 uppercase tracking-widest">Total Draft</p>
+                       <h2 className="text-2xl font-black">{session.items.length} Item</h2>
+                    </div>
+                    <div className="text-right">
+                       <p className="text-[10px] font-black text-indigo-200 uppercase tracking-widest">Total Nilai Fisik</p>
+                       <h2 className="text-xl font-black">Rp {session.totalValue.toLocaleString('id-ID')}</h2>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-end">
-                    <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest">Total Nilai Fisik</span>
-                    <span className="text-2xl font-black">Rp {session.totalValue.toLocaleString('id-ID')}</span>
-                  </div>
-                  
-                  <div className="pt-4 border-t border-white/10 mt-4">
-                     <button 
-                      onClick={finalizeOpname}
-                      disabled={isSubmitting}
-                      className="w-full py-4 bg-white text-indigo-600 font-black rounded-2xl shadow-xl hover:shadow-white/20 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
-                     >
-                       <CheckCircle className="w-5 h-5" />
-                       REKONSILIASI STOK SEKARANG
-                     </button>
 
-                     <button 
-                       onClick={handleSaveDraft}
-                       className="w-full py-4 bg-indigo-500/20 text-white border border-indigo-400/30 font-black rounded-2xl hover:bg-indigo-500/30 transition-all flex items-center justify-center gap-2 active:scale-95 mt-3"
-                     >
-                       <Save className="w-5 h-5" />
-                       SIMPAN SEBAGAI DRAFT
-                     </button>
-
-                     <button 
-                        onClick={() => setShowCancelDialog(true)}
-                        className="w-full py-4 bg-red-500/10 text-red-200 border border-red-500/20 font-black rounded-2xl hover:bg-red-500/20 transition-all flex items-center justify-center gap-2 active:scale-95 mt-3"
-                      >
-                        <XCircle className="w-5 h-5" />
-                        BATALKAN SESI (DRAFT)
-                      </button>
-
-                     <p className="text-[9px] font-bold text-indigo-300 mt-3 text-center leading-relaxed">
-                        Tindakan ini akan memproses semua penyesuaian Stok Fisik dan membuat riwayat Mutasi ke dalam database.
-                     </p>
+                  <div className="grid grid-cols-1 gap-3">
+                    <button onClick={finalizeOpname} disabled={isSubmitting} className="w-full py-4 bg-white text-indigo-600 font-black rounded-2xl shadow-lg hover:shadow-white/20 transition-all flex items-center justify-center gap-2 uppercase text-[10px] tracking-widest">
+                       <CheckCircle className="w-5 h-5" /> REKONSILIASI PENUH
+                    </button>
+                    <div className="grid grid-cols-2 gap-3">
+                       <button onClick={handleSaveDraft} className="py-3 bg-indigo-500 text-white font-black rounded-2xl hover:bg-indigo-400 transition-all flex items-center justify-center gap-2 text-[10px] tracking-widest">
+                          <Save className="w-4 h-4" /> DRAFT
+                       </button>
+                       <button onClick={() => setShowCancelDialog(true)} className="py-3 bg-red-500/20 text-red-200 border border-red-500/30 font-black rounded-2xl hover:bg-red-500/30 transition-all flex items-center justify-center gap-2 text-[10px] tracking-widest">
+                          <Trash2 className="w-4 h-4" /> BATAL
+                       </button>
+                    </div>
                   </div>
                </div>
             </Card>
           )}
         </div>
 
-        {/* Right Side: Draft Table */}
-        <div className="xl:col-span-8">
-           <Card className="bg-white rounded-[40px] border border-gray-100 shadow-2xl shadow-gray-200/50 overflow-hidden flex flex-col min-h-[600px]">
+        {/* Right Side: Draft List - Responsive cards/table */}
+        <div className="xl:col-span-8 order-1 xl:order-2">
+           <Card className="bg-white rounded-[3rem] border-none shadow-2xl shadow-gray-200/40 overflow-hidden flex flex-col min-h-[500px]">
               <div className="px-8 py-6 border-b border-gray-50 flex items-center justify-between">
-                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center">
-                       <FileText className="w-6 h-6 text-gray-400" />
-                    </div>
-                    <div>
-                       <h2 className="text-xl font-black text-gray-900 leading-tight">Daftar Draft Opname</h2>
-                       <p className="text-xs font-bold text-gray-400">Barang yang akan disesuaikan pada sesi ini.</p>
-                    </div>
+                 <div>
+                    <h2 className="text-lg md:text-xl font-black text-gray-900 leading-tight">Review Rekonsiliasi</h2>
+                    <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase">Periksa perbedaan stok sebelum finalisasi</p>
                  </div>
-                 
-                 <div className="text-right hidden sm:block">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Status Sesi</p>
-                    <span className="px-3 py-1 bg-amber-100 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest">
-                       Draft Aktif
-                    </span>
+                 <div className="px-4 py-1 bg-amber-100 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest hidden md:block">
+                    Draft Aktif
                  </div>
               </div>
 
-              <div className="flex-1 overflow-x-auto">
-                 <table className="w-full border-collapse">
-                    <thead>
-                       <tr className="bg-gray-50/50">
-                          <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Item / Batch</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-center">Sistem</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-center">Fisik</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-center">Selisih</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-right">Harga</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-right">Total Fisik</th>
-                          <th className="px-8 py-4 text-[10px] font-black text-gray-100 uppercase tracking-[0.2em]"></th>
-                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                       {session?.items.length === 0 ? (
-                          <tr>
-                             <td colSpan={7} className="px-8 py-32 text-center">
-                                <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-gray-100">
-                                   <Search className="w-8 h-8 text-gray-200" />
-                                </div>
-                                <h3 className="text-gray-900 font-black tracking-tight text-lg">Belum Ada Barang</h3>
-                                <p className="text-gray-400 text-sm mt-1">Cari dan pilih produk di panel kiri untuk memulai input.</p>
-                             </td>
-                          </tr>
-                       ) : (
-                          session?.items.map((item) => {
-                             const isLoss = item.diffQty < 0
-                             const isGain = item.diffQty > 0
-                             const diffValue = Math.abs(item.diffQty * item.unitPrice)
-                             
-                             return (
-                                <motion.tr 
-                                  layout
-                                  initial={{ opacity: 0 }}
-                                  animate={{ opacity: 1 }}
-                                  key={item.id} 
-                                  className="group hover:bg-gray-50/50 transition-colors"
-                                >
-                                   <td className="px-8 py-5">
-                                      <div className="flex items-center gap-4">
-                                         <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-black">
-                                            {item.product.productName[0]}
-                                         </div>
-                                         <div className="max-w-[180px]">
-                                            <p className="font-black text-gray-900 leading-none truncate">{item.product.productName}</p>
-                                            <div className="flex items-center gap-2 mt-1.5 min-w-0">
-                                               <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded truncate">
-                                                  {item.product.productCode}
-                                               </span>
-                                               {item.batch && (
-                                                  <span className="text-[9px] font-black text-primary uppercase truncate tracking-tighter">
-                                                     BN: {item.batch.batchNumber}
-                                                  </span>
-                                               )}
-                                            </div>
-                                         </div>
-                                      </div>
-                                   </td>
-                                   <td className="px-6 py-5 text-center">
-                                      <span className="text-sm font-black text-gray-400">{item.systemQty}</span>
-                                   </td>
-                                   <td className="px-6 py-5 text-center">
-                                      <input 
-                                         type="number"
-                                         className="w-20 px-2 py-1 bg-gray-50 border-2 border-transparent focus:border-primary/30 rounded-lg text-center font-black text-gray-900 outline-none transition-all"
-                                         value={item.physicalQty}
-                                         onChange={(e) => handleUpdateQty(item, Number(e.target.value))}
-                                       />
-                                   </td>
-                                   <td className="px-6 py-5">
-                                      <div className={`flex flex-col items-center gap-0.5 ${isLoss ? 'text-red-600' : isGain ? 'text-green-600' : 'text-gray-300'}`}>
-                                         <div className="flex items-center gap-1 font-black text-base">
-                                            {isGain && <TrendingUp className="w-4 h-4" />}
-                                            {isLoss && <TrendingDown className="w-4 h-4" />}
-                                            {isGain ? '+' : ''}{item.diffQty}
-                                         </div>
-                                         <span className="text-[9px] font-bold uppercase tracking-widest whitespace-nowrap">
-                                            {diffValue > 0 ? `Rp ${diffValue.toLocaleString('id-ID')}` : 'Balance'}
-                                         </span>
-                                      </div>
-                                   </td>
-                                   <td className="px-6 py-5 text-right">
-                                       <input 
-                                          type="number"
-                                          className="w-28 px-2 py-1 bg-gray-50 border-2 border-transparent focus:border-primary/30 rounded-lg text-right font-black text-gray-400 text-xs outline-none transition-all"
-                                          value={item.unitPrice}
-                                          onChange={(e) => handleUpdatePrice(item, Number(e.target.value))}
-                                        />
-                                   </td>
-                                   <td className="px-6 py-5 text-right whitespace-nowrap">
-                                      <span className="text-base font-black text-primary">Rp {item.subtotal.toLocaleString('id-ID')}</span>
-                                   </td>
-                                   <td className="px-8 py-5 text-right">
-                                      <button 
-                                        onClick={() => deleteItem(item.id)}
-                                        className="p-2 text-gray-200 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all active:scale-90"
-                                      >
-                                         <Trash2 className="w-4 h-4" />
-                                      </button>
-                                   </td>
-                                </motion.tr>
-                             )
-                          })
-                       )}
-                    </tbody>
-                 </table>
-              </div>
-
-              {/* Footer */}
-              <div className="px-8 py-6 bg-gray-50/50 border-t border-gray-50 flex items-center justify-between">
-                 <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2">
-                       <div className="w-2 h-2 rounded-full bg-green-500" />
-                       <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Gain (Stok Berlebih)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                       <div className="w-2 h-2 rounded-full bg-red-500" />
-                       <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Loss (Stok Hilang)</span>
-                    </div>
+              <div className="flex-1 overflow-x-auto min-h-0">
+                 {/* Desktop Only Table Header */}
+                 <div className="hidden lg:grid grid-cols-12 gap-4 px-8 py-4 bg-gray-50/50 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">
+                    <div className="col-span-4">Informasi Produk</div>
+                    <div className="col-span-2 text-center">Sistem</div>
+                    <div className="col-span-2 text-center">Fisik</div>
+                    <div className="col-span-2 text-center">Selisih</div>
+                    <div className="col-span-2 text-right">Total Fisik</div>
                  </div>
-                 
-                 <div className="text-right">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Nilai Sesi</p>
-                    <p className="text-2xl font-black text-primary leading-none">
-                       Rp {session?.totalValue.toLocaleString('id-ID') || '0'}
-                    </p>
+
+                 {/* List Container */}
+                 <div className="divide-y divide-gray-50 max-h-[700px] overflow-y-auto custom-scrollbar">
+                    {session?.items.length === 0 ? (
+                      <div className="py-32 text-center opacity-30">
+                         <Boxes className="w-16 h-16 mx-auto mb-4" />
+                         <p className="text-xs font-black uppercase tracking-[0.3em]">Draft Kosong</p>
+                      </div>
+                    ) : (
+                      session?.items.map((item) => {
+                        const isLoss = item.diffQty < 0
+                        const isGain = item.diffQty > 0
+                        return (
+                          <div key={item.id}>
+                            {/* Desktop Row View */}
+                            <div className="hidden lg:grid grid-cols-12 gap-4 items-center px-8 py-5 hover:bg-gray-50/50 transition-colors">
+                               <div className="col-span-4 flex items-center gap-4">
+                                  <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center font-black text-gray-400">
+                                     {item.product.productName[0]}
+                                  </div>
+                                  <div className="min-w-0">
+                                     <p className="font-black text-gray-900 leading-none truncate uppercase text-sm">{item.product.productName}</p>
+                                     <p className="text-[9px] font-bold text-gray-400 mt-1 uppercase truncate">{item.product.productCode} {item.batch && `• BN: ${item.batch.batchNumber}`}</p>
+                                  </div>
+                               </div>
+                               <div className="col-span-2 text-center font-black text-gray-400">{item.systemQty}</div>
+                               <div className="col-span-2 flex justify-center">
+                                  <input type="number" className="w-20 px-2 py-1 bg-gray-50 rounded-lg text-center font-black text-gray-900 outline-none" value={item.physicalQty} onChange={(e) => handleUpdateQty(item, Number(e.target.value))} />
+                               </div>
+                               <div className="col-span-2 flex flex-col items-center">
+                                  <div className={`flex items-center gap-1 font-black leading-none ${isLoss ? 'text-red-600' : isGain ? 'text-green-600' : 'text-gray-300'}`}>
+                                     {isGain ? '+' : ''}{item.diffQty}
+                                  </div>
+                               </div>
+                               <div className="col-span-2 flex items-center justify-end gap-3">
+                                  <span className="font-black text-primary">Rp {item.subtotal.toLocaleString('id-ID')}</span>
+                                  <button onClick={() => deleteItem(item.id)} className="p-2 text-gray-200 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                               </div>
+                            </div>
+
+                            {/* Mobile Card View */}
+                            <div className="lg:hidden p-5 space-y-4">
+                               <div className="flex justify-between items-start">
+                                  <div className="flex gap-3">
+                                     <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center font-black text-indigo-400">{item.product.productName[0]}</div>
+                                     <div className="min-w-0">
+                                        <h4 className="text-sm font-black text-gray-900 uppercase truncate leading-tight w-40">{item.product.productName}</h4>
+                                        <p className="text-[9px] font-bold text-gray-400 uppercase mt-0.5">{item.product.productCode}</p>
+                                     </div>
+                                  </div>
+                                  <div className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase ${isLoss ? 'bg-red-50 text-red-600' : isGain ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-400'}`}>
+                                     {isLoss ? 'Loss' : isGain ? 'Gain' : 'Bal'} {item.diffQty !== 0 && `(${item.diffQty})`}
+                                  </div>
+                               </div>
+                               
+                               <div className="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-2xl">
+                                  <div className="space-y-1">
+                                     <p className="text-[8px] font-black text-gray-400 uppercase text-center">Fisik Aktu</p>
+                                     <input type="number" className="w-full bg-white px-2 py-2 rounded-xl text-center font-black text-sm text-primary outline-none" value={item.physicalQty} onChange={(e) => handleUpdateQty(item, Number(e.target.value))} />
+                                  </div>
+                                  <div className="space-y-1">
+                                     <p className="text-[8px] font-black text-gray-400 uppercase text-center">Har Satuan</p>
+                                     <input type="number" className="w-full bg-white px-2 py-2 rounded-xl text-center font-black text-gray-900 text-sm outline-none" value={item.unitPrice} onChange={(e) => handleUpdatePrice(item, Number(e.target.value))} />
+                                  </div>
+                               </div>
+                               
+                               <div className="flex justify-between items-center">
+                                  <div>
+                                     <p className="text-[8px] font-black text-gray-400 uppercase leading-none mb-1">Subtotal Fisik</p>
+                                     <p className="text-sm font-black text-gray-900">Rp {item.subtotal.toLocaleString('id-ID')}</p>
+                                  </div>
+                                  <button onClick={() => deleteItem(item.id)} className="p-3 bg-red-50 rounded-xl text-red-400 active:scale-90"><Trash2 className="w-4 h-4" /></button>
+                               </div>
+                            </div>
+                          </div>
+                        )
+                      })
+                    )}
                  </div>
               </div>
            </Card>
         </div>
       </div>
 
-      {/* Print Styles */}
+      {/* Cancel Dialog Modal */}
+      <AnimatePresence>
+        {showCancelDialog && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowCancelDialog(false)} className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" />
+             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-white rounded-[2.5rem] p-8 w-full max-w-md relative z-10 shadow-2xl">
+                <div className="w-16 h-16 bg-red-50 rounded-3xl flex items-center justify-center mb-6">
+                   <AlertTriangle className="w-8 h-8 text-red-500" />
+                </div>
+                <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tight mb-2">Batalkan Sesi?</h3>
+                <p className="text-gray-500 font-bold text-sm mb-6 uppercase tracking-widest leading-relaxed">Seluruh draft item yang telah Anda masukkan akan dihapus permanen.</p>
+                <textarea rows={3} placeholder="Alasan pembatalan..." className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-red-500/10 outline-none font-bold text-sm mb-6" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} />
+                <div className="grid grid-cols-2 gap-4">
+                   <button onClick={() => setShowCancelDialog(false)} className="py-4 bg-gray-100 text-gray-600 font-black rounded-2xl uppercase text-[10px] tracking-widest">Tutup</button>
+                   <button onClick={handleCancelSession} disabled={isSubmitting} className="py-4 bg-red-500 text-white font-black rounded-2xl shadow-xl shadow-red-500/20 active:scale-95 uppercase text-[10px] tracking-widest disabled:opacity-50">Batalkan Sesi</button>
+                </div>
+             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <style jsx global>{`
         @media print {
           .print\\:hidden { display: none !important; }
           body { background: white !important; }
-          .p-6 { padding: 0 !important; }
-          table { width: 100% !important; border-collapse: collapse !important; }
-          th, td { border: 1px solid #eee !important; padding: 12px 8px !important; }
-          .xl\\:col-span-12 { width: 100% !important; }
-          h1, h2, h3 { color: black !important; }
-          .bg-gray-50 { background: #f9fafb !important; }
+          .p-6, .p-8, .p-3 { padding: 0 !important; }
+          .mx-auto { max-width: 100% !important; }
         }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 10px; }
       `}</style>
-      
-      {/* Hidden Print Content */}
-      <div className="hidden print:block p-10">
-         <div className="flex justify-between items-start mb-10 border-b-4 border-black pb-6">
-            <div>
-               <h1 className="text-4xl font-black text-gray-900 mb-1">LEMBAR KERJA STOCK OPNAME</h1>
-               <p className="text-lg font-bold text-gray-500">Klinik Yasfina Management System</p>
-            </div>
-            <div className="text-right">
-               <p className="font-black text-xl">CABANG: {session?.branchId.slice(0, 8)}</p>
-               <p className="text-gray-500 font-bold">TANGGAL: {format(new Date(), 'dd MMMM yyyy', { locale: id })}</p>
-            </div>
-         </div>
-         
-         <table className="w-full text-sm border-2 border-black">
-            <thead>
-               <tr className="bg-gray-100">
-                  <th className="border-2 border-black p-3 text-left font-black w-[40%]">NAMA BARANG / BATCH</th>
-                  <th className="border-2 border-black p-3 text-center font-black">STOK SISTEM</th>
-                  <th className="border-2 border-black p-3 text-center font-black w-[20%]">STOK FISIK (PENCATATAN)</th>
-                  <th className="border-2 border-black p-3 text-center font-black">CATATAN</th>
-               </tr>
-            </thead>
-            <tbody>
-               {/* Note: In a real app we might fetch the full inventory for print sheet, 
-                   but here we could use session items if session is used as a template, 
-                   or just use a placeholder to show the design. */}
-               {[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].map(i => (
-                  <tr key={i}>
-                     <td className="border border-gray-300 p-4 h-12"></td>
-                     <td className="border border-gray-300 p-4 h-12 text-center text-gray-100">----</td>
-                     <td className="border-2 border-black p-4 h-12"></td>
-                     <td className="border border-gray-300 p-4 h-12"></td>
-                  </tr>
-               ))}
-            </tbody>
-         </table>
-
-         <div className="mt-20 grid grid-cols-3 gap-10 text-center">
-            <div className="space-y-20">
-               <p className="font-bold">PETUGAS GUDANG</p>
-               <div className="border-b border-black w-40 mx-auto" />
-            </div>
-            <div className="space-y-20">
-               <p className="font-bold">KEPALA CABANG</p>
-               <div className="border-b border-black w-40 mx-auto" />
-            </div>
-            <div className="space-y-20">
-               <p className="font-bold">ADMIN FINANCE</p>
-               <div className="border-b border-black w-40 mx-auto" />
-            </div>
-         </div>
-         
-         <p className="mt-20 text-[10px] text-gray-400 italic font-medium">
-            Dokumen ini dihasilkan secara otomatis oleh Yasfina Management System pada {format(new Date(), 'PPPP HH:mm:ss', { locale: id })}
-         </p>
-      </div>
-
-      {/* Cancel Confirmation Dialog */}
-      <AnimatePresence>
-        {showCancelDialog && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowCancelDialog(false)}
-              className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden"
-            >
-              <div className="p-8">
-                <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6">
-                  <AlertTriangle className="w-8 h-8 text-red-500" />
-                </div>
-                
-                <h3 className="text-2xl font-black text-gray-900 mb-2 tracking-tight">Batalkan Sesi?</h3>
-                <p className="text-gray-500 font-medium mb-6">
-                  Seluruh data draft yang belum direkonsiliasi akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.
-                </p>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block">Alasan Pembatalan</label>
-                    <textarea 
-                      value={cancelReason}
-                      onChange={(e) => setCancelReason(e.target.value)}
-                      placeholder="Contoh: Kesalahan input data, stok sudah disesuaikan manual, dll..."
-                      className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl min-h-[100px] outline-none focus:ring-2 focus:ring-red-500/50 transition-all font-medium text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 mt-8">
-                  <button 
-                    onClick={() => setShowCancelDialog(false)}
-                    className="py-4 bg-gray-50 text-gray-500 font-black rounded-2xl hover:bg-gray-100 transition-all active:scale-95"
-                  >
-                    KEMBALI
-                  </button>
-                  <button 
-                    onClick={handleCancelSession}
-                    disabled={isSubmitting}
-                    className="py-4 bg-red-600 text-white font-black rounded-2xl shadow-lg shadow-red-200 hover:bg-red-700 transition-all active:scale-95 disabled:opacity-50"
-                  >
-                    {isSubmitting ? 'MEMPROSES...' : 'YA, BATALKAN'}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   )
 }

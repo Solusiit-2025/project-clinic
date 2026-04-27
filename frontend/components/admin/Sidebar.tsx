@@ -573,36 +573,52 @@ const SidebarContent = ({
   </div>
 )
 
-export default function Sidebar() {
+export default function Sidebar({
+  mobileOpen: externalMobileOpen,
+  onMobileClose,
+}: {
+  mobileOpen?: boolean
+  onMobileClose?: () => void
+} = {}) {
   const pathname = usePathname()
-  const { logout, user, activeClinicId } = useAuthStore()
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const { logout, user } = useAuthStore()
+  const [isCollapsed, setIsCollapsed] = useState(true)
   const [openGroups, setOpenGroups] = useState<string[]>([])
-  const [mobileOpen, setMobileOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(false)
+
+  // Controlled from parent (AdminLayout) or self-managed
+  const mobileOpen = externalMobileOpen ?? false
+  const closeMobile = () => onMobileClose?.()
 
   useEffect(() => {
     setMounted(true)
+    
+    // Check for desktop screen
+    const checkDesktop = () => setIsDesktop(window.innerWidth >= 1024)
+    checkDesktop()
+    window.addEventListener('resize', checkDesktop)
+    
+    // Explicitly check for saved preference, default to collapsed (true) if not found
     const saved = localStorage.getItem('sidebar-collapsed')
-    if (saved === 'true') setIsCollapsed(true)
-
-    const activeMasterGroup = MASTER_GROUPS.find(g => g.items.some(i => i.href === pathname))
-    const activeLayananGroup = LAYANAN_UTAMA_GROUPS.find(g => g.items.some(i => i.href === pathname))
-    const activeFinanceGroup = FINANCE_GROUPS.find(g => g.items.some(i => i.href === pathname))
-    const activeLogistikGroup = LOGISTIK_GROUPS.find(g => g.items.some(i => i.href === pathname))
-    const activeAssetGroup = ASSET_GROUPS.find(g => g.items.some(i => i.href === pathname))
-
-    const initialOpen: string[] = []
-    if (activeMasterGroup) initialOpen.push(activeMasterGroup.label)
-    if (activeLayananGroup) initialOpen.push(activeLayananGroup.label)
-    if (activeFinanceGroup) initialOpen.push(activeFinanceGroup.label)
-    if (activeLogistikGroup) initialOpen.push(activeLogistikGroup.label)
-    if (activeAssetGroup) initialOpen.push(activeAssetGroup.label)
-
-    if (initialOpen.length > 0) {
-      setOpenGroups(prev => Array.from(new Set([...prev, ...initialOpen])))
+    if (saved === 'false') {
+      setIsCollapsed(false)
+    } else {
+      setIsCollapsed(true)
     }
-  }, [])
+
+    const allGroups = [
+      ...MASTER_GROUPS, ...LAYANAN_UTAMA_GROUPS,
+      ...FINANCE_GROUPS, ...LOGISTIK_GROUPS, ...ASSET_GROUPS,
+    ]
+    const activeGroup = allGroups.find(g => g.items.some((i: any) => i.href === pathname))
+    if (activeGroup) setOpenGroups([activeGroup.label])
+
+    return () => window.removeEventListener('resize', checkDesktop)
+  }, [pathname])
+
+  // Close mobile drawer on route change
+  useEffect(() => { closeMobile() }, [pathname])
 
   const toggleCollapse = () => {
     const newVal = !isCollapsed
@@ -615,38 +631,17 @@ export default function Sidebar() {
       setIsCollapsed(false)
       localStorage.setItem('sidebar-collapsed', 'false')
     }
-    setOpenGroups(prev => prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label])
+    setOpenGroups(prev =>
+      prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label]
+    )
   }
-
-  useEffect(() => { setMobileOpen(false) }, [pathname])
 
   if (!mounted) return null
 
-  const contentProps = {
-    isCollapsed,
-    user,
-    logout,
-    pathname,
-    openGroups,
-    toggleGroup,
-    toggleCollapse
-  }
+  const contentProps = { isCollapsed, user, logout, pathname, openGroups, toggleGroup, toggleCollapse }
 
   return (
     <>
-      {/* Mobile Toggle Button */}
-      <button
-        onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 right-4 z-[45] p-2.5 backdrop-blur-md rounded-xl shadow-xl border transition-all active:scale-95 hover:text-primary"
-        style={{
-          backgroundColor: 'var(--bg-surface)',
-          borderColor: 'var(--border)',
-          color: 'var(--text-primary)',
-        }}
-      >
-        <FiMenu className="w-5 h-5" />
-      </button>
-
       {/* Mobile Overlay */}
       <AnimatePresence>
         {mobileOpen && (
@@ -654,33 +649,28 @@ export default function Sidebar() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="lg:hidden fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[50]"
-            onClick={() => setMobileOpen(false)}
+            className="lg:hidden fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-[50]"
+            onClick={closeMobile}
           />
         )}
       </AnimatePresence>
 
-      {/* Mobile Drawer */}
+      {/* Mobile Drawer — slides in from left */}
       <AnimatePresence>
         {mobileOpen && (
           <motion.aside
-            initial={{ x: -280, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -280, opacity: 0 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="lg:hidden fixed left-0 top-0 h-screen w-64 z-[60] flex flex-col shadow-2xl border-r"
-            style={{
-              backgroundColor: 'var(--sidebar-bg)',
-              borderColor: 'var(--sidebar-border)',
-            }}
+            initial={{ x: -300 }}
+            animate={{ x: 0 }}
+            exit={{ x: -300 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 220 }}
+            className="lg:hidden fixed left-0 top-0 h-[100dvh] w-72 z-[60] flex flex-col shadow-2xl border-r"
+            style={{ backgroundColor: 'var(--sidebar-bg)', borderColor: 'var(--sidebar-border)' }}
           >
+            {/* Close button */}
             <button
-              onClick={() => setMobileOpen(false)}
-              className="absolute top-6 right-6 p-2 rounded-xl transition-all z-[70] hover:bg-red-500 hover:text-white"
-              style={{
-                backgroundColor: 'var(--bg-surface-2)',
-                color: 'var(--text-muted)',
-              }}
+              onClick={closeMobile}
+              className="absolute top-4 right-4 p-2 rounded-xl z-[70] transition-all hover:bg-red-500 hover:text-white"
+              style={{ backgroundColor: 'var(--bg-surface-2)', color: 'var(--text-muted)' }}
             >
               <FiX className="w-4 h-4" />
             </button>
@@ -689,25 +679,29 @@ export default function Sidebar() {
         )}
       </AnimatePresence>
 
-      {/* Desktop Sidebar */}
-      <motion.aside
-        animate={{ width: isCollapsed ? 70 : 240 }}
-        transition={{ type: 'spring', damping: 20, stiffness: 100 }}
-        className="hidden lg:flex fixed left-0 top-0 h-screen z-50 flex-col overflow-hidden border-r"
-        style={{
-          backgroundColor: 'var(--sidebar-bg)',
-          borderColor: 'var(--sidebar-border)',
-          boxShadow: '4px 0 24px -10px rgba(0,0,0,0.08)',
-        }}
-      >
-        <SidebarContent {...contentProps} />
-      </motion.aside>
+      {/* Desktop Sidebar - Rendered only on screens >= 1024px */}
+      {isDesktop && (
+        <>
+          <motion.aside
+            animate={{ width: isCollapsed ? 70 : 240 }}
+            transition={{ type: 'spring', damping: 20, stiffness: 100 }}
+            className="hidden lg:flex fixed left-0 top-0 h-screen z-50 flex-col overflow-hidden border-r bg-white"
+            style={{
+              backgroundColor: 'var(--sidebar-bg)',
+              borderColor: 'var(--sidebar-border)',
+              boxShadow: '4px 0 24px -10px rgba(0,0,0,0.08)',
+            }}
+          >
+            <SidebarContent {...contentProps} />
+          </motion.aside>
 
-      {/* Spacer to push content */}
-      <motion.div
-        animate={{ width: isCollapsed ? 70 : 240 }}
-        className="hidden lg:block flex-shrink-0"
-      />
+          {/* Desktop spacer */}
+          <motion.div
+            animate={{ width: isCollapsed ? 70 : 240 }}
+            className="hidden lg:block flex-shrink-0"
+          />
+        </>
+      )}
     </>
   )
 }

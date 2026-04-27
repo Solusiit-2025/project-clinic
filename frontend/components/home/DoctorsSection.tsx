@@ -33,7 +33,7 @@ export default function DoctorsSection() {
   }, [API_URL])
 
   return (
-    <section id="doctors" className="section-padding bg-white">
+    <section id="doctors" className="section-padding bg-white dark:bg-slate-950 transition-colors duration-500">
       <div className="container-custom">
         <div className="text-center mb-16">
           <motion.h2 
@@ -41,7 +41,7 @@ export default function DoctorsSection() {
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             viewport={{ once: true }}
-            className="text-3xl md:text-5xl font-bold text-gray-900 mb-4"
+            className="text-3xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4"
           >
             Kenali <span className="text-primary">Tim Dokter</span> Kami
           </motion.h2>
@@ -50,7 +50,7 @@ export default function DoctorsSection() {
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
             viewport={{ once: true }}
-            className="text-gray-600 max-w-2xl mx-auto"
+            className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto"
           >
             Tenaga medis profesional yang siap memberikan pelayanan terbaik untuk kesehatan Anda dan keluarga.
           </motion.p>
@@ -59,12 +59,12 @@ export default function DoctorsSection() {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-gray-50 rounded-2xl overflow-hidden h-[500px] animate-pulse">
-                <div className="h-80 bg-gray-200"></div>
+              <div key={i} className="bg-gray-50 dark:bg-slate-900 rounded-2xl overflow-hidden h-[500px] animate-pulse">
+                <div className="h-80 bg-gray-200 dark:bg-slate-800"></div>
                 <div className="p-6 space-y-4">
-                  <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-                  <div className="h-6 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-12 bg-gray-200 rounded w-full"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-slate-800 rounded w-1/4"></div>
+                  <div className="h-6 bg-gray-200 dark:bg-slate-800 rounded w-3/4"></div>
+                  <div className="h-12 bg-gray-200 dark:bg-slate-800 rounded w-full"></div>
                 </div>
               </div>
             ))}
@@ -79,9 +79,9 @@ export default function DoctorsSection() {
                   whileInView={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
                   viewport={{ once: true }}
-                  className="group relative bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 hover:shadow-2xl transition-all duration-500"
+                  className="group relative bg-gray-50 dark:bg-slate-900 rounded-2xl overflow-hidden border border-gray-100 dark:border-slate-800 hover:shadow-2xl dark:hover:shadow-primary/5 transition-all duration-500"
                 >
-                  <div className="h-80 overflow-hidden bg-gray-200">
+                  <div className="h-80 overflow-hidden bg-gray-200 dark:bg-slate-800">
                     <img 
                       src={doctor.profilePicture ? (doctor.profilePicture.startsWith('http') ? doctor.profilePicture : `${API_URL}${doctor.profilePicture}`) : 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&q=80&w=400'} 
                       alt={doctor.name} 
@@ -90,18 +90,18 @@ export default function DoctorsSection() {
                   </div>
                   <div className="p-6">
                     <p className="text-primary font-bold text-sm uppercase tracking-wider mb-1">{doctor.specialization}</p>
-                    <h3 className="text-xl font-bold text-gray-900 mb-3">{doctor.name}</h3>
-                    <p className="text-gray-600 text-sm leading-relaxed mb-6 line-clamp-3 h-[72px]">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{doctor.name}</h3>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed mb-6 line-clamp-3 h-[72px]">
                       {doctor.bio || 'Dokter berpengalaman dengan dedikasi tinggi dalam melayani pasien dan memberikan solusi medis terbaik.'}
                     </p>
                     <div className="flex items-center gap-4">
-                      <a href="#" className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 hover:bg-primary hover:text-white transition-all shadow-sm">
+                      <a href="#" className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center text-gray-400 dark:text-gray-500 hover:bg-primary hover:text-white dark:hover:text-white transition-all shadow-sm">
                         <FiInstagram />
                       </a>
-                      <a href="#" className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 hover:bg-primary hover:text-white transition-all shadow-sm">
+                      <a href="#" className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center text-gray-400 dark:text-gray-500 hover:bg-primary hover:text-white dark:hover:text-white transition-all shadow-sm">
                         <FiTwitter />
                       </a>
-                      <a href="#" className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 hover:bg-primary hover:text-white transition-all shadow-sm">
+                      <a href="#" className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center text-gray-400 dark:text-gray-500 hover:bg-primary hover:text-white dark:hover:text-white transition-all shadow-sm">
                         <FiLinkedin />
                       </a>
                     </div>

@@ -120,7 +120,7 @@ export default function QueueDashboard() {
   }, [queues])
 
   return (
-    <div className="p-6 mx-auto pb-20 w-full">
+    <div className="p-4 md:p-6 mx-auto pb-24 md:pb-20 w-full">
 
       {/* TOP-CENTER TOAST: Calling Notification */}
       <AnimatePresence>
@@ -159,17 +159,17 @@ export default function QueueDashboard() {
       </AnimatePresence>
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Dashboard Antrian</h1>
-          <p className="text-sm text-gray-500 font-medium">Monitoring Pasien Aktif - {isMounted ? new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 mb-6 md:mb-8">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight truncate">Dashboard Antrian</h1>
+          <p className="text-xs md:text-sm text-gray-500 font-medium truncate">{isMounted ? new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3">
           {/* MONITOR LINK BUTTONS */}
           <div className="relative group">
-            <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-100 rounded-xl text-slate-600 hover:text-primary hover:border-primary/20 transition-all shadow-sm">
-              <FiMonitor className="w-4 h-4 group-hover:scale-110 transition-transform" />
-              <span className="text-[10px] font-black uppercase tracking-widest">Buka Monitor</span>
+            <button className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 bg-white border border-gray-100 rounded-xl text-slate-600 hover:text-primary hover:border-primary/20 transition-all shadow-sm">
+              <FiMonitor className="w-4 h-4 md:w-5 md:h-5 group-hover:scale-110 transition-transform" />
+              <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest hidden sm:inline">Buka Monitor</span>
             </button>
             <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-gray-100 rounded-2xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 overflow-hidden">
               <div className="p-2 space-y-1">
@@ -206,45 +206,45 @@ export default function QueueDashboard() {
             </div>
           </div>
 
-          <button onClick={fetchQueues} className="p-2.5 bg-white border border-gray-100 rounded-xl text-gray-400 hover:text-primary transition-all shadow-sm">
+          <button onClick={fetchQueues} className="p-2 md:p-2.5 bg-white border border-gray-100 rounded-xl text-gray-400 hover:text-primary transition-all shadow-sm">
             <FiRefreshCw className={loading ? 'animate-spin' : ''} />
           </button>
           
-          <div className="h-10 w-px bg-gray-200 mx-1 hidden md:block" />
+          <div className="h-8 md:h-10 w-px bg-gray-200 mx-1 hidden md:block" />
           
           {/* SOUND TOGGLE */}
           <button 
             onClick={() => setIsSoundEnabled(!isSoundEnabled)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${
+            className={`flex items-center gap-2 px-3 md:px-4 py-2 md:py-2 rounded-xl border transition-all ${
               isSoundEnabled 
               ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-[1.02]' 
               : 'bg-white text-gray-400 border-gray-100 shadow-sm opacity-60'
             }`}
           >
-            <FiVolume2 className={`w-4 h-4 ${isSoundEnabled ? 'animate-pulse' : ''}`} />
-            <span className="text-[10px] font-black uppercase tracking-widest">{isSoundEnabled ? 'Suara Aktif' : 'Suara Mati'}</span>
-            <div className={`w-8 h-4 rounded-full relative transition-colors ${isSoundEnabled ? 'bg-white/30' : 'bg-gray-100'}`}>
-              <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${isSoundEnabled ? 'left-4.5' : 'left-0.5'}`} />
-              <div className={`absolute top-0.5 w-3 h-3 rounded-full transition-all ${isSoundEnabled ? 'right-0.5 bg-white' : 'left-0.5 bg-gray-300'}`} />
+            <FiVolume2 className={`w-4 h-4 md:w-5 md:h-5 ${isSoundEnabled ? 'animate-pulse' : ''}`} />
+            <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest hidden sm:inline">{isSoundEnabled ? 'Suara Aktif' : 'Suara Mati'}</span>
+            <div className={`w-7 md:w-8 h-3 md:h-4 rounded-full relative transition-colors ${isSoundEnabled ? 'bg-white/30' : 'bg-gray-100'}`}>
+              <div className={`absolute top-0.5 w-2.5 md:w-3 h-2.5 md:h-3 rounded-full bg-white transition-all ${isSoundEnabled ? 'left-4 md:left-4.5' : 'left-0.5'}`} />
+              <div className={`absolute top-0.5 w-2.5 md:w-3 h-2.5 md:h-3 rounded-full transition-all ${isSoundEnabled ? 'right-0.5 bg-white' : 'left-0.5 bg-gray-300'}`} />
             </div>
           </button>
-          <div className="h-10 w-px bg-gray-200 mx-2 hidden md:block" />
+          <div className="h-8 md:h-10 w-px bg-gray-200 mx-2 hidden md:block" />
           <div className="flex gap-2">
-            <div className="bg-white px-4 py-2 rounded-xl border border-gray-100 shadow-sm">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Menunggu</p>
-              <p className="text-lg font-black text-amber-500 leading-none">{waiting}</p>
+            <div className="bg-white px-3 md:px-4 py-2 rounded-xl border border-gray-100 shadow-sm">
+              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Menunggu</p>
+              <p className="text-base md:text-lg font-black text-amber-500 leading-none">{waiting}</p>
             </div>
-            <div className="bg-white px-4 py-2 rounded-xl border border-gray-100 shadow-sm">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Diperiksa</p>
-              <p className="text-lg font-black text-emerald-500 leading-none">{ongoing}</p>
+            <div className="bg-white px-3 md:px-4 py-2 rounded-xl border border-gray-100 shadow-sm">
+              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Diperiksa</p>
+              <p className="text-base md:text-lg font-black text-emerald-500 leading-none">{ongoing}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
         {/* Main Content (Left) */}
-        <div className="lg:col-span-2 space-y-10">
+        <div className="lg:col-span-2 space-y-6 md:space-y-10">
           
           {/* ON PROGRESS / LIVE SECTION */}
           <div className="space-y-6">
@@ -255,13 +255,13 @@ export default function QueueDashboard() {
                </span>
                Sedang Diperiksa (In Progress)
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
               {queues.filter(q => q.status === 'ongoing').sort((a, b) => a.queueNo.localeCompare(b.queueNo)).map((q, i) => (
                 <motion.div 
                   key={q.id}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="bg-emerald-600 p-5 rounded-3xl text-white shadow-xl shadow-emerald-500/20 relative overflow-hidden group border border-emerald-400/30"
+                  className="bg-emerald-600 p-4 md:p-5 rounded-2xl md:rounded-3xl text-white shadow-xl shadow-emerald-500/20 relative overflow-hidden group border border-emerald-400/30"
                 >
                   <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-all duration-700" />
                   <div className="flex items-center gap-4 relative z-10">
@@ -301,11 +301,11 @@ export default function QueueDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             
             {/* 1. ANTREAN PRA-PEMERIKSAAN (Waiting, Called, or In Triage) */}
-            <div className="space-y-4">
-              <h3 className="font-black text-xs uppercase tracking-[0.2em] text-gray-400 flex items-center gap-2 px-2">
-                 <FiVolume2 className="text-primary" /> Ruang Pra Pemeriksaan (Vital Sign)
+            <div className="space-y-3 md:space-y-4">
+              <h3 className="font-black text-[9px] md:text-xs uppercase tracking-[0.2em] text-gray-400 flex items-center gap-2 px-2">
+                 <FiVolume2 className="text-primary w-3.5 h-3.5 md:w-4 md:h-4" /> Ruang Pra Pemeriksaan (Vital Sign)
               </h3>
-              <div className="space-y-3">
+              <div className="space-y-2 md:space-y-3">
                 {queues.filter(q => ['waiting', 'called', 'triage'].includes(q.status) && !q.hasMedicalRecord).map((q) => (
                   <motion.div 
                     key={q.id} 
@@ -360,11 +360,11 @@ export default function QueueDashboard() {
             </div>
 
             {/* 2. RUANG DOKTER (To Doctor) */}
-            <div className="space-y-4">
-              <h3 className="font-black text-xs uppercase tracking-[0.2em] text-emerald-600 flex items-center gap-2 px-2">
-                 <FiCheckCircle className="text-emerald-500" /> Ruang Pemeriksaan Dokter
+            <div className="space-y-3 md:space-y-4">
+              <h3 className="font-black text-[9px] md:text-xs uppercase tracking-[0.2em] text-emerald-600 flex items-center gap-2 px-2">
+                 <FiCheckCircle className="text-emerald-500 w-3.5 h-3.5 md:w-4 md:h-4" /> Ruang Pemeriksaan Dokter
               </h3>
-              <div className="space-y-3">
+              <div className="space-y-2 md:space-y-3">
                 {queues.filter(q => q.status === 'ready' || (q.status === 'called' && q.hasMedicalRecord)).map((q) => (
                   <motion.div 
                     key={q.id} 
@@ -426,75 +426,75 @@ export default function QueueDashboard() {
         </div>
 
         {/* Sidebar Status (Summary / History) */}
-        <div className="space-y-8">
-           <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
-              <h4 className="font-black text-xs uppercase tracking-widest text-gray-400 flex items-center gap-2">
-                 <FiCheckCircle className="text-emerald-500" /> Baru Selesai
+        <div className="space-y-6 md:space-y-8">
+           <div className="bg-white p-4 md:p-6 rounded-3xl border border-gray-100 shadow-sm space-y-3 md:space-y-4">
+              <h4 className="font-black text-[9px] md:text-xs uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                 <FiCheckCircle className="text-emerald-500 w-3.5 h-3.5 md:w-4 md:h-4" /> Baru Selesai
               </h4>
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-4">
                  {queues.filter(q => q.status === 'completed').slice(0, 5).map(q => (
                    <div key={q.id} className="flex items-center justify-between group">
-                      <div className="flex items-center gap-3">
-                         <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center font-black text-gray-400 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-all text-xs">
+                      <div className="flex items-center gap-2 md:gap-3">
+                         <div className="w-8 h-8 md:w-10 md:h-10 bg-gray-50 rounded-xl flex items-center justify-center font-black text-gray-400 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-all text-xs">
                             {q.queueNo}
                          </div>
-                         <div>
-                            <p className="text-xs font-black text-gray-900 leading-none">{q.patient.name}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                               <p className="text-[9px] font-bold text-gray-400 uppercase">{q.department?.name || 'Umum'}</p>
-                               <span className="text-[9px] text-gray-300">•</span>
-                               <p className="text-[9px] font-bold text-indigo-400 uppercase">{q.doctor?.name ? (q.doctor.name.toLowerCase().startsWith('dr') ? q.doctor.name : `Dr. ${q.doctor.name}`) : 'Jaga'}</p>
+                         <div className="flex-1 min-w-0">
+                            <p className="text-xs font-black text-gray-900 leading-none truncate">{q.patient.name}</p>
+                            <div className="flex items-center gap-1.5 md:gap-2 mt-1">
+                               <p className="text-[8px] md:text-[9px] font-bold text-gray-400 uppercase truncate">{q.department?.name || 'Umum'}</p>
+                               <span className="text-[8px] md:text-[9px] text-gray-300 flex-shrink-0">•</span>
+                               <p className="text-[8px] md:text-[9px] font-bold text-indigo-400 uppercase truncate">{q.doctor?.name ? (q.doctor.name.toLowerCase().startsWith('dr') ? q.doctor.name : `Dr. ${q.doctor.name}`) : 'Jaga'}</p>
                             </div>
                          </div>
                       </div>
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      <div className="w-1 h-1 md:w-1.5 md:h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
                    </div>
                  ))}
                  {queues.filter(q => q.status === 'completed').length === 0 && (
-                   <p className="text-xs text-gray-400 font-medium italic text-center py-4">Belum ada pasien selesai hari ini</p>
+                   <p className="text-[9px] md:text-xs text-gray-400 font-medium italic text-center py-3 md:py-4">Belum ada pasien selesai hari ini</p>
                  )}
               </div>
            </div>
 
-           <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
-              <h4 className="font-black text-xs uppercase tracking-widest text-gray-400 flex items-center gap-2">
-                 <FiAlertCircle className="text-red-500" /> Pasien Terlewati
+           <div className="bg-white p-4 md:p-6 rounded-3xl border border-gray-100 shadow-sm space-y-3 md:space-y-4">
+              <h4 className="font-black text-[9px] md:text-xs uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                 <FiAlertCircle className="text-red-500 w-3.5 h-3.5 md:w-4 md:h-4" /> Pasien Terlewati
               </h4>
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-4">
                  {queues.filter(q => q.status === 'no-show').map(q => (
                    <div key={q.id} className="flex items-center justify-between group animate-in fade-in slide-in-from-right-4 duration-500">
-                      <div className="flex items-center gap-3 text-left">
-                         <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center font-black text-red-500 group-hover:bg-red-500 group-hover:text-white transition-all text-xs border border-red-100/50">
+                      <div className="flex items-center gap-2 md:gap-3 text-left">
+                         <div className="w-8 h-8 md:w-10 md:h-10 bg-red-50 rounded-xl flex items-center justify-center font-black text-red-500 group-hover:bg-red-500 group-hover:text-white transition-all text-xs border border-red-100/50">
                             {q.queueNo}
                          </div>
-                         <div>
-                            <p className="text-xs font-black text-gray-900 leading-none">{q.patient.name}</p>
-                            <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-tight">{q.department?.name || 'Umum'}</p>
+                         <div className="flex-1 min-w-0">
+                            <p className="text-xs font-black text-gray-900 leading-none truncate">{q.patient.name}</p>
+                            <p className="text-[9px] md:text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-tight truncate">{q.department?.name || 'Umum'}</p>
                          </div>
                       </div>
                       <button 
                         onClick={() => updateStatus(q.id, 'waiting')}
-                        className="p-2.5 bg-gray-50 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all shadow-sm"
+                        className="p-2 md:p-2.5 bg-gray-50 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all shadow-sm flex-shrink-0"
                         title="Panggil Kembali ke Antrian Aktif"
                       >
-                         <FiRotateCcw className="w-3.5 h-3.5" />
+                         <FiRotateCcw className="w-3 h-3 md:w-3.5 md:h-3.5" />
                       </button>
                    </div>
                  ))}
                  {queues.filter(q => q.status === 'no-show').length === 0 && (
-                   <p className="text-xs text-gray-400 font-medium italic text-center py-4">Belum ada pasien terlewati</p>
+                   <p className="text-[9px] md:text-xs text-gray-400 font-medium italic text-center py-3 md:py-4">Belum ada pasien terlewati</p>
                  )}
               </div>
            </div>
 
-           <div className="bg-gradient-to-br from-gray-900 to-indigo-900 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden group">
-              <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-all duration-700" />
-              <div className="relative z-10 space-y-4">
-                <FiActivity className="w-10 h-10 text-primary opacity-80" />
-                <h3 className="text-xl font-black leading-tight">Mulai <br />Pelayanan Medis</h3>
-                <p className="text-xs text-white/60 font-medium">Buka menu pendaftaran untuk registrasi pasien baru ke sistem antrian.</p>
-                <Link href="/admin/transactions/registration" className="inline-flex items-center gap-2 text-xs font-black bg-white text-gray-900 px-5 py-3 rounded-2xl hover:bg-primary hover:text-white transition-all">
-                  DAFTAR PASIEN <FiArrowRight />
+           <div className="bg-gradient-to-br from-gray-900 to-indigo-900 p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] text-white shadow-xl relative overflow-hidden group">
+              <div className="absolute -right-4 -top-4 w-20 h-20 md:w-24 md:h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-all duration-700" />
+              <div className="relative z-10 space-y-3 md:space-y-4">
+                <FiActivity className="w-8 h-8 md:w-10 md:h-10 text-primary opacity-80" />
+                <h3 className="text-lg md:text-xl font-black leading-tight">Mulai <br />Pelayanan Medis</h3>
+                <p className="text-[9px] md:text-xs text-white/60 font-medium">Buka menu pendaftaran untuk registrasi pasien baru ke sistem antrian.</p>
+                <Link href="/admin/transactions/registration" className="inline-flex items-center gap-2 text-[9px] md:text-xs font-black bg-white text-gray-900 px-4 md:px-5 py-2.5 md:py-3 rounded-2xl hover:bg-primary hover:text-white transition-all">
+                  DAFTAR PASIEN <FiArrowRight className="w-3 h-3 md:w-4 md:h-4" />
                 </Link>
               </div>
            </div>

@@ -31,34 +31,36 @@ export const getTrialBalance = async (req: Request, res: Response) => {
        whereAccount.OR = [{ clinicId: targetClinicId }, { clinicId: null }]
     }
 
-    // 1. Get all detail accounts
+    // 1. Get all detail accounts (to get opening balances)
     const accounts = await prisma.chartOfAccount.findMany({
       where: whereAccount,
       orderBy: { code: 'asc' }
     })
 
-    // 2. Aggregate Journal Details up to targetDate
-    const trialBalance = await Promise.all(accounts.map(async (acc) => {
-      const aggregates = await prisma.journalDetail.aggregate({
-        where: {
-          coaId: acc.id,
-          journalEntry: {
-            date: { lte: targetDate },
-            ...(targetClinicId ? { clinicId: targetClinicId } : {})
-          }
-        },
-        _sum: {
-          debit: true,
-          credit: true
+    // 2. Aggregate Journal Details in ONE query using groupBy
+    const aggregates = await prisma.journalDetail.groupBy({
+      by: ['coaId'],
+      where: {
+        journalEntry: {
+          date: { lte: targetDate },
+          ...(targetClinicId ? { clinicId: targetClinicId } : {})
         }
-      })
+      },
+      _sum: {
+        debit: true,
+        credit: true
+      }
+    })
 
-      const totalDebit = (aggregates._sum.debit || 0)
-      const totalCredit = (aggregates._sum.credit || 0)
+    // Create a map for quick lookup
+    const aggregateMap = new Map(aggregates.map(a => [a.coaId, a._sum]))
+
+    // 3. Combine results
+    const trialBalance = accounts.map((acc) => {
+      const sums = aggregateMap.get(acc.id) || { debit: 0, credit: 0 }
+      const totalDebit = sums.debit || 0
+      const totalCredit = sums.credit || 0
       
-      // Calculate balance based on category
-      // Assets & Expenses: normal balance is Debit
-      // Liabilities, Equity, Revenue: normal balance is Credit
       let debitBalance = 0
       let creditBalance = 0
 
@@ -81,7 +83,7 @@ export const getTrialBalance = async (req: Request, res: Response) => {
         debit: debitBalance,
         credit: creditBalance
       }
-    }))
+    })
 
     // Filter: hanya tampilkan akun yang punya saldo atau opening balance
     // Akun dengan saldo 0 dan tidak ada transaksi tidak perlu ditampilkan
@@ -146,20 +148,24 @@ export const getProfitLoss = async (req: Request, res: Response) => {
 
     console.log(`[ProfitLoss] Found ${accounts.length} accounts to check.`)
 
-    const reportData = await Promise.all(accounts.map(async (acc) => {
-      const aggregates = await prisma.journalDetail.aggregate({
-        where: {
-          coaId: acc.id,
-          journalEntry: {
-            date: { gte: start, lte: end },
-            ...(targetClinicId ? { clinicId: targetClinicId } : {})
-          }
-        },
-        _sum: { debit: true, credit: true }
-      })
+    // 2. Aggregate in ONE query using groupBy
+    const aggregates = await prisma.journalDetail.groupBy({
+      by: ['coaId'],
+      where: {
+        journalEntry: {
+          date: { gte: start, lte: end },
+          ...(targetClinicId ? { clinicId: targetClinicId } : {})
+        }
+      },
+      _sum: { debit: true, credit: true }
+    })
 
-      const totalDebit = aggregates._sum.debit || 0
-      const totalCredit = aggregates._sum.credit || 0
+    const aggregateMap = new Map(aggregates.map(a => [a.coaId, a._sum]))
+
+    const reportData = accounts.map((acc) => {
+      const sums = aggregateMap.get(acc.id) || { debit: 0, credit: 0 }
+      const totalDebit = sums.debit || 0
+      const totalCredit = sums.credit || 0
       
       // Profit/Loss ignore opening balance for the period
       const balance = acc.category === 'REVENUE' ? (totalCredit - totalDebit) : (totalDebit - totalCredit)
@@ -170,7 +176,7 @@ export const getProfitLoss = async (req: Request, res: Response) => {
         category: acc.category,
         balance
       }
-    }))
+    })
 
     const revenueItems = reportData.filter(d => d.category === 'REVENUE' && d.balance !== 0)
     const expenseItems = reportData.filter(d => d.category === 'EXPENSE' && d.balance !== 0)
@@ -223,19 +229,24 @@ export const getBalanceSheet = async (req: Request, res: Response) => {
       }
     })
 
-    const plResult = await Promise.all(plAccounts.map(async (acc) => {
-      const aggregates = await prisma.journalDetail.aggregate({
-        where: {
-          coaId: acc.id,
-          journalEntry: { 
-            date: { lte: targetDate }, 
-            ...(targetClinicId ? { clinicId: targetClinicId } : {}) 
-          }
-        },
-        _sum: { debit: true, credit: true }
-      })
-      const totalDebit = aggregates._sum.debit || 0
-      const totalCredit = aggregates._sum.credit || 0
+    const aggregatesPL = await prisma.journalDetail.groupBy({
+      by: ['coaId'],
+      where: {
+        journalEntry: { 
+          date: { lte: targetDate }, 
+          ...(targetClinicId ? { clinicId: targetClinicId } : {}) 
+        }
+      },
+      _sum: { debit: true, credit: true }
+    })
+
+    const aggregatePLMap = new Map(aggregatesPL.map(a => [a.coaId, a._sum]))
+
+    const plResult = plAccounts.map((acc) => {
+      const sums = aggregatePLMap.get(acc.id) || { debit: 0, credit: 0 }
+      const totalDebit = sums.debit || 0
+      const totalCredit = sums.credit || 0
+
       // Revenue: kredit normal → positif menambah laba
       // Expense: debit normal  → negatif mengurangi laba
       if (acc.category === 'REVENUE') {
@@ -243,7 +254,7 @@ export const getBalanceSheet = async (req: Request, res: Response) => {
       } else {
         return -(totalDebit - totalCredit)  // negatif = beban (mengurangi laba)
       }
-    }))
+    })
 
     const currentYearEarnings = plResult.reduce((sum, val) => sum + val, 0)
 
@@ -257,20 +268,23 @@ export const getBalanceSheet = async (req: Request, res: Response) => {
       orderBy: { code: 'asc' }
     })
 
-    const balances = await Promise.all(bsAccounts.map(async (acc) => {
-      const aggregates = await prisma.journalDetail.aggregate({
-        where: {
-          coaId: acc.id,
-          journalEntry: {
-            date: { lte: targetDate },
-            ...(targetClinicId ? { clinicId: targetClinicId } : {})
-          }
-        },
-        _sum: { debit: true, credit: true }
-      })
+    const aggregatesBS = await prisma.journalDetail.groupBy({
+      by: ['coaId'],
+      where: {
+        journalEntry: {
+          date: { lte: targetDate },
+          ...(targetClinicId ? { clinicId: targetClinicId } : {})
+        }
+      },
+      _sum: { debit: true, credit: true }
+    })
 
-      const totalDebit = aggregates._sum.debit || 0
-      const totalCredit = aggregates._sum.credit || 0
+    const aggregateBSMap = new Map(aggregatesBS.map(a => [a.coaId, a._sum]))
+
+    const balances = bsAccounts.map((acc) => {
+      const sums = aggregateBSMap.get(acc.id) || { debit: 0, credit: 0 }
+      const totalDebit = sums.debit || 0
+      const totalCredit = sums.credit || 0
       const net = totalDebit - totalCredit
       
       let balance = 0
@@ -282,7 +296,7 @@ export const getBalanceSheet = async (req: Request, res: Response) => {
       }
 
       return { code: acc.code, name: acc.name, category: acc.category, balance }
-    }))
+    })
 
     const assets = balances.filter(b => b.category === 'ASSET')
     const liabilities = balances.filter(b => b.category === 'LIABILITY')

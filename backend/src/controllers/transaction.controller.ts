@@ -40,55 +40,90 @@ export const createRegistration = async (req: Request, res: Response) => {
     const nextDay = new Date(today)
     nextDay.setDate(today.getDate() + 1)
 
-    // 1. Generate Registration Number (REG-YYYYMMDD-XXXX) per Clinic
-    const dateStr = today.toISOString().split('T')[0].replace(/-/g, '')
-    const regCount = await prisma.registration.count({
-      where: { 
-        clinicId,
-        createdAt: { gte: today, lt: nextDay }
-      }
-    })
-    const registrationNo = `REG-${dateStr}-${(regCount + 1).toString().padStart(4, '0')}`
+    // 4. Create Transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const y = today.getFullYear()
+      const m = (today.getMonth() + 1).toString().padStart(2, '0')
+      const d = today.getDate().toString().padStart(2, '0')
+      const dateStr = `${y}${m}${d}`
 
-    // 2. Determine Queue Prefix and sequence based on Doctor (or fallback)
-    let prefix = 'A'
-    let queueCount = 0
-
-    if (doctorId) {
-      const doctor = await prisma.doctor.findUnique({ where: { id: doctorId } })
-      if (doctor) {
-        const rawName = doctor.name.toLowerCase().startsWith('dr.') ? doctor.name.slice(3).trim() : doctor.name
-        prefix = doctor.queueCode || rawName.charAt(0).toUpperCase()
-      }
-      
-      queueCount = await prisma.queueNumber.count({
+      let nextRegNum = 1
+      const lastReg = await tx.registration.findFirst({
         where: { 
           clinicId,
-          doctorId,
-          queueDate: { gte: today, lt: nextDay }
-        }
+          registrationNo: { startsWith: `REG-${dateStr}-` }
+        },
+        orderBy: { registrationNo: 'desc' }
       })
-    } else {
-      if (departmentId) {
-        const dept = await prisma.department.findUnique({ where: { id: departmentId } })
+
+      if (lastReg) {
+        const parts = lastReg.registrationNo.split('-')
+        const lastNum = parseInt(parts[parts.length - 1])
+        if (!isNaN(lastNum)) nextRegNum = lastNum + 1
+      }
+
+      // Guaranteed uniqueness check loop
+      let registrationNo = ''
+      let isUnique = false
+      while (!isUnique) {
+        registrationNo = `REG-${dateStr}-${nextRegNum.toString().padStart(4, '0')}`
+        const existing = await tx.registration.findUnique({
+          where: { registrationNo_clinicId: { registrationNo, clinicId } }
+        })
+        if (!existing) {
+          isUnique = true
+        } else {
+          nextRegNum++
+        }
+      }
+
+      // 2. Determine Queue Prefix and sequence based on Doctor (or fallback)
+      let prefix = 'A'
+      if (doctorId) {
+        const doctor = await tx.doctor.findUnique({ where: { id: doctorId } })
+        if (doctor) {
+          const rawName = doctor.name.toLowerCase().startsWith('dr.') ? doctor.name.slice(3).trim() : doctor.name
+          prefix = doctor.queueCode || rawName.charAt(0).toUpperCase()
+        }
+      } else if (departmentId) {
+        const dept = await tx.department.findUnique({ where: { id: departmentId } })
         if (dept) {
           prefix = dept.name.charAt(0).toUpperCase()
         }
       }
-      queueCount = await prisma.queueNumber.count({
+
+      const lastQueue = await tx.queueNumber.findFirst({
         where: { 
           clinicId,
           queueDate: { gte: today, lt: nextDay },
           queueNo: { startsWith: prefix }
-        }
+        },
+        orderBy: { queueNo: 'desc' }
       })
-    }
 
-    const queueNo = `${prefix}-${(queueCount + 1).toString().padStart(3, '0')}`
+      let nextQueueNum = 1
+      if (lastQueue) {
+        const qParts = lastQueue.queueNo.split('-')
+        const lastQNum = parseInt(qParts[qParts.length - 1])
+        if (!isNaN(lastQNum)) nextQueueNum = lastQNum + 1
+      }
 
-    // 4. Create Transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Create Registration
+      // Guaranteed uniqueness for Queue Number
+      let queueNo = ''
+      let isQueueUnique = false
+      while (!isQueueUnique) {
+        queueNo = `${prefix}-${nextQueueNum.toString().padStart(3, '0')}`
+        const qExists = await tx.queueNumber.findUnique({
+          where: { queueNo_clinicId_queueDate: { queueNo, clinicId: clinicId!, queueDate: new Date(today) } }
+        })
+        if (!qExists) {
+            isQueueUnique = true
+        } else {
+            nextQueueNum++
+        }
+      }
+
+      // 3. Create Registration
       const registration = await tx.registration.create({
         data: {
           patientId,
@@ -111,7 +146,7 @@ export const createRegistration = async (req: Request, res: Response) => {
           registrationId: registration.id,
           doctorId: doctorId || null,
           departmentId: departmentId || null,
-          queueDate: new Date(),
+          queueDate: today, // Use standardized day start
           status: 'waiting'
         }
       })
@@ -130,7 +165,7 @@ export const createRegistration = async (req: Request, res: Response) => {
         const clinicSuffix = clinic?.code || clinicId.slice(0, 4).toUpperCase()
         regService = await tx.service.create({
           data: {
-            serviceCode: `REG-${clinicSuffix}`,
+            serviceCode: `REG-${clinicSuffix}-${Math.floor(Math.random() * 1000)}`,
             serviceName: 'Biaya Pendaftaran',
             category: 'Administrasi',
             price: 50000,

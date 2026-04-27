@@ -8,9 +8,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   FiActivity, FiUsers, FiClock, FiVolume2, 
   FiUser, FiInfo, FiMonitor, FiPlayCircle, FiPackage,
-  FiPlay, FiPause
+  FiPlay, FiPause, FiSettings
 } from 'react-icons/fi'
 import { announceQueue } from '@/lib/utils/speech'
+import { useThemeStore } from '@/lib/store/useThemeStore'
+import ThemeToggle from '@/components/shared/ThemeToggle'
 
 // Helper to get the actual Root URL for files (e.g., http://localhost:5000)
 const getBaseUrl = () => {
@@ -57,6 +59,7 @@ function DisplayQueueContent() {
   const [filterDoctorId, setFilterDoctorId] = useState<string | null>(null)
   const [filterDeptId, setFilterDeptId] = useState<string | null>(null)
   const [filterLabel, setFilterLabel] = useState<string>('')
+  const { theme } = useThemeStore()
   
   const videoRef = useRef<HTMLVideoElement>(null)
   const overlayTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -345,7 +348,7 @@ function DisplayQueueContent() {
   )
 
   return (
-    <div className="h-screen bg-[#020617] text-white font-sans overflow-hidden flex flex-col relative public-display">
+    <div className={`h-screen font-sans overflow-hidden flex flex-col relative public-display transition-colors duration-700 ${theme === 'dark' ? 'bg-[#020617] text-white' : 'bg-slate-50 text-slate-900'}`}>
       
       {/* START OVERLAY (Audio/Video Activation) */}
       <AnimatePresence>
@@ -383,34 +386,34 @@ function DisplayQueueContent() {
       <div className="relative z-10 flex flex-col h-full p-6 space-y-6">
         
         {/* HEADER BAR */}
-        <div className="flex items-center justify-between bg-black/40 backdrop-blur-md border border-white/10 rounded-full px-12 py-5 shadow-2xl">
+        <div className={`flex items-center justify-between backdrop-blur-md border rounded-full px-12 py-5 shadow-2xl transition-all duration-500 ${theme === 'dark' ? 'bg-black/40 border-white/10' : 'bg-white/80 border-slate-200'}`}>
           <div className="flex items-center gap-8">
              <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20">
                 <FiPackage className="w-7 h-7 text-white" />
              </div>
              <div>
-                <h1 className="text-3xl font-black tracking-tighter uppercase text-white leading-none">
+                <h1 className={`text-2xl md:text-3xl font-black tracking-tighter uppercase leading-none transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                   YASFINA <span className="text-primary italic">CLINIC</span>
                 </h1>
-                <p className="text-slate-400 text-[10px] font-black tracking-[0.5em] uppercase mt-1">Smarter Healthcare Solution</p>
+                <p className="text-slate-400 dark:text-slate-500 text-[10px] font-black tracking-[0.5em] uppercase mt-1">Smarter Healthcare Solution</p>
              </div>
              {/* Branch Info */}
              {clinicName && (
                <>
-                 <div className="w-px h-10 bg-white/10" />
-                 <div>
-                   <p className="text-[13px] font-black text-white uppercase tracking-tight leading-tight">{clinicName}</p>
+                 <div className="w-px h-10 bg-white/10 hidden md:block" />
+                 <div className="hidden lg:block">
+                   <p className={`text-[13px] font-black uppercase tracking-tight leading-tight transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{clinicName}</p>
                    {clinicAddress && (
-                     <p className="text-[10px] font-medium text-slate-400 mt-0.5 max-w-[220px] truncate">{clinicAddress}</p>
+                     <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-0.5 max-w-[180px] truncate">{clinicAddress}</p>
                    )}
                  </div>
                  {/* Doctor/Department Filter Indicator */}
                  {filterLabel && (
                    <>
                      <div className="w-px h-10 bg-white/10" />
-                     <div className="bg-primary/20 border border-primary/30 px-5 py-2.5 rounded-2xl">
-                       <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em] mb-0.5">Monitor Ruangan</p>
-                       <p className="text-[13px] font-black text-white uppercase tracking-tight leading-tight">{filterLabel}</p>
+                     <div className="bg-primary/20 border border-primary/30 px-4 py-2 rounded-2xl max-w-[250px]">
+                       <p className="text-[8px] font-black text-primary uppercase tracking-[0.3em] mb-0.5">Monitor Ruangan</p>
+                       <p className={`text-[12px] font-black uppercase tracking-tight leading-tight truncate transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{filterLabel}</p>
                      </div>
                    </>
                  )}
@@ -418,18 +421,19 @@ function DisplayQueueContent() {
              )}
           </div>
 
-          <div className="flex items-center gap-16">
+          <div className="flex items-center gap-10">
              <div className="text-right">
-                <div className="text-5xl font-black text-white tabular-nums tracking-tighter flex items-center gap-3">
+                <div className={`text-5xl font-black tabular-nums tracking-tighter flex items-center gap-3 transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                    {isMounted ? time.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
                    <span className="text-2xl opacity-30 animate-pulse text-primary">:</span>
                    <span className="text-3xl opacity-60 font-medium">{isMounted ? time.toLocaleTimeString('id-ID', { second: '2-digit' }) : '--'}</span>
                 </div>
              </div>
-             <div className="text-right">
+             <ThemeToggle className="scale-125 border-none bg-transparent hover:bg-primary/10" />
+             <div className="text-right hidden sm:block">
                 <div className="flex items-center gap-3 text-emerald-400 font-black text-[12px] uppercase tracking-[0.3em] bg-emerald-500/10 px-6 py-3 rounded-full border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
                    <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse ring-4 ring-emerald-400/20" />
-                   SISTEM LIVE
+                   LIVE
                 </div>
              </div>
           </div>
@@ -442,7 +446,7 @@ function DisplayQueueContent() {
            <div className="col-span-12 lg:col-span-4 flex flex-col gap-6 overflow-hidden">
               
               {/* Z1: DOCTOR ROOM - Compact (max 1 patient) */}
-              <div className="bg-[#0b1120] border border-white/5 rounded-[2rem] p-5 flex flex-col overflow-hidden shadow-2xl border-l-[10px] border-l-primary">
+              <div className={`border rounded-[2rem] p-5 flex flex-col overflow-hidden shadow-2xl border-l-[10px] border-l-primary transition-all ${theme === 'dark' ? 'bg-[#0b1120] border-white/5' : 'bg-white border-slate-200'}`}>
                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mb-4 flex items-center gap-2">
                     <FiActivity className="w-3 h-3" /> RUANG PERIKSA DOKTER
                  </h3>
@@ -454,17 +458,17 @@ function DisplayQueueContent() {
                           layout
                           initial={{ x: -20, opacity: 0 }}
                           animate={{ x: 0, opacity: 1 }}
-                          className="flex items-center justify-between px-5 py-3 bg-white/5 rounded-2xl border border-white/5"
+                          className={`flex items-center justify-between px-5 py-3 rounded-2xl border transition-all ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}
                         >
-                           <div className="flex items-center gap-4">
-                              <div className="text-3xl font-black text-primary tabular-nums min-w-[70px] drop-shadow-md">{q.queueNo}</div>
-                              <div className="w-px h-8 bg-white/10" />
-                              <div>
-                                 <p className="text-[15px] font-black uppercase tracking-tight text-white leading-tight break-words">{q.patient.name}</p>
-                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{q.doctor?.name || 'Dokter Jaga'}</p>
+                           <div className="flex items-center gap-4 flex-1 min-w-0">
+                              <div className="text-3xl font-black text-primary tabular-nums min-w-[70px] drop-shadow-md flex-shrink-0">{q.queueNo}</div>
+                              <div className="w-px h-8 bg-white/10 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                 <p className={`text-[15px] font-black uppercase tracking-tight leading-tight truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{q.patient.name}</p>
+                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">{q.doctor?.name || 'Dokter Jaga'}</p>
                               </div>
                            </div>
-                           <div className={`px-4 py-1.5 text-[10px] font-black rounded-lg border ${
+                           <div className={`px-4 py-1.5 text-[10px] font-black rounded-lg border ml-2 flex-shrink-0 ${
                              q.status === "called" ? "bg-blue-500 text-white border-blue-400 animate-pulse shadow-lg shadow-blue-500/20" : 
                              q.status === "ready" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40" : 
                              "bg-indigo-500/20 text-indigo-400 border-indigo-500/40"}`}
@@ -475,16 +479,16 @@ function DisplayQueueContent() {
                       ))}
                     </AnimatePresence>
                     {ongoingPasien.length === 0 && (
-                      <div className="flex items-center justify-center py-6 bg-white/5 rounded-2xl border border-dashed border-white/10">
-                         <FiUser className="w-8 h-8 mr-2 text-white/20" />
-                         <p className="text-xs font-black uppercase tracking-widest text-white/30">Ruang Kosong</p>
+                      <div className={`flex items-center justify-center py-6 rounded-2xl border border-dashed ${theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                         <FiUser className={`w-8 h-8 mr-2 ${theme === 'dark' ? 'text-white/20' : 'text-slate-300'}`} />
+                         <p className={`text-xs font-black uppercase tracking-widest ${theme === 'dark' ? 'text-white/30' : 'text-slate-400'}`}>Ruang Kosong</p>
                       </div>
                     )}
                  </div>
               </div>
 
               {/* Z2: NURSE STATION (VITAL SIGN) - Expanded & Compact rows */}
-              <div className="flex-1 bg-[#0b1120] border border-white/5 rounded-[2rem] p-5 flex flex-col overflow-hidden shadow-2xl border-l-[10px] border-l-emerald-500">
+              <div className={`flex-1 border rounded-[2rem] p-5 flex flex-col overflow-hidden shadow-2xl border-l-[10px] border-l-emerald-500 transition-all ${theme === 'dark' ? 'bg-[#0b1120] border-white/5' : 'bg-white border-slate-200'}`}>
                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-400 mb-4 flex items-center gap-2">
                     <FiActivity className="w-3 h-3" /> PEMERIKSAAN VITAL SIGN
                  </h3>
@@ -496,17 +500,17 @@ function DisplayQueueContent() {
                           layout
                           initial={{ x: -20, opacity: 0 }}
                           animate={{ x: 0, opacity: 1 }}
-                          className="flex items-center justify-between px-5 py-3 bg-emerald-500/5 rounded-2xl border border-emerald-500/10"
+                          className={`flex items-center justify-between px-5 py-3 rounded-2xl border ${theme === 'dark' ? 'bg-emerald-500/5 border-emerald-500/10' : 'bg-emerald-50 border-emerald-100'}`}
                         >
-                           <div className="flex items-center gap-4">
-                              <div className="text-2xl font-black text-emerald-400 tabular-nums w-16">{q.queueNo}</div>
-                              <div className="w-px h-6 bg-emerald-500/20" />
-                              <p className="text-[14px] font-black uppercase truncate w-36 tracking-tight text-white">{q.patient.name}</p>
+                           <div className="flex items-center gap-4 flex-1 min-w-0">
+                              <div className="text-2xl font-black text-emerald-400 tabular-nums w-16 flex-shrink-0">{q.queueNo}</div>
+                              <div className="w-px h-6 bg-emerald-500/20 flex-shrink-0" />
+                              <p className={`text-[14px] font-black uppercase truncate tracking-tight flex-1 min-w-0 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{q.patient.name}</p>
                            </div>
-                           <div className={`px-4 py-1.5 text-[9px] font-black rounded-lg border ${
+                           <div className={`px-4 py-1.5 text-[9px] font-black rounded-lg border ml-2 flex-shrink-0 ${
                              q.status === "called" ? "bg-blue-500 text-white border-blue-400 animate-pulse shadow-lg shadow-blue-500/20" : 
                              q.status === "ready" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40" : 
-                             "bg-white/5 text-white/40 border-white/10"
+                             theme === 'dark' ? "bg-white/5 text-white/40 border-white/10" : "bg-slate-100 text-slate-400 border-slate-200"
                            }`}>
                              {q.status === "called" ? "DIPANGGIL" : q.status === "ready" ? "SIAP PERIKSA" : "TRIAGE"}
                            </div>
@@ -514,24 +518,24 @@ function DisplayQueueContent() {
                       ))}
                     </AnimatePresence>
                     {triagePasien.length === 0 && (
-                      <div className="flex-1 flex flex-col items-center justify-center py-10 bg-white/5 rounded-2xl border border-dashed border-white/10 my-4">
-                         <FiUsers className="w-16 h-16 mb-4 text-white/10" />
-                         <p className="text-xs font-black uppercase tracking-widest text-white/30">Nurse Siaga</p>
+                      <div className={`flex-1 flex flex-col items-center justify-center py-10 rounded-2xl border border-dashed my-4 ${theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                         <FiUsers className={`w-16 h-16 mb-4 ${theme === 'dark' ? 'text-white/10' : 'text-slate-200'}`} />
+                         <p className={`text-xs font-black uppercase tracking-widest ${theme === 'dark' ? 'text-white/30' : 'text-slate-400'}`}>Nurse Siaga</p>
                       </div>
                     )}
                  </div>
               </div>
 
               {/* Z3: QUEUE LIST CAROUSEL */}
-              <div className="h-[25%] bg-[#0b1120] border border-white/5 rounded-[2.5rem] p-8 flex flex-col shadow-2xl overflow-hidden relative">
+              <div className={`h-[28%] border rounded-[2.5rem] p-5 md:p-6 flex flex-col shadow-2xl overflow-hidden relative transition-all ${theme === 'dark' ? 'bg-[#0b1120] border-white/5' : 'bg-white border-slate-200'}`}>
                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-white/30">ANTREAN BERIKUTNYA</h3>
+                    <h3 className={`text-[11px] font-black uppercase tracking-[0.4em] ${theme === 'dark' ? 'text-white/30' : 'text-slate-400'}`}>ANTREAN BERIKUTNYA</h3>
                     {nextPasien.length > 5 && (
                       <div className="flex gap-1.5">
                         {Array.from({ length: Math.ceil(nextPasien.length / 5) }).map((_, i) => (
                           <div 
                             key={i} 
-                            className={`h-1.5 rounded-full transition-all duration-500 ${i === carouselIndex ? 'w-8 bg-primary' : 'w-2 bg-white/10'}`} 
+                            className={`h-1.5 rounded-full transition-all duration-500 ${i === carouselIndex ? 'w-8 bg-primary' : theme === 'dark' ? 'w-2 bg-white/10' : 'w-2 bg-slate-200'}`} 
                           />
                         ))}
                       </div>
@@ -565,29 +569,29 @@ function DisplayQueueContent() {
                                      },
                                      exit: { x: -50, opacity: 0 }
                                    }}
-                                   className={`aspect-square border rounded-2xl flex flex-col items-center justify-center shadow-xl group transition-all ${
+                                   className={`h-full border rounded-2xl flex flex-col items-center justify-center py-4 px-2 shadow-xl group transition-all ${
                                      q.status === "called" 
                                        ? "bg-blue-500 border-blue-400 ring-4 ring-blue-500/20" 
                                        : q.status === "no-show" 
                                          ? "bg-rose-500/10 border-rose-500/20" 
-                                         : "bg-white/5 border-white/10 hover:border-white/20"
+                                         : theme === 'dark' ? "bg-white/5 border-white/10 hover:border-white/20" : "bg-slate-50 border-slate-100 hover:border-slate-300"
                                    }`}
                                  >
-                                    <div className={`text-[3vh] font-black leading-none drop-shadow-lg ${
+                                    <div className={`text-[2.4vh] font-black leading-none drop-shadow-lg ${
                                       q.status === "called" ? "text-white" : 
                                       q.status === "no-show" ? "text-rose-500 opacity-60" : 
-                                      "text-white"
+                                      theme === 'dark' ? "text-white" : "text-slate-800"
                                     }`}>{q.queueNo}</div>
                                     
                                     {/* Status Indicator */}
                                     {q.status === "called" && (
-                                      <div className="mt-1 flex flex-col items-center">
-                                         <div className="text-[0.9vh] font-black bg-white text-blue-600 px-3 py-1 rounded-full uppercase tracking-widest animate-pulse">DIPANGGIL</div>
+                                      <div className="mt-2 flex flex-col items-center">
+                                         <div className="text-[0.8vh] font-black bg-white text-blue-600 px-2 py-0.5 rounded-full uppercase tracking-widest animate-pulse">DIPANGGIL</div>
                                       </div>
                                     )}
                                     {q.status === "no-show" && (
-                                      <div className="mt-1 flex flex-col items-center opacity-60">
-                                         <div className="text-[0.9vh] font-black bg-slate-700 text-white px-3 py-1 rounded-full uppercase tracking-widest">TERLEWATI</div>
+                                      <div className="mt-2 flex flex-col items-center opacity-60">
+                                         <div className="text-[0.8vh] font-black bg-slate-700 text-white px-2 py-0.5 rounded-full uppercase tracking-widest">TERLEWATI</div>
                                       </div>
                                     )}
                                  </motion.div>
@@ -674,22 +678,22 @@ function DisplayQueueContent() {
                           <motion.div 
                             animate={{ scale: [1, 1.03, 1] }}
                             transition={{ repeat: Infinity, duration: 1.5 }}
-                            className="inline-flex items-center gap-5 px-16 py-4 bg-primary text-white rounded-full text-lg font-black uppercase tracking-[0.7em] mb-2 shadow-[0_30px_70px_rgba(79,70,229,0.35)]"
+                            className="inline-flex items-center gap-5 px-10 md:px-16 py-4 bg-primary text-white rounded-full text-base md:text-lg font-black uppercase tracking-[0.5em] md:tracking-[0.7em] mb-2 shadow-[0_30px_70px_rgba(79,70,229,0.35)] flex-shrink-0"
                           >
-                             <FiVolume2 className="w-8 h-8" /> SEDANG DIPANGGIL
+                             <FiVolume2 className="w-6 h-6 md:w-8 md:h-8" /> SEDANG DIPANGGIL
                           </motion.div>
                           
-                          <div className="text-[20vh] font-black leading-[1] tracking-tighter text-slate-900 mb-0 drop-shadow-[0_10px_30px_rgba(0,0,0,0.05)] whitespace-nowrap">
+                          <div className="text-[12vh] md:text-[18vh] font-black leading-[1] tracking-tighter text-slate-900 mb-0 drop-shadow-[0_10px_30px_rgba(0,0,0,0.05)] break-all max-w-full px-6">
                              {activeCallingPatient.queueNo}
                           </div>
                           
-                          <h2 className="text-[7vh] font-black uppercase tracking-tighter text-primary mb-2 underline decoration-slate-100 decoration-8 underline-offset-[10px] truncate max-w-full px-12 leading-tight">
+                          <h2 className="text-[5vh] md:text-[7vh] font-black uppercase tracking-tighter text-primary mb-2 underline decoration-slate-100 decoration-8 underline-offset-[10px] truncate max-w-full px-12 leading-tight">
                              {activeCallingPatient.patient.name}
                           </h2>
                           
-                          <div className="flex flex-col items-center gap-2">
+                          <div className="flex flex-col items-center gap-2 flex-shrink-0">
                              <span className="text-slate-300 uppercase tracking-[0.4em] text-[10px] font-black">MENUJU:</span>
-                             <span className="px-12 py-5 bg-slate-50 rounded-[2.5rem] border border-slate-200 uppercase text-slate-900 shadow-sm text-[3.5vh] font-black tracking-tight">
+                             <span className="px-8 md:px-12 py-3 md:py-5 bg-slate-50 rounded-[2rem] md:rounded-[2.5rem] border border-slate-200 uppercase text-slate-900 shadow-sm text-[2.5vh] md:text-[3.5vh] font-black tracking-tight">
                                {activeCallingPatient.hasMedicalRecord ? "RUANG PEMERIKSAAN DOKTER" : "RUANG PRA-PEMERIKSAAN"}
                              </span>
                           </div>
@@ -702,16 +706,16 @@ function DisplayQueueContent() {
         </div>
 
          {/* FOOTER STRIP */}
-        <div className="flex items-center justify-between px-12 text-slate-400 font-bold uppercase">
+        <div className={`flex items-center justify-between px-12 font-bold uppercase transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
            <div className="flex items-center gap-6 text-[12px] tracking-[0.4em]">
               <FiInfo className="w-6 h-6 text-primary" />
               Saling Menjaga Kenyamanan • Kesehatan Anda Prioritas Kami
            </div>
            
-           <div className="flex items-center gap-10 text-[12px] tracking-[0.5em]">
-              Powered By <span className="text-white">SolusiIT-2025</span>
+           <div className={`flex items-center gap-10 text-[12px] tracking-[0.5em] transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+              Powered By <span className={`transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>SolusiIT-2025</span>
               <div className="flex gap-2">
-                 {[1,2,3,4,5].map(i => <div key={i} className="w-2 h-2 rounded-full bg-white/20" />)}
+                 {[1,2,3,4,5].map(i => <div key={i} className={`w-2 h-2 rounded-full transition-colors ${theme === 'dark' ? 'bg-white/20' : 'bg-slate-300'}`} />)}
               </div>
            </div>
         </div>
