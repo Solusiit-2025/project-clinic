@@ -345,7 +345,7 @@ function DisplayQueueContent() {
   )
 
   return (
-    <div className="h-screen bg-slate-100 text-slate-900 font-sans overflow-hidden flex flex-col relative">
+    <div className="h-screen bg-[#020617] text-white font-sans overflow-hidden flex flex-col relative public-display">
       
       {/* START OVERLAY (Audio/Video Activation) */}
       <AnimatePresence>
@@ -383,13 +383,13 @@ function DisplayQueueContent() {
       <div className="relative z-10 flex flex-col h-full p-6 space-y-6">
         
         {/* HEADER BAR */}
-        <div className="flex items-center justify-between bg-white border border-slate-200 rounded-full px-12 py-5 shadow-sm">
+        <div className="flex items-center justify-between bg-black/40 backdrop-blur-md border border-white/10 rounded-full px-12 py-5 shadow-2xl">
           <div className="flex items-center gap-8">
              <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20">
                 <FiPackage className="w-7 h-7 text-white" />
              </div>
              <div>
-                <h1 className="text-3xl font-black tracking-tighter uppercase text-slate-900 leading-none">
+                <h1 className="text-3xl font-black tracking-tighter uppercase text-white leading-none">
                   YASFINA <span className="text-primary italic">CLINIC</span>
                 </h1>
                 <p className="text-slate-400 text-[10px] font-black tracking-[0.5em] uppercase mt-1">Smarter Healthcare Solution</p>
@@ -397,9 +397,9 @@ function DisplayQueueContent() {
              {/* Branch Info */}
              {clinicName && (
                <>
-                 <div className="w-px h-10 bg-slate-200" />
+                 <div className="w-px h-10 bg-white/10" />
                  <div>
-                   <p className="text-[13px] font-black text-slate-800 uppercase tracking-tight leading-tight">{clinicName}</p>
+                   <p className="text-[13px] font-black text-white uppercase tracking-tight leading-tight">{clinicName}</p>
                    {clinicAddress && (
                      <p className="text-[10px] font-medium text-slate-400 mt-0.5 max-w-[220px] truncate">{clinicAddress}</p>
                    )}
@@ -407,10 +407,10 @@ function DisplayQueueContent() {
                  {/* Doctor/Department Filter Indicator */}
                  {filterLabel && (
                    <>
-                     <div className="w-px h-10 bg-slate-200" />
-                     <div className="bg-indigo-50 border border-indigo-100 px-5 py-2.5 rounded-2xl">
-                       <p className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.3em] mb-0.5">Monitor Ruangan</p>
-                       <p className="text-[13px] font-black text-indigo-700 uppercase tracking-tight leading-tight">{filterLabel}</p>
+                     <div className="w-px h-10 bg-white/10" />
+                     <div className="bg-primary/20 border border-primary/30 px-5 py-2.5 rounded-2xl">
+                       <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em] mb-0.5">Monitor Ruangan</p>
+                       <p className="text-[13px] font-black text-white uppercase tracking-tight leading-tight">{filterLabel}</p>
                      </div>
                    </>
                  )}
@@ -420,15 +420,15 @@ function DisplayQueueContent() {
 
           <div className="flex items-center gap-16">
              <div className="text-right">
-                <div className="text-5xl font-black text-slate-900 tabular-nums tracking-tighter flex items-center gap-3">
+                <div className="text-5xl font-black text-white tabular-nums tracking-tighter flex items-center gap-3">
                    {isMounted ? time.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
                    <span className="text-2xl opacity-30 animate-pulse text-primary">:</span>
-                   <span className="text-3xl opacity-40 font-medium">{isMounted ? time.toLocaleTimeString('id-ID', { second: '2-digit' }) : '--'}</span>
+                   <span className="text-3xl opacity-60 font-medium">{isMounted ? time.toLocaleTimeString('id-ID', { second: '2-digit' }) : '--'}</span>
                 </div>
              </div>
              <div className="text-right">
-                <div className="flex items-center gap-3 text-emerald-600 font-black text-[12px] uppercase tracking-[0.3em] bg-emerald-50 px-6 py-3 rounded-full border border-emerald-100 shadow-sm">
-                   <div className="w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
+                <div className="flex items-center gap-3 text-emerald-400 font-black text-[12px] uppercase tracking-[0.3em] bg-emerald-500/10 px-6 py-3 rounded-full border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
+                   <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse ring-4 ring-emerald-400/20" />
                    SISTEM LIVE
                 </div>
              </div>
@@ -442,8 +442,8 @@ function DisplayQueueContent() {
            <div className="col-span-12 lg:col-span-4 flex flex-col gap-6 overflow-hidden">
               
               {/* Z1: DOCTOR ROOM - Compact (max 1 patient) */}
-              <div className="bg-white border border-slate-200 rounded-[2rem] p-5 flex flex-col overflow-hidden shadow-sm border-l-[10px] border-l-primary">
-                 <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mb-3 flex items-center gap-2">
+              <div className="bg-[#0b1120] border border-white/5 rounded-[2rem] p-5 flex flex-col overflow-hidden shadow-2xl border-l-[10px] border-l-primary">
+                 <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mb-4 flex items-center gap-2">
                     <FiActivity className="w-3 h-3" /> RUANG PERIKSA DOKTER
                  </h3>
                   <div className="space-y-2">
@@ -454,35 +454,41 @@ function DisplayQueueContent() {
                           layout
                           initial={{ x: -20, opacity: 0 }}
                           animate={{ x: 0, opacity: 1 }}
-                          className="flex items-center justify-between px-4 py-2 bg-slate-50 rounded-2xl border border-slate-100"
+                          className="flex items-center justify-between px-5 py-3 bg-white/5 rounded-2xl border border-white/5"
                         >
-                           <div className="flex items-center gap-3">
-                              <div className="text-xl font-black text-primary tabular-nums min-w-[70px]">{q.queueNo}</div>
-                              <div className="w-px h-6 bg-slate-200" />
+                           <div className="flex items-center gap-4">
+                              <div className="text-3xl font-black text-primary tabular-nums min-w-[70px] drop-shadow-md">{q.queueNo}</div>
+                              <div className="w-px h-8 bg-white/10" />
                               <div>
-                                 <p className="text-[13px] font-black uppercase tracking-tight text-slate-900 leading-tight break-words">{q.patient.name}</p>
-                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{q.doctor?.name || 'Dokter Jaga'}</p>
+                                 <p className="text-[15px] font-black uppercase tracking-tight text-white leading-tight break-words">{q.patient.name}</p>
+                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{q.doctor?.name || 'Dokter Jaga'}</p>
                               </div>
                            </div>
-                           <div className={`px-3 py-1 text-[9px] font-black rounded-lg border ${q.status === "called" ? "bg-blue-50 text-blue-600 border-blue-100 animate-pulse" : q.status === "ready" ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-indigo-50 text-indigo-600 border-indigo-100"}`}>{q.status === "called" ? "DIPANGGIL" : q.status === "ready" ? "SIAP PERIKSA" : "DIPERIKSA"}</div>
+                           <div className={`px-4 py-1.5 text-[10px] font-black rounded-lg border ${
+                             q.status === "called" ? "bg-blue-500 text-white border-blue-400 animate-pulse shadow-lg shadow-blue-500/20" : 
+                             q.status === "ready" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40" : 
+                             "bg-indigo-500/20 text-indigo-400 border-indigo-500/40"}`}
+                           >
+                             {q.status === "called" ? "DIPANGGIL" : q.status === "ready" ? "SIAP PERIKSA" : "DIPERIKSA"}
+                           </div>
                         </motion.div>
                       ))}
                     </AnimatePresence>
                     {ongoingPasien.length === 0 && (
-                      <div className="flex items-center justify-center py-4 opacity-10">
-                         <FiUser className="w-8 h-8 mr-2" />
-                         <p className="text-xs font-black uppercase tracking-widest">Ruang Kosong</p>
+                      <div className="flex items-center justify-center py-6 bg-white/5 rounded-2xl border border-dashed border-white/10">
+                         <FiUser className="w-8 h-8 mr-2 text-white/20" />
+                         <p className="text-xs font-black uppercase tracking-widest text-white/30">Ruang Kosong</p>
                       </div>
                     )}
                  </div>
               </div>
 
               {/* Z2: NURSE STATION (VITAL SIGN) - Expanded & Compact rows */}
-              <div className="flex-1 bg-white border border-slate-200 rounded-[2rem] p-5 flex flex-col overflow-hidden shadow-sm border-l-[10px] border-l-emerald-500">
-                 <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-600 mb-3 flex items-center gap-2">
+              <div className="flex-1 bg-[#0b1120] border border-white/5 rounded-[2rem] p-5 flex flex-col overflow-hidden shadow-2xl border-l-[10px] border-l-emerald-500">
+                 <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-400 mb-4 flex items-center gap-2">
                     <FiActivity className="w-3 h-3" /> PEMERIKSAAN VITAL SIGN
                  </h3>
-                 <div className="space-y-1.5 overflow-y-auto flex-1">
+                 <div className="space-y-2 overflow-y-auto flex-1 pr-1 custom-scrollbar">
                     <AnimatePresence mode="popLayout">
                       {triagePasien.map((q) => (
                         <motion.div 
@@ -490,17 +496,17 @@ function DisplayQueueContent() {
                           layout
                           initial={{ x: -20, opacity: 0 }}
                           animate={{ x: 0, opacity: 1 }}
-                          className="flex items-center justify-between px-3 py-2 bg-emerald-50/60 rounded-xl border border-emerald-100"
+                          className="flex items-center justify-between px-5 py-3 bg-emerald-500/5 rounded-2xl border border-emerald-500/10"
                         >
-                           <div className="flex items-center gap-2">
-                              <div className="text-base font-black text-emerald-600 tabular-nums w-16">{q.queueNo}</div>
-                              <div className="w-px h-5 bg-emerald-200" />
-                              <p className="text-[12px] font-black uppercase truncate w-36 tracking-tight text-slate-900">{q.patient.name}</p>
+                           <div className="flex items-center gap-4">
+                              <div className="text-2xl font-black text-emerald-400 tabular-nums w-16">{q.queueNo}</div>
+                              <div className="w-px h-6 bg-emerald-500/20" />
+                              <p className="text-[14px] font-black uppercase truncate w-36 tracking-tight text-white">{q.patient.name}</p>
                            </div>
-                           <div className={`px-2.5 py-1 text-[8px] font-black rounded-lg border ${
-                             q.status === "called" ? "bg-blue-50 text-blue-600 border-blue-100 animate-pulse" : 
-                             q.status === "ready" ? "bg-emerald-100 text-emerald-700 border-emerald-200" : 
-                             "bg-white text-slate-400 border-slate-100"
+                           <div className={`px-4 py-1.5 text-[9px] font-black rounded-lg border ${
+                             q.status === "called" ? "bg-blue-500 text-white border-blue-400 animate-pulse shadow-lg shadow-blue-500/20" : 
+                             q.status === "ready" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40" : 
+                             "bg-white/5 text-white/40 border-white/10"
                            }`}>
                              {q.status === "called" ? "DIPANGGIL" : q.status === "ready" ? "SIAP PERIKSA" : "TRIAGE"}
                            </div>
@@ -508,24 +514,24 @@ function DisplayQueueContent() {
                       ))}
                     </AnimatePresence>
                     {triagePasien.length === 0 && (
-                      <div className="flex-1 flex flex-col items-center justify-center py-10 opacity-10">
-                         <FiUsers className="w-16 h-16 mb-2" />
-                         <p className="text-xs font-black uppercase tracking-widest">Nurse Siaga</p>
+                      <div className="flex-1 flex flex-col items-center justify-center py-10 bg-white/5 rounded-2xl border border-dashed border-white/10 my-4">
+                         <FiUsers className="w-16 h-16 mb-4 text-white/10" />
+                         <p className="text-xs font-black uppercase tracking-widest text-white/30">Nurse Siaga</p>
                       </div>
                     )}
                  </div>
               </div>
 
               {/* Z3: QUEUE LIST CAROUSEL */}
-              <div className="h-[25%] bg-white border border-slate-200 rounded-[2.5rem] p-8 flex flex-col shadow-sm overflow-hidden relative">
+              <div className="h-[25%] bg-[#0b1120] border border-white/5 rounded-[2.5rem] p-8 flex flex-col shadow-2xl overflow-hidden relative">
                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-400">ANTREAN BERIKUTNYA</h3>
+                    <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-white/30">ANTREAN BERIKUTNYA</h3>
                     {nextPasien.length > 5 && (
                       <div className="flex gap-1.5">
                         {Array.from({ length: Math.ceil(nextPasien.length / 5) }).map((_, i) => (
                           <div 
                             key={i} 
-                            className={`h-1.5 rounded-full transition-all duration-500 ${i === carouselIndex ? 'w-6 bg-primary' : 'w-1.5 bg-slate-200'}`} 
+                            className={`h-1.5 rounded-full transition-all duration-500 ${i === carouselIndex ? 'w-8 bg-primary' : 'w-2 bg-white/10'}`} 
                           />
                         ))}
                       </div>
@@ -559,35 +565,35 @@ function DisplayQueueContent() {
                                      },
                                      exit: { x: -50, opacity: 0 }
                                    }}
-                                   className={`aspect-square border rounded-2xl flex flex-col items-center justify-center shadow-sm group transition-all ${
+                                   className={`aspect-square border rounded-2xl flex flex-col items-center justify-center shadow-xl group transition-all ${
                                      q.status === "called" 
-                                       ? "bg-blue-50 border-blue-200 ring-2 ring-blue-500/20" 
+                                       ? "bg-blue-500 border-blue-400 ring-4 ring-blue-500/20" 
                                        : q.status === "no-show" 
-                                         ? "bg-rose-50 border-rose-100" 
-                                         : "bg-primary/5 border-primary/10 hover:bg-primary/10"
+                                         ? "bg-rose-500/10 border-rose-500/20" 
+                                         : "bg-white/5 border-white/10 hover:border-white/20"
                                    }`}
                                  >
-                                    <div className={`text-[2.2vh] font-black leading-none ${
-                                      q.status === "called" ? "text-blue-600" : 
-                                      q.status === "no-show" ? "text-rose-500 opacity-50" : 
-                                      "text-primary"
+                                    <div className={`text-[3vh] font-black leading-none drop-shadow-lg ${
+                                      q.status === "called" ? "text-white" : 
+                                      q.status === "no-show" ? "text-rose-500 opacity-60" : 
+                                      "text-white"
                                     }`}>{q.queueNo}</div>
                                     
                                     {/* Status Indicator */}
                                     {q.status === "called" && (
                                       <div className="mt-1 flex flex-col items-center">
-                                         <div className="text-[0.8vh] font-black bg-blue-600 text-white px-2 py-0.5 rounded-full uppercase tracking-widest animate-pulse">DIPANGGIL</div>
+                                         <div className="text-[0.9vh] font-black bg-white text-blue-600 px-3 py-1 rounded-full uppercase tracking-widest animate-pulse">DIPANGGIL</div>
                                       </div>
                                     )}
                                     {q.status === "no-show" && (
-                                      <div className="mt-1 flex flex-col items-center opacity-40">
-                                         <div className="text-[0.8vh] font-black bg-slate-400 text-white px-2 py-0.5 rounded-full uppercase tracking-widest">TERLEWATI</div>
+                                      <div className="mt-1 flex flex-col items-center opacity-60">
+                                         <div className="text-[0.9vh] font-black bg-slate-700 text-white px-3 py-1 rounded-full uppercase tracking-widest">TERLEWATI</div>
                                       </div>
                                     )}
                                  </motion.div>
                               ))}
                               {currentNextBatch.length === 0 && (
-                                <div className="col-span-12 text-center text-[10px] font-black text-slate-200 py-6 uppercase tracking-[0.5em] bg-slate-50 rounded-2xl border border-dashed border-slate-200">Antrean Habis</div>
+                                <div className="col-span-12 text-center text-[12px] font-black text-white/20 py-8 uppercase tracking-[0.5em] bg-white/5 rounded-2xl border border-dashed border-white/10">Antrean Habis</div>
                               )}
                            </div>
                         </motion.div>
@@ -599,7 +605,7 @@ function DisplayQueueContent() {
 
            {/* HERO: VIDEO & ANNOUNCEMENT */}
            <div className="col-span-12 lg:col-span-8 flex flex-col">
-              <div className="flex-1 bg-white border border-slate-200 rounded-[3.5rem] relative overflow-hidden shadow-[0_50px_100px_-30px_rgba(0,0,0,0.15)]">
+              <div className="flex-1 bg-black border border-white/5 rounded-[3.5rem] relative overflow-hidden shadow-[0_50px_100px_-30px_rgba(0,0,0,0.5)]">
                  
                                    {/* PROMOTIONAL VIDEO PLAYER */}
                   <div className={`absolute inset-0 z-10 transition-opacity duration-700 ${showCallingOverlay ? "opacity-0" : "opacity-100"}`}>
@@ -609,13 +615,12 @@ function DisplayQueueContent() {
                               ref={videoRef}
                               onEnded={handleVideoEnd}
                               onError={() => handleVideoEnd()}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-cover brightness-[1.15] contrast-[1.1]"
                               muted={isVideoMuted}
                               playsInline
                               poster="/monitor-poster.png"
                            />
-                           <div className="absolute inset-0 bg-white/5" />
-                           <div className="absolute bottom-16 left-16 flex items-center gap-6 bg-white/20 backdrop-blur-3xl px-8 py-5 rounded-[2.5rem] border border-white/30 shadow-2xl">
+                           <div className="absolute bottom-16 left-16 flex items-center gap-6 bg-white/10 backdrop-blur-3xl px-8 py-5 rounded-[2.5rem] border border-white/20 shadow-2xl">
                               
                               {/* PLAY/PAUSE TOGGLE */}
                               <button 
@@ -696,17 +701,17 @@ function DisplayQueueContent() {
 
         </div>
 
-        {/* FOOTER STRIP */}
-        <div className="flex items-center justify-between px-12 text-slate-400 font-black uppercase">
-           <div className="flex items-center gap-5 text-[11px] tracking-[0.4em]">
-              <FiInfo className="w-5 h-5 text-primary" />
+         {/* FOOTER STRIP */}
+        <div className="flex items-center justify-between px-12 text-slate-400 font-bold uppercase">
+           <div className="flex items-center gap-6 text-[12px] tracking-[0.4em]">
+              <FiInfo className="w-6 h-6 text-primary" />
               Saling Menjaga Kenyamanan • Kesehatan Anda Prioritas Kami
            </div>
            
-           <div className="flex items-center gap-10 text-[11px] tracking-[0.5em]">
-              Powered By <span className="text-slate-900">SolusiIT-2025</span>
+           <div className="flex items-center gap-10 text-[12px] tracking-[0.5em]">
+              Powered By <span className="text-white">SolusiIT-2025</span>
               <div className="flex gap-2">
-                 {[1,2,3,4,5].map(i => <div key={i} className="w-2 h-2 rounded-full bg-slate-200" />)}
+                 {[1,2,3,4,5].map(i => <div key={i} className="w-2 h-2 rounded-full bg-white/20" />)}
               </div>
            </div>
         </div>

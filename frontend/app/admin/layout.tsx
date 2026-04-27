@@ -29,7 +29,6 @@ export default function AdminLayout({
     if (!isChecking && !isAuthenticated) {
       router.push('/login')
     }
-    // Redirect doctors to doctor dashboard
     if (!isChecking && isAuthenticated && user?.role === 'DOCTOR') {
       router.push('/doctor')
     }
@@ -37,28 +36,36 @@ export default function AdminLayout({
 
   if (isChecking) {
     return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center bg-gray-50">
-        <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-4 font-bold text-gray-500 animate-pulse uppercase tracking-widest text-xs">Memuat Dashboard...</p>
+      <div className="h-screen w-screen flex flex-col items-center justify-center" style={{ backgroundColor: 'var(--bg-app)' }}>
+        <div
+          className="w-16 h-16 rounded-full animate-spin"
+          style={{
+            border: '4px solid var(--border)',
+            borderTopColor: '#0ea5e9',
+          }}
+        />
+        <p className="mt-4 font-bold animate-pulse uppercase tracking-widest text-xs" style={{ color: 'var(--text-faint)' }}>
+          Memuat Dashboard...
+        </p>
       </div>
     )
   }
 
   const staffRoles = ['SUPER_ADMIN', 'ADMIN', 'RECEPTIONIST', 'FARMASI', 'ACCOUNTING', 'LOGISTIC', 'STAFF']
   if (!isAuthenticated || !staffRoles.includes(user?.role ?? '')) {
-    return null // Will redirect in useEffect
+    return null
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen flex" style={{ backgroundColor: 'var(--bg-app)' }}>
       {/* Sidebar */}
       <Sidebar />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className="flex-1 flex flex-col min-h-screen min-w-0">
         <AdminNavbar />
         <SessionGuard />
-        
+
         <main className="p-4 flex-1">
           <AnimatePresence mode="wait">
             <motion.div
@@ -72,7 +79,14 @@ export default function AdminLayout({
           </AnimatePresence>
         </main>
 
-        <footer className="px-8 py-5 border-t border-gray-100 bg-white text-gray-400 text-[10px] font-medium flex justify-between items-center">
+        <footer
+          className="px-8 py-5 border-t text-[10px] font-medium flex justify-between items-center"
+          style={{
+            backgroundColor: 'var(--bg-surface)',
+            borderColor: 'var(--border)',
+            color: 'var(--text-faint)',
+          }}
+        >
           <p>&copy; 2026 {user?.name || 'Klinik Yasfina'}. Professional Medical Management System.</p>
           <div className="flex gap-4">
             <a href="#" className="hover:text-primary transition-colors">Privacy</a>

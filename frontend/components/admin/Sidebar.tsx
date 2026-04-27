@@ -155,7 +155,7 @@ const MASTER_GROUPS = [
   }
 ]
 
-// --- Small Tooltip Component ---
+// --- Tooltip Component ---
 const Tooltip = ({ text, visible }: { text: string; visible: boolean }) => (
   <AnimatePresence>
     {visible && (
@@ -163,10 +163,11 @@ const Tooltip = ({ text, visible }: { text: string; visible: boolean }) => (
         initial={{ opacity: 0, x: 10 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: 10 }}
-        className="fixed left-20 z-[60] px-3 py-1.5 bg-gray-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-xl pointer-events-none whitespace-nowrap border border-white/10 backdrop-blur-md"
+        className="fixed left-20 z-[60] px-3 py-1.5 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-xl pointer-events-none whitespace-nowrap border border-white/10 backdrop-blur-md"
+        style={{ backgroundColor: 'var(--bg-app)' }}
       >
         {text}
-        <div className="absolute left-[-4px] top-1/2 -translate-y-1/2 border-y-[4px] border-y-transparent border-r-[4px] border-r-gray-900" />
+        <div className="absolute left-[-4px] top-1/2 -translate-y-1/2 border-y-[4px] border-y-transparent border-r-[4px]" style={{ borderRightColor: 'var(--bg-app)' }} />
       </motion.div>
     )}
   </AnimatePresence>
@@ -195,15 +196,31 @@ const SidebarNavItem = ({
     >
       <Link
         href={item.href}
-        className={`flex items-center rounded-xl transition-all group ${isCollapsed && !isMobile ? 'justify-center w-10 h-10 mx-auto' : 'gap-2.5 px-3 py-2'
-          } ${isActive
-            ? 'bg-primary/10 text-primary font-bold shadow-sm shadow-primary/10'
-            : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 font-semibold'
+        className={`flex items-center rounded-xl transition-all group ${isCollapsed && !isMobile ? 'justify-center w-10 h-10 mx-auto' : 'gap-2.5 px-3 py-2.5'
           }`}
+        style={{
+          backgroundColor: isActive ? 'var(--sidebar-item-active)' : 'transparent',
+          color: isActive ? 'var(--primary)' : 'var(--text-muted)',
+          fontWeight: isActive ? '800' : '600',
+        }}
+        onMouseEnter={(e) => {
+          if (!isActive) {
+            (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--sidebar-item-hover)'
+            ;(e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isActive) {
+            (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'
+            ;(e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'
+          }
+        }}
       >
-        <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-primary' : 'group-hover:text-primary transition-colors'}`} />
-        {(!isCollapsed || isMobile) && <span className="text-sm truncate">{item.label}</span>}
-        {isActive && !isCollapsed && <motion.span layoutId="active-dot" className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
+        <item.icon className="w-5 h-5 flex-shrink-0" />
+        {(!isCollapsed || isMobile) && <span className="text-[13px] truncate tracking-tight">{item.label}</span>}
+        {isActive && !isCollapsed && (
+          <motion.span layoutId="active-dot" className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+        )}
       </Link>
       {isCollapsed && !isMobile && <Tooltip text={item.label} visible={hover} />}
     </div>
@@ -238,18 +255,30 @@ const SidebarNavGroup = ({
     <div className="relative" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
       <button
         onClick={() => toggleGroup(group.label)}
-        className={`flex items-center rounded-xl transition-all ${isCollapsed && !isMobile ? 'justify-center w-10 h-10 mx-auto' : 'gap-2.5 px-3 py-2 w-full'
-          } ${isGroupActive && !isOpen
-            ? accentColor === 'primary' ? 'bg-primary/5 text-primary' : 'bg-indigo-50/50 text-indigo-600'
-            : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-          }`}
+        className={`flex items-center rounded-xl transition-all ${isCollapsed && !isMobile ? 'justify-center w-10 h-10 mx-auto' : 'gap-2.5 px-3 py-2.5 w-full'}`}
+        style={{
+          backgroundColor: isGroupActive && !isOpen ? 'var(--sidebar-item-active)' : 'transparent',
+          color: isGroupActive ? 'var(--primary)' : 'var(--text-muted)',
+        }}
+        onMouseEnter={(e) => {
+          if (!isGroupActive || isOpen) {
+            (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--sidebar-item-hover)'
+            ;(e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isGroupActive || isOpen) {
+            (e.currentTarget as HTMLElement).style.backgroundColor = isGroupActive && !isOpen ? 'var(--sidebar-item-active)' : 'transparent'
+            ;(e.currentTarget as HTMLElement).style.color = isGroupActive ? 'var(--primary)' : 'var(--text-muted)'
+          }
+        }}
       >
-        <group.icon className={`w-5 h-5 flex-shrink-0 ${isGroupActive ? (accentColor === 'primary' ? 'text-primary' : 'text-indigo-600') : ''}`} />
+        <group.icon className={`w-5 h-5 flex-shrink-0`} />
         {(!isCollapsed || isMobile) && (
           <>
-            <span className={`text-sm flex-1 text-left truncate ${accentColor === 'primary' ? 'font-black' : 'font-bold'}`}>{group.label}</span>
+            <span className={`text-[13px] flex-1 text-left truncate font-extrabold tracking-tight`}>{group.label}</span>
             <motion.div animate={{ rotate: isOpen ? 180 : 0 }}>
-              <FiChevronDown className="w-3.5 h-3.5 opacity-50" />
+              <FiChevronDown className="w-3.5 h-3.5 opacity-40" />
             </motion.div>
           </>
         )}
@@ -264,13 +293,14 @@ const SidebarNavGroup = ({
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden pl-4 mr-2"
           >
-            <div className={`mt-1 space-y-1 border-l-2 ${accentColor === 'primary' ? 'border-primary/20' : 'border-gray-100'} pl-3 py-1`}>
+            <div
+              className="mt-1 space-y-1 border-l-2 pl-3 py-1"
+              style={{ borderColor: 'var(--sidebar-item-active)' }}
+            >
               {group.items
                 .filter((item: any) => {
-                  // If item has no role restriction, show it
-                  if (!item.role) return true;
-                  // If item has role restriction, only show if user has that role
-                  return user?.role === item.role;
+                  if (!item.role) return true
+                  return user?.role === item.role
                 })
                 .map((item: any) => {
                   const isActive = pathname === item.href
@@ -278,15 +308,27 @@ const SidebarNavGroup = ({
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-[11px] ${isActive
-                        ? accentColor === 'primary'
-                          ? 'bg-primary text-white font-black shadow-md shadow-primary/20'
-                          : 'bg-primary/10 text-primary font-black'
-                        : 'text-gray-500 hover:text-primary font-bold'
-                        }`}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all text-xs font-bold`}
+                      style={{
+                        backgroundColor: isActive ? 'var(--primary)' : 'transparent',
+                        color: isActive ? '#ffffff' : 'var(--text-muted)',
+                        boxShadow: isActive ? '0 8px 16px -6px var(--primary)' : 'none',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isActive) {
+                          (e.currentTarget as HTMLElement).style.color = 'var(--primary)'
+                          ;(e.currentTarget as HTMLElement).style.backgroundColor = 'var(--sidebar-item-hover)'
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) {
+                          (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'
+                          ;(e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'
+                        }
+                      }}
                     >
-                      <item.icon className="w-3.5 h-3.5" />
-                      <span className="truncate">{item.label}</span>
+                      <item.icon className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate tracking-tight">{item.label}</span>
                     </Link>
                   )
                 })}
@@ -317,7 +359,10 @@ const SidebarContent = ({
   toggleGroup: (label: string) => void;
   toggleCollapse: () => void;
 }) => (
-  <div className="flex flex-col h-full bg-white">
+  <div
+    className="flex flex-col h-full"
+    style={{ backgroundColor: 'var(--sidebar-bg)' }}
+  >
     {/* Brand */}
     <div className={`flex-shrink-0 flex items-center transition-all duration-300 ${isCollapsed && !isMobile ? 'h-16 justify-center' : 'h-20 px-6'}`}>
       <div className="flex items-center gap-3">
@@ -326,7 +371,7 @@ const SidebarContent = ({
         </div>
         {(!isCollapsed || isMobile) && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="whitespace-nowrap">
-            <span className="font-black text-base text-gray-900 tracking-tight leading-none block">Yasfina</span>
+            <span className="font-black text-base tracking-tight leading-none block" style={{ color: 'var(--text-primary)' }}>Yasfina</span>
             <span className="text-[9px] text-primary font-black uppercase tracking-widest mt-0.5 block">Management</span>
           </motion.div>
         )}
@@ -343,7 +388,7 @@ const SidebarContent = ({
     {/* Navigation */}
     <nav className="flex-1 px-3 overflow-y-auto custom-scrollbar pb-10">
       {(!isCollapsed || isMobile) && (
-        <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-3 pt-4 pb-2">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] px-3 pt-4 pb-2" style={{ color: 'var(--text-faint)' }}>
           Menu Utama
         </p>
       )}
@@ -362,11 +407,10 @@ const SidebarContent = ({
 
       <div className="flex flex-col gap-1 mt-2">
         {(!isCollapsed || isMobile) && (
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-3 pb-2 pt-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] px-3 pb-2 pt-4" style={{ color: 'var(--text-faint)' }}>
             Layanan Utama
           </p>
         )}
-
         {LAYANAN_UTAMA_GROUPS.map((group) => (
           <SidebarNavGroup
             key={group.label}
@@ -385,11 +429,10 @@ const SidebarContent = ({
       {/* Logistics and Inventory */}
       <div className="flex flex-col gap-1 mt-2">
         {(!isCollapsed || isMobile) && (
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-3 pb-2 pt-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] px-3 pb-2 pt-4" style={{ color: 'var(--text-faint)' }}>
             Logistik & Inventaris
           </p>
         )}
-
         {LOGISTIK_GROUPS.map((group) => (
           <SidebarNavGroup
             key={group.label}
@@ -408,11 +451,10 @@ const SidebarContent = ({
       {/* Manajemen Aset */}
       <div className="flex flex-col gap-1 mt-2">
         {(!isCollapsed || isMobile) && (
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-3 pb-2 pt-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] px-3 pb-2 pt-4" style={{ color: 'var(--text-faint)' }}>
             Manajemen Aset
           </p>
         )}
-
         {ASSET_GROUPS.map((group) => (
           <SidebarNavGroup
             key={group.label}
@@ -428,14 +470,13 @@ const SidebarContent = ({
         ))}
       </div>
 
-      {/* Keuangan & Akuntansi Section */}
+      {/* Keuangan & Akuntansi */}
       <div className="flex flex-col gap-1 mt-2">
         {(!isCollapsed || isMobile) && (
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-3 pb-2 pt-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] px-3 pb-2 pt-4" style={{ color: 'var(--text-faint)' }}>
             Keuangan & Akuntansi
           </p>
         )}
-
         {FINANCE_GROUPS.map((group) => (
           <SidebarNavGroup
             key={group.label}
@@ -451,14 +492,13 @@ const SidebarContent = ({
         ))}
       </div>
 
-      {/* Master Data Categorized */}
+      {/* Master Data */}
       <div className="flex flex-col gap-1 mt-2">
         {(!isCollapsed || isMobile) && (
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-3 pb-2 pt-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] px-3 pb-2 pt-4" style={{ color: 'var(--text-faint)' }}>
             Pengaturan Master
           </p>
         )}
-
         {MASTER_GROUPS.map((group) => (
           <SidebarNavGroup
             key={group.label}
@@ -476,16 +516,34 @@ const SidebarContent = ({
     </nav>
 
     {/* Footer / User Profile */}
-    <div className="p-4 border-t border-gray-100 space-y-2 flex-shrink-0 bg-white">
+    <div
+      className="p-4 space-y-2 flex-shrink-0 border-t"
+      style={{
+        backgroundColor: 'var(--sidebar-bg)',
+        borderColor: 'var(--sidebar-border)',
+      }}
+    >
       {(!isCollapsed || isMobile) && (
-        <div className="px-4 py-3 rounded-2xl bg-gray-50/80 border border-gray-100 group transition-all hover:bg-white hover:shadow-md cursor-pointer">
+        <div
+          className="px-4 py-3 rounded-2xl border transition-all cursor-pointer"
+          style={{
+            backgroundColor: 'var(--bg-surface-2)',
+            borderColor: 'var(--border)',
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--bg-surface-3)'
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--bg-surface-2)'
+          }}
+        >
           <div className="flex items-center gap-3 overflow-hidden">
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-primary flex items-center justify-center text-white font-bold text-xs shadow-sm">
               {user?.name?.[0] || 'A'}
             </div>
             <div className="flex-1 truncate">
-              <p className="text-xs font-black text-gray-900 truncate uppercase tracking-tight">{user?.name || 'Administrator'}</p>
-              <p className="text-[9px] font-bold text-gray-400 truncate tracking-wide">{user?.email}</p>
+              <p className="text-xs font-black truncate uppercase tracking-tight" style={{ color: 'var(--text-primary)' }}>{user?.name || 'Administrator'}</p>
+              <p className="text-[9px] font-bold truncate tracking-wide" style={{ color: 'var(--text-faint)' }}>{user?.email}</p>
             </div>
           </div>
         </div>
@@ -494,8 +552,7 @@ const SidebarContent = ({
       <div className="flex flex-col gap-1">
         <button
           onClick={logout}
-          className={`flex items-center rounded-xl text-red-500 hover:bg-red-50 transition-all font-bold text-sm ${isCollapsed && !isMobile ? 'justify-center w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5 w-full'
-            }`}
+          className={`flex items-center rounded-xl text-red-500 hover:bg-red-500/10 transition-all font-bold text-sm ${isCollapsed && !isMobile ? 'justify-center w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5 w-full'}`}
         >
           <FiLogOut className="w-5 h-5 flex-shrink-0" />
           {(!isCollapsed || isMobile) && <span>Keluar</span>}
@@ -504,8 +561,8 @@ const SidebarContent = ({
         {!isMobile && (
           <button
             onClick={toggleCollapse}
-            className={`flex items-center rounded-xl text-gray-400 hover:bg-gray-50 hover:text-primary transition-all font-bold text-sm ${isCollapsed && !isMobile ? 'justify-center w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5 w-full'
-              }`}
+            className={`flex items-center rounded-xl transition-all font-bold text-sm hover:bg-primary/10 hover:text-primary ${isCollapsed && !isMobile ? 'justify-center w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5 w-full'}`}
+            style={{ color: 'var(--text-faint)' }}
           >
             <FiChevronLeft className={`w-5 h-5 transition-transform duration-500 ${isCollapsed ? 'rotate-180' : ''}`} />
             {!isCollapsed && <span>Ciutkan Menu</span>}
@@ -529,7 +586,6 @@ export default function Sidebar() {
     const saved = localStorage.getItem('sidebar-collapsed')
     if (saved === 'true') setIsCollapsed(true)
 
-    // Check which group should be open initially based on pathname
     const activeMasterGroup = MASTER_GROUPS.find(g => g.items.some(i => i.href === pathname))
     const activeLayananGroup = LAYANAN_UTAMA_GROUPS.find(g => g.items.some(i => i.href === pathname))
     const activeFinanceGroup = FINANCE_GROUPS.find(g => g.items.some(i => i.href === pathname))
@@ -546,7 +602,7 @@ export default function Sidebar() {
     if (initialOpen.length > 0) {
       setOpenGroups(prev => Array.from(new Set([...prev, ...initialOpen])))
     }
-  }, []) // Run only once on mount
+  }, [])
 
   const toggleCollapse = () => {
     const newVal = !isCollapsed
@@ -562,7 +618,6 @@ export default function Sidebar() {
     setOpenGroups(prev => prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label])
   }
 
-  // Close mobile menu on route change
   useEffect(() => { setMobileOpen(false) }, [pathname])
 
   if (!mounted) return null
@@ -582,7 +637,12 @@ export default function Sidebar() {
       {/* Mobile Toggle Button */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 right-4 z-[45] p-2.5 bg-white/80 backdrop-blur-md rounded-xl shadow-xl border border-gray-100 text-gray-900 hover:text-primary transition-all active:scale-95"
+        className="lg:hidden fixed top-4 right-4 z-[45] p-2.5 backdrop-blur-md rounded-xl shadow-xl border transition-all active:scale-95 hover:text-primary"
+        style={{
+          backgroundColor: 'var(--bg-surface)',
+          borderColor: 'var(--border)',
+          color: 'var(--text-primary)',
+        }}
       >
         <FiMenu className="w-5 h-5" />
       </button>
@@ -608,11 +668,19 @@ export default function Sidebar() {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -280, opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="lg:hidden fixed left-0 top-0 h-screen w-64 bg-white z-[60] flex flex-col shadow-2xl border-r border-gray-100"
+            className="lg:hidden fixed left-0 top-0 h-screen w-64 z-[60] flex flex-col shadow-2xl border-r"
+            style={{
+              backgroundColor: 'var(--sidebar-bg)',
+              borderColor: 'var(--sidebar-border)',
+            }}
           >
             <button
               onClick={() => setMobileOpen(false)}
-              className="absolute top-6 right-6 p-2 rounded-xl bg-gray-100/50 text-gray-400 hover:bg-gray-900 hover:text-white transition-all z-[70]"
+              className="absolute top-6 right-6 p-2 rounded-xl transition-all z-[70] hover:bg-red-500 hover:text-white"
+              style={{
+                backgroundColor: 'var(--bg-surface-2)',
+                color: 'var(--text-muted)',
+              }}
             >
               <FiX className="w-4 h-4" />
             </button>
@@ -625,7 +693,12 @@ export default function Sidebar() {
       <motion.aside
         animate={{ width: isCollapsed ? 70 : 240 }}
         transition={{ type: 'spring', damping: 20, stiffness: 100 }}
-        className="hidden lg:flex fixed left-0 top-0 h-screen bg-white border-r border-gray-100 z-50 flex-col shadow-[4px_0_24px_-10px_rgba(0,0,0,0.05)] overflow-hidden"
+        className="hidden lg:flex fixed left-0 top-0 h-screen z-50 flex-col overflow-hidden border-r"
+        style={{
+          backgroundColor: 'var(--sidebar-bg)',
+          borderColor: 'var(--sidebar-border)',
+          boxShadow: '4px 0 24px -10px rgba(0,0,0,0.08)',
+        }}
       >
         <SidebarContent {...contentProps} />
       </motion.aside>
@@ -633,7 +706,7 @@ export default function Sidebar() {
       {/* Spacer to push content */}
       <motion.div
         animate={{ width: isCollapsed ? 70 : 240 }}
-        className="hidden lg:block transition-all"
+        className="hidden lg:block flex-shrink-0"
       />
     </>
   )

@@ -7,7 +7,7 @@ export const resetTransactions = async (req: Request, res: Response) => {
   const { confirmationText, clinicId } = req.body;
 
   // Security check: Must be Super Admin (handled by middleware, but good to double check)
-  if (req.user?.role !== 'SUPER_ADMIN') {
+  if ((req as any).user?.role !== 'SUPER_ADMIN') {
     return res.status(403).json({ message: 'Hanya Super Admin yang dapat melakukan reset system.' });
   }
 
@@ -20,47 +20,48 @@ export const resetTransactions = async (req: Request, res: Response) => {
     // Perform deletion in a specific order to avoid FK constraints
     await prisma.$transaction(async (tx) => {
       
-      const filter = clinicId ? { clinicId } : {};
+      const clinicFilter = clinicId ? { clinicId } : {};
+      const branchFilter = clinicId ? { branchId: clinicId } : {};
 
       // 1. Finance & Billing
       await tx.invoiceItem.deleteMany({ where: clinicId ? { invoice: { clinicId } } : {} });
-      await tx.invoice.deleteMany({ where: filter });
-      await tx.journalItem.deleteMany({ where: clinicId ? { journalEntry: { clinicId } } : {} });
-      await tx.journalEntry.deleteMany({ where: filter });
-      await tx.expense.deleteMany({ where: filter });
-      await tx.financialReport.deleteMany({ where: filter });
+      await tx.invoice.deleteMany({ where: clinicFilter });
+      await tx.journalDetail.deleteMany({ where: clinicId ? { journalEntry: { clinicId } } : {} });
+      await tx.journalEntry.deleteMany({ where: clinicFilter });
+      await tx.expense.deleteMany({ where: clinicFilter });
+      await tx.financialReport.deleteMany({ where: clinicFilter });
 
       // 2. Inventory & Stock
-      await tx.inventoryMutation.deleteMany({ where: filter });
-      await tx.inventoryReturn.deleteMany({ where: filter });
-      await tx.inventoryAuditLog.deleteMany({ where: filter });
-      await tx.stockOpnameItem.deleteMany({ where: clinicId ? { session: { clinicId } } : {} });
-      await tx.stockOpnameSession.deleteMany({ where: filter });
-      await tx.interBranchTransfer.deleteMany({ where: clinicId ? { OR: [{ sourceClinicId: clinicId }, { destinationClinicId: clinicId }] } : {} });
-      await tx.procurementItem.deleteMany({ where: clinicId ? { procurement: { clinicId } } : {} });
-      await tx.procurementPayment.deleteMany({ where: clinicId ? { procurement: { clinicId } } : {} });
-      await tx.procurement.deleteMany({ where: filter });
+      await tx.inventoryMutation.deleteMany({ where: branchFilter });
+      await tx.inventoryReturn.deleteMany({ where: branchFilter });
+      await tx.inventoryAuditLog.deleteMany({ where: branchFilter });
+      await tx.stockOpnameItem.deleteMany({ where: clinicId ? { session: { branchId: clinicId } } : {} });
+      await tx.stockOpnameSession.deleteMany({ where: branchFilter });
+      await tx.interBranchTransfer.deleteMany({ where: clinicId ? { OR: [{ sourceBranchId: clinicId }, { destBranchId: clinicId }] } : {} });
+      await tx.procurementItem.deleteMany({ where: clinicId ? { procurement: { branchId: clinicId } } : {} });
+      await tx.procurementPayment.deleteMany({ where: branchFilter });
+      await tx.procurement.deleteMany({ where: branchFilter });
       
       // Stock reset (Start with empty warehouse)
-      await tx.inventoryBatch.deleteMany({ where: filter });
-      await tx.inventoryStock.deleteMany({ where: filter });
+      await tx.inventoryBatch.deleteMany({ where: branchFilter });
+      await tx.inventoryStock.deleteMany({ where: branchFilter });
 
       // 3. Medical & Records
       await tx.vitalSign.deleteMany({ where: clinicId ? { medicalRecord: { clinicId } } : {} });
-      await tx.prescriptionItemComponent.deleteMany({ where: clinicId ? { prescriptionItem: { prescription: { clinicId } } } : {} });
-      await tx.prescriptionItem.deleteMany({ where: clinicId ? { prescription: { clinicId } } : {} });
+      await tx.prescriptionItemComponent.deleteMany({ where: clinicId ? { prescriptionItem: { prescription: { medicalRecord: { clinicId } } } } : {} });
+      await tx.prescriptionItem.deleteMany({ where: clinicId ? { prescription: { medicalRecord: { clinicId } } } : {} });
       await tx.prescription.deleteMany({ where: clinicId ? { medicalRecord: { clinicId } } : {} });
       await tx.medicalRecordAttachment.deleteMany({ where: clinicId ? { medicalRecord: { clinicId } } : {} });
       await tx.medicalRecordService.deleteMany({ where: clinicId ? { medicalRecord: { clinicId } } : {} });
       await tx.radiologyOrder.deleteMany({ where: clinicId ? { medicalRecord: { clinicId } } : {} });
       await tx.labOrder.deleteMany({ where: clinicId ? { medicalRecord: { clinicId } } : {} });
-      await tx.medicalRecord.deleteMany({ where: filter });
+      await tx.medicalRecord.deleteMany({ where: clinicFilter });
 
       // 4. Registration & Operational
-      await tx.queueNumber.deleteMany({ where: filter });
-      await tx.registration.deleteMany({ where: filter });
+      await tx.queueNumber.deleteMany({ where: clinicFilter });
+      await tx.registration.deleteMany({ where: clinicFilter });
       await tx.appointmentService.deleteMany({ where: clinicId ? { appointment: { clinicId } } : {} });
-      await tx.appointment.deleteMany({ where: filter });
+      await tx.appointment.deleteMany({ where: clinicFilter });
 
       // 5. Assets (Optional: but often kept as master. Typically maintenance/transfers are reset)
       await tx.assetTransfer.deleteMany({ where: clinicId ? { OR: [{ fromClinicId: clinicId }, { toClinicId: clinicId }] } : {} });
@@ -69,8 +70,8 @@ export const resetTransactions = async (req: Request, res: Response) => {
 
       // Reset Account Balances to Zero
       await tx.chartOfAccount.updateMany({
-        where: filter,
-        data: { balance: 0 }
+        where: clinicFilter,
+        data: { openingBalance: 0 }
       });
     });
 
