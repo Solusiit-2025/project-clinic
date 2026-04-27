@@ -40,10 +40,16 @@ api.interceptors.response.use(
     const status = error.response?.status
     const code = error.response?.data?.code
 
-    // ── Token expired → attempt silent refresh ────────────────────────────
-    if (status === 401 && code === 'TOKEN_EXPIRED' && !originalRequest._retry) {
-      originalRequest._retry = true // prevent infinite loop
+    // ── Token expired or missing → attempt silent refresh ────────────────────────────
+    const shouldAttemptRefresh = 
+      status === 401 && 
+      (code === 'TOKEN_EXPIRED' || code === 'NO_TOKEN') && 
+      !originalRequest._retry &&
+      !originalRequest.url?.includes('auth/login')
 
+    if (shouldAttemptRefresh) {
+      originalRequest._retry = true // prevent infinite loop
+      
       if (isRefreshing) {
         // Another request already triggered refresh — queue this one
         return new Promise((resolve, reject) => {
@@ -74,7 +80,7 @@ api.interceptors.response.use(
     }
 
     // ── Session fully invalid (not just expired) → force logout ──────────
-    if (status === 401 && code !== 'TOKEN_EXPIRED') {
+    if (status === 401 && !shouldAttemptRefresh && !originalRequest.url?.includes('auth/login')) {
       forceLogout()
       return Promise.reject(error)
     }

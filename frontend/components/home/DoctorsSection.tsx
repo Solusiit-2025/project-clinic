@@ -1,30 +1,37 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import axios from 'axios'
 import { FiInstagram, FiTwitter, FiLinkedin } from 'react-icons/fi'
 
-const doctors = [
-  {
-    name: 'dr. Andi Pratama, Sp.PD',
-    specialty: 'Spesialis Penyakit Dalam',
-    image: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&q=80&w=400',
-    bio: 'Berpengalaman lebih dari 10 tahun dalam menangani berbagai keluhan penyakit dalam.'
-  },
-  {
-    name: 'dr. Siska Amelia, Sp.A',
-    specialty: 'Spesialis Anak',
-    image: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?auto=format&fit=crop&q=80&w=400',
-    bio: 'Ahli kesehatan anak yang ramah dan berdedikasi tinggi terhadap tumbuh kembang buah hati.'
-  },
-  {
-    name: 'drg. Budi Santoso',
-    specialty: 'Dokter Gigi',
-    image: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=400',
-    bio: 'Menyediakan perawatan gigi komprehensif dengan pendekatan yang lembut dan modern.'
-  }
-]
+interface Doctor {
+  id: string
+  name: string
+  specialization: string
+  bio?: string
+  profilePicture?: string
+}
 
 export default function DoctorsSection() {
+  const [doctors, setDoctors] = useState<Doctor[]>([])
+  const [loading, setLoading] = useState(true)
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004'
+
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/api/public/doctors`)
+        setDoctors(response.data)
+      } catch (error) {
+        console.error('Failed to fetch doctors:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchDoctors()
+  }, [API_URL])
+
   return (
     <section id="doctors" className="section-padding bg-white">
       <div className="container-custom">
@@ -49,44 +56,65 @@ export default function DoctorsSection() {
           </motion.p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {doctors.map((doctor, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              viewport={{ once: true }}
-              className="group relative bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 hover:shadow-2xl transition-all duration-500"
-            >
-              <div className="h-80 overflow-hidden">
-                <img 
-                  src={doctor.image} 
-                  alt={doctor.name} 
-                  className="w-full h-full object-cover grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700" 
-                />
-              </div>
-              <div className="p-6">
-                <p className="text-primary font-bold text-sm uppercase tracking-wider mb-1">{doctor.specialty}</p>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">{doctor.name}</h3>
-                <p className="text-gray-600 text-sm leading-relaxed mb-6">
-                  {doctor.bio}
-                </p>
-                <div className="flex items-center gap-4">
-                  <a href="#" className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 hover:bg-primary hover:text-white transition-all shadow-sm">
-                    <FiInstagram />
-                  </a>
-                  <a href="#" className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 hover:bg-primary hover:text-white transition-all shadow-sm">
-                    <FiTwitter />
-                  </a>
-                  <a href="#" className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 hover:bg-primary hover:text-white transition-all shadow-sm">
-                    <FiLinkedin />
-                  </a>
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-gray-50 rounded-2xl overflow-hidden h-[500px] animate-pulse">
+                <div className="h-80 bg-gray-200"></div>
+                <div className="p-6 space-y-4">
+                  <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                  <div className="h-6 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-12 bg-gray-200 rounded w-full"></div>
                 </div>
               </div>
-            </motion.div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {doctors.length > 0 ? (
+              doctors.map((doctor, index) => (
+                <motion.div
+                  key={doctor.id}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  viewport={{ once: true }}
+                  className="group relative bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 hover:shadow-2xl transition-all duration-500"
+                >
+                  <div className="h-80 overflow-hidden bg-gray-200">
+                    <img 
+                      src={doctor.profilePicture ? (doctor.profilePicture.startsWith('http') ? doctor.profilePicture : `${API_URL}${doctor.profilePicture}`) : 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&q=80&w=400'} 
+                      alt={doctor.name} 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-all duration-700" 
+                    />
+                  </div>
+                  <div className="p-6">
+                    <p className="text-primary font-bold text-sm uppercase tracking-wider mb-1">{doctor.specialization}</p>
+                    <h3 className="text-xl font-bold text-gray-900 mb-3">{doctor.name}</h3>
+                    <p className="text-gray-600 text-sm leading-relaxed mb-6 line-clamp-3 h-[72px]">
+                      {doctor.bio || 'Dokter berpengalaman dengan dedikasi tinggi dalam melayani pasien dan memberikan solusi medis terbaik.'}
+                    </p>
+                    <div className="flex items-center gap-4">
+                      <a href="#" className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 hover:bg-primary hover:text-white transition-all shadow-sm">
+                        <FiInstagram />
+                      </a>
+                      <a href="#" className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 hover:bg-primary hover:text-white transition-all shadow-sm">
+                        <FiTwitter />
+                      </a>
+                      <a href="#" className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 hover:bg-primary hover:text-white transition-all shadow-sm">
+                        <FiLinkedin />
+                      </a>
+                    </div>
+                  </div>
+                </motion.div>
+              ))
+            ) : (
+              <div className="col-span-full text-center py-20 text-gray-500">
+                Belum ada data dokter yang tersedia.
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </section>
   )

@@ -37,7 +37,7 @@ export default function HeroSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.25 }}
-              className="text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-[1.1] mb-8 text-gray-900"
+              className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold leading-[1.15] mb-8 text-gray-900 tracking-tight"
             >
               {hero.title} <span className="relative inline-block">
                 <span className="relative z-10 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">{hero.highlight}</span>
@@ -49,7 +49,7 @@ export default function HeroSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.4 }}
-              className="text-xl text-gray-600 mb-10 leading-relaxed max-w-xl"
+              className="text-lg sm:text-xl text-gray-600 mb-10 leading-relaxed max-w-2xl"
             >
               {hero.description}
             </motion.p>

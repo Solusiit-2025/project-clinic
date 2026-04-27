@@ -27,25 +27,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
     if (parsed === 'light' || parsed === 'dark') {
       setTheme(parsed)
     } else {
-      // No stored preference → follow OS
-      const systemTheme = getSystemTheme()
-      setTheme(systemTheme)
+      // No stored preference → default to light
+      setTheme('light')
     }
 
-    // Listen for OS theme changes
-    const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = (e: MediaQueryListEvent) => {
-      const stored = localStorage.getItem('clinic-theme')
-      let hasUserChoice = false
-      try {
-        hasUserChoice = !!JSON.parse(stored || '{}')?.state?.theme
-      } catch { /* ignore */ }
-      if (!hasUserChoice) {
-        setTheme(e.matches ? 'dark' : 'light')
-      }
-    }
-    mq.addEventListener('change', handleChange)
-    return () => mq.removeEventListener('change', handleChange)
+    return () => {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

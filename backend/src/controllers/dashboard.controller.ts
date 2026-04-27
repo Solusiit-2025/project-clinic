@@ -6,7 +6,7 @@ import {
   eachDayOfInterval, eachMonthOfInterval, addDays
 } from 'date-fns'
 
-const prisma = new PrismaClient()
+import { prisma } from '../lib/prisma'
 
 export const getDashboardStats = async (req: Request, res: Response) => {
   try {
@@ -211,107 +211,101 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         : (((todayRev - yestRev) / yestRev) * 100).toFixed(1)
 
     // Branch breakdown
-    const branchAnalytics = await Promise.all(
-      clinics.map(async (c) => {
-        const [pats, rev, exp, assets, stocks] = await Promise.all([
-          prisma.registration.groupBy({ by: ['patientId'], where: { clinicId: c.id } }),
-          prisma.invoice.aggregate({
-            _sum: { total: true },
-            where: { status: 'paid', clinicId: c.id },
-          }),
-          prisma.expense.aggregate({
-            _sum: { amount: true },
-            where: { status: 'approved', clinicId: c.id },
-          }),
-          prisma.asset.aggregate({
-            _sum: { purchasePrice: true },
-            where: { status: 'active', clinicId: c.id },
-          }),
-          prisma.inventoryStock.aggregate({
-            _sum: { onHandQty: true },
-            where: { branchId: c.id },
-          }),
-        ])
-        const r = rev._sum.total || 0
-        const ex = exp._sum.amount || 0
-        return {
-          id: c.id,
-          name: c.name,
-          code: c.code,
-          patients: pats.length,
-          profit: r - ex,
-          assets: assets._sum.purchasePrice || 0,
-          stocks: stocks._sum.onHandQty || 0,
-        }
+    // Branch breakdown - Optimized to avoid connection bomb
+    const branchAnalytics = []
+    for (const c of clinics) {
+      const [pats, rev, exp, assets, stocks] = await Promise.all([
+        prisma.registration.groupBy({ by: ['patientId'], where: { clinicId: c.id } }),
+        prisma.invoice.aggregate({
+          _sum: { total: true },
+          where: { status: 'paid', clinicId: c.id },
+        }),
+        prisma.expense.aggregate({
+          _sum: { amount: true },
+          where: { status: 'approved', clinicId: c.id },
+        }),
+        prisma.asset.aggregate({
+          _sum: { purchasePrice: true },
+          where: { status: 'active', clinicId: c.id },
+        }),
+        prisma.inventoryStock.aggregate({
+          _sum: { onHandQty: true },
+          where: { branchId: c.id },
+        }),
+      ])
+      const r = rev._sum.total || 0
+      const ex = exp._sum.amount || 0
+      branchAnalytics.push({
+        id: c.id,
+        name: c.name,
+        code: c.code,
+        patients: pats.length,
+        profit: r - ex,
+        assets: assets._sum.purchasePrice || 0,
+        stocks: stocks._sum.onHandQty || 0,
       })
-    )
+    }
 
     // ─── 5. FINANCIAL TREND ─────────────────────────────────────────────────
     let financialTrend: any[] = []
     if (range === 'month') {
       const days = eachDayOfInterval({ start: subDays(today, 29), end: today })
-      financialTrend = await Promise.all(
-        days.map(async (date) => {
-          const s = startOfDay(date)
-          const e = endOfDay(date)
-          const [rev, exp] = await Promise.all([
-            prisma.invoice.aggregate({
-              _sum: { total: true },
-              where: { status: 'paid', invoiceDate: { gte: s, lte: e }, ...clinicFilter },
-            }),
-            prisma.expense.aggregate({
-              _sum: { amount: true },
-              where: { status: 'approved', expenseDate: { gte: s, lte: e }, ...clinicFilter },
-            }),
-          ])
-          const r = rev._sum.total || 0
-          const ex = exp._sum.amount || 0
-          return { label: format(date, 'dd/MM'), revenue: r, expense: ex, profit: r - ex }
-        })
-      )
+      for (const date of days) {
+        const s = startOfDay(date)
+        const e = endOfDay(date)
+        const [rev, exp] = await Promise.all([
+          prisma.invoice.aggregate({
+            _sum: { total: true },
+            where: { status: 'paid', invoiceDate: { gte: s, lte: e }, ...clinicFilter },
+          }),
+          prisma.expense.aggregate({
+            _sum: { amount: true },
+            where: { status: 'approved', expenseDate: { gte: s, lte: e }, ...clinicFilter },
+          }),
+        ])
+        const r = rev._sum.total || 0
+        const ex = exp._sum.amount || 0
+        financialTrend.push({ label: format(date, 'dd/MM'), revenue: r, expense: ex, profit: r - ex })
+      }
     } else if (range === 'year') {
       const months = eachMonthOfInterval({ start: startOfYear(today), end: today })
-      financialTrend = await Promise.all(
-        months.map(async (date) => {
-          const s = startOfMonth(date)
-          const e = endOfMonth(date)
-          const [rev, exp] = await Promise.all([
-            prisma.invoice.aggregate({
-              _sum: { total: true },
-              where: { status: 'paid', invoiceDate: { gte: s, lte: e }, ...clinicFilter },
-            }),
-            prisma.expense.aggregate({
-              _sum: { amount: true },
-              where: { status: 'approved', expenseDate: { gte: s, lte: e }, ...clinicFilter },
-            }),
-          ])
-          const r = rev._sum.total || 0
-          const ex = exp._sum.amount || 0
-          return { label: format(date, 'MMM'), revenue: r, expense: ex, profit: r - ex }
-        })
-      )
+      for (const date of months) {
+        const s = startOfMonth(date)
+        const e = endOfMonth(date)
+        const [rev, exp] = await Promise.all([
+          prisma.invoice.aggregate({
+            _sum: { total: true },
+            where: { status: 'paid', invoiceDate: { gte: s, lte: e }, ...clinicFilter },
+          }),
+          prisma.expense.aggregate({
+            _sum: { amount: true },
+            where: { status: 'approved', expenseDate: { gte: s, lte: e }, ...clinicFilter },
+          }),
+        ])
+        const r = rev._sum.total || 0
+        const ex = exp._sum.amount || 0
+        financialTrend.push({ label: format(date, 'MMM'), revenue: r, expense: ex, profit: r - ex })
+      }
     } else {
       // week (default)
       const days = eachDayOfInterval({ start: subDays(today, 6), end: today })
-      financialTrend = await Promise.all(
-        days.map(async (date) => {
-          const s = startOfDay(date)
-          const e = endOfDay(date)
-          const [rev, exp] = await Promise.all([
-            prisma.invoice.aggregate({
-              _sum: { total: true },
-              where: { status: 'paid', invoiceDate: { gte: s, lte: e }, ...clinicFilter },
-            }),
-            prisma.expense.aggregate({
-              _sum: { amount: true },
-              where: { status: 'approved', expenseDate: { gte: s, lte: e }, ...clinicFilter },
-            }),
-          ])
-          const r = rev._sum.total || 0
-          const ex = exp._sum.amount || 0
-          return { label: format(date, 'EEE'), revenue: r, expense: ex, profit: r - ex }
-        })
-      )
+      for (const date of days) {
+        const s = startOfDay(date)
+        const e = endOfDay(date)
+        const [rev, exp] = await Promise.all([
+          prisma.invoice.aggregate({
+            _sum: { total: true },
+            where: { status: 'paid', invoiceDate: { gte: s, lte: e }, ...clinicFilter },
+          }),
+          prisma.expense.aggregate({
+            _sum: { amount: true },
+            where: { status: 'approved', expenseDate: { gte: s, lte: e }, ...clinicFilter },
+          }),
+        ])
+        const r = rev._sum.total || 0
+        const ex = exp._sum.amount || 0
+        financialTrend.push({ label: format(date, 'EEE'), revenue: r, expense: ex, profit: r - ex })
+      }
     }
 
     // ─── 6. DOCTOR DUTY STATUS ──────────────────────────────────────────────

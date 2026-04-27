@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { getClinics, getPatients } from '../controllers/master.controller'
 import { getQueues } from '../controllers/transaction.controller'
 import { createAppointment } from '../controllers/appointment.controller'
+import { prisma } from '../lib/prisma'
 import { SiteSettingService } from '../services/siteSetting.service'
 
 const router = Router()
@@ -50,12 +51,14 @@ router.post('/appointments', publicRateLimit, createAppointment)
 router.get('/doctors', async (req, res) => {
     // We need to provide doc list to public page
     try {
-        const { prisma } = require('../lib/prisma')
         const docs = await prisma.doctor.findMany({ 
+            where: { isActive: true },
             select: { 
                 id: true, 
                 name: true, 
                 specialization: true,
+                bio: true,
+                profilePicture: true,
                 schedules: {
                     where: { isActive: true },
                     select: { dayOfWeek: true, startTime: true, endTime: true }

@@ -1,9 +1,7 @@
 import { Request, Response } from 'express'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../lib/prisma'
 import path from 'path'
 import fs from 'fs/promises'
-
-const prisma = new PrismaClient()
 
 // ==================== REFERRALS ====================
 

@@ -7,7 +7,7 @@ import fs from 'fs/promises'
 import { getPaginationOptions, PaginatedResult } from '../utils/pagination'
 import { CacheService } from '../lib/cache'
 
-const prisma = new PrismaClient()
+import { prisma } from '../lib/prisma'
 
 // ==================== USERS ====================
 export const getUsers = async (req: Request, res: Response) => {

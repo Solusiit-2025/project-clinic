@@ -106,6 +106,35 @@ body {
 }
 
 /* ============================================================
+   CORE COMPONENTS — Restored Layout & UI Components
+   ============================================================ */
+@layer components {
+  .container-custom {
+    @apply max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-12;
+  }
+
+  .section-padding {
+    @apply py-16 md:py-24;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-white font-bold px-6 py-3 rounded-xl transition-all duration-300 hover:bg-primary/90 hover:shadow-lg active:scale-[0.98] flex items-center justify-center gap-2;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary text-white font-bold px-6 py-3 rounded-xl transition-all duration-300 hover:bg-secondary/90 hover:shadow-lg active:scale-[0.98] flex items-center justify-center gap-2;
+  }
+
+  .btn-outline {
+    @apply border-2 border-primary text-primary font-bold px-6 py-3 rounded-xl transition-all duration-300 hover:bg-primary hover:text-white active:scale-[0.98] flex items-center justify-center gap-2;
+  }
+
+  .card-premium {
+    @apply bg-white dark:bg-slate-900 border border-border dark:border-border-subtle rounded-[2rem] p-8 shadow-sm hover:shadow-xl transition-all duration-500;
+  }
+}
+
+/* ============================================================
    DARK MODE — Professional Utility Overrides
    Using attribute selectors for Tailwind opacity classes to avoid 
    PostCSS build errors while maintaining full coverage.

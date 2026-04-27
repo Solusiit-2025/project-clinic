@@ -25,7 +25,7 @@ export default function RootLayout({
                   var raw = localStorage.getItem('clinic-theme');
                   var theme = raw ? JSON.parse(raw)?.state?.theme : null;
                   if (!theme) {
-                    theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                    theme = 'light';
                   }
                   if (theme === 'dark') {
                     document.documentElement.classList.add('dark');
