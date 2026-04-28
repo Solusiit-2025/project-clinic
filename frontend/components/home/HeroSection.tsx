@@ -100,7 +100,7 @@ export default function HeroSection() {
           >
             <div className="relative z-10 rounded-[3rem] overflow-hidden shadow-2xl shadow-gray-400 group">
               <img 
-                src="https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&q=80&w=1000" 
+                src={hero.image ? (hero.image.startsWith('http') ? hero.image : `http://localhost:3000${hero.image}`) : "https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&q=80&w=1000"} 
                 alt="Medical Professional" 
                 className="w-full h-[600px] object-cover group-hover:scale-105 transition-transform duration-[2s]"
               />
@@ -129,13 +129,6 @@ export default function HeroSection() {
                 className="absolute bottom-12 -right-12 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-2xl p-6 border border-gray-100 dark:border-slate-800/50 w-72"
               >
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="flex -space-x-3">
-                    {[1,2,3].map(i => (
-                      <div key={i} className="w-10 h-10 rounded-full border-2 border-white dark:border-slate-800 bg-gray-200 dark:bg-slate-700 overflow-hidden">
-                        <img src={`https://i.pravatar.cc/100?img=${i+10}`} alt="Patient" />
-                      </div>
-                    ))}
-                  </div>
                   <div className="text-xs font-bold text-gray-900 dark:text-white">+50k Pasien</div>
                 </div>
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300">"Pelayanan dokter sangat ramah dan profesional!"</p>

@@ -80,4 +80,34 @@ export class SiteSettingController {
       res.status(500).json({ error: 'Failed to delete video' });
     }
   }
+
+  async uploadWebsiteImage(req: Request, res: Response) {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      
+      const fileName = `website-${Date.now()}${path.extname(req.file.originalname)}`;
+      const uploadDir = path.join(__dirname, '../../public/uploads/website');
+      
+      // Ensure directory exists
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      
+      const filePath = path.join(uploadDir, fileName);
+      
+      // Write buffer to file (since multer is using memoryStorage)
+      fs.writeFileSync(filePath, req.file.buffer);
+      
+      const imageUrl = `/uploads/website/${fileName}`;
+      res.json({ url: imageUrl });
+    } catch (error) {
+      console.error('Upload error:', error);
+      res.status(500).json({ error: 'Failed to upload image' });
+    }
+  }
 }

@@ -4,12 +4,15 @@ import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import api from '@/lib/api'
 import { ArrowLeft, CheckCircle, PackageCheck, AlertCircle, User, Activity, Clock, FlaskConical, Stethoscope, ChevronRight, Info, Pill, Trash2, Save, X as CloseIcon, Banknote, Printer, Settings, RefreshCw } from 'lucide-react'
+import { useAuthStore } from '@/lib/store/useAuthStore'
 import { motion, AnimatePresence } from 'framer-motion'
 import { format } from 'date-fns'
 
 export default function PharmacyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const router = useRouter()
+  const { user } = useAuthStore()
+  const isPrivileged = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN'
   const [prescription, setPrescription] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -302,10 +305,17 @@ export default function PharmacyDetailPage({ params }: { params: Promise<{ id: s
                                       </div>
                                    </td>
                                    <td className="px-8 py-6 text-right">
-                                      <div className="flex flex-col items-end">
-                                         <span className="text-[10px] font-black text-gray-900 group-hover:text-primary transition-colors leading-none">Rp {subtotal.toLocaleString('id-ID')}</span>
-                                         <span className="text-[8px] font-bold text-gray-400 uppercase mt-1">@ Rp {(item.sellingPrice || 0).toLocaleString('id-ID')}</span>
-                                      </div>
+                                      {isPrivileged ? (
+                                        <div className="flex flex-col items-end">
+                                           <span className="text-[10px] font-black text-gray-900 group-hover:text-primary transition-colors leading-none">Rp {subtotal.toLocaleString('id-ID')}</span>
+                                           <span className="text-[8px] font-bold text-gray-400 uppercase mt-1">@ Rp {(item.sellingPrice || 0).toLocaleString('id-ID')}</span>
+                                        </div>
+                                      ) : (
+                                        <div className="flex flex-col items-end">
+                                           <span className="text-[10px] font-black text-gray-300 tracking-[0.2em] bg-gray-100/50 px-2 py-0.5 rounded-md leading-none">••••••</span>
+                                           <span className="text-[7px] font-bold text-gray-300 uppercase mt-1 tracking-tighter">Hidden</span>
+                                        </div>
+                                      )}
                                    </td>
                                    {isEditing && (
                                      <td className="px-8 py-6 text-center">
@@ -485,7 +495,11 @@ export default function PharmacyDetailPage({ params }: { params: Promise<{ id: s
                  </div>
                  <div className="flex items-baseline justify-between">
                     <span className="text-xs font-bold text-gray-500 uppercase">Grand Total</span>
-                    <span className="text-2xl font-black text-gray-900">Rp {prescription.items.reduce((sum: number, i: any) => sum + ((i.quantity || 0) * (i.sellingPrice || 0)), 0).toLocaleString('id-ID')}</span>
+                    {isPrivileged ? (
+                      <span className="text-2xl font-black text-gray-900">Rp {prescription.items.reduce((sum: number, i: any) => sum + ((i.quantity || 0) * (i.sellingPrice || 0)), 0).toLocaleString('id-ID')}</span>
+                    ) : (
+                      <span className="text-xl font-black text-gray-300 tracking-[0.2em] bg-gray-100/50 px-3 py-1 rounded-lg">••••••</span>
+                    )}
                  </div>
                  <div className="mt-4 p-3 bg-gray-50 rounded-xl flex items-center gap-3">
                     <Info className="w-3 h-3 text-gray-400" />

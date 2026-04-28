@@ -52,11 +52,19 @@ export async function authMiddleware(req: any, res: Response, next: NextFunction
     const { password: _, doctor, clinics: userClinics, ...userWithoutPassword } = user as any
     const clinics = userClinics.map((uc: any) => uc.clinic)
 
+    // Fetch permissions for the user's role
+    const permissions = await prisma.rolePermission.findMany({
+      where: { role: user.role, canAccess: true },
+      select: { module: true }
+    })
+    const allowedModules = permissions.map(p => p.module)
+
     req.user = {
       ...userWithoutPassword,
       image: userWithoutPassword.image || doctor?.profilePicture || null,
       clinics,
       doctor,
+      permissions: allowedModules, // Attach to user object
     }
 
     // Resolve active clinic from x-clinic-id header

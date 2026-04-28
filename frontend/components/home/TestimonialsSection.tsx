@@ -8,19 +8,19 @@ const testimonials = [
     name: 'Bpk. Ahmad Junaidi',
     role: 'Pasien Rawat Jalan',
     text: 'Sangat puas dengan pelayanan di Klinik Yasfina. Dokternya sangat detail menjelaskan kondisi penyakit saya dan perawatnya sangat ramah.',
-    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200'
+    image: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'
   },
   {
     name: 'Ibu Ratna Sari',
     role: 'Pasien Gigi',
     text: 'Fasilitasnya sangat modern dan bersih. Proses pendaftaran online-nya juga sangat mudah, jadi tidak perlu mengantre lama di klinik.',
-    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200'
+    image: 'https://cdn-icons-png.flaticon.com/512/3135/3135789.png'
   },
   {
     name: 'Bpk. Hendra Kurniawan',
     role: 'Check-up Rutin',
     text: 'Klinik terbaik di wilayah ini. Pelayanan farmasinya cepat dan ketersediaan obatnya selalu lengkap. Sangat direkomendasikan.',
-    image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=200'
+    image: 'https://cdn-icons-png.flaticon.com/512/3135/3135768.png'
   }
 ]
 

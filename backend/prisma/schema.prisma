@@ -1393,6 +1393,18 @@ enum Role {
   STAFF
 }
 
+model RolePermission {
+  id        String   @id @default(uuid())
+  role      Role
+  module    String   // e.g. "LAYANAN_UTAMA", "FINANCE", "LOGISTIK", "ASSET", "MASTER_DATA"
+  canAccess Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([role, module])
+  @@map("role_permissions")
+}
+
 enum AccountCategory {
   ASSET
   LIABILITY

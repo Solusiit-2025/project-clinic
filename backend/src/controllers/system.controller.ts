@@ -85,3 +85,51 @@ export const resetTransactions = async (req: Request, res: Response) => {
     return res.status(500).json({ message: 'Gagal melakukan reset sistem: ' + error.message });
   }
 };
+
+export const getRolePermissions = async (req: Request, res: Response) => {
+  try {
+    const permissions = await prisma.rolePermission.findMany();
+    return res.status(200).json(permissions);
+  } catch (error: any) {
+    return res.status(500).json({ message: 'Gagal memuat konfigurasi hak akses: ' + error.message });
+  }
+};
+
+export const updateRolePermissions = async (req: Request, res: Response) => {
+  try {
+    const { permissions } = req.body;
+    // permissions is expected to be an array of objects: { role: Role, module: string, canAccess: boolean }
+
+    if (!Array.isArray(permissions)) {
+      return res.status(400).json({ message: 'Format data tidak valid' });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // We can either clear all and insert, or upsert.
+      // Upsert is safer
+      for (const p of permissions) {
+        await tx.rolePermission.upsert({
+          where: {
+            role_module: {
+              role: p.role,
+              module: p.module
+            }
+          },
+          update: {
+            canAccess: p.canAccess
+          },
+          create: {
+            role: p.role,
+            module: p.module,
+            canAccess: p.canAccess
+          }
+        });
+      }
+    });
+
+    return res.status(200).json({ message: 'Konfigurasi hak akses berhasil disimpan' });
+  } catch (error: any) {
+    console.error('Update Role Permissions Error:', error);
+    return res.status(500).json({ message: 'Gagal menyimpan konfigurasi: ' + error.message });
+  }
+};

@@ -267,9 +267,19 @@ export default function MedicinesPage() {
       )
     }},
     { key: 'purchasePrice', label: 'BELI', mobileHide: true, render: (r) => {
+      const isPrivileged = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
       const products = r.productMaster?.products || []
       if (products.length === 0) return <span className="text-[8px] sm:text-[10px] font-bold text-gray-300 italic">—</span>
       
+      if (!isPrivileged) {
+        return (
+          <div className="flex flex-col">
+            <span className="text-xs sm:text-sm font-black text-gray-300 tracking-[0.2em] bg-gray-100/50 px-2 py-0.5 rounded-md w-fit">••••••</span>
+            <span className="text-[7px] sm:text-[9px] font-black text-gray-300 uppercase tracking-tighter mt-0.5">Hidden</span>
+          </div>
+        )
+      }
+
       const prices = products.map(p => p.purchasePrice)
       const minPrice = Math.min(...prices)
       const maxPrice = Math.max(...prices)
@@ -285,9 +295,19 @@ export default function MedicinesPage() {
       )
     }},
     { key: 'price', label: 'JUAL', render: (r) => {
+      const isPrivileged = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
       const products = r.productMaster?.products || []
       if (products.length === 0) return <span className="text-[8px] sm:text-[10px] font-bold text-gray-300 italic">—</span>
       
+      if (!isPrivileged) {
+        return (
+          <div className="flex flex-col">
+            <span className="text-xs sm:text-sm font-black text-gray-300 tracking-[0.2em] bg-gray-100/50 px-2 py-0.5 rounded-md w-fit">••••••</span>
+            <span className="text-[7px] sm:text-[9px] font-black text-gray-300 uppercase tracking-tighter mt-0.5">Hidden</span>
+          </div>
+        )
+      }
+
       const prices = products.map(p => p.sellingPrice)
       const minPrice = Math.min(...prices)
       const maxPrice = Math.max(...prices)
@@ -303,8 +323,10 @@ export default function MedicinesPage() {
       )
     }},
     { key: 'margin', label: 'MARGIN', mobileHide: true, render: (r) => {
+      const isPrivileged = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
       const products = r.productMaster?.products || []
       if (products.length === 0) return <span className="text-[8px] sm:text-[10px] font-bold text-gray-300 italic">—</span>
+      if (!isPrivileged) return <span className="text-[8px] sm:text-[10px] font-bold text-gray-300 italic">—</span>
       
       const first = products[0]
       const margin = (first.sellingPrice || 0) - (first.purchasePrice || 0)

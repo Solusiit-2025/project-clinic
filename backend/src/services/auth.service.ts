@@ -69,8 +69,14 @@ export class AuthService {
     const { password: _, doctor, ...userWithoutPassword } = user as any
     const profileImage = userWithoutPassword.image || doctor?.profilePicture || null
 
+    const permissions = await prisma.rolePermission.findMany({
+      where: { role: user.role, canAccess: true },
+      select: { module: true }
+    })
+    const allowedModules = permissions.map(p => p.module)
+
     return {
-      user: { ...userWithoutPassword, image: profileImage, clinics },
+      user: { ...userWithoutPassword, image: profileImage, clinics, permissions: allowedModules },
       accessToken,
       refreshToken,
     }
@@ -129,10 +135,17 @@ export class AuthService {
       // Map clinics to flat array
       const clinics = userClinics.map((uc: any) => uc.clinic)
 
+      const permissions = await prisma.rolePermission.findMany({
+        where: { role: user.role, canAccess: true },
+        select: { module: true }
+      })
+      const allowedModules = permissions.map(p => p.module)
+
       return {
         ...userWithoutPassword,
         image: profileImage,
-        clinics
+        clinics,
+        permissions: allowedModules
       }
     } catch (error) {
       throw new Error('Token tidak valid')

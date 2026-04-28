@@ -20,6 +20,7 @@ interface User {
   role: Role
   image?: string
   clinics?: Clinic[]
+  permissions?: string[]
 }
 
 interface AuthState {
