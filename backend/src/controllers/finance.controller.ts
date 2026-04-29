@@ -364,7 +364,7 @@ export const postInvoice = async (req: Request, res: Response) => {
                     const cashAcc = getSysAcc('CASH_ACCOUNT')
                     
                     // Priority 1: Check System Accounts (CASH_ACCOUNT) for this clinic
-                    debitCoaId = cashAcc?.coaId 
+                    debitCoaId = cashAcc?.coaId || null
                     
                     // Priority 2: Automatic mapping based on Clinic Code (Petty Cash)
                     if (!debitCoaId) {
