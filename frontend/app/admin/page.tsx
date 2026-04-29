@@ -1,8 +1,9 @@
 'use client'
 
-
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import api from '@/lib/api'
 import {
@@ -108,6 +109,7 @@ function StatCard({ stat, index, isClient }: { stat: any; index: number; isClien
 
 export default function AdminDashboard() {
   const { activeClinicId, user, isAuthenticated } = useAuthStore()
+  const router = useRouter()
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -116,6 +118,13 @@ export default function AdminDashboard() {
   const [alertTab, setAlertTab] = useState<'stock' | 'expiry' | 'maintenance' | 'insurance'>('stock')
 
   useEffect(() => { setIsClient(true) }, [])
+
+  // Redirect FARMASI to their dedicated dashboard
+  useEffect(() => {
+    if (user?.role === 'FARMASI') {
+      router.replace('/admin/farmasi')
+    }
+  }, [user, router])
 
   const fetchStats = useCallback(async () => {
     if (!isAuthenticated) return
@@ -141,6 +150,9 @@ export default function AdminDashboard() {
       </div>
     )
   }
+
+  // FARMASI should never reach here (redirected above), but guard just in case
+  if (user?.role === 'FARMASI') return null
 
   const todayLabel = format(new Date(), 'EEEE, dd MMMM yyyy', { locale: id })
   const alerts = data?.alerts || {}

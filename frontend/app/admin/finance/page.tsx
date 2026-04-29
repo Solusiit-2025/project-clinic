@@ -134,6 +134,7 @@ export default function FinanceDashboard() {
   const [totalItems, setTotalItems] = useState(0)
   
   const [showPostConfirmModal, setShowPostConfirmModal] = useState(false)
+  const [showDetailModal, setShowDetailModal] = useState(false)
   const [invoiceToPost, setInvoiceToPost] = useState<Invoice | null>(null)
 
   const fetchData = useCallback(async () => {
@@ -249,6 +250,22 @@ export default function FinanceDashboard() {
       amount: Number(latestPayment.amount || 0), cashierName: user?.name || 'Admin Klinik', items: inv.items || []
     })
     setShowReceiptPreviewModal(true)
+  }
+
+  const handlePostToGL = async (invoiceId: string) => {
+    try {
+        setProcessing(true)
+        // Fixed: Match backend route /invoices/post-to-ledger and send invoiceId in body
+        await api.post(`/finance/invoices/post-to-ledger`, { invoiceId })
+        toast.success('Invoice berhasil diposting ke GL')
+        setShowPostConfirmModal(false)
+        setInvoiceToPost(null)
+        fetchData()
+    } catch (error: any) {
+        toast.error(error?.response?.data?.message || 'Gagal memposting invoice')
+    } finally {
+        setProcessing(false)
+    }
   }
 
   const handlePrintReceipt = () => {
@@ -373,7 +390,7 @@ export default function FinanceDashboard() {
            ) : (
              <div className="grid grid-cols-1 gap-4">
                 {invoices.map((inv, idx) => (
-                   <motion.div key={inv.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.02 }} className="bg-white border border-gray-100 rounded-[2.2rem] md:rounded-[3rem] overflow-hidden group shadow-sm hover:shadow-2xl hover:border-primary/20 transition-all cursor-pointer">
+                   <motion.div key={inv.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.02 }} className="bg-white border border-gray-100 rounded-[2.2rem] md:rounded-[3rem] overflow-visible group shadow-sm hover:shadow-2xl hover:border-primary/20 transition-all cursor-pointer">
                       
                       <div className="hidden lg:grid grid-cols-12 gap-4 items-center px-10 py-7">
                          <div className="col-span-3 flex items-center gap-5">
@@ -398,6 +415,24 @@ export default function FinanceDashboard() {
                             </div>
                          </div>
                          <div className="col-span-2 flex justify-end gap-2">
+                             <button 
+                                onClick={() => { setSelectedInvoice(inv); setShowDetailModal(true); }} 
+                                className="p-3 bg-gray-50 text-gray-400 rounded-xl hover:bg-primary/5 hover:text-primary transition-colors tooltip"
+                                data-tip="Lihat Detail"
+                             >
+                                <FiEye className="w-4 h-4" />
+                             </button>
+
+                             {!inv.isPosted && inv.status === 'paid' && (
+                                <button 
+                                   onClick={() => { setInvoiceToPost(inv); setShowPostConfirmModal(true); }}
+                                   className="p-3 bg-gray-50 text-emerald-500 rounded-xl hover:bg-emerald-50 transition-colors tooltip"
+                                   data-tip="Posting ke Jurnal"
+                                >
+                                   <FiShare2 className="w-4 h-4" />
+                                </button>
+                             )}
+
                              {inv.status !== 'paid' ? (
                                 <button 
                                    disabled={['waiting', 'ongoing', 'triage', 'ready', 'called'].includes(inv.registration?.queueNumbers?.[0]?.status || '')}
@@ -407,16 +442,23 @@ export default function FinanceDashboard() {
                                      setPaymentData({ ...paymentData, amount: inv.total - (inv.amountPaid || 0), method: 'cash' }); 
                                      setShowPaymentModal(true); 
                                    }} 
-                                   className={`px-5 py-3 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all ${
+                                   className={`px-5 py-3 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all tooltip ${
                                      ['waiting', 'ongoing', 'triage', 'ready', 'called'].includes(inv.registration?.queueNumbers?.[0]?.status || '')
                                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
                                      : 'bg-primary text-white shadow-lg shadow-primary/20 hover:scale-105 active:scale-95'
                                    }`}
+                                   data-tip={['waiting', 'ongoing', 'triage', 'ready', 'called'].includes(inv.registration?.queueNumbers?.[0]?.status || '') ? 'Selesaikan Antrian Dahulu' : 'Proses Pembayaran'}
                                  >
                                    {['waiting', 'ongoing', 'triage', 'ready', 'called'].includes(inv.registration?.queueNumbers?.[0]?.status || '') ? 'ANTRIAN' : 'BAYAR'}
                                  </button>
                              ) : (
-                                <button onClick={() => handleReprintFromInvoice(inv)} className="p-3 bg-gray-50 text-gray-400 rounded-xl hover:bg-sky-50 hover:text-sky-600 transition-colors"><FiFileText className="w-4 h-4" /></button>
+                                <button 
+                                   onClick={() => handleReprintFromInvoice(inv)} 
+                                   className="p-3 bg-gray-50 text-gray-400 rounded-xl hover:bg-sky-50 hover:text-sky-600 transition-colors tooltip"
+                                   data-tip="Cetak Ulang Kwitansi"
+                                >
+                                   <FiFileText className="w-4 h-4" />
+                                </button>
                              )}
                          </div>
                       </div>
@@ -723,9 +765,143 @@ export default function FinanceDashboard() {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+         {showDetailModal && selectedInvoice && (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowDetailModal(false)} className="absolute inset-0 bg-gray-950/80 backdrop-blur-md" />
+               <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-2xl bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col">
+                  <div className="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                     <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary"><FiFileText className="w-6 h-6" /></div>
+                        <div>
+                           <h3 className="text-xl font-black uppercase tracking-tight leading-none">Invoice Detail</h3>
+                           <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest">{selectedInvoice.invoiceNo}</p>
+                        </div>
+                     </div>
+                     <button onClick={() => setShowDetailModal(false)} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"><FiX className="w-5 h-5 text-gray-400" /></button>
+                  </div>
+                  
+                  <div className="p-8 overflow-y-auto max-h-[60vh] space-y-8">
+                     <div className="grid grid-cols-2 gap-8">
+                        <div>
+                           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Informasi Pasien</p>
+                           <p className="text-sm font-black text-gray-900 uppercase">{selectedInvoice.patient.name}</p>
+                           <p className="text-[11px] font-bold text-gray-400 mt-0.5 font-mono uppercase">{selectedInvoice.patient.medicalRecordNo}</p>
+                           <p className="text-[11px] font-bold text-gray-500 mt-1">{selectedInvoice.patient.phone}</p>
+                        </div>
+                        <div className="text-right">
+                           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Status Pembayaran</p>
+                           {getStatusBadge(selectedInvoice.status)}
+                           <p className="text-[11px] font-bold text-gray-400 mt-2">Tanggal: {new Date(selectedInvoice.invoiceDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                        </div>
+                     </div>
+
+                     <div className="space-y-4">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 pb-2">Item Tagihan</p>
+                        <div className="space-y-3">
+                           {selectedInvoice.items.map((item, idx) => (
+                              <div key={idx} className="flex justify-between items-center p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                 <div>
+                                    <p className="text-xs font-black text-gray-800 uppercase">{item.description}</p>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase">{item.quantity} x {formatCurrency(item.price)}</p>
+                                 </div>
+                                 <p className="text-sm font-black text-gray-900">{formatCurrency(item.subtotal)}</p>
+                              </div>
+                           ))}
+                        </div>
+                     </div>
+
+                     {selectedInvoice.payments && selectedInvoice.payments.length > 0 && (
+                        <div className="space-y-4">
+                           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 pb-2">Riwayat Pembayaran</p>
+                           <div className="space-y-2">
+                              {selectedInvoice.payments.map((p, idx) => (
+                                 <div key={idx} className="flex justify-between items-center text-[10px] px-2">
+                                    <div className="flex items-center gap-3">
+                                       <FiCheckCircle className="text-emerald-500" />
+                                       <span className="font-bold text-gray-600">{new Date(p.paymentDate).toLocaleString('id-ID')}</span>
+                                       <span className="px-2 py-0.5 bg-gray-100 text-gray-500 rounded font-black uppercase text-[8px]">{p.paymentMethod}</span>
+                                    </div>
+                                    <span className="font-black text-emerald-600">{formatCurrency(p.amount)}</span>
+                                 </div>
+                              ))}
+                           </div>
+                        </div>
+                     )}
+                  </div>
+
+                  <div className="p-8 bg-gray-900 text-white flex justify-between items-center">
+                     <div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Outstanding</p>
+                        <p className="text-2xl font-black">{formatCurrency(selectedInvoice.total - (selectedInvoice.amountPaid || 0))}</p>
+                     </div>
+                     <div className="text-right">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Tagihan</p>
+                        <p className="text-lg font-bold text-gray-300">{formatCurrency(selectedInvoice.total)}</p>
+                     </div>
+                  </div>
+               </motion.div>
+            </div>
+         )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+         {showPostConfirmModal && invoiceToPost && (
+            <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowPostConfirmModal(false)} className="absolute inset-0 bg-gray-950/80 backdrop-blur-md" />
+               <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-md bg-white rounded-[3rem] shadow-2xl p-10 text-center">
+                  <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+                     <FiShare2 className="w-10 h-10" />
+                  </div>
+                  <h3 className="text-2xl font-black uppercase tracking-tight text-gray-900 mb-2">Posting ke Jurnal?</h3>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest leading-relaxed mb-8 px-4">
+                     Invoice <span className="text-gray-900">{invoiceToPost.invoiceNo}</span> akan diposting ke Buku Besar. Tindakan ini tidak dapat dibatalkan.
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                     <button onClick={() => setShowPostConfirmModal(false)} className="py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-400 hover:bg-gray-50 transition-all">Batal</button>
+                     <button 
+                        onClick={() => handlePostToGL(invoiceToPost.id)} 
+                        disabled={processing}
+                        className="py-4 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-200 active:scale-95 transition-all flex items-center justify-center gap-2"
+                     >
+                        {processing ? <FiRotateCcw className="w-4 h-4 animate-spin" /> : <><FiCheckCircle className="w-4 h-4" /> <span>Ya, Posting</span></>}
+                     </button>
+                  </div>
+               </motion.div>
+            </div>
+         )}
+      </AnimatePresence>
+
       <style jsx global>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .tooltip { position: relative; }
+        .tooltip::after {
+          content: attr(data-tip);
+          position: absolute;
+          bottom: 125%;
+          left: 50%;
+          transform: translateX(-50%) scale(0.9);
+          padding: 6px 12px;
+          background: rgba(15, 23, 42, 0.9);
+          color: white;
+          font-size: 9px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          border-radius: 8px;
+          white-space: nowrap;
+          opacity: 0;
+          pointer-events: none;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+          z-index: 200;
+        }
+        .tooltip:hover::after {
+          opacity: 1;
+          transform: translateX(-50%) scale(1);
+        }
       `}</style>
     </div>
   )

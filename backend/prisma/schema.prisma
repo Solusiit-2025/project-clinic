@@ -53,6 +53,7 @@ model Clinic {
   stockOpnames        StockOpnameSession[]
   systemAccounts      SystemAccount[]
   users               UserClinic[]
+  compoundFormulas    CompoundFormula[]
 
   @@map("clinics")
 }
@@ -449,9 +450,11 @@ model PrescriptionItem {
   instructions   String?
   isRacikan      Boolean                     @default(false)
   racikanName    String?
+  formulaId      String?                     // Referensi ke master formula yang digunakan
   components     PrescriptionItemComponent[]
   medicine       Medicine?                   @relation(fields: [medicineId], references: [id])
   prescription   Prescription                @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  formula        CompoundFormula?            @relation(fields: [formulaId], references: [id])
 
   @@index([prescriptionId])
   @@map("prescription_items")
@@ -462,11 +465,65 @@ model PrescriptionItemComponent {
   prescriptionItemId String
   medicineId         String
   quantity           Float
+  unit               String?          // Satuan yang digunakan (tablet, kapsul, ml, dll)
   medicine           Medicine         @relation(fields: [medicineId], references: [id])
   prescriptionItem   PrescriptionItem @relation(fields: [prescriptionItemId], references: [id], onDelete: Cascade)
 
   @@index([prescriptionItemId])
   @@map("prescription_item_components")
+}
+
+// ============================================================
+// MASTER FORMULA RACIKAN (Bill of Materials)
+// ============================================================
+
+/// Template formula standar untuk obat racikan.
+/// Dokter/Apoteker cukup memilih formula, komponen terisi otomatis.
+model CompoundFormula {
+  id          String                @id @default(uuid())
+  formulaCode String                @unique
+  formulaName String
+  description String?
+  category    String?               // e.g. "Flu", "Batuk", "Alergi", "Salep"
+  dosageForm  String?               // e.g. "Kapsul", "Puyer", "Salep", "Sirup"
+  defaultQty  Int                   @default(10) // Jumlah default (misal: 10 kapsul)
+  defaultDosage     String?         // e.g. "3x1"
+  defaultFrequency  String?         // e.g. "3 kali sehari"
+  defaultDuration   String?         // e.g. "3 hari"
+  defaultInstructions String?       // e.g. "Diminum sesudah makan"
+  tuslahPrice Float                 @default(0) // Biaya jasa racik / tuslah
+  isActive    Boolean               @default(true)
+  clinicId    String?               // null = global/semua klinik, isi = khusus klinik tertentu
+  createdBy   String?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  deletedAt   DateTime?
+  clinic      Clinic?               @relation(fields: [clinicId], references: [id])
+  items       CompoundFormulaItem[]
+  prescriptionItems PrescriptionItem[]
+  productMaster ProductMaster?
+
+  @@index([clinicId])
+  @@index([category])
+  @@index([isActive])
+  @@map("compound_formulas")
+}
+
+/// Komponen bahan baku dari sebuah formula racikan.
+model CompoundFormulaItem {
+  id          String          @id @default(uuid())
+  formulaId   String
+  medicineId  String
+  quantity    Float           // Jumlah per 1 unit racikan (misal: 0.5 tablet per kapsul)
+  unit        String?         // Satuan (tablet, kapsul, ml, gram)
+  notes       String?         // Catatan khusus bahan ini
+  sortOrder   Int             @default(0)
+  formula     CompoundFormula @relation(fields: [formulaId], references: [id], onDelete: Cascade)
+  medicine    Medicine        @relation(fields: [medicineId], references: [id])
+
+  @@index([formulaId])
+  @@index([medicineId])
+  @@map("compound_formula_items")
 }
 
 model Medicine {
@@ -489,6 +546,7 @@ model Medicine {
   prescriptionItemComponents PrescriptionItemComponent[]
   prescriptionItems          PrescriptionItem[]
   productMaster              ProductMaster?
+  compoundFormulaItems       CompoundFormulaItem[]
 
   @@index([medicineName])
   @@index([clinicId])
@@ -550,32 +608,34 @@ model AppointmentService {
 }
 
 model ProductMaster {
-  id              String           @id @default(uuid())
-  masterCode      String           @unique
-  masterName      String
-  description     String?
-  isActive        Boolean          @default(true)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  medicineId      String?          @unique
-  categoryId      String?
-  image           String?
-  brand           String?
-  defaultUnit     String?          @default("pcs")
-  manufacturer    String?
-  minStock        Int?             @default(0)
-  purchasePrice   Float?           @default(0)
-  reorderPoint    Int?             @default(0)
-  sellingPrice    Float?           @default(0)
-  purchaseUnit    String?          @default("box")
-  sku             String?          @unique
-  storageUnit     String?          @default("pcs")
-  supplier        String?
-  usedUnit        String?          @default("pcs")
-  assets          Asset[]
-  productCategory ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  medicine        Medicine?        @relation(fields: [medicineId], references: [id])
-  products        Product[]
+  id                String           @id @default(uuid())
+  masterCode        String           @unique
+  masterName        String
+  description       String?
+  isActive          Boolean          @default(true)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  medicineId        String?          @unique
+  categoryId        String?
+  image             String?
+  brand             String?
+  defaultUnit       String?          @default("pcs")
+  manufacturer      String?
+  minStock          Int?             @default(0)
+  purchasePrice     Float?           @default(0)
+  reorderPoint      Int?             @default(0)
+  sellingPrice      Float?           @default(0)
+  purchaseUnit      String?          @default("box")
+  sku               String?          @unique
+  storageUnit       String?          @default("pcs")
+  supplier          String?
+  usedUnit          String?          @default("pcs")
+  compoundFormulaId String?          @unique
+  assets            Asset[]
+  productCategory   ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  medicine          Medicine?        @relation(fields: [medicineId], references: [id])
+  compoundFormula   CompoundFormula? @relation(fields: [compoundFormulaId], references: [id])
+  products          Product[]
 
   @@index([masterCode])
   @@index([categoryId])

@@ -37,8 +37,9 @@ export const LAYANAN_UTAMA_GROUPS = [
     icon: FiPackage,
     moduleId: 'PHARMACY',
     items: [
-      { icon: FiBox, label: 'Antrian Farmasi', href: '/admin/transactions/pharmacy' },
-      { icon: FiMenu, label: 'Data Obat & Alkes', href: '/admin/master/medicines' },
+      { icon: FiBox,      label: 'Antrian Farmasi',       href: '/admin/transactions/pharmacy' },
+      { icon: FiLayers,   label: 'Master Formula Racikan', href: '/admin/farmasi/formula-racikan' },
+      { icon: FiMenu,     label: 'Data Obat & Alkes',      href: '/admin/master/medicines' },
     ]
   }
 ]

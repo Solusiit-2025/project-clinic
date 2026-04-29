@@ -44,7 +44,7 @@ export const getPharmacyQueues = async (req: Request, res: Response) => {
       include: {
         patient: { select: { id: true, name: true, medicalRecordNo: true, gender: true } },
         doctor: { select: { id: true, name: true } },
-        items: { include: { medicine: true, components: { include: { medicine: true } } } },
+        items: { include: { medicine: true, components: { include: { medicine: true } }, formula: { select: { id: true, formulaName: true, formulaCode: true, tuslahPrice: true } } } },
         medicalRecord: {
           select: {
             registration: {
@@ -87,7 +87,7 @@ export const getPrescriptionById = async (req: Request, res: Response) => {
               registration: true
            }
         },
-        items: { include: { medicine: true, components: { include: { medicine: true } } } }
+        items: { include: { medicine: true, components: { include: { medicine: true } }, formula: { select: { id: true, formulaName: true, formulaCode: true, tuslahPrice: true } } } }
       }
     })
     
@@ -449,6 +449,7 @@ export const updatePrescriptionItems = async (req: Request, res: Response) => {
             prescriptionId: id,
             isRacikan: newItem.isRacikan,
             racikanName: newItem.racikanName,
+            formulaId: newItem.formulaId || null,
             medicineId: newItem.medicineId,
             quantity: newItem.quantity,
             dosage: newItem.dosage,
@@ -458,7 +459,8 @@ export const updatePrescriptionItems = async (req: Request, res: Response) => {
             components: newItem.isRacikan ? {
               create: newItem.components.map((c: any) => ({
                 medicineId: c.medicineId,
-                quantity: c.quantity
+                quantity: c.quantity,
+                unit: c.unit || null,
               }))
             } : undefined
           },

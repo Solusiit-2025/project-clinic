@@ -143,9 +143,20 @@ export const processPayment = async (req: Request, res: Response) => {
       // Resolve Kas/Bank COA based on payment method
       let debitCoaId: string | undefined
       if (paymentMethod === 'cash') {
-        // Cash: use CASH_ACCOUNT from System Accounts
+        // Cash: check System Accounts, then fallback to automatic clinic-code mapping
         debitCoaId = getSysAccount('CASH_ACCOUNT')?.coaId
-        if (!debitCoaId) throw new Error('Akun Kas (CASH_ACCOUNT) belum dipetakan di System Accounts.')
+        if (!debitCoaId) {
+            const clinic = await tx.clinic.findUnique({ where: { id: targetClinicId } })
+            if (clinic?.code) {
+                const pettyCashCode = `1-1101-${clinic.code}`
+                const specificCoa = await tx.chartOfAccount.findFirst({ where: { code: pettyCashCode } })
+                debitCoaId = specificCoa?.id
+            }
+        }
+        if (!debitCoaId) {
+            debitCoaId = (await tx.chartOfAccount.findFirst({ where: { code: '1-1101' } }))?.id
+        }
+        if (!debitCoaId) throw new Error('Akun Kas (Petty Cash) tidak ditemukan. Mohon petakan CASH_ACCOUNT di System Accounts atau buat akun 1-1101.')
       } else {
         // Transfer: prefer bank attached to invoice, fallback to BANK_ACCOUNT system account
         const finalBankId = bankId || (invoice as any).bankId
@@ -351,7 +362,28 @@ export const postInvoice = async (req: Request, res: Response) => {
                 let debitCoaId: string | null = null
                 if (pay.paymentMethod === 'CASH') {
                     const cashAcc = getSysAcc('CASH_ACCOUNT')
-                    debitCoaId = cashAcc?.coaId || (await tx.chartOfAccount.findFirst({ where: { code: '1-1101', OR: [{ clinicId: targetClinicId }, { clinicId: null }] } }))?.id || null
+                    
+                    // Priority 1: Check System Accounts (CASH_ACCOUNT) for this clinic
+                    debitCoaId = cashAcc?.coaId 
+                    
+                    // Priority 2: Automatic mapping based on Clinic Code (Petty Cash)
+                    if (!debitCoaId) {
+                        const clinic = await tx.clinic.findUnique({ where: { id: targetClinicId } })
+                        if (clinic?.code) {
+                            const pettyCashCode = `1-1101-${clinic.code}`
+                            const specificCoa = await tx.chartOfAccount.findFirst({ 
+                                where: { code: pettyCashCode, clinicId: targetClinicId } 
+                            })
+                            debitCoaId = specificCoa?.id || null
+                        }
+                    }
+
+                    // Priority 3: Fallback to global Petty Cash (1-1101)
+                    if (!debitCoaId) {
+                        debitCoaId = (await tx.chartOfAccount.findFirst({ 
+                            where: { code: '1-1101', OR: [{ clinicId: targetClinicId }, { clinicId: null }] } 
+                        }))?.id || null
+                    }
                 } else {
                     const bankAcc = getSysAcc('BANK_ACCOUNT')
                     // Corrected: Use bank.coaId instead of bankId

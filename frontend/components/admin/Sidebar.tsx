@@ -234,6 +234,103 @@ const SidebarContent = ({
     return groups.some(group => group.moduleId && user?.permissions?.includes(group.moduleId));
   };
 
+  const isFarmasi = user?.role === 'FARMASI'
+
+  // ── Farmasi-only menu ──────────────────────────────────────────────────────
+  const FARMASI_MENU = [
+    { icon: FiHome,    label: 'Dashboard',              href: '/admin/farmasi' },
+    { icon: FiBox,     label: 'Antrian Farmasi',        href: '/admin/transactions/pharmacy' },
+    { icon: FiLayers,  label: 'Formula Racikan',        href: '/admin/farmasi/formula-racikan' },
+    { icon: FiPackage, label: 'Stok Obat',              href: '/admin/inventory' },
+    { icon: FiRepeat,  label: 'Mutasi Stok',            href: '/admin/inventory/mutations' },
+    { icon: FiMenu,    label: 'Data Obat & Alkes',      href: '/admin/master/medicines' },
+  ]
+
+  if (isFarmasi) {
+    return (
+      <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--sidebar-bg)' }}>
+        {/* Brand */}
+        <div className={`flex-shrink-0 flex items-center transition-all duration-300 ${isCollapsed && !isMobile ? 'h-16 justify-center' : 'h-20 px-6'}`}>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex-shrink-0 flex items-center justify-center shadow-lg shadow-emerald-200 text-white font-black text-lg">
+              F
+            </div>
+            {(!isCollapsed || isMobile) && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="whitespace-nowrap">
+                <span className="font-black text-base tracking-tight leading-none block" style={{ color: 'var(--text-primary)' }}>Yasfina</span>
+                <span className="text-[9px] text-emerald-500 font-black uppercase tracking-widest mt-0.5 block">Farmasi</span>
+              </motion.div>
+            )}
+          </div>
+        </div>
+
+        {/* Clinic Switcher */}
+        {(!isCollapsed || isMobile) && (
+          <div className="px-5 pb-4">
+            <ClinicSwitcher full />
+          </div>
+        )}
+
+        {/* Navigation */}
+        <nav className="flex-1 px-3 overflow-y-auto custom-scrollbar pb-10">
+          {(!isCollapsed || isMobile) && (
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] px-3 pt-4 pb-2" style={{ color: 'var(--text-faint)' }}>
+              Menu Farmasi
+            </p>
+          )}
+          <div className="flex flex-col gap-1">
+            {FARMASI_MENU.map((item) => (
+              <SidebarNavItem
+                key={item.href}
+                item={item}
+                pathname={pathname}
+                isCollapsed={isCollapsed}
+                isMobile={isMobile}
+              />
+            ))}
+          </div>
+        </nav>
+
+        {/* Footer */}
+        <div className="p-4 space-y-2 flex-shrink-0 border-t" style={{ backgroundColor: 'var(--sidebar-bg)', borderColor: 'var(--sidebar-border)' }}>
+          {(!isCollapsed || isMobile) && (
+            <div className="px-4 py-3 rounded-2xl border" style={{ backgroundColor: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
+              <div className="flex items-center gap-3 overflow-hidden">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold text-xs shadow-sm">
+                  {user?.name?.[0] || 'F'}
+                </div>
+                <div className="flex-1 truncate">
+                  <p className="text-xs font-black truncate uppercase tracking-tight" style={{ color: 'var(--text-primary)' }}>{user?.name || 'Farmasi'}</p>
+                  <p className="text-[9px] font-bold truncate tracking-wide" style={{ color: 'var(--text-faint)' }}>{user?.email}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="flex flex-col gap-1">
+            <button
+              onClick={logout}
+              className={`flex items-center rounded-xl text-red-500 hover:bg-red-500/10 transition-all font-bold text-sm ${isCollapsed && !isMobile ? 'justify-center w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5 w-full'}`}
+            >
+              <FiLogOut className="w-5 h-5 flex-shrink-0" />
+              {(!isCollapsed || isMobile) && <span>Keluar</span>}
+            </button>
+            {!isMobile && (
+              <button
+                onClick={toggleCollapse}
+                className={`flex items-center rounded-xl transition-all font-bold text-sm hover:bg-primary/10 hover:text-primary ${isCollapsed && !isMobile ? 'justify-center w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5 w-full'}`}
+                style={{ color: 'var(--text-faint)' }}
+              >
+                <FiChevronLeft className={`w-5 h-5 transition-transform duration-500 ${isCollapsed ? 'rotate-180' : ''}`} />
+                {!isCollapsed && <span>Ciutkan Menu</span>}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Default (non-Farmasi) menu ─────────────────────────────────────────────
   return (
   <div
     className="flex flex-col h-full"

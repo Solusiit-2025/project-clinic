@@ -1019,6 +1019,7 @@ export const getProductMasters = async (req: Request, res: Response) => {
         include: { 
           productCategory: true,
           medicine: true,
+          compoundFormula: true, // Include compound formula info
           products: { 
             where: targetClinicId ? { clinicId: targetClinicId } : {},
             include: { clinic: true }
@@ -1054,6 +1055,7 @@ export const getProductMasters = async (req: Request, res: Response) => {
       
       return {
         ...p,
+        compoundFormulaId: p.compoundFormulaId || null, // Explicitly include for frontend
         totalStock: physicalStock,
         stock: targetClinicId && primaryProduct ? Math.max(0, primaryProduct.quantity - primaryReserved) : totalAvailable,
         availableStock: totalAvailable,

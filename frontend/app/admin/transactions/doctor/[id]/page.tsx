@@ -32,6 +32,7 @@ interface Medicine {
   masterName: string
   masterCode: string
   medicineId: string | null
+  compoundFormulaId?: string | null
   stock: number
   unit: string
   medicine?: {
@@ -53,6 +54,9 @@ export default function DoctorConsultationPage() {
   const { id } = useParams()
   const router = useRouter()
   const { user, activeClinicId } = useAuthStore()
+  
+  // Role Check - Only DOCTOR can access
+  const isDoctor = user?.role === 'DOCTOR'
   
   const [queue, setQueue] = useState<Queue | null>(null)
   const [loading, setLoading] = useState(true)
@@ -132,11 +136,13 @@ export default function DoctorConsultationPage() {
 
       // Fetch medicines for prescription
       const medRes = await api.get('/master/products', { params: { isActive: true } })
-      setMedicines(medRes.data)
+      const medicinesData = Array.isArray(medRes.data) ? medRes.data : (medRes.data?.data || [])
+      setMedicines(medicinesData)
 
       // Fetch services for tindakan
       const svcRes = await api.get('/master/services', { params: { isActive: true } })
-      setServices(svcRes.data)
+      const servicesData = Array.isArray(svcRes.data) ? svcRes.data : (svcRes.data?.data || [])
+      setServices(servicesData)
 
     } catch (e) {
       console.error('Failed to fetch data', e)
@@ -150,11 +156,14 @@ export default function DoctorConsultationPage() {
   }, [fetchData])
 
   const addPrescription = (m: Medicine) => {
-    // Only allow items that are formally registered as clinical medicines
-    if (!m.medicineId) return;
+    // Allow items that are:
+    // 1. Clinical medicines (medicineId exists)
+    // 2. Compound formulas (compoundFormulaId exists via ProductMaster)
+    if (!m.medicineId && !m.compoundFormulaId) return;
 
     setPrescriptionItems([...prescriptionItems, {
-      medicineId: m.medicineId,
+      medicineId: m.medicineId || null,
+      compoundFormulaId: m.compoundFormulaId || null,
       name: m.masterName,
       quantity: 1,
       dosage: m.medicine?.strength || '',
@@ -216,12 +225,14 @@ export default function DoctorConsultationPage() {
   }
 
   const filteredMedicines = useMemo(() => {
-    // Only show products linked to clinical medicine definitions for prescriptions
-    const clinicalMedicines = medicines.filter(m => m.medicineId)
+    // Show products linked to:
+    // 1. Clinical medicine definitions (medicineId)
+    // 2. Compound formulas (compoundFormulaId)
+    const prescribableProducts = medicines.filter(m => m.medicineId || m.compoundFormulaId)
     
     if (!searchMed) return []
     const lowerSearch = searchMed.toLowerCase()
-    return clinicalMedicines.filter(m => 
+    return prescribableProducts.filter(m => 
       m.masterName.toLowerCase().includes(lowerSearch) || 
       m.masterCode.toLowerCase().includes(lowerSearch) ||
       m.medicine?.genericName?.toLowerCase().includes(lowerSearch)
@@ -235,6 +246,75 @@ export default function DoctorConsultationPage() {
           <FiRefreshCw className="w-10 h-10 text-indigo-600 animate-spin mx-auto mb-4" />
           <p className="text-sm font-black text-gray-500 uppercase tracking-[0.2em]">Memuat Data Konsultasi...</p>
         </div>
+      </div>
+    )
+  }
+
+  // Role Warning - Non-Doctor Access
+  if (!isDoctor) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-50 p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-md w-full bg-white rounded-3xl shadow-2xl border-2 border-amber-200 p-8"
+        >
+          <div className="text-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+              <FiAlertCircle className="w-10 h-10 text-white" />
+            </div>
+            
+            <h2 className="text-2xl font-black text-gray-900 mb-3 uppercase tracking-tight">
+              Akses Terbatas
+            </h2>
+            
+            <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 mb-6">
+              <p className="text-sm font-bold text-amber-900 leading-relaxed">
+                Halaman <span className="font-black">Doctor Station</span> hanya dapat diakses oleh pengguna dengan role <span className="font-black text-amber-600">DOCTOR</span>.
+              </p>
+            </div>
+
+            <div className="space-y-3 text-left bg-gray-50 rounded-2xl p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <FiUser className="w-3.5 h-3.5 text-gray-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-gray-400 uppercase tracking-wide">Role Anda Saat Ini</p>
+                  <p className="text-sm font-bold text-gray-900">{user?.role || 'Unknown'}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <FiClipboard className="w-3.5 h-3.5 text-gray-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-gray-400 uppercase tracking-wide">Role yang Dibutuhkan</p>
+                  <p className="text-sm font-bold text-indigo-600">DOCTOR</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => router.back()}
+                className="w-full py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl font-black text-sm uppercase tracking-wide hover:from-indigo-700 hover:to-indigo-800 transition-all shadow-lg shadow-indigo-200 active:scale-95"
+              >
+                <FiArrowLeft className="inline-block w-4 h-4 mr-2" />
+                Kembali
+              </button>
+              
+              <button
+                onClick={() => router.push('/admin')}
+                className="w-full py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all active:scale-95"
+              >
+                <FiHome className="inline-block w-4 h-4 mr-2" />
+                Ke Dashboard
+              </button>
+            </div>
+          </div>
+        </motion.div>
       </div>
     )
   }

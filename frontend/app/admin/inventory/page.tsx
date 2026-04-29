@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Package, AlertTriangle, ArrowUpRight, ArrowDownRight, 
   Search, Filter, RefreshCw, Layers, ShieldAlert,
-  History, Box, ChevronRight
+  History, Box, ChevronRight, EyeOff
 } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -34,7 +34,9 @@ interface Stock {
 }
 
 export default function InventoryDashboard() {
-  const { activeClinicId } = useAuthStore()
+  const { activeClinicId, user } = useAuthStore()
+  const isFarmasi = user?.role === 'FARMASI'
+
   const [stocks, setStocks] = useState<Stock[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -103,7 +105,14 @@ export default function InventoryDashboard() {
         <div className="flex items-center gap-3">
           <div className="flex-1 sm:flex-none py-2 px-4 bg-white border border-gray-100 rounded-2xl shadow-sm flex flex-col items-end min-w-[140px]">
              <span className="text-[8px] font-black text-gray-400 uppercase tracking-[0.2em] mb-0.5">Total Nilai Aset</span>
-             <span className="text-sm md:text-base font-black text-primary">Rp {(totalAssetValue || 0).toLocaleString('id-ID')}</span>
+             {isFarmasi ? (
+               <span className="flex items-center gap-1.5 text-sm font-black text-gray-300">
+                 <EyeOff className="w-3.5 h-3.5" />
+                 <span className="tracking-[0.3em]">••••••••</span>
+               </span>
+             ) : (
+               <span className="text-sm md:text-base font-black text-primary">Rp {(totalAssetValue || 0).toLocaleString('id-ID')}</span>
+             )}
           </div>
           <button 
             onClick={fetchStocks}
@@ -181,8 +190,8 @@ export default function InventoryDashboard() {
           <div className="col-span-1 text-center">Fisik</div>
           <div className="col-span-1 text-center">Proses</div>
           <div className="col-span-1 text-center text-primary">Avail</div>
-          <div className="col-span-2 text-right">Harga Beli</div>
-          <div className="col-span-2 text-right">Total Nilai</div>
+          <div className="col-span-2 text-right">{isFarmasi ? <EyeOff className="w-3.5 h-3.5 ml-auto text-gray-300" /> : 'Harga Beli'}</div>
+          <div className="col-span-2 text-right">{isFarmasi ? <EyeOff className="w-3.5 h-3.5 ml-auto text-gray-300" /> : 'Total Nilai'}</div>
         </div>
 
         <AnimatePresence mode="popLayout">
@@ -238,8 +247,16 @@ export default function InventoryDashboard() {
                       <div className="col-span-1 text-center font-black text-gray-900 text-sm">{onHand}</div>
                       <div className="col-span-1 text-center font-black text-orange-400 text-sm">{reserved}</div>
                       <div className="col-span-1 text-center font-black text-primary text-sm">{available}</div>
-                      <div className="col-span-2 text-right font-bold text-gray-600">Rp {price.toLocaleString('id-ID')}</div>
-                      <div className="col-span-2 text-right font-black text-gray-900">Rp {(onHand * price).toLocaleString('id-ID')}</div>
+                      <div className="col-span-2 text-right font-bold text-gray-600">
+                        {isFarmasi
+                          ? <span className="tracking-[0.25em] text-gray-300 font-black">••••••</span>
+                          : `Rp ${price.toLocaleString('id-ID')}`}
+                      </div>
+                      <div className="col-span-2 text-right font-black text-gray-900">
+                        {isFarmasi
+                          ? <span className="tracking-[0.25em] text-gray-300">••••••••</span>
+                          : `Rp ${(onHand * price).toLocaleString('id-ID')}`}
+                      </div>
                     </div>
 
                     {/* Mobile Native Card View */}
@@ -280,7 +297,9 @@ export default function InventoryDashboard() {
                       <div className="flex justify-between items-center pt-2">
                         <div>
                           <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Total Nilai Stok</p>
-                          <p className="text-sm font-black text-gray-900 leading-none">Rp {(onHand * price).toLocaleString('id-ID')}</p>
+                          {isFarmasi
+                            ? <p className="text-sm font-black text-gray-300 tracking-[0.3em] leading-none">••••••••</p>
+                            : <p className="text-sm font-black text-gray-900 leading-none">Rp {(onHand * price).toLocaleString('id-ID')}</p>}
                         </div>
                         <div className="p-2 bg-gray-50 rounded-xl">
                           <History className="w-4 h-4 text-gray-400" />

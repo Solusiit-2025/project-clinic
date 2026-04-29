@@ -27,7 +27,8 @@ interface Mutation {
 }
 
 export default function StockMutationPage() {
-  const { activeClinicId } = useAuthStore()
+  const { activeClinicId, user } = useAuthStore()
+  const isFarmasi = user?.role === 'FARMASI'
   const [mutations, setMutations] = useState<Mutation[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -137,7 +138,7 @@ export default function StockMutationPage() {
           <div className="col-span-4">Waktu & Informasi Produk</div>
           <div className="col-span-2 text-center">Jenis</div>
           <div className="col-span-1 text-center">Qty</div>
-          <div className="col-span-2 text-right">Nilai Satuan</div>
+          <div className="col-span-2 text-right">{isFarmasi ? '—' : 'Nilai Satuan'}</div>
           <div className="col-span-3">Catatan / Referensi</div>
         </div>
 
@@ -192,7 +193,9 @@ export default function StockMutationPage() {
                     </div>
                     <div className="col-span-2 text-right">
                        <p className="text-[9px] font-bold text-gray-300 uppercase leading-none mb-1">Rp Satuan</p>
-                       <p className="font-bold text-gray-700 text-sm">{(m.batch?.purchasePrice || 0).toLocaleString('id-ID')}</p>
+                       {isFarmasi
+                         ? <p className="font-black text-gray-300 tracking-[0.3em]">••••••</p>
+                         : <p className="font-bold text-gray-700 text-sm">{(m.batch?.purchasePrice || 0).toLocaleString('id-ID')}</p>}
                     </div>
                     <div className="col-span-3 pl-4">
                        <p className="text-[10px] font-black text-gray-700 uppercase tracking-tight truncate">{m.referenceType?.replace(/_/g, ' ') || 'PENYESUAIAN MANUAL'}</p>
@@ -227,7 +230,9 @@ export default function StockMutationPage() {
                        </div>
                        <div className="p-3 bg-gray-50 rounded-2xl">
                           <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Harga Satuan</p>
-                          <p className="text-sm font-black text-gray-900">Rp {(m.batch?.purchasePrice || 0).toLocaleString('id-ID')}</p>
+                          {isFarmasi
+                            ? <p className="text-sm font-black text-gray-300 tracking-[0.3em]">••••••</p>
+                            : <p className="text-sm font-black text-gray-900">Rp {(m.batch?.purchasePrice || 0).toLocaleString('id-ID')}</p>}
                        </div>
                     </div>
                     

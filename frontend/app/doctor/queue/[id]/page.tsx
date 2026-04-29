@@ -7,12 +7,14 @@ import { useParams, useRouter } from 'next/navigation'
 import { 
   FiActivity, FiCheckCircle, FiRefreshCw, FiUser, 
   FiHome, FiAlertCircle, FiClipboard, FiHeart, FiThermometer, FiWind,
-  FiEdit3, FiTrash2, FiSearch, FiPackage, FiInfo, FiArrowLeft, FiSave, FiRotateCcw,
+  FiEdit3, FiTrash2, FiSearch, FiPackage, FiInfo, FiArrowLeft, FiSave, FiRotateCcw, FiPrinter,
   FiPlus, FiMinus, FiDollarSign, FiHash, FiClock, FiChevronDown, FiCalendar, FiLock
 } from 'react-icons/fi'
 import { HiOutlineBeaker } from 'react-icons/hi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { toast } from 'react-hot-toast'
+import { jsPDF } from 'jspdf'
+import html2canvas from 'html2canvas'
 
 interface Queue {
   id: string
@@ -113,7 +115,30 @@ export default function DoctorConsultationPage() {
 
   const [isMedDropdownOpen, setIsMedDropdownOpen] = useState(false)
   const [isServiceDropdownOpen, setIsServiceDropdownOpen] = useState(false)
+  const [isMedDialogOpen, setIsMedDialogOpen] = useState(false)
+  const [selectedMedicines, setSelectedMedicines] = useState<Medicine[]>([])
+  
+  // Referral State
+  const [referralType, setReferralType] = useState<'INTERNAL' | 'EXTERNAL'>('INTERNAL')
+  const [referralToClinicId, setReferralToClinicId] = useState('')
+  const [referralToDepartmentId, setReferralToDepartmentId] = useState('')
+  const [referralToHospitalName, setReferralToHospitalName] = useState('')
+  const [referralNotes, setReferralNotes] = useState('')
+  const [clinicsList, setClinicsList] = useState<any[]>([])
+  const [departmentsList, setDepartmentsList] = useState<any[]>([])
+  const [isPrinting, setIsPrinting] = useState(false)
+  const [isReferralPreviewOpen, setIsReferralPreviewOpen] = useState(false)
+  const [currentPrintReferral, setCurrentPrintReferral] = useState<any>(null)
+  
+  // Lab State
+  const [labItems, setLabItems] = useState<any[]>([])
+  const [searchLab, setSearchLab] = useState('')
+  const [isLabDropdownOpen, setIsLabDropdownOpen] = useState(false)
+  const [isLabPreviewOpen, setIsLabPreviewOpen] = useState(false)
+  const [currentPrintLab, setCurrentPrintLab] = useState<any>(null)
+  
   const hasFetchedRef = useRef<string | null>(null)
+  const labDropdownRef = useRef<HTMLDivElement>(null)
 
   const isReadOnly = useMemo(() => queue?.status === 'completed', [queue])
 
@@ -135,7 +160,7 @@ export default function DoctorConsultationPage() {
       const queueHeaders = qData?.clinicId ? { 'x-clinic-id': qData.clinicId } : undefined
 
       // Fetch independent resources in parallel to reduce total load time
-      const [medicalRecordRes, historyRes, svcRes, templateRes] = await Promise.all([
+      const [medicalRecordRes, historyRes, svcRes, templateRes, clinicsRes, deptsRes] = await Promise.all([
         qData.registrationId
           ? api.get(`transactions/medical-records/registration/${qData.registrationId}`)
           : Promise.resolve({ data: null }),
@@ -146,7 +171,9 @@ export default function DoctorConsultationPage() {
           params: { isActive: true, allClinics: true },
           headers: queueHeaders
         }),
-        api.get('clinical/templates')
+        api.get('clinical/templates'),
+        api.get('master/clinics'),
+        api.get('master/departments')
       ])
 
       // Fetch draft medical record
@@ -173,7 +200,8 @@ export default function DoctorConsultationPage() {
                 dosage: item.dosage,
                 frequency: item.frequency,
                 duration: item.duration,
-                instructions: item.instructions || ''
+                instructions: item.instructions || '',
+                unit: item.unit || item.medicine?.unit || 'unit' // Tambahkan satuan
               }))
             )
             setPrescriptionItems(savedItems)
@@ -205,8 +233,10 @@ export default function DoctorConsultationPage() {
       // Fetch services for tindakan based on queue's clinic context
       setAllServices(svcRes.data)
 
-      // Fetch templates
+      // Fetch templates, clinics, depts
       setTemplates(templateRes.data)
+      setClinicsList(clinicsRes.data)
+      setDepartmentsList(deptsRes.data)
 
     } catch (e) {
       console.error('Failed to fetch consultation data', e)
@@ -221,13 +251,25 @@ export default function DoctorConsultationPage() {
     fetchData()
   }, [fetchData])
 
+  
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (labDropdownRef.current && !labDropdownRef.current.contains(event.target as Node)) {
+        setIsLabDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   // Medicine Search Logic
   useEffect(() => {
     if (isReadOnly) return
     const controller = new AbortController()
     
     const searchTimeout = setTimeout(async () => {
-      if (searchMed.length < 2 && !isMedDropdownOpen) {
+      // Tampilkan dropdown jika sedang dibuka, tidak peduli panjang search text
+      if (!isMedDropdownOpen && !isMedDialogOpen) {
         setSearchMedicines([])
         return
       }
@@ -237,13 +279,14 @@ export default function DoctorConsultationPage() {
           params: { 
             isActive: true, 
             search: searchMed || undefined, 
-            limit: 20,
+            limit: 50, // Tingkatkan limit agar lebih banyak produk muncul
             clinicId: queue?.clinicId
           },
           signal: controller.signal
         })
         const list = medRes.data.data || medRes.data
-        setSearchMedicines(Array.isArray(list) ? list.filter((m: any) => m.medicineId) : [])
+        // Filter produk yang punya medicineId (obat klinis) ATAU compoundFormulaId (racikan)
+        setSearchMedicines(Array.isArray(list) ? list.filter((m: any) => m.medicineId || m.compoundFormulaId) : [])
       } catch (e: any) {
         if (e.name === 'CanceledError' || e.name === 'AbortError') {
           // Silently ignore aborted requests
@@ -257,7 +300,7 @@ export default function DoctorConsultationPage() {
       clearTimeout(searchTimeout)
       controller.abort()
     }
-  }, [searchMed, isMedDropdownOpen, isReadOnly, queue?.clinicId])
+  }, [searchMed, isMedDropdownOpen, isMedDialogOpen, isReadOnly, queue?.clinicId])
 
   // Service Search Logic
   useEffect(() => {
@@ -284,15 +327,17 @@ export default function DoctorConsultationPage() {
   }, [])
 
   const addPrescription = (m: Medicine) => {
-    if (!m.medicineId || isReadOnly) return
+    // Allow both medicine products (medicineId) and compound formula products (compoundFormulaId)
+    if ((!m.medicineId && !(m as any).compoundFormulaId) || isReadOnly) return
     setPrescriptionItems([...prescriptionItems, {
-      medicineId: m.medicineId,
+      medicineId: m.medicineId || m.id, // Use product id if medicineId is null (for compound formulas)
       name: m.masterName,
       quantity: 1,
       dosage: m.medicine?.strength || '',
       frequency: '3x1',
       duration: '5 hari',
-      instructions: 'Sesudah makan'
+      instructions: 'Sesudah makan',
+      unit: m.unit || 'unit' // Tambahkan satuan
     }])
     setSearchMed('')
   }
@@ -309,7 +354,7 @@ export default function DoctorConsultationPage() {
     setSearchService('')
   }
 
-  const handleSaveConsultation = async (isFinal: boolean = true) => {
+  const handleSaveConsultation = async (isFinal: boolean = true, goToPrescription: boolean = false) => {
     if (!queue || !medicalRecord || isReadOnly) return
     setSaving(true)
     const toastId = toast.loading(isFinal ? 'Menyimpan hasil konsultasi...' : 'Menyimpan draft...')
@@ -325,11 +370,19 @@ export default function DoctorConsultationPage() {
         labResults,
         notes,
         hasInformedConsent,
-        services: serviceItems.map(s => ({ 
-          serviceId: s.serviceId, 
-          quantity: parseInt(s.quantity) || 0, 
-          price: parseFloat(s.price) || 0 
-        })),
+        services: [
+          ...serviceItems.map(s => ({ 
+            serviceId: s.serviceId, 
+            quantity: parseInt(s.quantity) || 0, 
+            price: parseFloat(s.price) || 0 
+          })),
+          ...labItems.map(l => ({
+            serviceId: l.id,
+            quantity: 1,
+            price: l.price || 0,
+            isLab: true
+          }))
+        ],
         prescriptions: prescriptionItems.map(p => ({
           ...p,
           quantity: parseInt(p.quantity) || 0
@@ -338,7 +391,11 @@ export default function DoctorConsultationPage() {
       })
       
       toast.success(isFinal ? 'Pemeriksaan selesai!' : 'Draft disimpan!', { id: toastId })
-      if (isFinal) {
+      
+      if (goToPrescription) {
+        // Asumsi format route pasien: /doctor/patients/[id]?tab=prescriptions
+        router.push(`/doctor/patients/${queue.patientId}?tab=prescriptions`)
+      } else if (isFinal) {
         router.push('/doctor/queue')
       }
     } catch (e) {
@@ -347,6 +404,139 @@ export default function DoctorConsultationPage() {
       setSaving(false)
     }
   }
+
+  const handleSaveAndPrintReferral = async () => {
+    if (!medicalRecord || !queue) {
+      toast.error('Gagal membuat rujukan: Rekam medis tidak ditemukan')
+      return
+    }
+
+    if (referralType === 'INTERNAL' && (!referralToClinicId || !referralToDepartmentId)) {
+      toast.error('Harap pilih Klinik dan Poli tujuan')
+      return
+    }
+    if (referralType === 'EXTERNAL' && !referralToHospitalName) {
+      toast.error('Harap isi nama RS tujuan')
+      return
+    }
+
+    const toastId = toast.loading('Menyimpan surat rujukan...')
+    try {
+      const payload = {
+        medicalRecordId: medicalRecord.id,
+        type: referralType,
+        toClinicId: referralType === 'INTERNAL' ? referralToClinicId : undefined,
+        toDepartmentId: referralType === 'INTERNAL' ? referralToDepartmentId : undefined,
+        toHospitalName: referralType === 'EXTERNAL' ? referralToHospitalName : undefined,
+        notes: referralNotes
+      }
+      
+      const res = await api.post('clinical/referrals', payload)
+      
+      toast.success('Rujukan berhasil disimpan', { id: toastId })
+      
+      // Update local referrals list
+      setReferrals([res.data, ...referrals])
+      
+      // Set print data and trigger print
+      setCurrentPrintReferral(res.data)
+      setIsReferralPreviewOpen(true)
+      
+      // Reset form
+      setReferralNotes('')
+      setReferralToClinicId('')
+      setReferralToDepartmentId('')
+      setReferralToHospitalName('')
+      
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Gagal menyimpan rujukan', { id: toastId })
+    }
+  }
+
+  const generateLabPDF = async (patientName: string) => {
+    const printElement = document.getElementById('print-lab-template')
+    if (!printElement) {
+      setIsPrinting(false)
+      return
+    }
+    
+    try {
+      const toastId = toast.loading('Memproses PDF Order Lab...')
+      const canvas = await html2canvas(printElement, {
+        scale: 2,
+        useCORS: true,
+        logging: false
+      })
+      
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const pdfWidth = 210
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+      
+      const dateStr = new Date().toISOString().split('T')[0]
+      pdf.save(`Order_Lab_${patientName.replace(/\s+/g, '_')}_${dateStr}.pdf`)
+      toast.success('Order Lab berhasil diunduh', { id: toastId })
+      
+    } catch (e) {
+      console.error('Error generating Lab PDF:', e)
+      toast.error('Gagal menghasilkan file PDF Order Lab')
+    } finally {
+      setIsPrinting(false)
+    }
+  }
+
+  const handlePrintLabOrder = () => {
+    if (labItems.length === 0 && !labNotes) {
+      toast.error('Harap pilih pemeriksaan atau isi catatan lab')
+      return
+    }
+    setIsLabPreviewOpen(true)
+  }
+
+  const generatePDF = async (patientName: string) => {
+    const printElement = document.getElementById('print-referral-template')
+    if (!printElement) {
+      setIsPrinting(false)
+      return
+    }
+    
+    try {
+      const toastId = toast.loading('Memproses PDF...')
+      // Capture the element
+      const canvas = await html2canvas(printElement, {
+        scale: 2, // High resolution
+        useCORS: true,
+        logging: false
+      })
+      
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      
+      // A4 size: 210 x 297 mm
+      const pdfWidth = 210
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+      
+      const dateStr = new Date().toISOString().split('T')[0]
+      pdf.save(`Surat_Rujukan_${patientName.replace(/\s+/g, '_')}_${dateStr}.pdf`)
+      toast.success('PDF berhasil diunduh', { id: toastId })
+      
+    } catch (e) {
+      console.error('Error generating PDF:', e)
+      toast.error('Gagal menghasilkan file PDF')
+    } finally {
+      setIsPrinting(false)
+    }
+  }
+
+  const handleReprintReferral = (referral: any) => {
+    setCurrentPrintReferral(referral)
+    setIsReferralPreviewOpen(true)
+  }
+
 
   if (loading) {
     return (
@@ -588,41 +778,23 @@ export default function DoctorConsultationPage() {
                       <p className="text-[10px] font-bold text-slate-400">Daftar obat yang diberikan kepada pasien</p>
                     </div>
                     {!isReadOnly && (
-                      <div className="relative w-full md:w-96 group" onClick={(e) => e.stopPropagation()}>
-                        <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
-                        <input 
-                          value={searchMed} 
-                          onChange={(e) => setSearchMed(e.target.value)} 
-                          onFocus={() => setIsMedDropdownOpen(true)}
-                          placeholder="Cari nama obat atau generic..." 
-                          className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-black outline-none focus:bg-white focus:border-primary shadow-sm group-focus-within:ring-4 group-focus-within:ring-primary/5 transition-all" 
-                        />
-                        <button 
-                          onClick={() => setIsMedDropdownOpen(!isMedDropdownOpen)}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-primary transition-colors p-1"
-                        >
-                          <FiChevronDown className={`w-4 h-4 transition-transform ${isMedDropdownOpen ? 'rotate-180' : ''}`} />
-                        </button>
-                        
-                        <AnimatePresence>
-                          {searchMedicines.length > 0 && (
-                            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute top-full left-0 w-full bg-white border border-slate-100 rounded-3xl shadow-2xl mt-3 z-50 max-h-80 overflow-y-auto overflow-x-hidden p-2">
-                              {searchMedicines.map(m => (
-                                <button key={m.id} onClick={() => addPrescription(m)} className="w-full p-4 hover:bg-slate-50 text-left rounded-2xl transition-all group flex items-start justify-between gap-4 border-b border-slate-50 last:border-0 mb-1">
-                                  <div>
-                                    <p className="text-xs font-black text-slate-800 group-hover:text-primary transition-colors uppercase tracking-tight">{m.masterName}</p>
-                                    <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase italic">{m.medicine?.genericName} • {m.medicine?.strength}</p>
-                                  </div>
-                                  <div className="text-right">
-                                    <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${(m.availableStock ?? m.stock) > 10 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                                      Stok Tersedia: {(m.availableStock ?? m.stock)} {m.unit}
-                                    </span>
-                                  </div>
-                                </button>
-                              ))}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
+                      <div className="flex gap-4">
+                         <button 
+                           onClick={() => {
+                             setIsMedDialogOpen(true)
+                             setSelectedMedicines([]) // Reset selection when opening
+                             setSearchMed('') // Reset search
+                           }} 
+                           className="px-6 py-4 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2"
+                         >
+                           <FiPlus className="w-4 h-4" /> PILIH OBAT
+                         </button>
+                         <button 
+                           onClick={() => handleSaveConsultation(false, true)} 
+                           className="px-6 py-4 bg-indigo-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-500/20 hover:bg-indigo-600 transition-all flex items-center gap-2"
+                         >
+                           <FiSave className="w-4 h-4" /> SIMPAN & BUKA RESEP
+                         </button>
                       </div>
                     )}
                   </div>
@@ -643,7 +815,17 @@ export default function DoctorConsultationPage() {
                                </div>
                                <div>
                                   <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{p.name}</p>
-                                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{p.dosage}</p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{p.dosage}</p>
+                                    {p.unit && (
+                                      <>
+                                        <span className="text-slate-300">•</span>
+                                        <span className="text-[9px] font-black text-primary uppercase tracking-widest bg-primary/5 px-2 py-0.5 rounded">
+                                          Satuan: {p.unit}
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
                                </div>
                             </div>
                           </div>
@@ -657,8 +839,10 @@ export default function DoctorConsultationPage() {
                               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Instruksi Khusus</label>
                               <input disabled={isReadOnly} value={p.instructions} onChange={(e) => { const n = [...prescriptionItems]; n[idx].instructions = e.target.value; setPrescriptionItems(n); }} placeholder="e.g. Sesudah makan" className={`w-full px-4 py-2 text-xs font-black border border-slate-200 rounded-xl focus:border-primary outline-none ${isReadOnly ? 'bg-slate-50' : 'bg-white'}`} />
                             </div>
-                            <div className="w-24">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Qty</label>
+                            <div className="w-32">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
+                                Qty {p.unit && <span className="text-primary">({p.unit})</span>}
+                              </label>
                               <div className={`flex items-center border border-slate-200 rounded-xl overflow-hidden ${isReadOnly ? 'bg-slate-50' : 'bg-white'}`}>
                                  <input disabled={isReadOnly} type="number" value={p.quantity} onChange={(e) => { const n = [...prescriptionItems]; n[idx].quantity = e.target.value; setPrescriptionItems(n); }} className="w-full text-center py-2 text-xs font-black outline-none bg-transparent" />
                               </div>
@@ -768,34 +952,163 @@ export default function DoctorConsultationPage() {
             )}
 
             {activeSegment === 'lab' && (
-              <motion.div key="lab" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-                <div className="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm min-h-[500px]">
-                  <div className="flex items-center justify-between mb-8">
-                     <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Laboratorium & Diagnostik</h3>
-                     <div className="flex items-center gap-2">
-                        {isReadOnly && <FiLock className="text-slate-400" />}
-                        <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest bg-rose-50 px-3 py-1 rounded-full flex items-center gap-2">
-                           <HiOutlineBeaker /> Lab Order
-                        </span>
+              <motion.div key='lab' initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className='space-y-6'>
+                <div className='bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm min-h-[600px] flex flex-col'>
+                  <div className='flex items-center justify-between mb-8 pb-6 border-b border-slate-50'>
+                     <div className='flex items-center gap-4'>
+                        <div className='w-12 h-12 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 shadow-sm border border-rose-100'>
+                           <HiOutlineBeaker className='w-6 h-6' />
+                        </div>
+                        <div>
+                           <h3 className='text-xs font-black text-slate-800 uppercase tracking-widest leading-none'>Laboratory Diagnostic Center</h3>
+                           <p className='text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2'>Pilih pemeriksaan dan kelola hasil lab</p>
+                        </div>
+                     </div>
+                     <div className='flex items-center gap-3'>
+                        <button 
+                           onClick={handlePrintLabOrder}
+                           className='px-6 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 flex items-center gap-2'
+                        >
+                           <FiPrinter /> Cetak Order Lab
+                        </button>
                      </div>
                   </div>
-                  <div className="grid grid-cols-1 gap-8">
-                    <div className="space-y-3 group">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 group-focus-within:text-rose-500 transition-colors">Permintaan Pemeriksaan Lab (Order Notes)</label>
-                      <textarea disabled={isReadOnly} value={labNotes} onChange={(e) => setLabNotes(e.target.value)} className={`w-full p-8 border border-slate-200 rounded-3xl min-h-[180px] text-base font-bold focus:bg-white focus:border-rose-500 outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60' : 'bg-slate-50'}`} placeholder="Pemeriksaan darah lengkap, urine, dsb..." />
-                    </div>
-                    <div className="space-y-3 group">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 group-focus-within:text-indigo-500 transition-colors">Hasil Laboratorium (Summary Results)</label>
-                      <textarea disabled={isReadOnly} value={labResults} onChange={(e) => setLabResults(e.target.value)} className={`w-full p-8 border border-slate-200 rounded-3xl min-h-[180px] text-base font-bold focus:bg-white focus:border-indigo-500 outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60' : 'bg-slate-50'}`} placeholder="Tuliskan ringkasan hasil pemeriksaan laboratorium jika sudah tersedia..." />
-                    </div>
-                  </div>
-                  <div className="mt-8 p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
-                        <FiInfo /> Catatan
-                     </p>
-                     <p className="text-[10px] font-medium text-slate-400 leading-relaxed uppercase tracking-tight">
-                        Catatan order lab akan diteruskan ke tim laboratorium. Hasil lab yang diinput di sini akan otomatis tersimpan dalam rekam medis permanen pasien.
-                     </p>
+
+                  <div className='grid grid-cols-12 gap-10 flex-1'>
+                     <div className='col-span-7 space-y-8'>
+                        <div className='relative group' ref={labDropdownRef}>
+                           <label className='text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 group-focus-within:text-rose-500 transition-colors'>Cari Pemeriksaan Lab</label>
+                           <div className='mt-3 relative'>
+                              <button 
+                                 onClick={() => setIsLabDropdownOpen(!isLabDropdownOpen)}
+                                 className='absolute inset-y-0 right-4 flex items-center z-10 text-slate-400 hover:text-rose-500 transition-colors'
+                              >
+                                 <FiChevronDown className={`w-5 h-5 transition-transform ${isLabDropdownOpen ? 'rotate-180' : ''}`} />
+                              </button>
+                              <div className='absolute inset-y-0 left-6 flex items-center pointer-events-none'>
+                                 <FiSearch className='text-slate-400 group-focus-within:text-rose-500 transition-colors' />
+                              </div>
+                              <input 
+                                 type='text' 
+                                 value={searchLab}
+                                 onChange={(e) => {
+                                    setSearchLab(e.target.value);
+                                    setIsLabDropdownOpen(true);
+                                 }}
+                                 onFocus={() => setIsLabDropdownOpen(true)}
+                                 className='w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:bg-white focus:border-rose-500 outline-none transition-all'
+                                 placeholder='Ketik nama pemeriksaan (ex: Darah Lengkap)...'
+                              />
+                              <AnimatePresence>
+                                 {isLabDropdownOpen && (
+                                    <motion.div 
+                                       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                                       className='absolute z-50 left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-xl max-h-[300px] overflow-y-auto'
+                                    >
+                                       {allServices.filter(s => {
+                                          const search = searchLab.toLowerCase();
+                                          const name = s.serviceName.toLowerCase();
+                                          const category = s.serviceCategory?.categoryName?.toLowerCase() || '';
+                                          const isLab = name.includes('lab') || category.includes('lab');
+                                          
+                                          if (!search) return isLab;
+                                          return name.includes(search) || category.includes(search);
+                                       }).length > 0 ? (
+                                          allServices.filter(s => 
+                                             s.serviceName.toLowerCase().includes(searchLab.toLowerCase()) ||
+                                             s.serviceCategory?.categoryName?.toLowerCase().includes('lab')
+                                          ).map(svc => (
+                                             <button 
+                                                key={svc.id}
+                                                onClick={() => {
+                                                   if (!labItems.find(i => i.id === svc.id)) {
+                                                      setLabItems([...labItems, svc]);
+                                                   }
+                                                   setSearchLab('');
+                                                   setIsLabDropdownOpen(false);
+                                                }}
+                                                className='w-full px-6 py-4 text-left hover:bg-slate-50 flex items-center justify-between border-b border-slate-50 last:border-0'
+                                             >
+                                                <div>
+                                                   <p className='text-sm font-bold text-slate-800'>{svc.serviceName}</p>
+                                                   <p className='text-[10px] font-bold text-slate-400 uppercase'>{svc.serviceCategory?.categoryName || 'Lab Test'}</p>
+                                                </div>
+                                                <FiPlus className='text-rose-500' />
+                                             </button>
+                                          ))
+                                       ) : (
+                                          <div className='p-8 text-center text-slate-400 text-sm font-bold uppercase tracking-widest'>Pemeriksaan tidak ditemukan</div>
+                                       )}
+                                    </motion.div>
+                                 )}
+                              </AnimatePresence>
+                           </div>
+                        </div>
+                        <div className='space-y-4'>
+                           <label className='text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1'>Pemeriksaan yang Dipilih</label>
+                           {labItems.length > 0 ? (
+                              <div className='grid grid-cols-1 gap-3'>
+                                 {labItems.map((item, idx) => (
+                                    <motion.div 
+                                       key={item.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                                       className='flex items-center justify-between p-5 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-rose-200 transition-all group'
+                                    >
+                                       <div className='flex items-center gap-4'>
+                                          <div className='w-8 h-8 bg-slate-50 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-400'>
+                                             {idx + 1}
+                                          </div>
+                                          <div>
+                                             <p className='text-sm font-black text-slate-800 uppercase tracking-tight'>{item.serviceName}</p>
+                                             <p className='text-[10px] font-bold text-slate-400 uppercase tracking-widest'>{item.serviceCategory?.categoryName || 'Diagnostic'}</p>
+                                          </div>
+                                       </div>
+                                       <button 
+                                          onClick={() => setLabItems(labItems.filter(i => i.id !== item.id))}
+                                          className='p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all opacity-0 group-hover:opacity-100'
+                                       >
+                                          <FiTrash2 />
+                                       </button>
+                                    </motion.div>
+                                 ))}
+                              </div>
+                           ) : (
+                              <div className='p-12 border-2 border-dashed border-slate-100 rounded-[2rem] text-center'>
+                                 <HiOutlineBeaker className='w-12 h-12 text-slate-200 mx-auto mb-4' />
+                                 <p className='text-sm font-bold text-slate-300 uppercase tracking-widest leading-loose'>Belum ada pemeriksaan<br/>yang dipilih</p>
+                              </div>
+                           )}
+                        </div>
+                     </div>
+                     <div className='col-span-5 space-y-8 border-l border-slate-100 pl-10'>
+                        <div className='space-y-3'>
+                           <label className='text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]'>Catatan Khusus Laborat</label>
+                           <textarea 
+                              disabled={isReadOnly}
+                              value={labNotes} 
+                              onChange={(e) => setLabNotes(e.target.value)}
+                              className={`w-full p-6 bg-slate-50 border border-slate-200 rounded-2xl min-h-[120px] text-sm font-bold focus:bg-white focus:border-rose-500 outline-none transition-all shadow-inner ${isReadOnly ? 'opacity-60' : ''}`}
+                              placeholder='Instruksi tambahan untuk tim lab...'
+                           />
+                        </div>
+                        <div className='space-y-3'>
+                           <label className='text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]'>Ringkasan Hasil Lab</label>
+                           <textarea 
+                              disabled={isReadOnly}
+                              value={labResults} 
+                              onChange={(e) => setLabResults(e.target.value)}
+                              className={`w-full p-6 bg-indigo-50/30 border border-slate-200 rounded-2xl min-h-[120px] text-sm font-bold focus:bg-white focus:border-indigo-500 outline-none transition-all shadow-inner ${isReadOnly ? 'opacity-60' : ''}`}
+                              placeholder='Kesimpulan hasil lab (jika sudah ada)...'
+                           />
+                        </div>
+                        <div className='p-6 bg-amber-50/50 rounded-2xl border border-amber-100'>
+                           <p className='text-[9px] font-black text-amber-600 uppercase tracking-[0.2em] mb-2 flex items-center gap-2'>
+                              <FiInfo /> Prosedur Digital Lab
+                           </p>
+                           <p className='text-[9px] font-bold text-amber-600/70 leading-relaxed uppercase tracking-tight'>
+                              Pastikan semua item pemeriksaan sudah benar sebelum mencetak Order Lab. Order akan masuk ke sistem antrian Laboratorium secara otomatis setelah pemeriksaan disimpan.
+                           </p>
+                        </div>
+                     </div>
                   </div>
                 </div>
               </motion.div>
@@ -814,13 +1127,43 @@ export default function DoctorConsultationPage() {
                       <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100">
                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Buat Rujukan Baru</p>
                          <div className="space-y-4">
-                            <div className="flex gap-2">
-                               <button onClick={() => {/* Set referral type */}} className="flex-1 py-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-primary transition-all">Internal (Klinik)</button>
-                               <button onClick={() => {/* Set referral type */}} className="flex-1 py-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-primary transition-all">Eksternal (RS)</button>
-                            </div>
-                            <textarea placeholder="Catatan medis tambahan untuk dokter rujukan..." className="w-full p-4 border border-slate-200 rounded-2xl text-xs font-bold bg-white focus:border-primary outline-none min-h-[120px]" />
-                            <button className="w-full py-4 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20">Cetak & Simpan Rujukan</button>
-                         </div>
+                             <div className="flex gap-2">
+                                {['INTERNAL', 'EXTERNAL'].map(type => (
+                                   <button 
+                                     key={type} 
+                                     onClick={() => setReferralType(type as any)} 
+                                     className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${referralType === type ? 'bg-slate-900 text-white shadow-lg' : 'bg-white border border-slate-200 text-slate-400 hover:bg-slate-50'}`}
+                                   >
+                                      {type === 'INTERNAL' ? 'Klinik / Poli Internal' : 'Rumah Sakit Luar'}
+                                   </button>
+                                ))}
+                             </div>
+
+                             {referralType === 'INTERNAL' ? (
+                               <div className="flex gap-4">
+                                  <select value={referralToClinicId} onChange={e => setReferralToClinicId(e.target.value)} className="flex-1 p-4 border border-slate-200 rounded-2xl text-xs font-bold bg-white focus:border-primary outline-none">
+                                     <option value="">Pilih Klinik Tujuan...</option>
+                                     {clinicsList.filter(c => c.id !== queue.clinicId).map(c => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                     ))}
+                                  </select>
+                                  <select value={referralToDepartmentId} onChange={e => setReferralToDepartmentId(e.target.value)} className="flex-1 p-4 border border-slate-200 rounded-2xl text-xs font-bold bg-white focus:border-primary outline-none">
+                                     <option value="">Pilih Poli/Unit Tujuan...</option>
+                                     {departmentsList.map(d => (
+                                        <option key={d.id} value={d.id}>{d.name}</option>
+                                     ))}
+                                  </select>
+                               </div>
+                             ) : (
+                               <input value={referralToHospitalName} onChange={e => setReferralToHospitalName(e.target.value)} placeholder="Ketik nama Rumah Sakit tujuan..." className="w-full p-4 border border-slate-200 rounded-2xl text-xs font-bold bg-white focus:border-primary outline-none" />
+                             )}
+
+                             <textarea value={referralNotes} onChange={e => setReferralNotes(e.target.value)} placeholder="Catatan medis tambahan atau rincian klinis untuk rujukan..." className="w-full p-4 border border-slate-200 rounded-2xl text-xs font-bold bg-white focus:border-primary outline-none min-h-[120px]" />
+                             
+                             <button disabled={isPrinting} onClick={handleSaveAndPrintReferral} className="w-full py-4 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all disabled:opacity-50">
+                                {isPrinting ? 'Mencetak...' : 'Cetak & Simpan Rujukan'}
+                             </button>
+                          </div>
                       </div>
                     </div>
                     
@@ -835,10 +1178,11 @@ export default function DoctorConsultationPage() {
                          referrals.map(r => (
                            <div key={r.id} className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between">
                               <div>
-                                 <p className="text-[11px] font-black text-slate-800 uppercase tracking-tight">{r.type} REFERRAL</p>
+                                 <p className="text-[11px] font-black text-slate-800 uppercase tracking-tight">Rujukan {r.type === 'INTERNAL' ? 'Klinik' : 'RS Luar'}</p>
+                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Ke: <span className="text-slate-700">{r.type === 'INTERNAL' ? `${r.toClinic?.name || 'Klinik'} - ${r.toDepartment?.name || 'Poli'}` : r.toHospitalName}</span></p>
                                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Status: {r.status || 'Pending'}</p>
                               </div>
-                              <button className="p-2 text-primary hover:bg-indigo-50 rounded-lg transition-all"><FiInfo /></button>
+                              <button onClick={() => handleReprintReferral(r)} title="Print Ulang Rujukan" className="p-2 text-primary hover:bg-indigo-50 rounded-lg transition-all"><FiPrinter /></button>
                            </div>
                          ))
                        )}
@@ -853,7 +1197,7 @@ export default function DoctorConsultationPage() {
                 <div className="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm min-h-[500px]">
                   <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-50">
                      <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Medical Media & Attachments</h3>
-                     <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 tracking-tighter">Clinical Photography</span>
+                     <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">Clinical Photography</span>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -954,6 +1298,521 @@ export default function DoctorConsultationPage() {
           </AnimatePresence>
         </div>
       </div>
+
+      {/* Dialog Pilih Obat */}
+      <AnimatePresence>
+        {isMedDialogOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                  <FiPackage className="text-primary" /> Pilih Obat
+                </h3>
+                <button onClick={() => setIsMedDialogOpen(false)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
+                  <FiMinus className="w-5 h-5" /> 
+                </button>
+              </div>
+              
+              <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-[400px]">
+                {/* Kiri: Pencarian & Daftar Obat */}
+                <div className="flex-1 flex flex-col border-r border-slate-100 overflow-hidden">
+                  <div className="p-4 border-b border-slate-100">
+                    <div className="relative group">
+                      <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
+                      <input 
+                        value={searchMed} 
+                        onChange={(e) => setSearchMed(e.target.value)} 
+                        placeholder="Cari nama obat atau generic..." 
+                        className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black outline-none focus:bg-white focus:border-primary shadow-sm transition-all" 
+                      />
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                    {searchMedicines.map(m => {
+                      const isSelected = selectedMedicines.some(sm => sm.id === m.id)
+                      const stock = m.availableStock ?? m.stock
+                      const isOutOfStock = stock <= 0
+                      return (
+                        <button 
+                          key={m.id} 
+                          onClick={() => {
+                            if (isOutOfStock) {
+                              toast.error('Obat ini sedang kosong (Stok 0)')
+                              return
+                            }
+                            if (isSelected) {
+                              setSelectedMedicines(selectedMedicines.filter(sm => sm.id !== m.id))
+                            } else {
+                              setSelectedMedicines([...selectedMedicines, m])
+                            }
+                          }} 
+                          disabled={isOutOfStock}
+                          className={`w-full p-4 text-left rounded-2xl transition-all group flex items-start gap-4 border ${isSelected ? 'border-primary bg-primary/5' : isOutOfStock ? 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed' : 'border-slate-100 hover:bg-slate-50'}`}
+                        >
+                          <div className={`w-5 h-5 mt-0.5 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-primary border-primary text-white' : isOutOfStock ? 'border-slate-200 bg-slate-100' : 'border-slate-300'}`}>
+                            {isSelected && <FiCheckCircle className="w-3 h-3" />}
+                          </div>
+                          <div className="flex-1">
+                            <p className={`text-xs font-black uppercase tracking-tight transition-colors ${isSelected ? 'text-primary' : 'text-slate-800'}`}>{m.masterName}</p>
+                            <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase italic">{m.medicine?.genericName} • {m.medicine?.strength}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${isOutOfStock ? 'bg-slate-100 text-slate-400' : stock > 10 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                              {isOutOfStock ? 'STOK HABIS' : `Stok: ${stock} ${m.unit}`}
+                            </span>
+                          </div>
+                        </button>
+                      )
+                    })}
+                    {searchMedicines.length === 0 && searchMed && (
+                      <div className="text-center py-10 text-slate-400 text-xs font-bold">Obat tidak ditemukan</div>
+                    )}
+                    {searchMedicines.length === 0 && !searchMed && (
+                      <div className="text-center py-10 text-slate-400 text-xs font-bold animate-pulse">Memuat daftar obat...</div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Kanan: Obat Terpilih */}
+                <div className="w-full md:w-1/3 flex flex-col bg-slate-50 overflow-hidden">
+                  <div className="p-4 border-b border-slate-200 bg-slate-100">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Obat Terpilih ({selectedMedicines.length})</p>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                    {selectedMedicines.map(m => (
+                      <div key={m.id} className="bg-white p-3 rounded-xl border border-slate-200 flex items-center justify-between gap-2 shadow-sm">
+                        <div className="overflow-hidden">
+                          <p className="text-[10px] font-black text-slate-800 uppercase truncate">{m.masterName}</p>
+                        </div>
+                        <button onClick={() => setSelectedMedicines(selectedMedicines.filter(sm => sm.id !== m.id))} className="text-rose-400 hover:text-rose-600 p-1">
+                          <FiMinus className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    {selectedMedicines.length === 0 && (
+                      <div className="text-center py-10 text-slate-400 text-[10px] font-bold uppercase tracking-widest">Belum ada obat dipilih</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-white">
+                <button onClick={() => setIsMedDialogOpen(false)} className="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all">
+                  Batal
+                </button>
+                <button 
+                  onClick={() => {
+                    // Add all selected to prescriptionItems
+                    const newItems = selectedMedicines.map(m => ({
+                      medicineId: m.medicineId || m.id,
+                      name: m.masterName,
+                      quantity: 1,
+                      dosage: m.medicine?.strength || '',
+                      frequency: '3x1',
+                      duration: '5 hari',
+                      instructions: 'Sesudah makan',
+                      unit: m.unit || 'unit'
+                    }))
+                    
+                    setPrescriptionItems([...prescriptionItems, ...newItems])
+                    setIsMedDialogOpen(false)
+                  }} 
+                  disabled={selectedMedicines.length === 0}
+                  className="px-6 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 disabled:opacity-50 transition-all shadow-lg shadow-primary/20 flex items-center gap-2"
+                >
+                  <FiCheckCircle /> Konfirmasi ({selectedMedicines.length})
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      
+      {/* Lab Order Preview Modal */}
+      <AnimatePresence>
+        {isLabPreviewOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-100"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-3">
+                   <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center text-rose-500 shadow-sm border border-rose-100">
+                      <HiOutlineBeaker />
+                   </div>
+                   <div>
+                      <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest leading-none">Pratinjau Order Laboratorium</h3>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5">Review pemeriksaan laboratorium sebelum dicetak</p>
+                   </div>
+                </div>
+                <div className="flex items-center gap-3">
+                   <button 
+                    onClick={() => {
+                      setIsPrinting(true);
+                      setTimeout(() => {
+                        generateLabPDF(queue?.patient?.name || 'Pasien');
+                        setIsLabPreviewOpen(false);
+                      }, 500);
+                    }} 
+                    className="px-6 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 flex items-center gap-2"
+                   >
+                      <FiSave /> UNDUH ORDER LAB
+                   </button>
+                   <button onClick={() => setIsLabPreviewOpen(false)} className="p-3 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
+                      <FiMinus className="w-6 h-6" /> 
+                   </button>
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-12 bg-slate-200/50 flex justify-center">
+                 <div className="shadow-2xl scale-[0.85] origin-top transform-gpu">
+                    <div className="w-[210mm] min-h-[297mm] bg-white text-slate-800 font-sans box-border relative overflow-hidden" style={{ padding: '20mm' }}>
+                        <div className="absolute top-0 left-0 right-0 h-4 bg-rose-500"></div>
+                        <div className="flex justify-between items-end border-b-2 border-rose-500 pb-6 mb-8 mt-4">
+                          <div>
+                             <div className="flex items-center gap-3 mb-2">
+                               <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center text-rose-500 font-black text-xl">
+                                  <FiHeart />
+                               </div>
+                               <h1 className="text-2xl font-black uppercase tracking-widest text-slate-900">{queue?.clinicId ? clinicsList.find(c => c.id === queue.clinicId)?.name || 'KLINIK' : 'KLINIK PUSAT'}</h1>
+                             </div>
+                             <p className="text-xs text-slate-500 uppercase tracking-widest">Diagnostic & Laboratory Service</p>
+                          </div>
+                          <div className="text-right">
+                             <h2 className="text-4xl font-black uppercase tracking-tight text-rose-500">LAB ORDER</h2>
+                             <p className="text-[10px] font-bold uppercase tracking-widest mt-2 bg-rose-50 text-rose-600 inline-block px-3 py-1 rounded-lg">ID: LAB-{new Date().getTime().toString().slice(-6)}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 mb-8">
+                           <table className="w-full text-sm">
+                             <tbody>
+                               <tr><td className="w-48 py-2 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Nama Pasien</td><td className="w-4 py-2 text-slate-400">:</td><td className="py-2 font-bold text-base text-slate-900">{queue?.patient.name}</td></tr>
+                               <tr><td className="w-48 py-2 font-bold text-slate-500 uppercase tracking-widest text-[10px]">No. Rekam Medis</td><td className="w-4 py-2 text-slate-400">:</td><td className="py-2 text-slate-700">{queue?.patient.medicalRecordNo}</td></tr>
+                               <tr><td className="w-48 py-2 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Dokter Pengirim</td><td className="w-4 py-2 text-slate-400">:</td><td className="py-2 text-slate-700">{queue?.doctor?.name || user?.name}</td></tr>
+                             </tbody>
+                           </table>
+                        </div>
+
+                        <div className="mb-8">
+                           <h3 className="text-xs font-black uppercase tracking-widest text-slate-800 mb-4 border-b border-slate-100 pb-2 flex items-center gap-2"><HiOutlineBeaker className="text-rose-500" /> Daftar Pemeriksaan</h3>
+                           <div className="grid grid-cols-1 gap-2">
+                              {labItems.length > 0 ? labItems.map((item, i) => (
+                                 <div key={item.id} className="flex items-center justify-between py-3 border-b border-slate-50">
+                                    <div className="flex items-center gap-4">
+                                       <span className="text-xs font-black text-slate-300">{i + 1}.</span>
+                                       <span className="text-sm font-bold text-slate-700 uppercase">{item.serviceName}</span>
+                                    </div>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.serviceCategory?.categoryName || 'LAB'}</span>
+                                 </div>
+                              )) : (
+                                 <p className="text-sm italic text-slate-400 py-4">Tidak ada item pemeriksaan khusus.</p>
+                              )}
+                           </div>
+                        </div>
+
+                        {labNotes && (
+                           <div className="mb-12 bg-rose-50/30 border border-rose-100 rounded-2xl p-6">
+                              <h3 className="text-[10px] font-black uppercase tracking-widest text-rose-600 mb-3">Catatan / Instruksi Klinis</h3>
+                              <p className="text-sm text-slate-700 leading-relaxed italic">{labNotes}</p>
+                           </div>
+                        )}
+                        
+                        <div className="flex justify-end mt-16">
+                           <div className="text-center w-64">
+                              <p className="text-sm text-slate-500 mb-20">{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}<br/>Dokter Pengirim,</p>
+                              <div className="border-b-2 border-slate-300 w-3/4 mx-auto mb-2"></div>
+                              <p className="text-sm font-black uppercase text-slate-900">{queue?.doctor?.name || user?.name}</p>
+                              <p className="text-[10px] uppercase tracking-widest text-slate-400 mt-1">SIP: {queue?.doctor?.specialization || 'Umum'}</p>
+                           </div>
+                        </div>
+
+                        <div className="absolute bottom-10 left-20 right-20 border-t border-slate-200 pt-6 text-center">
+                          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Dicetak melalui Sistem Management Laboratorium Terintegrasi</p>
+                        </div>
+                    </div>
+                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Hidden Lab Print Template */}
+      {isPrinting && (
+        <div className="fixed -left-[9999px] top-0 pointer-events-none z-[-1]">
+           <div id="print-lab-template" className="w-[210mm] min-h-[297mm] bg-white text-slate-800 font-sans box-border relative overflow-hidden" style={{ padding: '20mm' }}>
+                <div className="absolute top-0 left-0 right-0 h-4 bg-rose-500"></div>
+                <div className="flex justify-between items-end border-b-2 border-rose-500 pb-6 mb-8 mt-4">
+                  <div>
+                     <div className="flex items-center gap-3 mb-2">
+                       <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center text-rose-500 font-black text-xl">
+                          <FiHeart />
+                       </div>
+                       <h1 className="text-2xl font-black uppercase tracking-widest text-slate-900">{queue?.clinicId ? clinicsList.find(c => c.id === queue.clinicId)?.name || 'KLINIK' : 'KLINIK PUSAT'}</h1>
+                     </div>
+                     <p className="text-xs text-slate-500 uppercase tracking-widest">Diagnostic & Laboratory Service</p>
+                  </div>
+                  <div className="text-right">
+                     <h2 className="text-4xl font-black uppercase tracking-tight text-rose-500">LAB ORDER</h2>
+                     <p className="text-xs font-bold uppercase tracking-widest mt-2 bg-slate-100 text-slate-600 inline-block px-3 py-1 rounded-lg">ID: LAB-{new Date().getTime().toString().slice(-6)}</p>
+                  </div>
+                </div>
+                
+                <div className="mb-8">
+                   <table className="w-full text-sm">
+                     <tbody>
+                       <tr><td className="w-48 py-2 font-bold text-slate-400 uppercase tracking-widest text-[10px]">Nama Pasien</td><td className="w-4 py-2 text-slate-300">:</td><td className="py-2 font-black text-slate-900">{queue?.patient.name}</td></tr>
+                       <tr><td className="w-48 py-2 font-bold text-slate-400 uppercase tracking-widest text-[10px]">No. Rekam Medis</td><td className="w-4 py-2 text-slate-300">:</td><td className="py-2 text-slate-700">{queue?.patient.medicalRecordNo}</td></tr>
+                       <tr><td className="w-48 py-2 font-bold text-slate-400 uppercase tracking-widest text-[10px]">Dokter Pengirim</td><td className="w-4 py-2 text-slate-300">:</td><td className="py-2 text-slate-700">{queue?.doctor?.name || user?.name}</td></tr>
+                     </tbody>
+                   </table>
+                </div>
+
+                <div className="mb-8">
+                   <h3 className="text-sm font-black uppercase tracking-widest text-slate-800 mb-4 border-b border-slate-200 pb-2">Daftar Pemeriksaan</h3>
+                   <div className="grid grid-cols-1 gap-1">
+                      {labItems.length > 0 ? labItems.map((item, i) => (
+                         <div key={item.id} className="flex items-center justify-between py-2 border-b border-slate-50">
+                            <span className="text-sm font-bold text-slate-700">{i + 1}. {item.serviceName}</span>
+                            <span className="text-[10px] font-black text-slate-400 uppercase">{item.serviceCategory?.categoryName || 'LAB'}</span>
+                         </div>
+                      )) : (
+                         <p className="text-sm italic text-slate-400 py-2">Tidak ada item pemeriksaan khusus.</p>
+                      )}
+                   </div>
+                </div>
+
+                {labNotes && (
+                   <div className="mb-12 border border-slate-200 rounded-xl p-6 bg-slate-50">
+                      <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Catatan / Instruksi Klinis</h3>
+                      <p className="text-sm text-slate-700 leading-relaxed italic">{labNotes}</p>
+                   </div>
+                )}
+                
+                <div className="flex justify-end mt-16">
+                   <div className="text-center w-64">
+                      <p className="text-sm text-slate-500 mb-20">{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}<br/>Dokter Pengirim,</p>
+                      <p className="text-sm font-black uppercase underline">{queue?.doctor?.name || user?.name}</p>
+                   </div>
+                </div>
+
+                <div className="absolute bottom-10 left-20 right-20 border-t border-slate-200 pt-6 text-center">
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Dicetak melalui Sistem Management Laboratorium Terintegrasi pada {new Date().toLocaleString('id-ID')}</p>
+                </div>
+           </div>
+        </div>
+      )}
+
+      {/* Referral Preview Modal */}
+      <AnimatePresence>
+        {isReferralPreviewOpen && currentPrintReferral && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-100"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-3">
+                   <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
+                      <FiPrinter />
+                   </div>
+                   <div>
+                      <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest leading-none">Pratinjau Surat Rujukan</h3>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5">Review dokumen sebelum mengunduh PDF</p>
+                   </div>
+                </div>
+                <div className="flex items-center gap-3">
+                   <button 
+                    onClick={() => {
+                      setIsPrinting(true);
+                      setTimeout(() => {
+                        generatePDF(queue?.patient?.name || 'Pasien');
+                        setIsReferralPreviewOpen(false);
+                      }, 500);
+                    }} 
+                    className="px-6 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2"
+                   >
+                      <FiSave /> UNDUH PDF RUJUKAN
+                   </button>
+                   <button onClick={() => setIsReferralPreviewOpen(false)} className="p-3 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
+                      <FiMinus className="w-6 h-6" /> 
+                   </button>
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-12 bg-slate-200/50 flex justify-center">
+                 {/* This is the visual preview of the PDF */}
+                 <div className="shadow-2xl scale-[0.85] origin-top transform-gpu">
+                    {/* Reuse the design from the template but without fixed positioning */}
+                    <div className="w-[210mm] min-h-[297mm] bg-white text-slate-800 font-sans box-border relative overflow-hidden shadow-sm" style={{ padding: '20mm' }}>
+                        <div className="absolute top-0 left-0 right-0 h-4 bg-primary"></div>
+                        <div className="flex justify-between items-end border-b-2 border-primary pb-6 mb-8 mt-4">
+                          <div>
+                             <div className="flex items-center gap-3 mb-2">
+                               <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary font-black text-xl">
+                                  <FiHeart />
+                               </div>
+                               <h1 className="text-2xl font-black uppercase tracking-widest text-slate-900">{queue?.clinicId ? clinicsList.find(c => c.id === queue.clinicId)?.name || 'KLINIK' : 'KLINIK PUSAT'}</h1>
+                             </div>
+                             <p className="text-xs text-slate-500 uppercase tracking-widest">Layanan Medis & Konsultasi Spesialis</p>
+                          </div>
+                          <div className="text-right">
+                             <h2 className="text-4xl font-black uppercase tracking-tight text-primary">SURAT RUJUKAN</h2>
+                          </div>
+                        </div>
+                        
+                        <div className="mb-8">
+                          <p className="text-sm mt-4 text-slate-600">Mohon pemeriksaan dan penanganan lebih lanjut terhadap pasien berikut:</p>
+                        </div>
+                        
+                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 mb-8">
+                          <table className="w-full text-sm">
+                            <tbody>
+                              <tr><td className="w-48 py-2 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Nama Pasien</td><td className="w-4 py-2 text-slate-400">:</td><td className="py-2 font-bold text-base text-slate-900">{queue?.patient.name}</td></tr>
+                              <tr><td className="w-48 py-2 font-bold text-slate-500 uppercase tracking-widest text-[10px]">No. Rekam Medis</td><td className="w-4 py-2 text-slate-400">:</td><td className="py-2 text-slate-700">{queue?.patient.medicalRecordNo}</td></tr>
+                              <tr><td className="w-48 py-2 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Jenis Kelamin</td><td className="w-4 py-2 text-slate-400">:</td><td className="py-2 text-slate-700">{['L', 'M', 'Laki-laki'].includes(queue?.patient.gender || '') ? 'Laki-laki' : 'Perempuan'}</td></tr>
+                            </tbody>
+                          </table>
+                        </div>
+                        
+                        <div className="mb-8 border border-slate-200 rounded-2xl p-6 relative overflow-hidden">
+                           <div className="absolute top-0 left-0 bottom-0 w-1 bg-amber-400"></div>
+                           <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-6 flex items-center gap-2"><FiActivity /> Informasi Klinis</h3>
+                           <div className="grid grid-cols-2 gap-8 text-sm">
+                              <div>
+                                 <p className="font-bold text-slate-400 uppercase tracking-widest text-[9px] mb-2">Anamnesa (S)</p>
+                                 <p className="whitespace-pre-wrap text-slate-700 mb-6 leading-relaxed">{subjective || '-'}</p>
+                                 <p className="font-bold text-slate-400 uppercase tracking-widest text-[9px] mb-2">Pemeriksaan Fisik (O)</p>
+                                 <p className="whitespace-pre-wrap text-slate-700 leading-relaxed">{objective || '-'}</p>
+                              </div>
+                              <div>
+                                 <p className="font-bold text-slate-400 uppercase tracking-widest text-[9px] mb-2">Diagnosa Sementara (A)</p>
+                                 <p className="whitespace-pre-wrap font-bold text-slate-900 mb-6 leading-relaxed">{diagnosis || '-'}</p>
+                                 <p className="font-bold text-slate-400 uppercase tracking-widest text-[9px] mb-2">Terapi Diberikan (P)</p>
+                                 <p className="whitespace-pre-wrap text-slate-700 leading-relaxed">{treatmentPlan || '-'}</p>
+                              </div>
+                           </div>
+                        </div>
+                        
+                        <div className="mb-12 bg-indigo-50/50 border border-indigo-100 rounded-2xl p-6 relative overflow-hidden">
+                           <div className="absolute top-0 left-0 bottom-0 w-1 bg-primary"></div>
+                           <h3 className="text-[10px] font-black uppercase tracking-widest text-primary mb-3">Catatan Rujukan Khusus</h3>
+                        </div>
+                        
+                        <div className="flex justify-end mt-16">
+                           <div className="text-center w-64">
+                              <p className="text-sm text-slate-500 mb-20">{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}<br/>Dokter Perujuk,</p>
+                              <div className="border-b-2 border-slate-300 w-3/4 mx-auto mb-2"></div>
+                              <p className="text-sm font-black uppercase text-slate-900">{queue?.doctor?.name || user?.name}</p>
+                              <p className="text-[10px] uppercase tracking-widest text-slate-400 mt-1">SIP: {queue?.doctor?.specialization || 'Umum'}</p>
+                           </div>
+                        </div>
+                        
+                        <div className="absolute bottom-10 left-20 right-20 border-t border-slate-200 pt-6 text-center">
+                          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Pratinjau Dokumen Rekam Medis</p>
+                        </div>
+                    </div>
+                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+{/* Hidden Print Template */}
+      {isPrinting && currentPrintReferral && (
+        <div className="fixed -left-[9999px] top-0 pointer-events-none z-[-1]">
+          <div id="print-referral-template" className="w-[210mm] min-h-[297mm] bg-white text-slate-800 font-sans box-border relative overflow-hidden" style={{ padding: "20mm" }}>
+            
+            {/* Header Accent */}
+            <div className="absolute top-0 left-0 right-0 h-4 bg-primary"></div>
+            
+            {/* Kop Surat */}
+            <div className="flex justify-between items-end border-b-2 border-primary pb-6 mb-8 mt-4">
+              <div>
+                 <div className="flex items-center gap-3 mb-2">
+                   <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary font-black text-xl">
+                      <FiHeart />
+                   </div>
+                   <h1 className="text-2xl font-black uppercase tracking-widest text-slate-900">{queue?.clinicId ? clinicsList.find(c => c.id === queue.clinicId)?.name || "KLINIK" : "KLINIK PUSAT"}</h1>
+                 </div>
+                 <p className="text-xs text-slate-500 uppercase tracking-widest">Layanan Medis & Konsultasi Spesialis</p>
+              </div>
+              <div className="text-right">
+                 <h2 className="text-4xl font-black uppercase tracking-tight text-primary">SURAT RUJUKAN</h2>
+              </div>
+            </div>
+            
+            <div className="mb-8">
+              <p className="text-sm mt-4 text-slate-600">Mohon pemeriksaan dan penanganan lebih lanjut terhadap pasien berikut:</p>
+            </div>
+            
+            {/* Patient Info Card */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 mb-8">
+              <table className="w-full text-sm">
+                <tbody>
+                  <tr><td className="w-48 py-2 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Nama Pasien</td><td className="w-4 py-2 text-slate-400">:</td><td className="py-2 font-bold text-base text-slate-900">{queue.patient.name}</td></tr>
+                  <tr><td className="w-48 py-2 font-bold text-slate-500 uppercase tracking-widest text-[10px]">No. Rekam Medis</td><td className="w-4 py-2 text-slate-400">:</td><td className="py-2 text-slate-700">{queue.patient.medicalRecordNo}</td></tr>
+                  <tr><td className="w-48 py-2 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Jenis Kelamin</td><td className="w-4 py-2 text-slate-400">:</td><td className="py-2 text-slate-700">{["L", "M", "Laki-laki"].includes(queue.patient.gender) ? "Laki-laki" : "Perempuan"}</td></tr>
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Clinical Info Section */}
+            <div className="mb-8 border border-slate-200 rounded-2xl p-6 relative overflow-hidden">
+               <div className="absolute top-0 left-0 bottom-0 w-1 bg-amber-400"></div>
+               <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-6 flex items-center gap-2"><FiActivity /> Informasi Klinis</h3>
+               <div className="grid grid-cols-2 gap-8 text-sm">
+                  <div>
+                     <p className="font-bold text-slate-400 uppercase tracking-widest text-[9px] mb-2">Anamnesa (S)</p>
+                     <p className="whitespace-pre-wrap text-slate-700 mb-6 leading-relaxed">{subjective || "-"}</p>
+                     
+                     <p className="font-bold text-slate-400 uppercase tracking-widest text-[9px] mb-2">Pemeriksaan Fisik (O)</p>
+                     <p className="whitespace-pre-wrap text-slate-700 leading-relaxed">{objective || "-"}</p>
+                  </div>
+                  <div>
+                     <p className="font-bold text-slate-400 uppercase tracking-widest text-[9px] mb-2">Diagnosa Sementara (A)</p>
+                     <p className="whitespace-pre-wrap font-bold text-slate-900 mb-6 leading-relaxed">{diagnosis || "-"}</p>
+                     
+                     <p className="font-bold text-slate-400 uppercase tracking-widest text-[9px] mb-2">Terapi Diberikan (P)</p>
+                     <p className="whitespace-pre-wrap text-slate-700 leading-relaxed">{treatmentPlan || "-"}</p>
+                  </div>
+               </div>
+            </div>
+            
+            {/* Notes Section */}
+            <div className="mb-12 bg-indigo-50/50 border border-indigo-100 rounded-2xl p-6 relative overflow-hidden">
+               <div className="absolute top-0 left-0 bottom-0 w-1 bg-primary"></div>
+               <h3 className="text-[10px] font-black uppercase tracking-widest text-primary mb-3">Catatan Rujukan Khusus</h3>
+            </div>
+            
+            <div className="flex justify-end mt-16">
+               <div className="text-center w-64">
+                  <p className="text-sm text-slate-500 mb-20">{new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}<br/>Dokter Perujuk,</p>
+                  <div className="border-b-2 border-slate-300 w-3/4 mx-auto mb-2"></div>
+                  <p className="text-sm font-black uppercase text-slate-900">{queue.doctor?.name || user?.name}</p>
+                  <p className="text-[10px] uppercase tracking-widest text-slate-400 mt-1">SIP: {queue.doctor?.specialization || "Umum"}</p>
+               </div>
+            </div>
+            
+            {/* Footer */}
+            <div className="absolute bottom-10 left-20 right-20 border-t border-slate-200 pt-6 text-center">
+              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Dicetak melalui Sistem Rekam Medis Elektronik pada {new Date().toLocaleString("id-ID")}</p>
+            </div>
+            
+          </div>
+        </div>
+      )}
     </div>
   )
 }
