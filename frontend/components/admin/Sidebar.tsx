@@ -28,11 +28,11 @@ const Tooltip = ({ text, visible }: { text: string; visible: boolean }) => (
         initial={{ opacity: 0, x: 10 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: 10 }}
-        className="fixed left-20 z-[60] px-3 py-1.5 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-xl pointer-events-none whitespace-nowrap border border-white/10 backdrop-blur-md"
-        style={{ backgroundColor: 'var(--bg-app)' }}
+        className="fixed left-20 z-[60] px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg shadow-2xl pointer-events-none whitespace-nowrap border border-white/10 backdrop-blur-md"
+        style={{ backgroundColor: 'var(--text-primary)', color: 'var(--bg-surface)' }}
       >
         {text}
-        <div className="absolute left-[-4px] top-1/2 -translate-y-1/2 border-y-[4px] border-y-transparent border-r-[4px]" style={{ borderRightColor: 'var(--bg-app)' }} />
+        <div className="absolute left-[-4px] top-1/2 -translate-y-1/2 border-y-[4px] border-y-transparent border-r-[4px]" style={{ borderRightColor: 'var(--text-primary)' }} />
       </motion.div>
     )}
   </AnimatePresence>
@@ -169,8 +169,9 @@ const SidebarNavGroup = ({
             >
               {group.items
                 .filter((item: any) => {
-                  if (!item.role) return true
-                  return user?.role === item.role
+                  if (item.roles) return item.roles.includes(user?.role)
+                  if (item.role) return user?.role === item.role
+                  return true
                 })
                 .map((item: any) => {
                   const isActive = pathname === item.href
@@ -249,8 +250,8 @@ const SidebarContent = ({
   if (isFarmasi) {
     return (
       <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--sidebar-bg)' }}>
-        {/* Brand */}
-        <div className={`flex-shrink-0 flex items-center transition-all duration-300 ${isCollapsed && !isMobile ? 'h-16 justify-center' : 'h-20 px-6'}`}>
+        {/* Brand & Toggle */}
+        <div className={`flex-shrink-0 flex items-center transition-all duration-300 ${isCollapsed && !isMobile ? 'h-24 flex-col justify-center gap-4' : 'h-20 px-6 justify-between'}`}>
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex-shrink-0 flex items-center justify-center shadow-lg shadow-emerald-200 text-white font-black text-lg">
               F
@@ -262,6 +263,17 @@ const SidebarContent = ({
               </motion.div>
             )}
           </div>
+
+          {!isMobile && (
+            <button
+              onClick={toggleCollapse}
+              className={`p-1.5 rounded-lg transition-all hover:bg-emerald-500/10 hover:text-emerald-500 flex items-center justify-center`}
+              style={{ color: 'var(--text-faint)' }}
+              title={isCollapsed ? "Buka Menu" : "Ciutkan Menu"}
+            >
+              {isCollapsed ? <FiMenu className="w-5 h-5" /> : <FiChevronLeft className="w-5 h-5" />}
+            </button>
+          )}
         </div>
 
         {/* Clinic Switcher */}
@@ -291,41 +303,7 @@ const SidebarContent = ({
           </div>
         </nav>
 
-        {/* Footer */}
-        <div className="p-4 space-y-2 flex-shrink-0 border-t" style={{ backgroundColor: 'var(--sidebar-bg)', borderColor: 'var(--sidebar-border)' }}>
-          {(!isCollapsed || isMobile) && (
-            <div className="px-4 py-3 rounded-2xl border" style={{ backgroundColor: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
-              <div className="flex items-center gap-3 overflow-hidden">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold text-xs shadow-sm">
-                  {user?.name?.[0] || 'F'}
-                </div>
-                <div className="flex-1 truncate">
-                  <p className="text-xs font-black truncate uppercase tracking-tight" style={{ color: 'var(--text-primary)' }}>{user?.name || 'Farmasi'}</p>
-                  <p className="text-[9px] font-bold truncate tracking-wide" style={{ color: 'var(--text-faint)' }}>{user?.email}</p>
-                </div>
-              </div>
-            </div>
-          )}
-          <div className="flex flex-col gap-1">
-            <button
-              onClick={logout}
-              className={`flex items-center rounded-xl text-red-500 hover:bg-red-500/10 transition-all font-bold text-sm ${isCollapsed && !isMobile ? 'justify-center w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5 w-full'}`}
-            >
-              <FiLogOut className="w-5 h-5 flex-shrink-0" />
-              {(!isCollapsed || isMobile) && <span>Keluar</span>}
-            </button>
-            {!isMobile && (
-              <button
-                onClick={toggleCollapse}
-                className={`flex items-center rounded-xl transition-all font-bold text-sm hover:bg-primary/10 hover:text-primary ${isCollapsed && !isMobile ? 'justify-center w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5 w-full'}`}
-                style={{ color: 'var(--text-faint)' }}
-              >
-                <FiChevronLeft className={`w-5 h-5 transition-transform duration-500 ${isCollapsed ? 'rotate-180' : ''}`} />
-                {!isCollapsed && <span>Ciutkan Menu</span>}
-              </button>
-            )}
-          </div>
-        </div>
+
       </div>
     )
   }
@@ -336,8 +314,8 @@ const SidebarContent = ({
     className="flex flex-col h-full"
     style={{ backgroundColor: 'var(--sidebar-bg)' }}
   >
-    {/* Brand */}
-    <div className={`flex-shrink-0 flex items-center transition-all duration-300 ${isCollapsed && !isMobile ? 'h-16 justify-center' : 'h-20 px-6'}`}>
+    {/* Brand & Toggle */}
+    <div className={`flex-shrink-0 flex items-center transition-all duration-300 ${isCollapsed && !isMobile ? 'h-24 flex-col justify-center gap-4' : 'h-20 px-6 justify-between'}`}>
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 bg-gradient-to-br from-primary to-indigo-600 rounded-lg flex-shrink-0 flex items-center justify-center shadow-lg shadow-primary/20 text-white font-black text-lg">
           Y
@@ -349,6 +327,17 @@ const SidebarContent = ({
           </motion.div>
         )}
       </div>
+
+      {!isMobile && (
+        <button
+          onClick={toggleCollapse}
+          className={`p-1.5 rounded-lg transition-all hover:bg-primary/10 hover:text-primary flex items-center justify-center`}
+          style={{ color: 'var(--text-faint)' }}
+          title={isCollapsed ? "Buka Menu" : "Ciutkan Menu"}
+        >
+          {isCollapsed ? <FiMenu className="w-5 h-5" /> : <FiChevronLeft className="w-5 h-5" />}
+        </button>
+      )}
     </div>
 
     {/* Clinic Switcher */}
@@ -386,6 +375,30 @@ const SidebarContent = ({
             </p>
           )}
           {LAYANAN_UTAMA_GROUPS.map((group) => (
+            <SidebarNavGroup
+              key={group.label}
+              group={group}
+              pathname={pathname}
+              isCollapsed={isCollapsed}
+              isMobile={isMobile}
+              openGroups={openGroups}
+              toggleGroup={toggleGroup}
+              accentColor="primary"
+              user={user}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Keuangan & Akuntansi */}
+      {hasAccessToSection(FINANCE_GROUPS) && (
+        <div className="flex flex-col gap-1 mt-2">
+          {(!isCollapsed || isMobile) && (
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] px-3 pb-2 pt-4" style={{ color: 'var(--text-faint)' }}>
+              Keuangan & Akuntansi
+            </p>
+          )}
+          {FINANCE_GROUPS.map((group) => (
             <SidebarNavGroup
               key={group.label}
               group={group}
@@ -449,30 +462,6 @@ const SidebarContent = ({
         </div>
       )}
 
-      {/* Keuangan & Akuntansi */}
-      {hasAccessToSection(FINANCE_GROUPS) && (
-        <div className="flex flex-col gap-1 mt-2">
-          {(!isCollapsed || isMobile) && (
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] px-3 pb-2 pt-4" style={{ color: 'var(--text-faint)' }}>
-              Keuangan & Akuntansi
-            </p>
-          )}
-          {FINANCE_GROUPS.map((group) => (
-            <SidebarNavGroup
-              key={group.label}
-              group={group}
-              pathname={pathname}
-              isCollapsed={isCollapsed}
-              isMobile={isMobile}
-              openGroups={openGroups}
-              toggleGroup={toggleGroup}
-              accentColor="primary"
-              user={user}
-            />
-          ))}
-        </div>
-      )}
-
       {/* Master Data */}
       {hasAccessToSection(MASTER_GROUPS) && (
         <div className="flex flex-col gap-1 mt-2">
@@ -498,61 +487,7 @@ const SidebarContent = ({
       )}
     </nav>
 
-    {/* Footer / User Profile */}
-    <div
-      className="p-4 space-y-2 flex-shrink-0 border-t"
-      style={{
-        backgroundColor: 'var(--sidebar-bg)',
-        borderColor: 'var(--sidebar-border)',
-      }}
-    >
-      {(!isCollapsed || isMobile) && (
-        <div
-          className="px-4 py-3 rounded-2xl border transition-all cursor-pointer"
-          style={{
-            backgroundColor: 'var(--bg-surface-2)',
-            borderColor: 'var(--border)',
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--bg-surface-3)'
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--bg-surface-2)'
-          }}
-        >
-          <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-primary flex items-center justify-center text-white font-bold text-xs shadow-sm">
-              {user?.name?.[0] || 'A'}
-            </div>
-            <div className="flex-1 truncate">
-              <p className="text-xs font-black truncate uppercase tracking-tight" style={{ color: 'var(--text-primary)' }}>{user?.name || 'Administrator'}</p>
-              <p className="text-[9px] font-bold truncate tracking-wide" style={{ color: 'var(--text-faint)' }}>{user?.email}</p>
-            </div>
-          </div>
-        </div>
-      )}
 
-      <div className="flex flex-col gap-1">
-        <button
-          onClick={logout}
-          className={`flex items-center rounded-xl text-red-500 hover:bg-red-500/10 transition-all font-bold text-sm ${isCollapsed && !isMobile ? 'justify-center w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5 w-full'}`}
-        >
-          <FiLogOut className="w-5 h-5 flex-shrink-0" />
-          {(!isCollapsed || isMobile) && <span>Keluar</span>}
-        </button>
-
-        {!isMobile && (
-          <button
-            onClick={toggleCollapse}
-            className={`flex items-center rounded-xl transition-all font-bold text-sm hover:bg-primary/10 hover:text-primary ${isCollapsed && !isMobile ? 'justify-center w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5 w-full'}`}
-            style={{ color: 'var(--text-faint)' }}
-          >
-            <FiChevronLeft className={`w-5 h-5 transition-transform duration-500 ${isCollapsed ? 'rotate-180' : ''}`} />
-            {!isCollapsed && <span>Ciutkan Menu</span>}
-          </button>
-        )}
-      </div>
-    </div>
   </div>
   )
 }
@@ -583,7 +518,7 @@ export default function Sidebar({
     checkDesktop()
     window.addEventListener('resize', checkDesktop)
     
-    // Explicitly check for saved preference, default to collapsed (true) if not found
+    // Check for saved preference, but default to collapsed (true) if never set
     const saved = localStorage.getItem('sidebar-collapsed')
     if (saved === 'false') {
       setIsCollapsed(false)
@@ -667,21 +602,22 @@ export default function Sidebar({
       {isDesktop && (
         <>
           <motion.aside
-            animate={{ width: isCollapsed ? 70 : 240 }}
-            transition={{ type: 'spring', damping: 20, stiffness: 100 }}
-            className="hidden lg:flex fixed left-0 top-0 h-screen z-50 flex-col overflow-hidden border-r bg-white"
+            animate={{ width: isCollapsed ? 70 : 260 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="hidden lg:flex fixed left-0 top-0 h-screen z-50 flex-col overflow-hidden border-r"
             style={{
               backgroundColor: 'var(--sidebar-bg)',
               borderColor: 'var(--sidebar-border)',
-              boxShadow: '4px 0 24px -10px rgba(0,0,0,0.08)',
+              boxShadow: '4px 0 24px -10px rgba(0,0,0,0.1)',
             }}
           >
             <SidebarContent {...contentProps} />
           </motion.aside>
 
-          {/* Desktop spacer */}
+          {/* Desktop spacer to push main content */}
           <motion.div
-            animate={{ width: isCollapsed ? 70 : 240 }}
+            animate={{ width: isCollapsed ? 70 : 260 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             className="hidden lg:block flex-shrink-0"
           />
         </>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import api from '@/lib/api'
-import { FiUsers, FiAlertCircle, FiRefreshCw, FiPhone, FiMapPin, FiCalendar, FiUser, FiInfo, FiPlus, FiActivity } from 'react-icons/fi'
+import { FiUsers, FiAlertCircle, FiRefreshCw, FiPhone, FiMapPin, FiCalendar, FiUser, FiInfo, FiPlus, FiActivity, FiLock } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
 import PageHeader from '@/components/admin/master/PageHeader'
@@ -36,7 +36,8 @@ const EMPTY = {
 type Patient = typeof EMPTY & { id: string; createdAt: string; updatedAt: string }
 
 export default function PatientsPage() {
-  const { activeClinicId } = useAuthStore()
+  const { user } = useAuthStore()
+  const isAllowed = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'DOCTOR'
   const [data, setData] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -178,6 +179,18 @@ export default function PatientsPage() {
     </div>
   )
 
+  if (!isAllowed) {
+    return (
+      <div className="h-[60vh] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mb-6">
+          <FiLock className="w-10 h-10 text-rose-500" />
+        </div>
+        <h2 className="text-xl font-black text-gray-900 mb-2">Akses Terbatas</h2>
+        <p className="text-sm text-gray-400 max-w-md">Maaf, halaman Database Pasien hanya dapat diakses oleh Super Admin, Admin, dan Dokter.</p>
+      </div>
+    )
+  }
+
   return (
     <div className="pb-10">
       <PageHeader
@@ -240,7 +253,7 @@ export default function PatientsPage() {
             
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Golongan Darah</label>
-              <select value={form.bloodType} onChange={(e) => setForm(p => ({...p, bloodType: e.target.value}))}
+              <select value={form.bloodType || ''} onChange={(e) => setForm(p => ({...p, bloodType: e.target.value}))}
                 className="w-full px-4 py-2.5 text-sm border border-gray-100 bg-gray-50/30 rounded-2xl focus:outline-none focus:border-primary font-black text-gray-700">
                 {['-', 'A', 'B', 'AB', 'O'].map(t => <option key={t} value={t}>{t}</option>)}
               </select>

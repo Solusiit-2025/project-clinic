@@ -30,6 +30,7 @@ const SYSTEM_KEYS = [
   { key: 'ASSET_LAND_BUILDING', name: 'Aset Tetap: Tanah & Bangunan', desc: 'Akun neraca untuk tanah dan properti bangunan.', category: 'ASSET' },
   { key: 'ACCUM_DEP_GENERAL', name: 'Akumulasi Penyusutan (General)', desc: 'Akun kontra-aset untuk menampung akumulasi penyusutan aset tetap.', category: 'ASSET' },
   { key: 'RETAINED_EARNINGS', name: 'Laba Ditahan', desc: 'Akumulasi laba bersih tahun-tahun sebelumnya.', category: 'EQUITY' },
+  { key: 'COMPOUND_SERVICE_REVENUE', name: 'Pendapatan Jasa Racik / Tuslah', desc: 'Akun pendapatan untuk jasa peracikan obat puyer/kapsul.', category: 'REVENUE' },
 ]
 
 export default function SystemAccountsPage() {
@@ -39,7 +40,6 @@ export default function SystemAccountsPage() {
   const [savingKey, setSavingKey] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -82,16 +82,14 @@ export default function SystemAccountsPage() {
   }
 
   const getMappedCoaId = (key: string) => {
-    // Priority: 1. Mapping for this clinic, 2. Global mapping (clinicId null)
     const matches = mappings.filter(m => m.key === key)
     if (matches.length === 0) return ''
-    
     const branchSpecific = matches.find(m => m.clinicId !== null)
     return branchSpecific ? branchSpecific.coaId : matches[0].coaId
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 max-w-[1600px] mx-auto">
       <PageHeader
         title="System Account Mapping"
         subtitle="Hubungkan peran sistem ke Chart of Accounts untuk otomatisasi jurnal keuangan."
@@ -110,121 +108,144 @@ export default function SystemAccountsPage() {
               }
             }
           }}
-          className="px-6 py-3 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-indigo-100 transition-all border-2 border-indigo-100 flex items-center gap-2"
+          className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-xs hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-lg shadow-indigo-500/20"
         >
           <FiSettings className="w-4 h-4" />
-          Inisialisasi Akun
+          Sinkronisasi Akun
         </button>
       </PageHeader>
 
-      <div className="max-w-5xl space-y-6">
-        {error && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-sm font-bold">
-            <FiAlertCircle className="w-5 h-5" />
-            {error}
-          </motion.div>
-        )}
+      <div className="mt-8 space-y-6">
+        <AnimatePresence mode="wait">
+          {error && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="flex items-center gap-3 p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs font-bold">
+              <FiAlertCircle className="w-4 h-4" />
+              {error}
+            </motion.div>
+          )}
 
-        {success && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-600 text-sm font-bold">
-            <FiCheckCircle className="w-5 h-5" />
-            {success}
-          </motion.div>
-        )}
+          {success && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-600 text-xs font-bold">
+              <FiCheckCircle className="w-4 h-4" />
+              {success}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        <div className="grid grid-cols-1 gap-4">
-          {SYSTEM_KEYS.map((sys, idx) => {
-            const currentCoaId = getMappedCoaId(sys.key)
-            const isSaving = savingKey === sys.key
+        {/* Compact Table View */}
+        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/50 border-b border-slate-100">
+                  <th className="px-6 py-2.5 text-[8px] font-black uppercase tracking-widest text-slate-400">System Role & Key</th>
+                  <th className="px-6 py-2.5 text-[8px] font-black uppercase tracking-widest text-slate-400 hidden lg:table-cell">Deskripsi</th>
+                  <th className="px-6 py-2.5 text-[8px] font-black uppercase tracking-widest text-slate-400 text-center">Category</th>
+                  <th className="px-6 py-2.5 text-[8px] font-black uppercase tracking-widest text-slate-400">Linked Account (COA)</th>
+                  <th className="px-6 py-2.5 text-[8px] font-black uppercase tracking-widest text-slate-400 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {SYSTEM_KEYS.map((sys, idx) => {
+                  const currentCoaId = getMappedCoaId(sys.key)
+                  const isSaving = savingKey === sys.key
 
-            return (
-              <motion.div 
-                key={sys.key}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.05 }}
-                className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-all group"
-              >
-                <div className="p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-6">
-                  {/* Info Section */}
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                            <FiSettings className="w-4 h-4" />
+                  return (
+                    <motion.tr 
+                      key={sys.key}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: idx * 0.01 }}
+                      className="hover:bg-slate-50/50 transition-colors group"
+                    >
+                      {/* Name & Key */}
+                      <td className="px-6 py-2.5">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm font-bold text-slate-700 leading-none">{sys.name}</span>
+                          <code className="text-[10px] font-mono text-slate-400 lowercase">{sys.key}</code>
                         </div>
-                        <h3 className="font-black text-slate-800 uppercase tracking-tight">{sys.name}</h3>
-                        <span className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 uppercase tracking-widest">{sys.key}</span>
-                    </div>
-                    <p className="text-xs text-slate-500 font-medium leading-relaxed max-w-md">{sys.desc}</p>
-                    <div className="pt-2">
+                      </td>
+
+                      {/* Description */}
+                      <td className="px-6 py-2.5 hidden lg:table-cell">
+                        <p className="text-xs text-slate-500 max-w-xs line-clamp-2 leading-relaxed">{sys.desc}</p>
+                      </td>
+
+                      {/* Category */}
+                      <td className="px-6 py-2.5 text-center">
                         <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md border ${
-                            sys.category === 'ASSET' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                            sys.category === 'REVENUE' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                            'bg-rose-50 text-rose-600 border-rose-100'
+                          sys.category === 'ASSET' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                          sys.category === 'REVENUE' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                          sys.category === 'EQUITY' ? 'bg-purple-50 text-purple-600 border-purple-100' :
+                          sys.category === 'LIABILITY' ? 'bg-orange-50 text-orange-600 border-orange-100' :
+                          'bg-rose-50 text-rose-600 border-rose-100'
                         }`}>
-                            Role: {sys.category}
+                          {sys.category}
                         </span>
-                    </div>
-                  </div>
+                      </td>
 
-                  {/* Mapping Section */}
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-                    <div className="relative min-w-[300px]">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                        <FiLink className="w-4 h-4" />
-                      </div>
-                      <select
-                        value={currentCoaId}
-                        onChange={(e) => handleUpdate(sys.key, e.target.value, sys.name)}
-                        disabled={loading || isSaving}
-                        className="w-full pl-12 pr-10 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-black text-sm text-slate-800 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 appearance-none transition-all disabled:opacity-50"
-                      >
-                        <option value="">-- Pilih Akun COA --</option>
-                        {coaList.filter(c => c.category === sys.category).map(coa => (
-                          <option key={coa.id} value={coa.id}>{coa.code} - {coa.name}</option>
-                        ))}
-                      </select>
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
-                        <FiSettings className="w-3 h-3 animate-spin-slow" />
-                      </div>
-                    </div>
+                      {/* Select Section */}
+                      <td className="px-6 py-1.5 min-w-[220px]">
+                        <div className="relative group/select">
+                          <select
+                            value={currentCoaId}
+                            onChange={(e) => handleUpdate(sys.key, e.target.value, sys.name)}
+                            disabled={loading || isSaving}
+                            className={`w-full pl-2 pr-6 py-1 bg-white border rounded-lg font-black text-[7.5px] uppercase tracking-tighter appearance-none transition-all focus:outline-none focus:ring-4 focus:ring-indigo-500/10 ${
+                              currentCoaId 
+                                ? 'border-slate-200 text-slate-600' 
+                                : 'border-rose-200 bg-rose-50/30 text-rose-500 italic'
+                            }`}
+                          >
+                            <option value="">-- Hubungkan Akun --</option>
+                            {coaList
+                                .filter(c => c.category === sys.category)
+                                .map(coa => (
+                                    <option key={coa.id} value={coa.id} className="text-[10px]">{coa.code} - {coa.name}</option>
+                                ))
+                            }
+                          </select>
+                          <div className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none">
+                            {isSaving ? <FiSettings className="w-1.5 h-1.5 animate-spin" /> : <FiLink className="w-1.5 h-1.5" />}
+                          </div>
+                        </div>
+                      </td>
 
-                    <div className="flex items-center justify-center p-4">
+                      {/* Status */}
+                      <td className="px-6 py-2.5 text-center">
                         {currentCoaId ? (
-                            <div className="flex items-center gap-2 text-emerald-500 bg-emerald-50 px-4 py-2 rounded-2xl border border-emerald-100">
-                                <FiCheckCircle className="w-4 h-4" />
-                                <span className="text-[10px] font-black uppercase tracking-widest">Sirkulasi Aktif</span>
-                            </div>
+                          <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-emerald-50 text-emerald-500 border border-emerald-100" title="Terhubung">
+                            <FiCheckCircle className="w-3.5 h-3.5" />
+                          </div>
                         ) : (
-                            <div className="flex items-center gap-2 text-rose-500 bg-rose-50 px-4 py-2 rounded-2xl border border-rose-100">
-                                <FiAlertCircle className="w-4 h-4" />
-                                <span className="text-[10px] font-black uppercase tracking-widest">Belum Terhubung</span>
-                            </div>
+                          <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-rose-50 text-rose-500 border border-rose-100 animate-pulse" title="Belum Terhubung">
+                            <FiAlertCircle className="w-3.5 h-3.5" />
+                          </div>
                         )}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )
-          })}
+                      </td>
+                    </motion.tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <div className="p-8 bg-indigo-900 rounded-[3rem] text-white overflow-hidden relative shadow-2xl shadow-indigo-500/20">
-            <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-8">
-                <div className="p-4 bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20">
-                    <FiBriefcase className="w-8 h-8 text-indigo-200" />
+        {/* Info Box */}
+        <div className="p-6 bg-slate-900 rounded-3xl text-white relative overflow-hidden group">
+            <div className="relative z-10 flex items-center gap-6">
+                <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center border border-white/20">
+                    <FiBriefcase className="w-6 h-6 text-indigo-300" />
                 </div>
                 <div>
-                    <h4 className="text-xl font-black tracking-tight mb-2">Pentingnya Pemetaan Akun</h4>
-                    <p className="text-sm text-indigo-100 font-medium leading-relaxed max-w-2xl">
-                        Tanpa pemetaan ini, sistem tidak akan tahu ke mana harus mencatat debit dan kredit saat operasional berlangsung. 
-                        Pastikan setiap peran sistem di atas terhubung ke Akun Detail (bukan Header) yang sesuai di COA Anda.
+                    <h4 className="text-sm font-black tracking-tight mb-1">Informasi Pemetaan</h4>
+                    <p className="text-[11px] text-slate-400 font-medium leading-relaxed max-w-2xl">
+                        Pastikan setiap peran sistem terhubung ke Akun Detail (bukan Header) agar otomatisasi jurnal keuangan berjalan lancar. 
+                        Warna label kategori disesuaikan dengan standar akuntansi (Asset: Emerald, Revenue: Blue, Expense: Rose).
                     </p>
                 </div>
             </div>
-            {/* Background Decorations */}
-            <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
-            <div className="absolute -left-20 -top-20 w-60 h-60 bg-indigo-500/20 rounded-full blur-3xl" />
+            <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl group-hover:bg-indigo-500/20 transition-all duration-700" />
         </div>
       </div>
     </div>

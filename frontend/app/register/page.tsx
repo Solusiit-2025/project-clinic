@@ -168,14 +168,14 @@ export default function BookingPublicPage() {
                             <h3 className="text-xl font-black text-gray-900 mb-8">Pilih Layanan & Dokter</h3>
                             <div>
                                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Klinik Cabang</label>
-                                <select value={form.clinicId} onChange={e => setForm({...form, clinicId: e.target.value})} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:border-primary">
+                                <select value={form.clinicId || ''} onChange={e => setForm({...form, clinicId: e.target.value})} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:border-primary">
                                     <option value="">-- Pilih Klinik --</option>
                                     {clinics.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Dokter Spesialis</label>
-                                <select value={form.doctorId} onChange={e => setForm({...form, doctorId: e.target.value})} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:border-primary">
+                                <select value={form.doctorId || ''} onChange={e => setForm({...form, doctorId: e.target.value})} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:border-primary">
                                     <option value="">-- Pilih Dokter --</option>
                                     {doctors.map(d => <option key={d.id} value={d.id}>{d.name} ({d.specialization})</option>)}
                                 </select>

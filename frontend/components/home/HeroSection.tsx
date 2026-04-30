@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { FiArrowRight, FiPlay, FiCheckCircle } from 'react-icons/fi'
+import { FiArrowRight, FiPlay, FiCheckCircle, FiScissors } from 'react-icons/fi'
 import { useSettingsStore } from '@/lib/store/useSettingsStore'
 
 export default function HeroSection() {
@@ -39,9 +39,10 @@ export default function HeroSection() {
               transition={{ duration: 0.8, delay: 0.25 }}
               className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold leading-[1.15] mb-8 text-gray-900 dark:text-white tracking-tight"
             >
-              {hero.title} <span className="relative inline-block">
-                <span className="relative z-10 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">{hero.highlight}</span>
-                <span className="absolute bottom-2 left-0 w-full h-3 bg-primary/20 dark:bg-primary/10 -z-1 order-1"></span>
+              <span className="relative inline-block">
+                <span className="relative z-10 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Layanan Medis</span>
+              </span> Modern & <span className="relative inline-block">
+                <span className="relative z-10 bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent">Rumah Sunat</span>
               </span>
             </motion.h1>
 
@@ -51,7 +52,7 @@ export default function HeroSection() {
               transition={{ duration: 0.8, delay: 0.4 }}
               className="text-lg sm:text-xl text-gray-600 dark:text-gray-400 mb-10 leading-relaxed max-w-2xl"
             >
-              {hero.description}
+              Klinik Yasfina hadir dengan dua keunggulan utama: Layanan Pengobatan Umum & Poli Gigi profesional, serta Pusat Khitan Modern dengan metode tercanggih untuk kesehatan keluarga Anda.
             </motion.p>
 
             <motion.div
@@ -61,17 +62,18 @@ export default function HeroSection() {
               className="flex flex-col sm:flex-row gap-5"
             >
               <Link
+                href="#circumcision"
+                className="px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black rounded-2xl flex items-center justify-center gap-3 shadow-2xl shadow-amber-500/40 hover:shadow-amber-500/60 transform hover:-translate-y-1 transition-all text-lg border border-amber-400/50"
+              >
+                <FiScissors className="w-5 h-5" />
+                Rumah Sunat
+              </Link>
+              <Link
                 href={hero.primaryHref}
                 className="btn-primary px-8 py-4 rounded-2xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/20 hover:shadow-primary/40 transform hover:-translate-y-1 transition-all text-lg"
               >
                 {hero.primaryCta}
                 <FiArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </Link>
-              <Link
-                href={hero.secondaryHref}
-                className="px-8 py-4 bg-white dark:bg-slate-900 border-2 border-gray-100 dark:border-slate-800 rounded-2xl font-bold text-gray-700 dark:text-gray-300 hover:border-primary hover:text-primary transition-all flex items-center justify-center gap-3 shadow-sm hover:shadow-xl"
-              >
-                {hero.secondaryCta}
               </Link>
             </motion.div>
 

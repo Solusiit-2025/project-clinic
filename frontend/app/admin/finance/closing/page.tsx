@@ -8,19 +8,39 @@ import {
   FiShield, FiZap, FiRefreshCw 
 } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
+import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'react-hot-toast'
 
 const ACCT_API = process.env.NEXT_PUBLIC_API_URL + '/api/accounting'
 
 export default function YearEndClosingPage() {
-  const { activeClinicId } = useAuthStore()
+  const { activeClinicId, user } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [summary, setSummary] = useState<any>(null)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [showConfirm, setShowConfirm] = useState(false)
   const [step, setStep] = useState(1) // 1: Preview, 2: processing
+
+  // Security Guard: Only Super Admin, Admin, and Accounting can access this page
+  if (user && !['SUPER_ADMIN', 'ADMIN', 'ACCOUNTING'].includes(user.role)) {
+    return (
+      <div className="h-[70vh] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6">
+          <FiShield className="w-10 h-10 text-red-500" />
+        </div>
+        <h1 className="text-2xl font-black text-gray-900 mb-2 uppercase tracking-tight">Akses Terbatas</h1>
+        <p className="text-gray-500 text-sm max-w-md mb-8 font-medium">
+          Maaf, halaman Tutup Buku Tahunan hanya dapat diakses oleh Super Admin, Administrator, dan Accounting. 
+          Silakan hubungi IT Support jika Anda memerlukan akses ini.
+        </p>
+        <Link href="/admin" className="px-8 py-3 bg-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-gray-200 active:scale-95 transition-all">
+          Kembali ke Dashboard
+        </Link>
+      </div>
+    )
+  }
 
 
   const fetchSummary = useCallback(async () => {

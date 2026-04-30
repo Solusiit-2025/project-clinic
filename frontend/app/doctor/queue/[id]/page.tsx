@@ -8,7 +8,8 @@ import {
   FiActivity, FiCheckCircle, FiRefreshCw, FiUser, 
   FiHome, FiAlertCircle, FiClipboard, FiHeart, FiThermometer, FiWind,
   FiEdit3, FiTrash2, FiSearch, FiPackage, FiInfo, FiArrowLeft, FiSave, FiRotateCcw, FiPrinter,
-  FiPlus, FiMinus, FiDollarSign, FiHash, FiClock, FiChevronDown, FiCalendar, FiLock
+  FiPlus, FiMinus, FiDollarSign, FiHash, FiClock, FiChevronDown, FiCalendar, FiLock,
+  FiMonitor
 } from 'react-icons/fi'
 import { HiOutlineBeaker } from 'react-icons/hi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -137,6 +138,7 @@ export default function DoctorConsultationPage() {
   const [isLabPreviewOpen, setIsLabPreviewOpen] = useState(false)
   const [currentPrintLab, setCurrentPrintLab] = useState<any>(null)
   
+  const [isRMEInfoOpen, setIsRMEInfoOpen] = useState(false)
   const hasFetchedRef = useRef<string | null>(null)
   const labDropdownRef = useRef<HTMLDivElement>(null)
 
@@ -580,6 +582,12 @@ export default function DoctorConsultationPage() {
                     {['L', 'M', 'Laki-laki'].includes(queue.patient.gender) ? 'Laki-laki' : 'Perempuan'}
                   </span>
                 )}
+                <button 
+                  onClick={() => setIsRMEInfoOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1 bg-amber-400 text-white rounded-xl text-[9px] font-black hover:bg-amber-500 transition-all shadow-lg shadow-amber-200 animate-pulse"
+                >
+                  <FiInfo className="w-3 h-3" /> PANDUAN RME
+                </button>
               </div>
               <div className="flex items-center gap-2 mt-1">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">
@@ -700,7 +708,9 @@ export default function DoctorConsultationPage() {
               <motion.div key="diag" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
                 <div className="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm min-h-[400px]">
                   <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-50">
-                     <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Medical Documentation (S-O-A-P)</h3>
+                     <div className="flex items-center gap-3">
+                        <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Medical Documentation (S-O-A-P)</h3>
+                     </div>
                      <div className="flex items-center gap-2">
                         {templates.length > 0 && (
                           <div className="relative group">
@@ -1813,6 +1823,113 @@ export default function DoctorConsultationPage() {
           </div>
         </div>
       )}
+      {/* RME INFO MODAL (EDUCATIONAL) */}
+      <AnimatePresence>
+        {isRMEInfoOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              onClick={() => setIsRMEInfoOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]"
+            >
+              {/* Left Side: Branding/Visual */}
+              <div className="w-full md:w-80 bg-primary p-10 flex flex-col justify-between text-white relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
+                <div className="relative z-10">
+                   <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-6 border border-white/20">
+                      <FiMonitor className="w-8 h-8 text-white" />
+                   </div>
+                   <h2 className="text-2xl font-black uppercase tracking-tighter leading-tight">Masa Depan <br/>Rekam Medis Indonesia</h2>
+                   <div className="w-12 h-1 bg-white/40 mt-4 rounded-full" />
+                </div>
+                <div className="relative z-10 space-y-4">
+                   <p className="text-xs font-medium text-white/70 italic leading-relaxed">"Sistem RME Yasfina dirancang untuk efisiensi tinggi, legalitas hukum, dan kemudahan bagi tenaga medis modern."</p>
+                   <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-white px-4 py-2 rounded-xl">
+                      <FiCheckCircle /> FUTURE READY: SATU SEHAT
+                   </div>
+                </div>
+              </div>
+
+              {/* Right Side: Content */}
+              <div className="flex-1 p-8 md:p-12 overflow-y-auto custom-scrollbar">
+                <div className="flex justify-between items-start mb-10">
+                   <div>
+                      <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.3em] mb-2">Informasi Penting</h3>
+                      <h4 className="text-2xl font-black text-slate-900 tracking-tight">Apa itu RME & Kenapa Wajib?</h4>
+                   </div>
+                   <button onClick={() => setIsRMEInfoOpen(false)} className="w-10 h-10 bg-slate-100 hover:bg-slate-200 rounded-full flex items-center justify-center text-slate-400 transition-all">✕</button>
+                </div>
+
+                <div className="space-y-10">
+                   {/* Point 1: Regulasi */}
+                   <div className="flex gap-6 group">
+                      <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-primary flex-shrink-0 border border-indigo-100 group-hover:bg-primary group-hover:text-white transition-all">
+                         <FiAlertCircle className="w-6 h-6" />
+                      </div>
+                      <div>
+                         <h5 className="font-black text-slate-900 uppercase tracking-widest text-xs mb-2">Kewajiban Regulasi (PMK No. 24/2022)</h5>
+                         <p className="text-sm text-slate-500 leading-relaxed font-medium">Kemenkes RI mewajibkan seluruh fasilitas kesehatan (Klinik & RS) beralih ke digital paling lambat **31 Desember 2023**. Secara hukum, catatan tulis tangan sudah harus ditinggalkan demi keakuratan data nasional.</p>
+                      </div>
+                   </div>
+
+                   {/* Point 2: Standard RS Modern */}
+                   <div className="flex gap-6 group">
+                      <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 flex-shrink-0 border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                         <FiActivity className="w-6 h-6" />
+                      </div>
+                      <div>
+                         <h5 className="font-black text-slate-900 uppercase tracking-widest text-xs mb-2">Standar Rumah Sakit Modern & Besar</h5>
+                         <p className="text-sm text-slate-500 leading-relaxed font-medium">Di RS modern (Tipe A/B), dokter tidak lagi membawa map fisik. Semua input SOAP, diagnosa (ICD-10), dan e-resep dilakukan langsung melalui Komputer atau Tablet (COW) untuk menghindari kesalahan baca tulisan tangan.</p>
+                      </div>
+                   </div>
+
+                   {/* Point 3: Integrasi SATUSEHAT */}
+                   <div className="flex gap-6 group">
+                      <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 flex-shrink-0 border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                         <HiOutlineBeaker className="w-6 h-6" />
+                      </div>
+                      <div>
+                         <h5 className="font-black text-slate-900 uppercase tracking-widest text-xs mb-2">Konektivitas SATUSEHAT (Nasional)</h5>
+                         <p className="text-sm text-slate-500 leading-relaxed font-medium">Sistem Yasfina dirancang untuk mendukung integrasi penuh dengan platform **SatuSehat** di masa mendatang. Dengan standarisasi data RME saat ini, klinik Anda akan jauh lebih siap ketika regulasi integrasi SatuSehat mulai diimplementasikan secara teknis.</p>
+                      </div>
+                   </div>
+
+                   {/* Point 4: Solusi Manual ke Digital */}
+                   <div className="flex gap-6 group">
+                      <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 flex-shrink-0 border border-amber-100 group-hover:bg-amber-600 group-hover:text-white transition-all">
+                         <FiEdit3 className="w-6 h-6" />
+                      </div>
+                      <div>
+                         <h5 className="font-black text-slate-900 uppercase tracking-widest text-xs mb-2">Tantangan Mengetik vs Menulis</h5>
+                         <p className="text-sm text-slate-500 leading-relaxed font-medium">Kami memahami kebiasaan menulis tangan. Sistem Yasfina menyiasati ini dengan fitur **Template & Autofill**. Menginput diagnosa ICD-10 kini lebih cepat daripada menulisnya secara manual, sekaligus memastikan akurasi kode klaim.</p>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="mt-12 p-6 bg-slate-50 rounded-3xl border border-slate-100 text-center">
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mb-3">Kesimpulan Untuk Anda</p>
+                   <p className="text-xs font-bold text-slate-600">Sistem yang Anda gunakan saat ini sudah mengikuti alur kerja dokter modern di Indonesia yang mengutamakan **Kecepatan, Akurasi, dan Legalitas.**</p>
+                </div>
+
+                <button 
+                  onClick={() => setIsRMEInfoOpen(false)}
+                  className="w-full mt-10 py-5 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-[0.4em] shadow-xl hover:bg-slate-800 transition-all"
+                >
+                  SAYA MENGERTI
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

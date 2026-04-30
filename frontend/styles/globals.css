@@ -16,34 +16,34 @@
   --primary-glow: rgba(14, 165, 233, 0.2);
 
   /* Backgrounds */
-  --bg-app: #f1f5f9;         /* Slate 100 - softer for premium look */
+  --bg-app: #fcfcfd;         /* Luxury White - very clean and premium */
   --bg-surface: #ffffff;
   --bg-surface-2: #f8fafc;   /* Slate 50 */
   --bg-surface-3: #f1f5f9;
 
   /* Borders */
-  --border: #e2e8f0;         /* Slate 200 */
-  --border-subtle: #f1f5f9;
+  --border: #f1f5f9;         /* Very subtle slate */
+  --border-subtle: #f8fafc;
 
   /* Text */
   --text-primary: #0f172a;   /* Slate 900 */
-  --text-secondary: #475569; /* Slate 600 */
+  --text-secondary: #334155; /* Slate 700 - slightly darker for better contrast */
   --text-muted: #64748b;     /* Slate 500 */
   --text-faint: #94a3b8;     /* Slate 400 */
 
   /* Sidebar */
   --sidebar-bg: #ffffff;
-  --sidebar-border: #e2e8f0;
-  --sidebar-item-hover: #f1f5f9;
+  --sidebar-border: #f1f5f9;
+  --sidebar-item-hover: #f8fafc;
   --sidebar-item-active: rgba(14, 165, 233, 0.08);
 
   /* Navbar */
-  --navbar-bg: rgba(255,255,255,0.9);
-  --navbar-border: #e2e8f0;
+  --navbar-bg: rgba(255,255,255,0.8);
+  --navbar-border: #f1f5f9;
 
   /* Input */
-  --input-bg: #f8fafc;
-  --input-border: #cbd5e1;
+  --input-bg: #ffffff;
+  --input-border: #e2e8f0;
 }
 
 html.dark {
@@ -51,15 +51,15 @@ html.dark {
   --primary: #0ea5e9;
   --primary-glow: rgba(14, 165, 233, 0.4);
 
-  /* Backgrounds — True Deep Palette (Vercel/Linear style) */
-  --bg-app: #020617;         /* Pitch black navy */
+  /* Backgrounds — Obsidian Palette */
+  --bg-app: #030712;         /* Deepest Obsidian */
   --bg-surface: #0b1120;     /* Surface color */
-  --bg-surface-2: #1e293b;   /* Slightly lighter surface */
-  --bg-surface-3: #334155;   /* Active/Hover states */
+  --bg-surface-2: #111827;   /* Slightly lighter surface */
+  --bg-surface-3: #1f2937;   /* Active/Hover states */
 
   /* Borders — Minimal and crisp */
-  --border: #1e293b;         /* Slate 800 */
-  --border-subtle: #0f172a;  /* Slate 900 */
+  --border: #1f2937;         /* Gray 800 */
+  --border-subtle: #111827;  /* Gray 900 */
 
   /* Text — Maximum legibility */
   --text-primary: #ffffff;   /* Pure white for headings */

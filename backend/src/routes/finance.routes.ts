@@ -6,10 +6,19 @@ import {
 } from '../controllers/finance.controller'
 import { uploadBon } from '../middleware/procurementUpload.middleware'
 
+import { OpeningBalanceController } from '../controllers/opening-balance.controller'
+
 const financeRoutes = Router()
 
 // All finance routes require authentication
 financeRoutes.use(authMiddleware)
+
+// Opening Balance
+financeRoutes.get('/opening-balance', OpeningBalanceController.getAll)
+financeRoutes.post('/opening-balance', OpeningBalanceController.create)
+financeRoutes.post('/opening-balance/:id/post', OpeningBalanceController.post)
+financeRoutes.post('/opening-balance/:id/unpost', OpeningBalanceController.unpost)
+financeRoutes.delete('/opening-balance/:id', OpeningBalanceController.delete)
 
 financeRoutes.get('/invoices', getInvoices)
 financeRoutes.post('/payments', processPayment)

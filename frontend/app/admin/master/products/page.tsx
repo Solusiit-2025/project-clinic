@@ -91,26 +91,50 @@ export default function ProductsPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   
   const isPusat = user?.clinics?.some(c => c.isMain) || user?.role === 'SUPER_ADMIN'
+  const hidePrices = !['SUPER_ADMIN', 'ADMIN', 'ACCOUNTING'].includes(user?.role as string)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       const params: any = { 
         page, 
-        limit: 100
+        limit: 10,
+        search,
+        category: catFilter,
+        clinicId: clinicFilter
       }
-      if (search) params.search = search
-      if (catFilter) params.categoryId = catFilter
-      if (clinicFilter) params.clinicId = clinicFilter
-      
-      const { data } = await api.get('/master/products', { params })
-      const results = data?.data || []
-      setData(results)
-      setTotalPages(data?.meta?.totalPages || 1)
-    } catch (err) {
-      console.error('Failed to fetch products', err)
-    } finally { setLoading(false) }
-  }, [search, catFilter, clinicFilter, page])
+      const res = await api.get('/master/products', { params })
+      const resData = res.data
+      const products = Array.isArray(resData) ? resData : (resData?.data || resData?.products || [])
+      setData(products)
+      setTotalPages(resData?.meta?.totalPages || resData?.totalPages || 1)
+    } catch (e) {
+      console.error('Fetch data error:', e)
+    } finally {
+      setLoading(false)
+    }
+  }, [page, search, catFilter, clinicFilter])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  // Security Guard: Only Super Admin and Admin can access this page
+  if (!loading && user && !['SUPER_ADMIN', 'ADMIN'].includes(user.role)) {
+    return (
+      <div className="h-[70vh] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6">
+          <FiShield className="w-10 h-10 text-red-500" />
+        </div>
+        <h1 className="text-2xl font-black text-gray-900 mb-2 uppercase tracking-tight">Akses Terbatas</h1>
+        <p className="text-gray-500 text-sm max-w-md mb-8 font-medium">
+          Maaf, halaman Master Produk hanya dapat diakses oleh Super Admin dan Administrator. 
+          Silakan hubungi IT Support jika Anda memerlukan akses ini.
+        </p>
+        <Link href="/admin" className="px-8 py-3 bg-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-gray-200 active:scale-95 transition-all">
+          Kembali ke Dashboard
+        </Link>
+      </div>
+    )
+  }
 
   const fetchDependencies = useCallback(async () => {
     try {
@@ -272,7 +296,9 @@ export default function ProductsPage() {
     )},
     { key: 'pricing', label: 'HARGA', mobileHide: true, render: (r: ProductInventory) => (
       <div className="flex flex-col">
-          <p className="text-[11px] font-black text-gray-900 leading-tight">Rp {(r.sellingPrice || 0).toLocaleString('id-ID')}</p>
+          <p className="text-[11px] font-black text-gray-900 leading-tight">
+            {hidePrices ? '••••••' : `Rp ${(r.sellingPrice || 0).toLocaleString('id-ID')}`}
+          </p>
           <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">SKU: {r.sku}</span>
       </div>
     )},
@@ -308,12 +334,15 @@ export default function ProductsPage() {
         <div className="space-y-6 pt-2">
           {/* Mobile Optimized Tabs */}
           <div className="flex gap-2 border-b border-gray-100 -mx-6 px-6 overflow-x-auto no-scrollbar">
-            {['info', 'logistics', 'pricing'].map((t) => (
-              <button key={t} onClick={() => setActiveTab(t as any)} 
-                className={`pb-4 px-4 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 whitespace-nowrap ${activeTab === t ? 'border-primary text-primary' : 'border-transparent text-gray-400'}`}>
-                {t === 'info' ? 'IDENTITAS' : t === 'logistics' ? 'LOGISTIK' : 'HARGA & STOK'}
-              </button>
-            ))}
+            {['info', 'logistics', 'pricing'].map((t) => {
+              if (t === 'pricing' && hidePrices) return null
+              return (
+                <button key={t} onClick={() => setActiveTab(t as any)} 
+                  className={`pb-4 px-4 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 whitespace-nowrap ${activeTab === t ? 'border-primary text-primary' : 'border-transparent text-gray-400'}`}>
+                  {t === 'info' ? 'IDENTITAS' : t === 'logistics' ? 'LOGISTIK' : 'HARGA & STOK'}
+                </button>
+              )
+            })}
           </div>
 
           <div className="min-h-[400px]">

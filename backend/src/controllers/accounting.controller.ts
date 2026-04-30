@@ -87,11 +87,13 @@ export const getTrialBalance = async (req: Request, res: Response) => {
 
     // Filter: hanya tampilkan akun yang punya saldo atau opening balance
     // Akun dengan saldo 0 dan tidak ada transaksi tidak perlu ditampilkan
-    const nonZeroTrialBalance = trialBalance.filter(
-      item => item.debit > 0 || item.credit > 0
+    // Filter: Tampilkan akun jika punya saldo (tidak nol) 
+    // ATAU jika ada pergerakan transaksi (debit/credit movement > 0)
+    const activeTrialBalance = trialBalance.filter(
+      item => (item.debit > 0 || item.credit > 0) || (aggregateMap.has(item.id))
     )
 
-    res.json(nonZeroTrialBalance)
+    res.json(activeTrialBalance)
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })
   }

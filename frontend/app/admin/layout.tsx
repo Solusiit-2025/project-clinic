@@ -43,22 +43,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!isAuthenticated || !staffRoles.includes(user?.role ?? '')) return null
 
   return (
-    <div className="min-h-screen flex" style={{ backgroundColor: 'var(--bg-app)' }}>
+    <div className="min-h-screen w-full flex overflow-x-hidden" style={{ backgroundColor: 'var(--bg-app)' }}>
       {/* Sidebar — handles its own mobile drawer internally, but we pass open state */}
       <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-screen min-w-0">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-h-screen min-w-0 w-full relative">
         <AdminNavbar onMobileMenuOpen={() => setMobileMenuOpen(true)} />
         <SessionGuard />
 
-        <main className="flex-1 p-2 sm:p-3 md:p-4 lg:p-5 pb-24 md:pb-20 lg:pb-5">
+        <main className="flex-1 w-full p-2 sm:p-3 md:p-4 lg:p-6 pb-24 md:pb-20 lg:pb-8">
           <AnimatePresence mode="wait">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.25 }}
+              className="w-full"
             >
               {children}
             </motion.div>

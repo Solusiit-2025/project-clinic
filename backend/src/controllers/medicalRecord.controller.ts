@@ -402,11 +402,18 @@ export const getMedicalRecordsByPatient = async (req: Request, res: Response) =>
         
         const history = await prisma.medicalRecord.findMany({
             where: { patientId: id },
-            select: {
-                id: true,
-                recordDate: true,
-                diagnosis: true,
-                treatmentPlan: true,
+            include: {
+                vitals: { orderBy: { recordedAt: 'desc' }, take: 1 },
+                prescriptions: { 
+                  include: { 
+                    items: { 
+                      include: { medicine: true } 
+                    } 
+                  } 
+                },
+                services: { 
+                  include: { service: true } 
+                },
                 doctor: {
                   select: {
                     id: true,

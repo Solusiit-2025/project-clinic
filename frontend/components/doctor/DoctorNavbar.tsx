@@ -83,10 +83,16 @@ export default function DoctorNavbar() {
             className="flex items-center gap-2 sm:gap-3 pl-1 pr-1 sm:pl-4 sm:pr-4 py-1 sm:py-2 rounded-2xl border border-gray-100 sm:border-gray-200 hover:bg-gray-50 hover:border-indigo-200 transition-all group"
           >
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-primary flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
-              {user?.name?.[0] || 'D'}
+              {user?.name?.toLowerCase().startsWith('dr') && user?.name?.split(' ').length > 1
+                ? user?.name?.split(' ')[1]?.charAt(0)
+                : user?.name?.[0] || 'D'}
             </div>
             <div className="hidden sm:flex flex-col items-end">
-              <span className="text-xs font-black text-gray-900 leading-tight">{user?.name?.split(' ')[0] || 'Doctor'}</span>
+              <span className="text-xs font-black text-gray-900 leading-tight">
+                {user?.name?.toLowerCase().startsWith('dr') && user?.name?.split(' ').length > 1
+                  ? user?.name?.split(' ').slice(0, 2).join(' ')
+                  : user?.name?.split(' ')[0] || 'Doctor'}
+              </span>
               <span className="text-[8px] text-primary font-black uppercase tracking-wider">Station Active</span>
             </div>
           </button>

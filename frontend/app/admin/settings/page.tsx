@@ -3,14 +3,15 @@
 import { useState, useEffect } from 'react'
 import api from '@/lib/api'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  FiDatabase, FiDownload, FiUpload, FiHardDrive, 
+import {
+  FiDatabase, FiDownload, FiUpload, FiHardDrive,
   FiAlertTriangle, FiCheckCircle, FiClock, FiFileText,
   FiInfo, FiChevronRight, FiSettings, FiShield, FiCpu, FiActivity,
   FiMonitor, FiVideo, FiTrash2, FiPlay, FiRefreshCw, FiVolume2
 } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import toast, { Toaster } from 'react-hot-toast'
+import Link from 'next/link'
 
 export default function SettingsPage() {
   const { user } = useAuthStore()
@@ -24,7 +25,7 @@ export default function SettingsPage() {
   const [isRestoring, setIsRestoring] = useState(false)
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  
+
   const [newTemplate, setNewTemplate] = useState({
     name: '',
     type: 'SOAP',
@@ -51,7 +52,7 @@ export default function SettingsPage() {
       if (videoSetting) {
         setDisplayVideos(Array.isArray(videoSetting.value) ? videoSetting.value : [])
       }
-      
+
       const volumeSetting = data.find((s: any) => s.key === 'monitor_video_volume')
       if (volumeSetting) {
         setVideoVolume(Number(volumeSetting.value))
@@ -64,8 +65,8 @@ export default function SettingsPage() {
   const handleUpdateVolume = async (val: number) => {
     setVideoVolume(val)
     try {
-      await api.post('settings', { 
-        key: 'monitor_video_volume', 
+      await api.post('settings', {
+        key: 'monitor_video_volume',
         value: val,
         description: 'Volume Video Monitor (0-100)'
       })
@@ -151,7 +152,7 @@ export default function SettingsPage() {
       const response = await api.get('backup/download', {
         responseType: 'blob'
       })
-      
+
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const link = document.createElement('a')
       link.href = url
@@ -160,7 +161,7 @@ export default function SettingsPage() {
       document.body.appendChild(link)
       link.click()
       link.remove()
-      
+
       toast.success('Backup berhasil diunduh', { id: toastId })
       fetchBackups()
     } catch (error) {
@@ -184,11 +185,11 @@ export default function SettingsPage() {
 
   const handleRestore = async () => {
     if (!selectedFile) return
-    
+
     setIsRestoring(true)
     setShowRestoreConfirm(false)
     const toastId = toast.loading('Sedang merestore database... Jangan tutup halaman ini.')
-    
+
     const formData = new FormData()
     formData.append('file', selectedFile)
 
@@ -218,7 +219,7 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-gray-50/50 pb-20">
       <Toaster position="top-right" />
-      
+
       {/* Header Area */}
       <div className="max-w-full mx-auto px-6 lg:px-10 pt-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
@@ -231,7 +232,7 @@ export default function SettingsPage() {
             </h1>
             <p className="text-gray-500 font-medium mt-1">Konfigurasi sistem, backup data, dan manajemen infrastruktur.</p>
           </div>
-          
+
           <div className="flex items-center gap-2 bg-white p-1 rounded-2xl border border-gray-100 shadow-sm">
             <span className="px-4 py-2 text-xs font-black uppercase tracking-widest text-gray-400">Environment:</span>
             <span className="px-4 py-2 bg-green-50 text-green-600 rounded-xl text-xs font-black uppercase tracking-widest border border-green-100 flex items-center gap-2">
@@ -248,17 +249,16 @@ export default function SettingsPage() {
               ...(isSuperAdmin ? [{ id: 'database', label: 'Database & Backup', icon: FiDatabase }] : []),
               { id: 'setup', label: 'Setup Templates', icon: FiActivity },
               { id: 'monitor', label: 'Monitor Display', icon: FiMonitor },
-              { id: 'security', label: 'Security & Access', icon: FiShield },
+              ...(isSuperAdmin ? [{ id: 'security', label: 'Security & Access', icon: FiShield }] : []),
               { id: 'system', label: 'System Info', icon: FiCpu },
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-bold transition-all ${
-                  activeTab === tab.id 
-                    ? 'bg-primary text-white shadow-xl shadow-primary/20 scale-[1.02]' 
+                className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-bold transition-all ${activeTab === tab.id
+                    ? 'bg-primary text-white shadow-xl shadow-primary/20 scale-[1.02]'
                     : 'bg-white text-gray-500 hover:bg-gray-100 border border-transparent shadow-sm'
-                }`}
+                  }`}
               >
                 <tab.icon className={`w-5 h-5 ${activeTab === tab.id ? 'text-white' : 'text-gray-400'}`} />
                 {tab.label}
@@ -270,7 +270,7 @@ export default function SettingsPage() {
                 <p className="text-xs font-black uppercase tracking-widest opacity-70 mb-1">Status Sistem</p>
                 <h3 className="text-lg font-bold mb-3">Semua Sistem Normal</h3>
                 <div className="flex items-center gap-2 text-xs font-bold bg-white/10 w-fit px-3 py-1.5 rounded-full backdrop-blur-md">
-                   Terakhir Sinkron: Just now
+                  Terakhir Sinkron: Just now
                 </div>
               </div>
               <FiActivity className="absolute -right-4 -bottom-4 w-24 h-24 opacity-10 group-hover:scale-110 transition-transform duration-700" />
@@ -410,104 +410,104 @@ export default function SettingsPage() {
                 >
                   <div className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-200/50">
                     <div className="flex items-center justify-between mb-8 pb-6 border-b border-gray-50">
-                       <div>
-                          <h2 className="text-2xl font-black text-gray-900">Clinical Template Manager</h2>
-                          <p className="text-gray-400 font-medium text-sm">Kelola template SOAP awal untuk mempercepat pengisian rekam medis.</p>
-                       </div>
-                       <div className="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-indigo-100">
-                          Standarisasi Klinis
-                       </div>
+                      <div>
+                        <h2 className="text-2xl font-black text-gray-900">Clinical Template Manager</h2>
+                        <p className="text-gray-400 font-medium text-sm">Kelola template SOAP awal untuk mempercepat pengisian rekam medis.</p>
+                      </div>
+                      <div className="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-indigo-100">
+                        Standarisasi Klinis
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
                       <div className="lg:col-span-4 space-y-6">
-                         <div className="p-8 bg-slate-50 rounded-[2rem] border border-slate-100">
-                            <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-6">Buat Template Baru</h3>
-                            <div className="space-y-4">
-                               <div className="space-y-1.5">
-                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Template</label>
-                                  <input 
-                                    value={newTemplate.name}
-                                    onChange={(e) => setNewTemplate({...newTemplate, name: e.target.value})}
-                                    placeholder="Contoh: ISPA / Common Cold" 
-                                    className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold focus:border-primary outline-none transition-all" />
-                               </div>
-                               <div className="space-y-1.5 pt-2">
-                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Subjective (S)</label>
-                                  <textarea 
-                                    value={newTemplate.content.subjective}
-                                    onChange={(e) => setNewTemplate({...newTemplate, content: {...newTemplate.content, subjective: e.target.value}})}
-                                    placeholder="Keluhan awal..." className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-xs font-bold focus:border-primary outline-none min-h-[80px]" />
-                               </div>
-                               <div className="space-y-1.5">
-                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Objective (O)</label>
-                                  <textarea 
-                                    value={newTemplate.content.objective}
-                                    onChange={(e) => setNewTemplate({...newTemplate, content: {...newTemplate.content, objective: e.target.value}})}
-                                    placeholder="Pemeriksaan..." className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-xs font-bold focus:border-primary outline-none min-h-[80px]" />
-                               </div>
-                               <div className="space-y-1.5">
-                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Assessment (A)</label>
-                                  <input 
-                                    value={newTemplate.content.diagnosis}
-                                    onChange={(e) => setNewTemplate({...newTemplate, content: {...newTemplate.content, diagnosis: e.target.value}})}
-                                    placeholder="Diagnosa..." className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-xs font-bold focus:border-primary outline-none" />
-                               </div>
-                               <div className="space-y-1.5">
-                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Plan (P)</label>
-                                  <textarea 
-                                    value={newTemplate.content.treatmentPlan}
-                                    onChange={(e) => setNewTemplate({...newTemplate, content: {...newTemplate.content, treatmentPlan: e.target.value}})}
-                                    placeholder="Terapi..." className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-xs font-bold focus:border-primary outline-none min-h-[80px]" />
-                               </div>
-                               <button 
-                                onClick={handleAddTemplate}
-                                disabled={isLoading || !newTemplate.name}
-                                className="w-full py-4 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all mt-4 disabled:opacity-50">
-                                  SIMPAN TEMPLATE
-                               </button>
+                        <div className="p-8 bg-slate-50 rounded-[2rem] border border-slate-100">
+                          <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-6">Buat Template Baru</h3>
+                          <div className="space-y-4">
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Template</label>
+                              <input
+                                value={newTemplate.name}
+                                onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
+                                placeholder="Contoh: ISPA / Common Cold"
+                                className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold focus:border-primary outline-none transition-all" />
                             </div>
-                         </div>
+                            <div className="space-y-1.5 pt-2">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Subjective (S)</label>
+                              <textarea
+                                value={newTemplate.content.subjective}
+                                onChange={(e) => setNewTemplate({ ...newTemplate, content: { ...newTemplate.content, subjective: e.target.value } })}
+                                placeholder="Keluhan awal..." className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-xs font-bold focus:border-primary outline-none min-h-[80px]" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Objective (O)</label>
+                              <textarea
+                                value={newTemplate.content.objective}
+                                onChange={(e) => setNewTemplate({ ...newTemplate, content: { ...newTemplate.content, objective: e.target.value } })}
+                                placeholder="Pemeriksaan..." className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-xs font-bold focus:border-primary outline-none min-h-[80px]" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Assessment (A)</label>
+                              <input
+                                value={newTemplate.content.diagnosis}
+                                onChange={(e) => setNewTemplate({ ...newTemplate, content: { ...newTemplate.content, diagnosis: e.target.value } })}
+                                placeholder="Diagnosa..." className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-xs font-bold focus:border-primary outline-none" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Plan (P)</label>
+                              <textarea
+                                value={newTemplate.content.treatmentPlan}
+                                onChange={(e) => setNewTemplate({ ...newTemplate, content: { ...newTemplate.content, treatmentPlan: e.target.value } })}
+                                placeholder="Terapi..." className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-xs font-bold focus:border-primary outline-none min-h-[80px]" />
+                            </div>
+                            <button
+                              onClick={handleAddTemplate}
+                              disabled={isLoading || !newTemplate.name}
+                              className="w-full py-4 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all mt-4 disabled:opacity-50">
+                              SIMPAN TEMPLATE
+                            </button>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="lg:col-span-8 space-y-4">
-                         <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                           <FiActivity className="text-primary" /> Daftar Template Aktif
-                         </h3>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {templates.map((t, i) => (
-                              <div key={i} className="p-6 bg-white border border-slate-100 rounded-[2rem] shadow-sm hover:shadow-xl transition-all group overflow-hidden relative">
-                                 <div className="absolute top-0 right-0 w-24 h-24 bg-slate-50 rounded-full -mr-12 -mt-12 group-hover:bg-indigo-50 transition-colors" />
-                                 <div className="relative">
-                                    <div className="flex items-center justify-between mb-4">
-                                       <span className="text-[10px] font-black text-primary bg-primary/5 px-2.5 py-1 rounded-lg uppercase tracking-wider">{t.type}</span>
-                                       <button className="text-slate-300 hover:text-red-500 transition-colors"><FiAlertTriangle /></button>
-                                    </div>
-                                    <h4 className="font-black text-gray-900 text-lg mb-1">{t.name}</h4>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest line-clamp-1 italic mb-4">
-                                      {t.content.diagnosis || 'Diagnosis tidak diset'}
-                                    </p>
-                                    <div className="grid grid-cols-2 gap-2 text-[9px] font-black uppercase tracking-widest">
-                                       <div className="p-2 bg-slate-50 rounded-lg text-slate-400">S: <span className="text-slate-600">{t.content.subjective ? 'Valid' : 'N/A'}</span></div>
-                                       <div className="p-2 bg-slate-50 rounded-lg text-slate-400">O: <span className="text-slate-600">{t.content.objective ? 'Valid' : 'N/A'}</span></div>
-                                    </div>
-                                 </div>
+                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                          <FiActivity className="text-primary" /> Daftar Template Aktif
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {templates.map((t, i) => (
+                            <div key={i} className="p-6 bg-white border border-slate-100 rounded-[2rem] shadow-sm hover:shadow-xl transition-all group overflow-hidden relative">
+                              <div className="absolute top-0 right-0 w-24 h-24 bg-slate-50 rounded-full -mr-12 -mt-12 group-hover:bg-indigo-50 transition-colors" />
+                              <div className="relative">
+                                <div className="flex items-center justify-between mb-4">
+                                  <span className="text-[10px] font-black text-primary bg-primary/5 px-2.5 py-1 rounded-lg uppercase tracking-wider">{t.type}</span>
+                                  <button className="text-slate-300 hover:text-red-500 transition-colors"><FiAlertTriangle /></button>
+                                </div>
+                                <h4 className="font-black text-gray-900 text-lg mb-1">{t.name}</h4>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest line-clamp-1 italic mb-4">
+                                  {t.content.diagnosis || 'Diagnosis tidak diset'}
+                                </p>
+                                <div className="grid grid-cols-2 gap-2 text-[9px] font-black uppercase tracking-widest">
+                                  <div className="p-2 bg-slate-50 rounded-lg text-slate-400">S: <span className="text-slate-600">{t.content.subjective ? 'Valid' : 'N/A'}</span></div>
+                                  <div className="p-2 bg-slate-50 rounded-lg text-slate-400">O: <span className="text-slate-600">{t.content.objective ? 'Valid' : 'N/A'}</span></div>
+                                </div>
                               </div>
-                            ))}
-                            {templates.length === 0 && (
-                              <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-50 rounded-[2.5rem]">
-                                 <FiActivity className="w-12 h-12 mx-auto mb-4 text-slate-100" />
-                                 <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Belum ada template terdaftar</p>
-                              </div>
-                            )}
-                         </div>
+                            </div>
+                          ))}
+                          {templates.length === 0 && (
+                            <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-50 rounded-[2.5rem]">
+                              <FiActivity className="w-12 h-12 mx-auto mb-4 text-slate-100" />
+                              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Belum ada template terdaftar</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </motion.div>
               )}
 
-              {activeTab === 'security' && (
+              {activeTab === 'security' && isSuperAdmin && (
                 <motion.div
                   key="security"
                   initial={{ opacity: 0, y: 20 }}
@@ -522,8 +522,21 @@ export default function SettingsPage() {
                   <p className="max-w-md mx-auto text-gray-500 font-medium leading-relaxed mb-8">
                     Halaman ini dikhususkan untuk konfigurasi keamanan tingkat lanjut dan kontrol akses API.
                   </p>
-                  <div className="p-4 bg-gray-50 rounded-2xl flex items-center justify-center gap-3 text-sm font-bold text-gray-400 italic border border-gray-100">
+                  <div className="p-4 bg-gray-50 rounded-2xl flex items-center justify-center gap-3 text-sm font-bold text-gray-400 italic border border-gray-100 mb-8">
                     <FiInfo className="w-4 h-4 text-primary" /> Segera Hadir di Versi Berikutnya
+                  </div>
+
+                  <div className="max-w-md mx-auto p-8 rounded-3xl border-2 border-dashed border-gray-100 flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
+                      <FiShield className="w-6 h-6" />
+                    </div>
+                    <p className="text-sm font-bold text-gray-700">Manajemen Hak Akses Modul sudah tersedia di halaman terpisah.</p>
+                    <Link
+                      href="/admin/settings/roles"
+                      className="px-6 py-3 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
+                    >
+                      Kelola Hak Akses Roles
+                    </Link>
                   </div>
                 </motion.div>
               )}
@@ -555,33 +568,33 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="mt-8 pt-8 border-t border-gray-50 grid grid-cols-1 md:grid-cols-2 gap-8">
-                       <div className="flex gap-4">
-                          <div className="w-12 h-12 bg-gray-900 text-white rounded-2xl flex-shrink-0 flex items-center justify-center">
-                             <FiHardDrive className="w-6 h-6" />
+                      <div className="flex gap-4">
+                        <div className="w-12 h-12 bg-gray-900 text-white rounded-2xl flex-shrink-0 flex items-center justify-center">
+                          <FiHardDrive className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <p className="font-black text-gray-900">Disk Usage</p>
+                          <div className="w-48 h-2 bg-gray-100 rounded-full mt-2 overflow-hidden">
+                            <div className="h-full bg-primary w-1/4 rounded-full" />
                           </div>
-                          <div>
-                             <p className="font-black text-gray-900">Disk Usage</p>
-                             <div className="w-48 h-2 bg-gray-100 rounded-full mt-2 overflow-hidden">
-                                <div className="h-full bg-primary w-1/4 rounded-full" />
-                             </div>
-                             <p className="text-xs font-bold text-gray-400 mt-2">24.5 GB of 100 GB used</p>
+                          <p className="text-xs font-bold text-gray-400 mt-2">24.5 GB of 100 GB used</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-4">
+                        <div className="w-12 h-12 bg-primary text-white rounded-2xl flex-shrink-0 flex items-center justify-center">
+                          <FiActivity className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <p className="font-black text-gray-900">Health Check</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="text-green-500 font-black text-sm uppercase tracking-widest">Stable</span>
+                            <div className="flex gap-0.5">
+                              {[1, 2, 3, 4, 5].map(j => <div key={j} className="w-1 h-3 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: `${j * 0.2}s` }} />)}
+                            </div>
                           </div>
-                       </div>
-                       <div className="flex gap-4">
-                          <div className="w-12 h-12 bg-primary text-white rounded-2xl flex-shrink-0 flex items-center justify-center">
-                             <FiActivity className="w-6 h-6" />
-                          </div>
-                          <div>
-                             <p className="font-black text-gray-900">Health Check</p>
-                             <div className="flex items-center gap-2 mt-2">
-                                <span className="text-green-500 font-black text-sm uppercase tracking-widest">Stable</span>
-                                <div className="flex gap-0.5">
-                                   {[1,2,3,4,5].map(j => <div key={j} className="w-1 h-3 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: `${j*0.2}s` }} />)}
-                                </div>
-                             </div>
-                             <p className="text-xs font-bold text-gray-400 mt-1">Uptime: 14 days, 6 hours</p>
-                          </div>
-                       </div>
+                          <p className="text-xs font-bold text-gray-400 mt-1">Uptime: 14 days, 6 hours</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -597,88 +610,88 @@ export default function SettingsPage() {
                 >
                   <div className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-200/50">
                     <div className="flex items-center justify-between mb-10 pb-6 border-b border-gray-50">
-                       <div>
-                          <h2 className="text-2xl font-black text-gray-900">Monitor Display Settings</h2>
-                          <p className="text-gray-400 font-medium text-sm">Kelola video latar belakang dan visualisasi monitor ruang tunggu.</p>
-                       </div>
-                       <div className="flex items-center gap-3">
-                          <button 
-                            onClick={fetchDisplaySettings}
-                            className="p-3 bg-gray-50 text-gray-400 rounded-xl hover:text-primary transition-all">
-                             <FiRefreshCw />
-                          </button>
-                          <label className="cursor-pointer bg-primary text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all flex items-center gap-2">
-                             <input type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
-                             <FiVideo /> Unggah Video Baru
-                          </label>
-                       </div>
+                      <div>
+                        <h2 className="text-2xl font-black text-gray-900">Monitor Display Settings</h2>
+                        <p className="text-gray-400 font-medium text-sm">Kelola video latar belakang dan visualisasi monitor ruang tunggu.</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={fetchDisplaySettings}
+                          className="p-3 bg-gray-50 text-gray-400 rounded-xl hover:text-primary transition-all">
+                          <FiRefreshCw />
+                        </button>
+                        <label className="cursor-pointer bg-primary text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all flex items-center gap-2">
+                          <input type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
+                          <FiVideo /> Unggah Video Baru
+                        </label>
+                      </div>
                     </div>
 
                     {/* Volume Control Section */}
                     <div className="mb-12 p-8 bg-slate-50 border border-slate-100 rounded-[2.5rem] flex flex-col md:flex-row md:items-center gap-8 shadow-sm">
-                       <div className="w-16 h-16 bg-white border border-slate-200 rounded-2xl flex items-center justify-center text-primary shadow-sm flex-shrink-0">
-                          <FiVolume2 className="w-8 h-8" />
-                       </div>
-                       <div className="flex-1 space-y-2">
-                          <div className="flex items-center justify-between">
-                             <h3 className="font-black text-slate-800 uppercase tracking-tight">Volume Video Monitor</h3>
-                             <span className="font-black text-primary bg-primary/10 px-3 py-1 rounded-lg text-sm">{videoVolume}%</span>
-                          </div>
-                          <p className="text-xs text-slate-400 font-medium">Batur tingkat suara video promosi agar tidak mengganggu panggillan suara.</p>
-                          <input 
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={videoVolume}
-                            onChange={(e) => handleUpdateVolume(parseInt(e.target.value))}
-                            className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary mt-2"
-                          />
-                       </div>
+                      <div className="w-16 h-16 bg-white border border-slate-200 rounded-2xl flex items-center justify-center text-primary shadow-sm flex-shrink-0">
+                        <FiVolume2 className="w-8 h-8" />
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-black text-slate-800 uppercase tracking-tight">Volume Video Monitor</h3>
+                          <span className="font-black text-primary bg-primary/10 px-3 py-1 rounded-lg text-sm">{videoVolume}%</span>
+                        </div>
+                        <p className="text-xs text-slate-400 font-medium">Batur tingkat suara video promosi agar tidak mengganggu panggillan suara.</p>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={videoVolume}
+                          onChange={(e) => handleUpdateVolume(parseInt(e.target.value))}
+                          className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary mt-2"
+                        />
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                       {displayVideos.map((video, idx) => (
-                          <div key={video.id} className="bg-slate-50 rounded-[2rem] border border-slate-100 overflow-hidden group shadow-sm transition-all hover:shadow-xl">
-                             <div className="aspect-video bg-black relative flex items-center justify-center">
-                                <video 
-                                  src={process.env.NEXT_PUBLIC_API_URL + video.url} 
-                                  className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" 
-                                />
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                   <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20">
-                                      <FiPlay className="text-white fill-white w-4 h-4 ml-1" />
-                                   </div>
-                                </div>
-                                <button 
-                                  onClick={() => handleDeleteVideo(video.id)}
-                                  className="absolute top-4 right-4 w-10 h-10 bg-red-500 text-white rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-lg">
-                                   <FiTrash2 />
-                                </button>
-                             </div>
-                             <div className="p-6">
-                                <p className="text-xs font-black text-slate-800 uppercase tracking-tight truncate mb-1">{video.name}</p>
-                                <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1.5 uppercase tracking-widest">
-                                   <FiClock className="w-3 h-3" /> {new Date(video.uploadedAt).toLocaleDateString()}
-                                </p>
-                             </div>
+                      {displayVideos.map((video, idx) => (
+                        <div key={video.id} className="bg-slate-50 rounded-[2rem] border border-slate-100 overflow-hidden group shadow-sm transition-all hover:shadow-xl">
+                          <div className="aspect-video bg-black relative flex items-center justify-center">
+                            <video
+                              src={process.env.NEXT_PUBLIC_API_URL + video.url}
+                              className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20">
+                                <FiPlay className="text-white fill-white w-4 h-4 ml-1" />
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteVideo(video.id)}
+                              className="absolute top-4 right-4 w-10 h-10 bg-red-500 text-white rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-lg">
+                              <FiTrash2 />
+                            </button>
                           </div>
-                       ))}
+                          <div className="p-6">
+                            <p className="text-xs font-black text-slate-800 uppercase tracking-tight truncate mb-1">{video.name}</p>
+                            <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1.5 uppercase tracking-widest">
+                              <FiClock className="w-3 h-3" /> {new Date(video.uploadedAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
 
-                       {displayVideos.length < 5 && Array.from({ length: 5 - displayVideos.length }).map((_, i) => (
-                          <div key={`empty-${i}`} className="border-2 border-dashed border-slate-100 rounded-[2rem] aspect-[16/11] flex flex-col items-center justify-center text-slate-200">
-                             <FiVideo className="w-8 h-8 mb-2" />
-                             <p className="text-[10px] font-black uppercase tracking-widest">Slot Video {displayVideos.length + i + 1}</p>
-                          </div>
-                       ))}
+                      {displayVideos.length < 5 && Array.from({ length: 5 - displayVideos.length }).map((_, i) => (
+                        <div key={`empty-${i}`} className="border-2 border-dashed border-slate-100 rounded-[2rem] aspect-[16/11] flex flex-col items-center justify-center text-slate-200">
+                          <FiVideo className="w-8 h-8 mb-2" />
+                          <p className="text-[10px] font-black uppercase tracking-widest">Slot Video {displayVideos.length + i + 1}</p>
+                        </div>
+                      ))}
                     </div>
 
                     <div className="mt-12 p-8 bg-amber-50 rounded-3xl border border-amber-100 flex gap-6 italic">
-                       <div className="w-12 h-12 bg-amber-200 text-amber-700 rounded-2xl flex-shrink-0 flex items-center justify-center">
-                          <FiInfo className="w-6 h-6" />
-                       </div>
-                       <div className="text-sm font-medium text-amber-800/80 leading-relaxed">
-                          <strong>Tips Profesional:</strong> Gunakan video dengan aspek rasio 16:9 dan resolusi Full HD (1080p) untuk hasil terbaik di layar TV. Video akan diputar secara berurutan dan otomatis mengulang dari awal.
-                       </div>
+                      <div className="w-12 h-12 bg-amber-200 text-amber-700 rounded-2xl flex-shrink-0 flex items-center justify-center">
+                        <FiInfo className="w-6 h-6" />
+                      </div>
+                      <div className="text-sm font-medium text-amber-800/80 leading-relaxed">
+                        <strong>Tips Profesional:</strong> Gunakan video dengan aspek rasio 16:9 dan resolusi Full HD (1080p) untuk hasil terbaik di layar TV. Video akan diputar secara berurutan dan otomatis mengulang dari awal.
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -692,14 +705,14 @@ export default function SettingsPage() {
       <AnimatePresence>
         {showRestoreConfirm && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => !isRestoring && setShowRestoreConfirm(false)}
-              className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" 
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
             />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -711,7 +724,7 @@ export default function SettingsPage() {
                 </div>
                 <h3 className="text-2xl font-black text-gray-900 mb-3">Peringatan Kritis!</h3>
                 <p className="text-gray-500 font-medium leading-relaxed mb-6">
-                  Anda akan merestore database menggunakan file <span className="font-black text-gray-900">"{selectedFile?.name}"</span>. 
+                  Anda akan merestore database menggunakan file <span className="font-black text-gray-900">"{selectedFile?.name}"</span>.
                   Semua data saat ini di server akan <span className="text-red-600 font-black underline">dihapus seluruhnya</span> dan diganti dengan isi file tersebut.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">

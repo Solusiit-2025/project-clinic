@@ -191,6 +191,7 @@ export const processPayment = async (req: Request, res: Response) => {
           amount: amountToPay,
           paymentMethod,
           transactionRef,
+          bankId: paymentMethod === 'transfer' || paymentMethod === 'card' ? bankId : null,
           notes,
           paymentDate: new Date()
         }
@@ -360,7 +361,9 @@ export const postInvoice = async (req: Request, res: Response) => {
 
                 // Resolve Bank/Cash Coa for this payment
                 let debitCoaId: string | null = null
-                if (pay.paymentMethod === 'CASH') {
+                const normalizedMethod = (pay.paymentMethod || '').toUpperCase()
+
+                if (normalizedMethod === 'CASH') {
                     const cashAcc = getSysAcc('CASH_ACCOUNT')
                     
                     // Priority 1: Check System Accounts (CASH_ACCOUNT) for this clinic
@@ -372,7 +375,7 @@ export const postInvoice = async (req: Request, res: Response) => {
                         if (clinic?.code) {
                             const pettyCashCode = `1-1101-${clinic.code}`
                             const specificCoa = await tx.chartOfAccount.findFirst({ 
-                                where: { code: pettyCashCode, clinicId: targetClinicId } 
+                                where: { code: pettyCashCode } 
                             })
                             debitCoaId = specificCoa?.id || null
                         }
@@ -381,13 +384,24 @@ export const postInvoice = async (req: Request, res: Response) => {
                     // Priority 3: Fallback to global Petty Cash (1-1101)
                     if (!debitCoaId) {
                         debitCoaId = (await tx.chartOfAccount.findFirst({ 
-                            where: { code: '1-1101', OR: [{ clinicId: targetClinicId }, { clinicId: null }] } 
+                            where: { code: '1-1101' } 
                         }))?.id || null
                     }
                 } else {
                     const bankAcc = getSysAcc('BANK_ACCOUNT')
-                    // Corrected: Use bank.coaId instead of bankId
-                    debitCoaId = (invoice.bank as any)?.coaId || bankAcc?.coaId || (await tx.chartOfAccount.findFirst({ where: { code: '1-1102', OR: [{ clinicId: targetClinicId }, { clinicId: null }] } }))?.id || null
+                    // Priority 1: Use bank from the payment itself (NEW: More accurate for individual transfers)
+                    // Priority 2: Fallback to bank from invoice bankId
+                    // Priority 3: Fallback to System Account
+                    const finalBankIdForPay = (pay as any).bankId || (invoice as any).bankId
+                    
+                    if (finalBankIdForPay) {
+                        const bank = await tx.bank.findUnique({ where: { id: finalBankIdForPay } })
+                        debitCoaId = bank?.coaId || null
+                    }
+
+                    if (!debitCoaId) {
+                        debitCoaId = bankAcc?.coaId || (await tx.chartOfAccount.findFirst({ where: { code: '1-1102' } }))?.id || null
+                    }
                 }
 
                 if (!debitCoaId) throw new Error(`Akun Kas/Bank untuk pembayaran ${pay.paymentNo} tidak ditemukan.`)

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import api from '@/lib/api'
@@ -292,7 +292,11 @@ export default function FormulaRacikanPage() {
         ? '\n\n✨ Produk baru dibuat otomatis untuk klinik ini!' 
         : ''
       
-      alert(`✅ ${result.message}\n\nStok Baru: ${result.production.newStock} unit\nStok Sebelumnya: ${result.production.previousStock} unit\n\n${result.componentsUsed.length} bahan baku telah terpotong otomatis.${autoCreatedMsg}`)
+      const accountingMsg = result.accounting?.journalEntry 
+        ? `\n\n📊 Akuntansi (General Ledger):\nNomor Jurnal: ${result.accounting.journalEntry.referenceNo}\nTotal Nilai: ${formatRupiah(result.accounting.journalEntry.totalAmount)}`
+        : `\n\n⚠️ ${result.accounting?.message || 'Jurnal keuangan tidak terbuat'}`
+
+      alert(`✅ ${result.message}\n\nStok Baru: ${result.production.newStock} unit\nStok Sebelumnya: ${result.production.previousStock} unit\n\n${result.componentsUsed.length} bahan baku telah terpotong otomatis.${autoCreatedMsg}${accountingMsg}`)
       setAssemblyModalOpen(false)
       fetchData()
     } catch (err: any) {

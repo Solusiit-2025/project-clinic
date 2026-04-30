@@ -63,12 +63,18 @@ export const resetTransactions = async (req: Request, res: Response) => {
       await tx.appointmentService.deleteMany({ where: clinicId ? { appointment: { clinicId } } : {} });
       await tx.appointment.deleteMany({ where: clinicFilter });
 
-      // 5. Assets (Optional: but often kept as master. Typically maintenance/transfers are reset)
+      // 5. Assets (Maintenance & transfers are reset, but Asset master records are kept)
       await tx.assetTransfer.deleteMany({ where: clinicId ? { OR: [{ fromClinicId: clinicId }, { toClinicId: clinicId }] } : {} });
       await tx.assetMaintenance.deleteMany({ where: clinicId ? { asset: { clinicId } } : {} });
       await tx.assetAuditLog.deleteMany({ where: clinicId ? { asset: { clinicId } } : {} });
 
-      // Reset Account Balances to Zero
+      // 6. Final Stock Cleanup (Ensure Product quantities are reset to 0)
+      await tx.product.updateMany({
+        where: clinicFilter,
+        data: { quantity: 0 }
+      });
+
+      // 7. Finance Cleanup (Reset COA opening balances)
       await tx.chartOfAccount.updateMany({
         where: clinicFilter,
         data: { openingBalance: 0 }
@@ -105,26 +111,26 @@ export const updateRolePermissions = async (req: Request, res: Response) => {
     }
 
     await prisma.$transaction(async (tx) => {
-      // We can either clear all and insert, or upsert.
-      // Upsert is safer
-      for (const p of permissions) {
-        await tx.rolePermission.upsert({
-          where: {
-            role_module: {
-              role: p.role,
-              module: p.module
-            }
-          },
-          update: {
-            canAccess: p.canAccess
-          },
-          create: {
-            role: p.role,
-            module: p.module,
-            canAccess: p.canAccess
-          }
-        });
-      }
+      // 1. Identify roles and modules being updated
+      const rolesToUpdate = Array.from(new Set(permissions.map((p: any) => p.role)))
+      const modulesToUpdate = Array.from(new Set(permissions.map((p: any) => p.module)))
+
+      // 2. Clear existing records for this role-module set to avoid conflicts
+      await tx.rolePermission.deleteMany({
+        where: {
+          role: { in: rolesToUpdate as any },
+          module: { in: modulesToUpdate }
+        }
+      })
+
+      // 3. Bulk insert new permissions
+      await tx.rolePermission.createMany({
+        data: permissions.map((p: any) => ({
+          role: p.role,
+          module: p.module,
+          canAccess: p.canAccess
+        }))
+      })
     });
 
     return res.status(200).json({ message: 'Konfigurasi hak akses berhasil disimpan' });

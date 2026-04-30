@@ -7,8 +7,10 @@ export const siteConfig = {
   navItems: [
     { label: 'Beranda', href: '#home' },
     { label: 'Tentang Kami', href: '#about' },
+    { label: 'Rumah Sunat', href: '#circumcision' },
     { label: 'Layanan', href: '#services' },
     { label: 'Dokter', href: '#doctors' },
+    { label: 'Jadwal Dokter', href: '#schedule' },
     { label: 'Kontak', href: '#contact' },
   ],
   hero: {
@@ -47,29 +49,74 @@ export const siteConfig = {
   services: [
     {
       number: '01',
-      title: 'Pemeriksaan Umum',
+      title: 'Rumah Sunat Modern',
+      description: 'Pusat khitan modern dengan berbagai metode canggih dan minim rasa sakit untuk segala usia.',
+      gradient: 'from-amber-500 to-orange-600',
+    },
+    {
+      number: '02',
+      title: 'Pengobatan Umum',
       description: 'Konsultasi kesehatan rutin dan penanganan penyakit umum oleh dokter berpengalaman.',
       gradient: 'from-blue-500 to-cyan-500',
     },
     {
-      number: '02',
-      title: 'Layanan Gigi',
+      number: '03',
+      title: 'Poli Gigi',
       description: 'Perawatan kesehatan gigi menyeluruh mulai dari pembersihan hingga prosedur ortodontik.',
       gradient: 'from-cyan-500 to-teal-500',
     },
     {
-      number: '03',
-      title: 'Laboratorium',
-      description: 'Fasilitas cek darah, urin, dan berbagai tes diagnostik dengan hasil yang akurat.',
-      gradient: 'from-teal-500 to-green-500',
-    },
-    {
       number: '04',
-      title: 'Farmasi',
-      description: 'Ketersediaan obat-obatan lengkap dan berkualitas langsung di apotek klinik kami.',
-      gradient: 'from-green-500 to-emerald-500',
+      title: 'Laboratorium & Farmasi',
+      description: 'Fasilitas diagnostik akurat dan ketersediaan obat-obatan lengkap berkualitas.',
+      gradient: 'from-teal-500 to-emerald-500',
     },
   ],
+  circumcision: {
+    methods: [
+      { 
+        name: 'Sunat Konvensional', 
+        desc: 'Metode standar medis yang sudah teruji.', 
+        advantages: ['Sesuai Prosedur Medis', 'Biaya Terjangkau', 'Penyembuhan Alami'],
+        detail: 'Metode khitan tradisional menggunakan pisau/gunting bedah steril dengan teknik jahitan presisi untuk hasil yang aman.'
+      },
+      { 
+        name: 'Sunat Cauter (Laser)', 
+        desc: 'Metode paling populer dengan teknologi panas.', 
+        advantages: ['Minim Perdarahan', 'Proses Cepat', 'Tanpa Luka Bakar'],
+        detail: 'Menggunakan alat cauter modern untuk memotong sekaligus menghentikan perdarahan secara instan. Sangat efektif dan efisien.'
+      },
+      { 
+        name: 'Sunat Klamp', 
+        desc: 'Khitan tanpa jahitan, praktis & aman.', 
+        advantages: ['Tanpa Jahitan & Perban', 'Bisa Langsung Mandi', 'Bisa Langsung Sekolah'],
+        detail: 'Menggunakan alat klamp plastik sekali pakai yang dipasang pada organ. Tanpa jahitan, tanpa perban, dan anak bisa langsung beraktivitas.'
+      },
+      { 
+        name: 'Sunat Bipolar', 
+        desc: 'Teknologi bedah rumah sakit untuk khitan.', 
+        advantages: ['Minim Trauma Jaringan', 'Sembuh Lebih Cepat', 'Hasil Sangat Rapi'],
+        detail: 'Menggunakan teknologi Bipolar Scissors yang memotong sekaligus mengkoagulasi jaringan tanpa merusak sel di sekitarnya.'
+      },
+      { 
+        name: 'Sunat Stapler', 
+        desc: 'Metode sekali pakai paling canggih.', 
+        advantages: ['Proses 5-10 Menit', 'Hasil Sangat Estetik', 'Alat Sekali Pakai'],
+        detail: 'Teknologi terbaru yang memotong dan memasang silicon ring/staple secara otomatis. Hasil paling rapi dan proses sangat singkat.'
+      },
+      { 
+        name: 'Sunat Fine Sealer', 
+        desc: 'Inovasi terbaru dengan lem medis.', 
+        advantages: ['Tanpa Jahitan Sama Sekali', 'Sangat Estetik', 'Penyembuhan Maksimal'],
+        detail: 'Metode khitan tanpa jahitan yang menggunakan cairan perekat (lem) khusus medis. Memberikan hasil akhir yang sangat mulus dan estetik.'
+      },
+    ],
+    services: [
+      'Sunat Bayi', 'Sunat Anak', 'Sunat Dewasa', 'Sunat Berkebutuhan Khusus', 
+      'Sunat di Rumah', 'Sunat Revisi', 'Sunat Perempuan', 'Sunat Gemuk', 
+      'Kontrol Post Sunat', 'Sunatan Massal', 'Sunat Gratis'
+    ]
+  },
   contact: {
     phone: '+62 812-3456-7890',
     email: 'kontak@sehatselalu.com',

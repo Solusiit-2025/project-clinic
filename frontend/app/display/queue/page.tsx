@@ -286,19 +286,30 @@ function DisplayQueueContent() {
     });
 
     if (hasNewSignal && newestCall) {
-      // 1. Voice Announcement
+      // 1. Voice Announcement with Synchronized Overlay
       const room = newestCall.hasMedicalRecord ? 'RUANG PEMERIKSAAN DOKTER' : 'RUANG PRA-PEMERIKSAAN'
-      announceQueue(newestCall.queueNo, newestCall.patient.name, room)
       
-      // 2. Show Overlay
-      setActiveCallingPatient(newestCall)
-      setShowCallingOverlay(true)
-      
-      // 3. Auto-dismiss overlay after 15 seconds
-      if (overlayTimeoutRef.current) clearTimeout(overlayTimeoutRef.current)
-      overlayTimeoutRef.current = setTimeout(() => {
-        setShowCallingOverlay(false)
-      }, 15000)
+      announceQueue(
+        newestCall.queueNo, 
+        newestCall.patient.name, 
+        room,
+        () => {
+          // On Start: Show Overlay
+          setActiveCallingPatient(newestCall)
+          setShowCallingOverlay(true)
+          
+          // Auto-dismiss overlay after 15 seconds if voice is very long or something hangs
+          if (overlayTimeoutRef.current) clearTimeout(overlayTimeoutRef.current)
+          overlayTimeoutRef.current = setTimeout(() => {
+            setShowCallingOverlay(false)
+          }, 15000)
+        },
+        () => {
+          // On End: Hide Overlay
+          setShowCallingOverlay(false)
+          if (overlayTimeoutRef.current) clearTimeout(overlayTimeoutRef.current)
+        }
+      )
     }
   }, [queues, isStarted])
 

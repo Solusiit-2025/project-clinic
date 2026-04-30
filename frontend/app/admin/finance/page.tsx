@@ -35,6 +35,10 @@ interface Bank {
   accountNumber: string
   accountHolder: string
   isActive?: boolean
+  coa?: {
+    code: string
+    name: string
+  }
 }
 
 interface ClinicProfile {
@@ -113,6 +117,18 @@ export default function FinanceDashboard() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [summary, setSummary] = useState({ todayRevenue: 0, pendingRevenue: 0 })
+  
+  const cashBanks = useMemo(() => banks.filter(b => 
+    b.bankName.toLowerCase().includes('cash') || 
+    b.bankName.toLowerCase().includes('kas') ||
+    b.bankName.toLowerCase().includes('petty')
+  ), [banks])
+
+  const transferBanks = useMemo(() => banks.filter(b => 
+    !b.bankName.toLowerCase().includes('cash') && 
+    !b.bankName.toLowerCase().includes('kas') &&
+    !b.bankName.toLowerCase().includes('petty')
+  ), [banks])
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [paymentData, setPaymentData] = useState({
@@ -372,7 +388,8 @@ export default function FinanceDashboard() {
            <div className="col-span-3">Pasien & Rekam Medis</div>
            <div className="col-span-2">Referensi Invoice</div>
            <div className="col-span-2 text-right">Total Tagihan</div>
-           <div className="col-span-3 text-center">Status & Jurnal</div>
+           <div className="col-span-2 text-center">Status Bayar</div>
+           <div className="col-span-1 text-center">Jurnal GL</div>
            <div className="col-span-2 text-right">Tindakan</div>
         </div>
 
@@ -408,11 +425,20 @@ export default function FinanceDashboard() {
                              <p className="text-base font-black text-gray-900">{formatCurrency(inv.total)}</p>
                              {inv.amountPaid > 0 && <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest">Lunas: {formatCurrency(inv.amountPaid)}</p>}
                          </div>
-                         <div className="col-span-3 flex flex-col items-center gap-1.5">
-                            <div className="flex items-center gap-2">
-                               {getStatusBadge(inv.status)}
-                               {getExamStatusBadge(inv.registration?.queueNumbers?.[0]?.status)}
-                            </div>
+                         <div className="col-span-2 flex flex-col items-center gap-1.5">
+                            {getStatusBadge(inv.status)}
+                            {getExamStatusBadge(inv.registration?.queueNumbers?.[0]?.status)}
+                         </div>
+                         <div className="col-span-1 flex justify-center">
+                            {inv.isPosted ? (
+                              <span className="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center border border-emerald-100 tooltip" data-tip="Sudah Diposting">
+                                <FiCheckCircle className="w-4 h-4"/>
+                              </span>
+                            ) : (
+                              <span className="w-8 h-8 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center border border-amber-200 shadow-sm shadow-amber-100 animate-pulse tooltip" data-tip="BELUM DIPOSTING">
+                                <FiClock className="w-4 h-4"/>
+                              </span>
+                            )}
                          </div>
                          <div className="col-span-2 flex justify-end gap-2">
                              <button 
@@ -544,7 +570,7 @@ export default function FinanceDashboard() {
                               ].map(m => (
                                  <button 
                                     key={m.id} 
-                                    onClick={() => setPaymentData({ ...paymentData, method: m.id, bankId: '', transactionRef: '', insuranceProvider: '', insuranceNo: '' })} 
+                                    onClick={() => { setPaymentData({ ...paymentData, method: m.id, bankId: '', transactionRef: '', insuranceProvider: '', insuranceNo: '' }); if (m.id === 'cash' && cashBanks.length === 1) setPaymentData(prev => ({ ...prev, bankId: cashBanks[0].id })); }} 
                                     className={`flex flex-col items-center gap-2 py-5 rounded-[2rem] border-2 transition-all ${
                                        paymentData.method === m.id 
                                        ? 'bg-gray-900 border-gray-900 text-white shadow-xl shadow-gray-900/20 scale-[1.02]' 
@@ -575,7 +601,40 @@ export default function FinanceDashboard() {
                                           autoFocus
                                        />
                                     </div>
-                                    <div className="flex flex-wrap justify-center gap-2">
+                                    
+                                    {cashBanks.length > 0 && (
+                                       <div className="pt-4 border-t border-dashed border-gray-200 mt-4">
+                                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-4 ml-1 text-center">Setor ke Akun Kas/Petty Cash</label>
+                                          <div className="grid grid-cols-1 gap-2">
+                                             {cashBanks.map(bank => (
+                                                <button 
+                                                   key={bank.id}
+                                                   onClick={() => setPaymentData({ ...paymentData, bankId: bank.id })}
+                                                   className={`p-5 rounded-3xl border-2 text-left transition-all ${
+                                                      paymentData.bankId === bank.id ? 'bg-emerald-50 border-emerald-200 shadow-lg shadow-emerald-100 scale-[1.01]' : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
+                                                   }`}
+                                                >
+                                                   <div className="flex justify-between items-center">
+                                                      <div>
+                                                         <div className="flex items-center gap-2">
+                                                            <p className={`text-[10px] font-black uppercase tracking-widest ${paymentData.bankId === bank.id ? 'text-emerald-600' : 'text-gray-400'}`}>{bank.bankName}</p>
+                                                            {bank.coa?.code && (
+                                                              <span className="px-2 py-0.5 bg-gray-900 text-white text-[8px] font-black rounded uppercase">
+                                                                 {bank.coa.code}
+                                                              </span>
+                                                            )}
+                                                         </div>
+                                                         <p className={`text-xs font-black mt-1 ${paymentData.bankId === bank.id ? 'text-emerald-900' : 'text-gray-500'}`}>a.n. {bank.accountHolder}</p>
+                                                      </div>
+                                                      {paymentData.bankId === bank.id && <FiCheckCircle className="w-6 h-6 text-emerald-500" />}
+                                                   </div>
+                                                </button>
+                                             ))}
+                                          </div>
+                                       </div>
+                                    )}
+
+                                    <div className="flex flex-wrap justify-center gap-2 pt-2">
                                        {[50000, 100000, 150000, 200000].map(val => (
                                           <button key={val} onClick={() => setReceivedAmount(val)} className="px-4 py-2 bg-white border border-gray-200 rounded-full text-[10px] font-black text-gray-500 hover:border-primary hover:text-primary transition-all uppercase">{formatCurrency(val)}</button>
                                        ))}
@@ -607,7 +666,7 @@ export default function FinanceDashboard() {
                                  <div>
                                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2 ml-1">Pilih Bank Klinik</label>
                                     <div className="grid grid-cols-1 gap-2">
-                                       {banks.length > 0 ? banks.map(bank => (
+                                       {transferBanks.length > 0 ? transferBanks.map(bank => (
                                           <button 
                                              key={bank.id}
                                              onClick={() => setPaymentData({ ...paymentData, bankId: bank.id })}
@@ -617,7 +676,14 @@ export default function FinanceDashboard() {
                                           >
                                              <div className="flex justify-between items-center">
                                                 <div>
-                                                   <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{bank.bankName}</p>
+                                                   <div className="flex items-center gap-2">
+                                                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{bank.bankName}</p>
+                                                      {bank.coa?.code && (
+                                                        <span className="px-2 py-0.5 bg-gray-900 text-white text-[8px] font-black rounded uppercase tracking-tighter">
+                                                           Code: {bank.coa.code}
+                                                        </span>
+                                                      )}
+                                                   </div>
                                                    <p className="text-sm font-black text-gray-900 mt-0.5">{bank.accountNumber}</p>
                                                    <p className="text-[9px] font-bold text-gray-400 uppercase mt-0.5">a.n. {bank.accountHolder}</p>
                                                 </div>
@@ -708,13 +774,13 @@ export default function FinanceDashboard() {
 
                         <div className="pt-8 border-t border-gray-100">
                            <button 
-                              onClick={handleProcessPayment} 
-                              disabled={processing || (paymentData.method === 'cash' && receivedAmount < (selectedInvoice.total - (selectedInvoice.amountPaid || 0))) || (paymentData.method === 'transfer' && !paymentData.bankId)} 
-                              className={`w-full py-6 rounded-[2.5rem] text-sm font-black uppercase tracking-[0.2em] shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-3 ${
-                                 processing || (paymentData.method === 'cash' && receivedAmount < (selectedInvoice.total - (selectedInvoice.amountPaid || 0))) || (paymentData.method === 'transfer' && !paymentData.bankId)
-                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                 : 'bg-primary text-white shadow-primary/30'
-                              }`}
+                               onClick={handleProcessPayment} 
+                               disabled={processing || (paymentData.method === 'cash' && (receivedAmount < (selectedInvoice.total - (selectedInvoice.amountPaid || 0)) || (cashBanks.length > 0 && !paymentData.bankId))) || (paymentData.method === 'transfer' && !paymentData.bankId)} 
+                               className={`w-full py-6 rounded-[2.5rem] text-sm font-black uppercase tracking-[0.2em] shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-3 ${
+                                  processing || (paymentData.method === 'cash' && (receivedAmount < (selectedInvoice.total - (selectedInvoice.amountPaid || 0)) || (cashBanks.length > 0 && !paymentData.bankId))) || (paymentData.method === 'transfer' && !paymentData.bankId)
+                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  : 'bg-primary text-white shadow-primary/30'
+                               }`}
                            >
                               {processing ? (
                                  <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />

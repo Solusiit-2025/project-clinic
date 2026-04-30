@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { FiSearch, FiBell, FiUser, FiChevronDown, FiMenu, FiLogOut, FiLock, FiUserCheck, FiSun, FiMoon } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
+import { useThemeStore } from '@/lib/store/useThemeStore'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import ClinicSwitcher from './ClinicSwitcher'
@@ -15,20 +16,12 @@ export default function AdminNavbar({ onMobileMenuOpen }: AdminNavbarProps) {
   const user = useAuthStore(state => state.user)
   const activeClinicId = useAuthStore(state => state.activeClinicId)
   const logout = useAuthStore(state => state.logout)
+  const { theme, toggleTheme } = useThemeStore()
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   const clinics = user?.clinics || []
   const activeClinic = clinics.find(c => c.id === activeClinicId) || clinics[0]
-
-  const getImageUrl = (path?: string) => {
-    if (!path || path === 'null' || path === 'undefined') return null
-    if (path.startsWith('http')) return path
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5004'
-    const baseUrl = apiBase.split('/api')[0].replace(/\/$/, '')
-    if (path.startsWith('/uploads/')) return `${baseUrl}${path}`
-    return `${baseUrl}/uploads/${path.replace(/^\//, '')}`
-  }
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -82,8 +75,22 @@ export default function AdminNavbar({ onMobileMenuOpen }: AdminNavbarProps) {
         )}
       </div>
 
-      {/* Right: Notifications + Profile */}
+      {/* Right: Notifications + Theme Toggle + Profile */}
       <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+        {/* Theme Toggle */}
+        <button
+          onClick={toggleTheme}
+          className="p-2 rounded-xl transition-all hover:rotate-[15deg] active:scale-90"
+          style={{ 
+            backgroundColor: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(14,165,233,0.05)', 
+            color: theme === 'dark' ? '#fbbf24' : '#0ea5e9',
+            border: theme === 'dark' ? '1px solid rgba(251,191,36,0.1)' : '1px solid rgba(14,165,233,0.1)'
+          }}
+          title={theme === 'dark' ? 'Aktifkan Mode Terang' : 'Aktifkan Mode Gelap'}
+        >
+          {theme === 'dark' ? <FiSun className="w-4 h-4" /> : <FiMoon className="w-4 h-4" />}
+        </button>
+
         {/* Notification bell */}
         <button
           className="relative p-2 rounded-xl transition-all"
@@ -102,30 +109,29 @@ export default function AdminNavbar({ onMobileMenuOpen }: AdminNavbarProps) {
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           >
             {/* Avatar */}
+            {/* Avatar - Initial Based */}
             <div
-              className="w-7 h-7 sm:w-8 sm:h-8 relative overflow-hidden rounded-lg border transition-all flex items-center justify-center"
-              style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-surface-2)' }}
+              className="w-7 h-7 sm:w-8 sm:h-8 relative overflow-hidden rounded-lg border transition-all flex items-center justify-center shadow-sm"
+              style={{ 
+                borderColor: 'rgba(255,255,255,0.1)', 
+                background: 'linear-gradient(135deg, var(--primary) 0%, #0ea5e9 100%)' 
+              }}
             >
-              {user?.image ? (
-                <img
-                  src={getImageUrl(user.image) || ''}
-                  alt={user.name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const t = e.currentTarget
-                    t.onerror = null
-                    t.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'U')}&background=0D8ABC&color=fff&bold=true`
-                  }}
-                />
-              ) : (
-                <FiUser className="w-3.5 h-3.5 text-primary" />
-              )}
+              <span className="text-[11px] sm:text-xs font-black text-white uppercase tracking-tighter">
+                {user?.name?.toLowerCase().startsWith('dr') && user?.name?.split(' ').length > 1
+                  ? user?.name?.split(' ')[1]?.charAt(0)
+                  : user?.name?.charAt(0) || 'U'}
+              </span>
+              {/* Subtle glass reflection */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/20 pointer-events-none" />
             </div>
 
             {/* Name + role — hidden on mobile */}
             <div className="hidden sm:block text-left">
               <p className="text-[11px] font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>
-                {user?.name?.split(' ')[0] || 'Admin'}
+                {user?.name?.toLowerCase().startsWith('dr') && user?.name?.split(' ').length > 1
+                  ? user?.name?.split(' ').slice(0, 2).join(' ')
+                  : user?.name?.split(' ')[0] || 'Admin'}
               </p>
               <p className="text-[9px] font-semibold uppercase tracking-tight" style={{ color: 'var(--text-faint)' }}>
                 {user?.role}

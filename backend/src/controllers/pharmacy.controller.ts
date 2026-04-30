@@ -84,7 +84,13 @@ export const getPrescriptionById = async (req: Request, res: Response) => {
         medicalRecord: {
            include: {
               clinic: true,
-              registration: true
+              registration: {
+                include: {
+                  invoices: {
+                    select: { status: true, total: true, amountPaid: true }
+                  }
+                }
+              }
            }
         },
         items: { include: { medicine: true, components: { include: { medicine: true } }, formula: { select: { id: true, formulaName: true, formulaCode: true, tuslahPrice: true } } } }

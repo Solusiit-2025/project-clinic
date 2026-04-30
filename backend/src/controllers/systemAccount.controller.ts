@@ -113,6 +113,7 @@ export const seedSystemAccounts = async (req: Request, res: Response) => {
             { key: 'ASSET_LAND_BUILDING', name: 'Aset Tetap: Tanah & Bangunan' },
             { key: 'ACCUM_DEP_GENERAL', name: 'Akumulasi Penyusutan (General)' },
             { key: 'RETAINED_EARNINGS', name: 'Laba Ditahan' },
+            { key: 'COMPOUND_SERVICE_REVENUE', name: 'Pendapatan Jasa Racik / Tuslah' },
         ]
 
         const results = []

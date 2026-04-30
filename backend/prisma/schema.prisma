@@ -27,6 +27,7 @@ model Clinic {
   banks               Bank[]
   branchProductPrices BranchProductPrice[]
   chartOfAccounts     ChartOfAccount[]
+  compoundFormulas    CompoundFormula[]
   departments         Department[]
   doctorSchedules     DoctorSchedule[]
   expenses            Expense[]
@@ -53,7 +54,7 @@ model Clinic {
   stockOpnames        StockOpnameSession[]
   systemAccounts      SystemAccount[]
   users               UserClinic[]
-  compoundFormulas    CompoundFormula[]
+  openingBalances     OpeningBalance[]
 
   @@map("clinics")
 }
@@ -141,13 +142,13 @@ model Registration {
   clinicId         String?
   departmentId     String?
   doctorId         String?
+  invoices         Invoice[]
   medicalRecord    MedicalRecord?
   queueNumbers     QueueNumber[]
   clinic           Clinic?        @relation(fields: [clinicId], references: [id])
   department       Department?    @relation(fields: [departmentId], references: [id])
   doctor           Doctor?        @relation(fields: [doctorId], references: [id])
   patient          Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  invoices         Invoice[]
 
   @@unique([registrationNo, clinicId])
   @@index([patientId])
@@ -249,8 +250,8 @@ model Appointment {
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
   clinicId        String?
-  reminderSent    Boolean              @default(false)
   createdBy       String?
+  reminderSent    Boolean              @default(false)
   updatedBy       String?
   services        AppointmentService[]
   clinic          Clinic?              @relation(fields: [clinicId], references: [id])
@@ -450,11 +451,11 @@ model PrescriptionItem {
   instructions   String?
   isRacikan      Boolean                     @default(false)
   racikanName    String?
-  formulaId      String?                     // Referensi ke master formula yang digunakan
+  formulaId      String?
   components     PrescriptionItemComponent[]
+  formula        CompoundFormula?            @relation(fields: [formulaId], references: [id])
   medicine       Medicine?                   @relation(fields: [medicineId], references: [id])
   prescription   Prescription                @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
-  formula        CompoundFormula?            @relation(fields: [formulaId], references: [id])
 
   @@index([prescriptionId])
   @@map("prescription_items")
@@ -465,7 +466,7 @@ model PrescriptionItemComponent {
   prescriptionItemId String
   medicineId         String
   quantity           Float
-  unit               String?          // Satuan yang digunakan (tablet, kapsul, ml, dll)
+  unit               String?
   medicine           Medicine         @relation(fields: [medicineId], references: [id])
   prescriptionItem   PrescriptionItem @relation(fields: [prescriptionItemId], references: [id], onDelete: Cascade)
 
@@ -473,35 +474,31 @@ model PrescriptionItemComponent {
   @@map("prescription_item_components")
 }
 
-// ============================================================
-// MASTER FORMULA RACIKAN (Bill of Materials)
-// ============================================================
-
 /// Template formula standar untuk obat racikan.
 /// Dokter/Apoteker cukup memilih formula, komponen terisi otomatis.
 model CompoundFormula {
-  id          String                @id @default(uuid())
-  formulaCode String                @unique
-  formulaName String
-  description String?
-  category    String?               // e.g. "Flu", "Batuk", "Alergi", "Salep"
-  dosageForm  String?               // e.g. "Kapsul", "Puyer", "Salep", "Sirup"
-  defaultQty  Int                   @default(10) // Jumlah default (misal: 10 kapsul)
-  defaultDosage     String?         // e.g. "3x1"
-  defaultFrequency  String?         // e.g. "3 kali sehari"
-  defaultDuration   String?         // e.g. "3 hari"
-  defaultInstructions String?       // e.g. "Diminum sesudah makan"
-  tuslahPrice Float                 @default(0) // Biaya jasa racik / tuslah
-  isActive    Boolean               @default(true)
-  clinicId    String?               // null = global/semua klinik, isi = khusus klinik tertentu
-  createdBy   String?
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
-  deletedAt   DateTime?
-  clinic      Clinic?               @relation(fields: [clinicId], references: [id])
-  items       CompoundFormulaItem[]
-  prescriptionItems PrescriptionItem[]
-  productMaster ProductMaster?
+  id                  String                @id @default(uuid())
+  formulaCode         String                @unique
+  formulaName         String
+  description         String?
+  category            String?
+  dosageForm          String?
+  defaultQty          Int                   @default(10)
+  defaultDosage       String?
+  defaultFrequency    String?
+  defaultDuration     String?
+  defaultInstructions String?
+  tuslahPrice         Float                 @default(0)
+  isActive            Boolean               @default(true)
+  clinicId            String?
+  createdBy           String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  deletedAt           DateTime?
+  items               CompoundFormulaItem[]
+  clinic              Clinic?               @relation(fields: [clinicId], references: [id])
+  prescriptionItems   PrescriptionItem[]
+  productMaster       ProductMaster?
 
   @@index([clinicId])
   @@index([category])
@@ -511,15 +508,15 @@ model CompoundFormula {
 
 /// Komponen bahan baku dari sebuah formula racikan.
 model CompoundFormulaItem {
-  id          String          @id @default(uuid())
-  formulaId   String
-  medicineId  String
-  quantity    Float           // Jumlah per 1 unit racikan (misal: 0.5 tablet per kapsul)
-  unit        String?         // Satuan (tablet, kapsul, ml, gram)
-  notes       String?         // Catatan khusus bahan ini
-  sortOrder   Int             @default(0)
-  formula     CompoundFormula @relation(fields: [formulaId], references: [id], onDelete: Cascade)
-  medicine    Medicine        @relation(fields: [medicineId], references: [id])
+  id         String          @id @default(uuid())
+  formulaId  String
+  medicineId String
+  quantity   Float
+  unit       String?
+  notes      String?
+  sortOrder  Int             @default(0)
+  formula    CompoundFormula @relation(fields: [formulaId], references: [id], onDelete: Cascade)
+  medicine   Medicine        @relation(fields: [medicineId], references: [id])
 
   @@index([formulaId])
   @@index([medicineId])
@@ -542,11 +539,11 @@ model Medicine {
   clinicId                   String?
   image                      String?
   medicineCode               String?
+  compoundFormulaItems       CompoundFormulaItem[]
   clinic                     Clinic?                     @relation(fields: [clinicId], references: [id])
   prescriptionItemComponents PrescriptionItemComponent[]
   prescriptionItems          PrescriptionItem[]
   productMaster              ProductMaster?
-  compoundFormulaItems       CompoundFormulaItem[]
 
   @@index([medicineName])
   @@index([clinicId])
@@ -633,8 +630,8 @@ model ProductMaster {
   compoundFormulaId String?          @unique
   assets            Asset[]
   productCategory   ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  medicine          Medicine?        @relation(fields: [medicineId], references: [id])
   compoundFormula   CompoundFormula? @relation(fields: [compoundFormulaId], references: [id])
+  medicine          Medicine?        @relation(fields: [medicineId], references: [id])
   products          Product[]
 
   @@index([masterCode])
@@ -759,10 +756,10 @@ model AssetMaintenance {
   nextMaintenanceDate DateTime?
   notes               String?
   attachmentUrl       String?
-  isPosted            Boolean   @default(false)
-  journalEntryId      String?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+  isPosted            Boolean   @default(false)
+  journalEntryId      String?
   asset               Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
   @@index([assetId])
@@ -771,25 +768,25 @@ model AssetMaintenance {
 }
 
 model AssetTransfer {
-  id            String   @id @default(uuid())
-  transferNo    String   @unique
-  assetId       String
-  fromClinicId  String
-  toClinicId    String
-  transferDate  DateTime
-  transferValue Float    @default(0)
-  reason        String?
-  approvedBy    String?
-  status        String   @default("pending")
-  notes         String?
-  isPosted      Boolean  @default(false)
+  id              String   @id @default(uuid())
+  transferNo      String   @unique
+  assetId         String
+  fromClinicId    String
+  toClinicId      String
+  transferDate    DateTime
+  transferValue   Float    @default(0)
+  reason          String?
+  approvedBy      String?
+  status          String   @default("pending")
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  isPosted        Boolean  @default(false)
   journalIdOrigin String?
   journalIdDest   String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  asset         Asset    @relation(fields: [assetId], references: [id])
-  fromClinic    Clinic   @relation("AssetTransferFrom", fields: [fromClinicId], references: [id])
-  toClinic      Clinic   @relation("AssetTransferTo", fields: [toClinicId], references: [id])
+  asset           Asset    @relation(fields: [assetId], references: [id])
+  fromClinic      Clinic   @relation("AssetTransferFrom", fields: [fromClinicId], references: [id])
+  toClinic        Clinic   @relation("AssetTransferTo", fields: [toClinicId], references: [id])
 
   @@index([assetId])
   @@index([fromClinicId])
@@ -828,11 +825,11 @@ model AssetInsurance {
   contactPerson    String?
   contactPhone     String?
   notes            String?
-  isPosted         Boolean   @default(false)
-  postedAt         DateTime?
-  journalId        String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+  isPosted         Boolean   @default(false)
+  journalId        String?
+  postedAt         DateTime?
   asset            Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
   @@index([assetId])
@@ -841,32 +838,32 @@ model AssetInsurance {
 }
 
 model Invoice {
-  id            String        @id @default(uuid())
-  invoiceNo     String        @unique
+  id             String        @id @default(uuid())
+  invoiceNo      String        @unique
   appointmentId  String?
-  registrationId String?
   patientId      String
-  invoiceDate   DateTime
-  dueDate       DateTime?
-  subtotal      Float         @default(0)
-  discount      Float         @default(0)
-  tax           Float         @default(0)
-  total         Float
-  amountPaid    Float         @default(0)
-  status        String        @default("unpaid")
-  notes         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  clinicId      String?
-  isPosted      Boolean       @default(false)
-  postedAt      DateTime?
-  bankId        String?
-  items         InvoiceItem[]
-  bank          Bank?         @relation(fields: [bankId], references: [id])
-  clinic        Clinic?       @relation(fields: [clinicId], references: [id])
-  patient       Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  registration  Registration? @relation(fields: [registrationId], references: [id])
-  payments      Payment[]
+  invoiceDate    DateTime
+  dueDate        DateTime?
+  subtotal       Float         @default(0)
+  discount       Float         @default(0)
+  tax            Float         @default(0)
+  total          Float
+  amountPaid     Float         @default(0)
+  status         String        @default("unpaid")
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  clinicId       String?
+  isPosted       Boolean       @default(false)
+  postedAt       DateTime?
+  bankId         String?
+  registrationId String?
+  items          InvoiceItem[]
+  bank           Bank?         @relation(fields: [bankId], references: [id])
+  clinic         Clinic?       @relation(fields: [clinicId], references: [id])
+  patient        Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  registration   Registration? @relation(fields: [registrationId], references: [id])
+  payments       Payment[]
 
   @@index([patientId])
   @@index([status])
@@ -895,6 +892,7 @@ model Payment {
   id             String   @id @default(uuid())
   paymentNo      String   @unique
   invoiceId      String
+  bankId         String?
   paymentDate    DateTime
   amount         Float
   paymentMethod  String
@@ -902,6 +900,7 @@ model Payment {
   notes          String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  bank           Bank?    @relation(fields: [bankId], references: [id])
   invoice        Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
@@ -1351,28 +1350,29 @@ model StockOpnameItem {
 }
 
 model ChartOfAccount {
-  id                String            @id @default(uuid())
-  code              String            @unique
-  name              String
-  category          AccountCategory
-  accountType       AccountType       @default(DETAIL)
-  parentId          String?
-  clinicId          String?
-  openingBalance    Float             @default(0)
-  isActive          Boolean           @default(true)
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  isReconciled      Boolean           @default(false)
-  assetsAccumDep    Asset[]           @relation("AssetAccumDep")
-  assetsCOA         Asset[]           @relation("AssetCOA")
-  banks             Bank[]
-  clinic            Clinic?           @relation(fields: [clinicId], references: [id])
-  parent            ChartOfAccount?   @relation("AccountHierarchy", fields: [parentId], references: [id])
-  children          ChartOfAccount[]  @relation("AccountHierarchy")
-  expenseCategories ExpenseCategory[]
-  journalDetails    JournalDetail[]
-  services          Service[]
-  systemAccounts    SystemAccount[]
+  id                  String               @id @default(uuid())
+  code                String               @unique
+  name                String
+  category            AccountCategory
+  accountType         AccountType          @default(DETAIL)
+  parentId            String?
+  clinicId            String?
+  openingBalance      Float                @default(0)
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  isReconciled        Boolean              @default(false)
+  assetsAccumDep      Asset[]              @relation("AssetAccumDep")
+  assetsCOA           Asset[]              @relation("AssetCOA")
+  banks               Bank[]
+  clinic              Clinic?              @relation(fields: [clinicId], references: [id])
+  parent              ChartOfAccount?      @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children            ChartOfAccount[]     @relation("AccountHierarchy")
+  expenseCategories   ExpenseCategory[]
+  journalDetails      JournalDetail[]
+  services            Service[]
+  systemAccounts      SystemAccount[]
+  openingBalanceItems OpeningBalanceItem[]
 
   @@map("chart_of_accounts")
 }
@@ -1391,6 +1391,7 @@ model Bank {
   coa           ChartOfAccount @relation(fields: [coaId], references: [id])
   expenses      Expense[]
   invoices      Invoice[]
+  payments      Payment[]
 
   @@map("banks")
 }
@@ -1442,6 +1443,46 @@ model SystemAccount {
   @@map("system_accounts")
 }
 
+model RolePermission {
+  id        String   @id @default(uuid())
+  role      Role
+  module    String
+  canAccess Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([role, module])
+  @@map("role_permissions")
+}
+
+model OpeningBalance {
+  id             String               @id @default(uuid())
+  date           DateTime
+  description    String
+  status         String               @default("DRAFT")
+  totalAmount    Float                @default(0)
+  clinicId       String
+  journalEntryId String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  clinic         Clinic               @relation(fields: [clinicId], references: [id])
+  items          OpeningBalanceItem[]
+
+  @@map("opening_balances")
+}
+
+model OpeningBalanceItem {
+  id               String         @id @default(uuid())
+  openingBalanceId String
+  coaId            String
+  debit            Float          @default(0)
+  credit           Float          @default(0)
+  coa              ChartOfAccount @relation(fields: [coaId], references: [id])
+  openingBalance   OpeningBalance @relation(fields: [openingBalanceId], references: [id], onDelete: Cascade)
+
+  @@map("opening_balance_items")
+}
+
 enum Role {
   SUPER_ADMIN
   ADMIN
@@ -1451,18 +1492,6 @@ enum Role {
   ACCOUNTING
   LOGISTIC
   STAFF
-}
-
-model RolePermission {
-  id        String   @id @default(uuid())
-  role      Role
-  module    String   // e.g. "LAYANAN_UTAMA", "FINANCE", "LOGISTIK", "ASSET", "MASTER_DATA"
-  canAccess Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([role, module])
-  @@map("role_permissions")
 }
 
 enum AccountCategory {

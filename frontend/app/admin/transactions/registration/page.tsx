@@ -226,7 +226,7 @@ export default function RegistrationPage() {
   )
 
   return (
-    <div className="p-4 md:p-6 mx-auto pb-24 md:pb-20 w-full">
+    <div className="p-2 sm:p-4 md:p-6 pb-24 md:pb-20 w-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-4 md:mb-6">
         <div className="flex-1 min-w-0">
@@ -343,7 +343,7 @@ export default function RegistrationPage() {
                   <div className="space-y-1.5">
                     <label className="text-[10px] md:text-xs font-bold text-gray-500">Poli / Departemen</label>
                     <select 
-                      value={selectedDeptId}
+                      value={selectedDeptId || ''}
                       onChange={(e) => setSelectedDeptId(e.target.value)}
                       className="w-full px-3 md:px-4 py-2 md:py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-xs md:text-sm font-bold focus:outline-none focus:bg-white focus:border-primary transition-all"
                     >
@@ -354,7 +354,7 @@ export default function RegistrationPage() {
                   <div className="space-y-1.5">
                     <label className="text-[10px] md:text-xs font-bold text-gray-500">Dokter (Opsional)</label>
                     <select 
-                      value={selectedDoctorId}
+                      value={selectedDoctorId || ''}
                       onChange={(e) => setSelectedDoctorId(e.target.value)}
                       className="w-full px-3 md:px-4 py-2 md:py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-xs md:text-sm font-bold focus:outline-none focus:bg-white focus:border-primary transition-all"
                     >
@@ -595,7 +595,7 @@ export default function RegistrationPage() {
             <div>
               <label className="block text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Golongan Darah</label>
               <select 
-                value={patientForm.bloodType} 
+                value={patientForm.bloodType || ''} 
                 onChange={(e) => setPatientForm(p => ({...p, bloodType: e.target.value}))}
                 className="w-full px-3 md:px-4 py-2 md:py-2.5 text-sm border border-gray-100 bg-gray-50/30 rounded-2xl focus:outline-none focus:border-primary font-black text-gray-700"
               >

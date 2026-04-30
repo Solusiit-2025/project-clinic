@@ -10,7 +10,7 @@ interface MasterModalProps {
   title: string
   subtitle?: string
   children: React.ReactNode
-  size?: 'sm' | 'md' | 'lg' | 'xl'
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl' | 'full'
   closeOnOverlayClick?: boolean
 }
 
@@ -19,6 +19,13 @@ const sizeClasses = {
   md: 'max-w-lg',
   lg: 'max-w-2xl',
   xl: 'max-w-3xl',
+  '2xl': 'max-w-4xl',
+  '3xl': 'max-w-5xl',
+  '4xl': 'max-w-6xl',
+  '5xl': 'max-w-7xl',
+  '6xl': 'max-w-[80rem]',
+  '7xl': 'max-w-[90rem]',
+  'full': 'max-w-[98vw]'
 }
 
 export default function MasterModal({

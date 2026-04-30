@@ -45,7 +45,8 @@ interface OpnameSession {
 }
 
 export default function StockOpnamePage() {
-  const { activeClinicId } = useAuthStore()
+  const { activeClinicId, user } = useAuthStore()
+  const isAllowed = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN'
   const [session, setSession] = useState<OpnameSession | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -295,6 +296,27 @@ export default function StockOpnamePage() {
       <div className="flex flex-col items-center justify-center min-h-screen opacity-50">
         <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
         <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Menyiapkan Sesi Opname...</p>
+      </div>
+    )
+  }
+
+  if (!isAllowed) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center">
+        <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6">
+          <XCircle className="w-10 h-10 text-red-500" />
+        </div>
+        <h2 className="text-2xl font-black text-gray-900 uppercase mb-2">Akses Terbatas</h2>
+        <p className="text-gray-500 font-bold text-sm max-w-md uppercase tracking-widest leading-relaxed">
+          Mohon maaf, Anda tidak memiliki izin untuk mengakses halaman Rekonsiliasi Stok Opname. 
+          Silakan hubungi administrator jika Anda memerlukan akses ini.
+        </p>
+        <button 
+          onClick={() => router.push('/admin/inventory')}
+          className="mt-8 px-8 py-4 bg-gray-900 text-white font-black rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 transition-all"
+        >
+          Kembali ke Dashboard
+        </button>
       </div>
     )
   }

@@ -39,11 +39,6 @@ export default function QueueDashboard() {
   const [isMounted, setIsMounted] = useState(false)
 
   
-  const announceQueueLocal = (queueNo: string, name: string, isTriageDone: boolean) => {
-    if (!isSoundEnabled) return
-    const room = isTriageDone ? 'Ruang Pemeriksaan Dokter' : 'Ruang Pra Pemeriksaan'
-    announceQueue(queueNo, name, room)
-  }
 
   const fetchQueues = useCallback(async () => {
     if (!activeClinicId) return
@@ -75,11 +70,22 @@ export default function QueueDashboard() {
       setQueues(prev => prev.map(q => q.id === id ? data : q))
       
       if (status === 'called') {
-        announceQueueLocal(data.queueNo, data.patient.name, data.hasMedicalRecord)
-        // Show top-center toast
         const room = data.hasMedicalRecord ? 'Ruang Pemeriksaan Dokter' : 'Ruang Pra-Pemeriksaan'
-        setToast({ queueNo: data.queueNo, name: data.patient.name, room })
-        setTimeout(() => setToast(null), 5000)
+        
+        // Synchronized Voice & Toast
+        if (isSoundEnabled) {
+          announceQueue(
+            data.queueNo, 
+            data.patient.name, 
+            room,
+            () => setToast({ queueNo: data.queueNo, name: data.patient.name, room }), // On Start
+            () => setToast(null) // On End
+          )
+        } else {
+          // If sound is disabled, just show toast for 5s
+          setToast({ queueNo: data.queueNo, name: data.patient.name, room })
+          setTimeout(() => setToast(null), 5000)
+        }
       }
     } catch (e) {
       alert('Gagal memperbarui antrian')

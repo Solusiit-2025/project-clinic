@@ -15,7 +15,7 @@ export const LAYANAN_UTAMA_GROUPS = [
   {
     label: 'Pendaftaran & Antrian',
     icon: FiUserPlus,
-    moduleId: 'LAYANAN_UTAMA',
+    moduleId: 'REGISTRATION_QUEUE',
     items: [
       { icon: FiCalendar, label: 'Janji Temu (Appointment)', href: '/admin/transactions/appointment' },
       { icon: FiPlus, label: 'Registrasi Baru', href: '/admin/transactions/registration' },
@@ -25,11 +25,11 @@ export const LAYANAN_UTAMA_GROUPS = [
   {
     label: 'Pelayanan Medis',
     icon: FiActivity,
-    moduleId: 'LAYANAN_UTAMA',
+    moduleId: 'MEDICAL_SERVICES',
     items: [
       { icon: FiActivity, label: 'Nurse Station (Triage)', href: '/admin/transactions/nurse' },
       { icon: FiUserCheck, label: 'Doctor Station', href: '/admin/transactions/doctor' },
-      { icon: FiUsers, label: 'Database Pasien', href: '/admin/master/patients' },
+      { icon: FiUsers, label: 'Database Pasien', href: '/admin/master/patients', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR'] },
     ]
   },
   {
@@ -48,17 +48,17 @@ export const FINANCE_GROUPS = [
   {
     label: 'Billing & Pembayaran',
     icon: FiDollarSign,
-    moduleId: 'FINANCE',
+    moduleId: 'BILLING_PAYMENT',
     items: [
       { icon: FiFileText, label: 'Invoice & Bayar', href: '/admin/finance' },
       { icon: FiDollarSign, label: 'Pengeluaran Operasional', href: '/admin/finance/expenses' },
-      { icon: FiClock, label: 'Tutup Buku (Closing)', href: '/admin/finance/closing' },
+      { icon: FiClock, label: 'Tutup Buku (Closing)', href: '/admin/finance/closing', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTING'] },
     ]
   },
   {
     label: 'Laporan & Akuntansi',
     icon: FiTrendingUp,
-    moduleId: 'FINANCE',
+    moduleId: 'REPORTS_ACCOUNTING',
     items: [
       { icon: FiBookOpen, label: 'Buku Besar (Ledger)', href: '/admin/finance/reports/general-ledger' },
       { icon: FiActivity, label: 'Neraca Saldo (Trial Balance)', href: '/admin/finance/reports/trial-balance' },
@@ -69,8 +69,9 @@ export const FINANCE_GROUPS = [
   {
     label: 'Konfigurasi Akuntansi',
     icon: FiSettings,
-    moduleId: 'FINANCE',
+    moduleId: 'ACCOUNTING_CONFIG',
     items: [
+      { icon: FiTrendingUp, label: 'Saldo Awal (Opening Balance)', href: '/admin/finance/opening-balance' },
       { icon: FiLayers, label: 'Chart of Accounts (COA)', href: '/admin/master/coa' },
       { icon: FiCpu, label: 'System Account Mapping', href: '/admin/master/system-accounts' },
       { icon: FiCreditCard, label: 'Rekening Bank', href: '/admin/master/banks' },
@@ -82,23 +83,23 @@ export const LOGISTIK_GROUPS = [
   {
     label: 'Stok & Inventaris',
     icon: FiPackage,
-    moduleId: 'INVENTORY',
+    moduleId: 'STOCK_INVENTORY',
     items: [
       { icon: FiHome, label: 'Dashboard Stok', href: '/admin/inventory' },
       { icon: FiList, label: 'Kartu Stok', href: '/admin/inventory/mutations' },
-      { icon: FiPlus, label: 'Update Stok Opname', href: '/admin/inventory/stock-opname' },
+      { icon: FiPlus, label: 'Update Stok Opname', href: '/admin/inventory/stock-opname', roles: ['SUPER_ADMIN', 'ADMIN'] },
     ]
   },
   {
     label: 'Pengadaan & Logistik',
     icon: FiShoppingBag,
-    moduleId: 'INVENTORY',
+    moduleId: 'PROCUREMENT_LOGISTICS',
     items: [
       { icon: FiShoppingBag, label: 'Procurement (PR/PO)', href: '/admin/inventory/procurement' },
       { icon: FiCreditCard, label: 'Bayar Hutang Supplier', href: '/admin/inventory/procurement/payables' },
       { icon: FiGlobe, label: 'Transfer Antar Cabang', href: '/admin/inventory/transfers' },
-      { icon: FiPackage, label: 'Katalog Produk', href: '/admin/master/products' },
-      { icon: FiList, label: 'Kategori Produk', href: '/admin/master/product-categories' },
+      { icon: FiPackage, label: 'Katalog Produk', href: '/admin/master/products', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { icon: FiList, label: 'Kategori Produk', href: '/admin/master/product-categories', roles: ['SUPER_ADMIN', 'ADMIN'] },
     ]
   }
 ]
@@ -107,7 +108,7 @@ export const ASSET_GROUPS = [
   {
     label: 'Data & Registrasi Aset',
     icon: FiArchive,
-    moduleId: 'ASSETS',
+    moduleId: 'ASSET_DATA',
     items: [
       { icon: FiArchive, label: 'Daftar Aset', href: '/admin/master/assets' },
       { icon: FiBarChart2, label: 'Register Aset (Nilai Buku)', href: '/admin/assets/register' },
@@ -116,7 +117,7 @@ export const ASSET_GROUPS = [
   {
     label: 'Operasional Aset',
     icon: FiTool,
-    moduleId: 'ASSETS',
+    moduleId: 'ASSET_OPERATIONS',
     items: [
       { icon: FiTool, label: 'Maintenance & Perawatan', href: '/admin/assets/maintenance' },
       { icon: FiRepeat, label: 'Transfer Aset', href: '/admin/assets/transfers' },
@@ -126,7 +127,7 @@ export const ASSET_GROUPS = [
   {
     label: 'Keuangan Aset',
     icon: FiTrendingUp,
-    moduleId: 'ASSETS',
+    moduleId: 'ASSET_FINANCE',
     items: [
       { icon: FiTrendingUp, label: 'Penyusutan (Depresiasi)', href: '/admin/assets/depreciation' },
       { icon: FiAlertCircle, label: 'Penghapusan Aset', href: '/admin/assets/disposal' },
@@ -138,7 +139,7 @@ export const MASTER_GROUPS = [
   {
     label: 'Master Tenaga Medis',
     icon: FiUserCheck,
-    moduleId: 'MASTER_DATA',
+    moduleId: 'MEDICAL_MASTER',
     items: [
       { icon: FiUserCheck, label: 'Database Dokter', href: '/admin/master/doctors' },
       { icon: FiClock, label: 'Jadwal Praktek', href: '/admin/master/schedules' },
@@ -149,10 +150,10 @@ export const MASTER_GROUPS = [
   {
     label: 'Pengaturan Sistem',
     icon: FiDatabase,
-    moduleId: 'MASTER_DATA',
+    moduleId: 'SYSTEM_SETTINGS',
     items: [
       { icon: FiUsers, label: 'Manajemen Users', href: '/admin/master/users' },
-      { icon: FiGlobe, label: 'Manajemen Cabang', href: '/admin/master/clinics' },
+      { icon: FiGlobe, label: 'Manajemen Cabang', href: '/admin/master/clinics', role: 'SUPER_ADMIN' },
       { icon: FiGlobe, label: 'Manajemen Website', href: '/admin/website' },
       { icon: FiSettings, label: 'Pengaturan Umum', href: '/admin/settings' },
       { icon: FiTrendingUp, label: 'Go Live Setup (Reset)', href: '/admin/settings/go-live', role: 'SUPER_ADMIN' },
@@ -170,13 +171,19 @@ export const ALL_MENU_GROUPS = [
 ]
 
 export const extractUniqueModules = () => {
-  const modules = new Set<string>()
+  const modulesMap = new Map<string, { id: string; label: string; section: string }>()
+  
   ALL_MENU_GROUPS.forEach(section => {
     section.groups.forEach(group => {
-      if (group.moduleId) {
-        modules.add(group.moduleId)
+      if (group.moduleId && !modulesMap.has(group.moduleId)) {
+        modulesMap.set(group.moduleId, { 
+          id: group.moduleId, 
+          label: group.label,
+          section: section.section
+        })
       }
     })
   })
-  return Array.from(modules)
+  
+  return Array.from(modulesMap.values())
 }

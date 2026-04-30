@@ -4,14 +4,15 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useState, useCallback } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import api from '@/lib/api'
 import {
   FiUsers, FiCalendar, FiPlus, FiChevronRight,
   FiRefreshCw, FiDollarSign, FiBox, FiShield,
   FiAlertTriangle, FiPackage, FiTool, FiFileText,
   FiTrendingUp, FiTrendingDown, FiActivity, FiClock,
-  FiUserPlus, FiCheckCircle, FiAlertCircle
+  FiUserPlus, FiCheckCircle, FiAlertCircle, FiArrowRight, FiLock,
+  FiSettings, FiDatabase, FiFolder
 } from 'react-icons/fi'
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -20,6 +21,7 @@ import {
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
+import { ALL_MENU_GROUPS } from '@/lib/menuConfig'
 
 const BRANCH_COLORS = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6']
 const STAT_CONFIG = [
@@ -107,6 +109,343 @@ function StatCard({ stat, index, isClient }: { stat: any; index: number; isClien
   )
 }
 
+function QuickShortcuts({ user }: { user: any }) {
+  const [activeSection, setActiveSection] = useState<string | null>(null)
+  
+  const colors = [
+    { text: 'text-indigo-500', bg: 'bg-indigo-50' },
+    { text: 'text-emerald-500', bg: 'bg-emerald-50' },
+    { text: 'text-sky-500', bg: 'bg-sky-50' },
+    { text: 'text-amber-500', bg: 'bg-amber-50' },
+    { text: 'text-rose-500', bg: 'bg-rose-50' },
+    { text: 'text-violet-500', bg: 'bg-violet-50' },
+    { text: 'text-teal-500', bg: 'bg-teal-50' },
+    { text: 'text-orange-500', bg: 'bg-orange-50' },
+    { text: 'text-pink-500', bg: 'bg-pink-50' },
+    { text: 'text-blue-500', bg: 'bg-blue-50' },
+  ]
+
+  const sectionIcons: Record<string, any> = {
+    'LAYANAN UTAMA': FiActivity,
+    'KEUANGAN & AKUNTANSI': FiDollarSign,
+    'LOGISTIK & INVENTARIS': FiPackage,
+    'MANAJEMEN ASET': FiBox,
+    'PENGATURAN MASTER': FiDatabase,
+    'PENGATURAN SISTEM': FiSettings,
+    'MASTER TENAGA MEDIS': FiUsers,
+  }
+
+  const filteredSections = ALL_MENU_GROUPS.map(section => {
+    const filteredGroups = section.groups.map(group => {
+      const filteredItems = group.items.filter((item: any) => {
+        if (item.roles && !item.roles.includes(user.role)) return false
+        if (item.role && item.role !== user.role) return false
+        if (group.moduleId && user.permissions && !user.permissions.includes(group.moduleId)) {
+            if (user.role !== 'SUPER_ADMIN') return false
+        }
+        return true
+      })
+      return { ...group, items: filteredItems }
+    }).filter(group => group.items.length > 0)
+    return { ...section, groups: filteredGroups }
+  }).filter(section => section.groups.length > 0)
+
+  const activeData = filteredSections.find(s => s.section === activeSection)
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+        {filteredSections.map((section, idx) => {
+          const isActive = activeSection === section.section
+          const Icon = sectionIcons[section.section] || FiFolder
+          return (
+            <button 
+              key={idx}
+              onClick={() => setActiveSection(isActive ? null : section.section)}
+              className={`p-6 rounded-[2.5rem] border transition-all duration-500 flex flex-col items-center gap-4 group relative overflow-hidden ${
+                isActive 
+                 ? 'bg-primary border-primary shadow-2xl shadow-primary/30 text-white scale-105' 
+                 : 'bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-700 text-gray-500 hover:border-primary/20 hover:shadow-xl'
+              }`}
+            >
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 ${
+                isActive ? 'bg-white/20' : 'bg-gray-50 dark:bg-slate-900 group-hover:bg-primary/10'
+              }`}>
+                 <Icon className={`w-7 h-7 ${isActive ? 'text-white' : 'text-primary'}`} />
+              </div>
+              <div className="text-center">
+                 <span className={`text-[10px] font-black uppercase tracking-widest leading-tight ${isActive ? 'text-white' : 'text-gray-900 dark:text-white'}`}>
+                   {section.section.split(' ')[0]}
+                 </span>
+                 <p className={`text-[8px] font-bold mt-1 ${isActive ? 'text-white/60' : 'text-gray-400'}`}>
+                   {section.groups.flatMap(g => g.items).length} Menu
+                 </p>
+              </div>
+              {isActive && (
+                 <div className="absolute bottom-1 w-1 h-1 bg-white rounded-full" />
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      <AnimatePresence mode="wait">
+        {activeSection && activeData && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.4, ease: "circOut" }}
+            className="overflow-hidden"
+          >
+            <div className="p-8 bg-white/50 dark:bg-slate-800/50 backdrop-blur-xl rounded-[3rem] border border-gray-100 dark:border-slate-700 shadow-2xl space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                   <div className="w-1.5 h-6 bg-primary rounded-full" />
+                   <h4 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest">{activeSection}</h4>
+                </div>
+                <button onClick={() => setActiveSection(null)} className="text-[10px] font-black text-gray-400 hover:text-primary uppercase tracking-widest">Tutup</button>
+              </div>
+
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
+                {activeData.groups.flatMap(group => group.items).map((item, i) => {
+                  const ItemIcon = item.icon
+                  const color = colors[i % colors.length]
+                  return (
+                    <Link key={i} href={item.href} 
+                      className="flex flex-col items-center gap-2 p-2 rounded-2xl hover:bg-white dark:hover:bg-slate-700 hover:shadow-lg transition-all group active:scale-90"
+                    >
+                      <div className={`w-12 h-12 rounded-2xl ${color.bg} flex items-center justify-center group-hover:shadow-md group-hover:scale-105 transition-all duration-300`}>
+                        <ItemIcon className={`w-5 h-5 ${color.text}`} />
+                      </div>
+                      <span className="text-[9px] font-bold text-gray-500 text-center uppercase tracking-tighter group-hover:text-primary leading-tight truncate w-full px-1">
+                        {item.label}
+                      </span>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+
+
+function StaffDashboard({ user, data, refreshing, fetchStats, todayLabel }: any) {
+  const todayData = data?.today || {}
+  
+  return (
+    <div className="space-y-8 pb-10 w-full">
+      {/* ── Page Header & Welcome ── */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm relative overflow-hidden">
+        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-emerald-500/5 blur-[80px] rounded-full" />
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-3">
+             <div className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border border-emerald-100">
+               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+               Klinik Aktif
+             </div>
+             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{todayLabel}</span>
+          </div>
+          <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
+            Selamat Datang, {' '}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-emerald-600">
+              {user?.name?.split(' ')[0]}
+            </span>
+          </h1>
+          <p className="text-sm text-gray-500 mt-2 font-medium max-w-lg">
+            Siap untuk memberikan pelayanan terbaik hari ini? Anda memiliki <span className="text-indigo-600 font-bold">{todayData.activeQueue || 0} pasien</span> dalam antrian aktif.
+          </p>
+        </div>
+        <div className="flex items-center gap-3 relative z-10">
+           <button onClick={fetchStats}
+             className="flex items-center gap-3 px-6 py-3.5 bg-white border border-gray-200 rounded-2xl text-gray-500 font-bold text-xs uppercase tracking-widest hover:border-emerald-500 hover:text-emerald-600 hover:shadow-lg transition-all active:scale-95"
+           >
+             <FiRefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+             Refresh Data
+           </button>
+        </div>
+      </div>
+
+      {/* ── Operational Bento Grid ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="bg-indigo-600 p-8 rounded-[2.5rem] shadow-xl shadow-indigo-200 relative overflow-hidden group">
+           <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:scale-125 transition-transform duration-500">
+             <FiUserPlus className="w-20 h-20 text-white" />
+           </div>
+           <p className="text-white/70 text-[10px] font-black uppercase tracking-[0.2em] mb-1">Total Registrasi</p>
+           <h3 className="text-4xl font-black text-white">{todayData.registrations ?? 0}</h3>
+           <p className="text-white/50 text-[10px] font-bold mt-4 italic">Pasien baru & lama hari ini</p>
+        </div>
+
+        <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm relative overflow-hidden group">
+           <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:scale-125 transition-transform duration-500">
+             <FiActivity className="w-20 h-20 text-emerald-600" />
+           </div>
+           <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1">Antrian Aktif</p>
+           <h3 className="text-4xl font-black text-emerald-600">{todayData.activeQueue ?? 0}</h3>
+           <div className="flex items-center gap-2 mt-4 text-[10px] font-bold text-emerald-600/70">
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+              Real-time monitoring
+           </div>
+        </div>
+
+        <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm relative overflow-hidden group">
+           <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:scale-125 transition-transform duration-500">
+             <FiPackage className="w-20 h-20 text-violet-600" />
+           </div>
+           <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1">Menunggu Farmasi</p>
+           <h3 className="text-4xl font-black text-violet-600">{todayData.pendingPharmacy ?? 0}</h3>
+           <p className="text-gray-400 text-[10px] font-bold mt-4 italic">Resep belum diproses</p>
+        </div>
+
+        <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm relative overflow-hidden group">
+           <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:scale-125 transition-transform duration-500 text-amber-600">
+             <FiCalendar className="w-20 h-20" />
+           </div>
+           <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1">Janji Temu</p>
+           <h3 className="text-4xl font-black text-amber-600">{todayData.appointments ?? 0}</h3>
+           <p className="text-gray-400 text-[10px] font-bold mt-4 italic">Jadwal konsultasi hari ini</p>
+        </div>
+      </div>
+
+      {/* ── Primary Quick Actions ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[
+          { label: 'Registrasi Pasien', desc: 'Daftarkan kunjungan pasien baru / lama', icon: FiUserPlus, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100', href: '/admin/transactions/registration' },
+          { label: 'Monitor Antrian', desc: 'Kelola alur pelayanan pasien saat ini', icon: FiActivity, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100', href: '/admin/transactions/queue' },
+          { label: 'Database Pasien', desc: 'Cari riwayat dan rekam medis lengkap', icon: FiUsers, color: 'text-sky-600', bg: 'bg-sky-50', border: 'border-sky-100', href: '/admin/master/patients' },
+        ].map((act, i) => (
+          <Link key={i} href={act.href} className="group bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm hover:shadow-2xl hover:border-primary/20 transition-all flex flex-col gap-6 relative overflow-hidden active:scale-95">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-gray-50 to-transparent rounded-bl-[4rem]" />
+            <div className={`w-16 h-16 ${act.bg} rounded-2xl flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-sm`}>
+              <act.icon className={`w-8 h-8 ${act.color}`} />
+            </div>
+            <div className="relative z-10">
+              <h3 className="text-xl font-black text-gray-900 mb-2">{act.label}</h3>
+              <p className="text-xs font-medium text-gray-400 leading-relaxed">{act.desc}</p>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 group-hover:text-primary transition-colors uppercase tracking-widest mt-auto">
+               Akses Modul <FiArrowRight className="w-4 h-4" />
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {/* ── QUICK ACCESS MODULES (Compact Mobile Style) ── */}
+      <QuickShortcuts user={user} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* ── Recent Activity List ── */}
+        <div className="lg:col-span-2 bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+           <div className="p-8 border-b border-gray-50 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-black text-gray-900 tracking-tight">Pasien Terdaftar Hari Ini</h2>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Timeline pendaftaran terkini</p>
+              </div>
+              <Link href="/admin/transactions/registration" className="px-5 py-2.5 bg-gray-50 text-gray-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
+                Lihat Semua
+              </Link>
+           </div>
+
+           <div className="p-6 flex-1">
+             {data?.recentRegistrations && data.recentRegistrations.length > 0 ? (
+              <div className="space-y-3">
+                {data.recentRegistrations.map((reg: any) => {
+                   const statusColor: Record<string, string> = {
+                    completed:  'bg-emerald-50 text-emerald-600 border-emerald-100',
+                    waiting:    'bg-amber-50 text-amber-600 border-amber-100',
+                    cancelled:  'bg-rose-50 text-rose-500 border-rose-100',
+                    in_progress:'bg-sky-50 text-sky-600 border-sky-100',
+                  }
+                  return (
+                    <div key={reg.id} className="flex items-center gap-5 p-4 rounded-3xl bg-gray-50/30 border border-transparent hover:border-gray-100 hover:bg-white hover:shadow-lg transition-all group">
+                       <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center font-black text-xl text-gray-300 group-hover:text-primary transition-colors border border-gray-100 flex-shrink-0 shadow-sm">
+                        {reg.patient?.name?.[0]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-4 mb-1.5">
+                          <h4 className="text-base font-black text-gray-900 truncate group-hover:text-primary transition-colors">{reg.patient?.name}</h4>
+                          <span className={`text-[9px] font-black px-2.5 py-1 rounded-lg uppercase border ${statusColor[reg.status] || 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+                            {reg.status}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] font-bold text-gray-400">
+                           <span className="flex items-center gap-1.5"><FiFileText className="w-3.5 h-3.5" /> RM: {reg.patient?.medicalRecordNo}</span>
+                           <span className="w-1 h-1 bg-gray-200 rounded-full" />
+                           <span className="flex items-center gap-1.5 uppercase tracking-tighter text-gray-500"><FiActivity className="w-3.5 h-3.5" /> {reg.visitType}</span>
+                           <span className="w-1 h-1 bg-gray-200 rounded-full" />
+                           <span className="flex items-center gap-1.5">
+                             <FiClock className="w-3.5 h-3.5" /> 
+                             {reg.createdAt && !isNaN(new Date(reg.createdAt).getTime()) 
+                               ? format(new Date(reg.createdAt), 'HH:mm') 
+                               : '--:--'} WIB
+                           </span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+             ) : (
+              <div className="py-20 text-center flex flex-col items-center gap-4">
+                 <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-gray-200">
+                    <FiFileText className="w-10 h-10" />
+                 </div>
+                 <p className="text-gray-300 font-bold text-xs uppercase tracking-widest italic">Belum ada aktivitas hari ini</p>
+              </div>
+             )}
+           </div>
+        </div>
+
+        {/* ── Status & Info Card ── */}
+        <div className="space-y-8">
+           <div className="bg-slate-900 p-10 rounded-[3rem] text-white shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-[50px] rounded-full" />
+              <div className="relative z-10 space-y-6">
+                <FiShield className="w-12 h-12 text-indigo-400" />
+                <h3 className="text-2xl font-black leading-tight tracking-tight">Keamanan Data Pasien</h3>
+                <p className="text-xs text-white/50 leading-relaxed font-medium">
+                  Selalu pastikan untuk mengunci layar saat meninggalkan workspace Anda. Keamanan data rekam medis pasien adalah prioritas utama.
+                </p>
+                <div className="pt-4 border-t border-white/10 flex items-center gap-3">
+                   <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                     <FiLock className="w-5 h-5" />
+                   </div>
+                   <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300">Protected Session</span>
+                </div>
+              </div>
+           </div>
+
+           <div className="bg-white p-10 rounded-[3rem] border border-gray-100 shadow-sm space-y-6">
+              <h4 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Kinerja Pelayanan</h4>
+              <div className="space-y-6">
+                 {[
+                   { label: 'Waktu Tunggu Rerata', val: '12 Min', color: 'bg-emerald-500', trend: '+2%' },
+                   { label: 'Kepuasan Pasien', val: '98%', color: 'bg-indigo-500', trend: 'Stable' },
+                 ].map((k, i) => (
+                   <div key={i} className="space-y-3">
+                      <div className="flex justify-between items-end">
+                        <span className="text-xs font-bold text-gray-700">{k.label}</span>
+                        <span className="text-sm font-black text-gray-900">{k.val}</span>
+                      </div>
+                      <div className="h-2 w-full bg-gray-50 rounded-full overflow-hidden">
+                        <div className={`h-full ${k.color} rounded-full`} style={{ width: k.val }} />
+                      </div>
+                   </div>
+                 ))}
+              </div>
+           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function AdminDashboard() {
   const { activeClinicId, user, isAuthenticated } = useAuthStore()
   const router = useRouter()
@@ -155,6 +494,12 @@ export default function AdminDashboard() {
   if (user?.role === 'FARMASI') return null
 
   const todayLabel = format(new Date(), 'EEEE, dd MMMM yyyy', { locale: id })
+
+  // Render STAFF Dashboard
+  if (user?.role === 'STAFF') {
+    return <StaffDashboard user={user} data={data} refreshing={refreshing} fetchStats={fetchStats} todayLabel={todayLabel} />
+  }
+
   const alerts = data?.alerts || {}
   const todayData = data?.today || {}
   const criticalCount = alerts.criticalStocks?.length || 0
@@ -164,7 +509,7 @@ export default function AdminDashboard() {
   const totalAlerts = criticalCount + expiryCount + maintCount + insCount
 
   return (
-    <div className="space-y-5 pb-10">
+    <div className="space-y-6 pb-10 w-full">
 
       {/* ── Page Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -274,6 +619,9 @@ export default function AdminDashboard() {
           )
         })}
       </div>
+      
+      {/* ── QUICK SHORTCUTS ── */}
+      <QuickShortcuts user={user} />
 
       {/* ── SUMMARY CARDS (all-time) ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

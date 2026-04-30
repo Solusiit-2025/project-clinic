@@ -28,6 +28,7 @@ type Clinic = {
 }
 
 export default function ClinicsPage() {
+  const { user } = useAuthStore()
   const [data, setData] = useState<Clinic[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -166,6 +167,26 @@ export default function ClinicsPage() {
       render: (r) => <StatusBadge active={r.isActive} /> 
     },
   ]
+
+  if (user?.role !== 'SUPER_ADMIN') {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] text-center p-6">
+        <div className="w-20 h-20 bg-red-50 text-red-500 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-red-500/10 border border-red-100">
+          <FiAlertCircle className="w-10 h-10" />
+        </div>
+        <h2 className="text-2xl font-black text-gray-900 mb-2 tracking-tight">Akses Terbatas</h2>
+        <p className="text-gray-500 font-medium max-w-sm mx-auto leading-relaxed">
+          Halaman Manajemen Cabang hanya dapat diakses oleh <span className="text-red-600 font-black">SUPER ADMIN</span>. Silakan hubungi pengembang jika Anda memerlukan akses ini.
+        </p>
+        <button 
+          onClick={() => window.history.back()}
+          className="mt-8 px-8 py-3 bg-gray-900 text-white rounded-2xl text-xs font-black uppercase tracking-[0.2em] shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+        >
+          Kembali ke Dashboard
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div>

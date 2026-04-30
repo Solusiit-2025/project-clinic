@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import '@/styles/globals.css'
+import Script from 'next/script'
 
 import { Providers } from '@/components/Providers'
 
@@ -16,8 +17,9 @@ export default function RootLayout({
   return (
     <html lang="id" suppressHydrationWarning>
       <head>
-        {/* Anti-flicker: runs synchronously before paint to apply stored theme */}
-        <script
+        <Script
+          id="theme-strategy"
+          strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
@@ -37,6 +39,7 @@ export default function RootLayout({
             `,
           }}
         />
+        {/* Anti-flicker: runs synchronously before paint to apply stored theme */}
         <link rel="icon" href="/favicon.ico" />
         <link rel="preconnect" href="http://localhost:5004" />
         <link rel="dns-prefetch" href="http://localhost:5004" />

@@ -433,7 +433,7 @@ export default function MedicinesPage() {
           <div className="flex-1 min-w-0 space-y-1">
             <label className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2 sm:ml-3">Cabang</label>
             <select 
-              value={filterClinic} 
+              value={filterClinic || ''} 
               onChange={(e) => setFilterClinic(e.target.value)}
               className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-[11px] sm:text-xs border border-slate-100 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/10 bg-slate-50 font-black text-slate-700 transition-all"
             >
@@ -499,7 +499,7 @@ export default function MedicinesPage() {
             <div className="sm:col-span-2 p-3 sm:p-5 bg-indigo-50/50 border-2 border-indigo-100/50 rounded-xl sm:rounded-[2rem]">
               <label className="block text-[9px] sm:text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-2 sm:mb-2.5">Unit Penanggung Jawab Obat *</label>
               <select 
-                value={form.clinicId} 
+                value={form.clinicId || ''} 
                 onChange={(e) => setForm(p => ({...p, clinicId: e.target.value}))}
                 className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm border border-indigo-100 rounded-lg sm:rounded-2xl focus:outline-none focus:border-primary bg-white font-black text-indigo-700 shadow-sm"
               >
@@ -565,7 +565,7 @@ export default function MedicinesPage() {
             
             <div>
               <label className="block text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Bentuk Sediaan</label>
-              <select value={form.dosageForm} onChange={(e) => setForm(p => ({...p, dosageForm: e.target.value}))}
+              <select value={form.dosageForm || ''} onChange={(e) => setForm(p => ({...p, dosageForm: e.target.value}))}
                 className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm border border-gray-100 bg-gray-50/30 rounded-lg sm:rounded-2xl focus:outline-none focus:border-primary bg-white font-black capitalize text-gray-700">
                 {FORMS.map(f => <option key={f} value={f} className="capitalize">{f}</option>)}
               </select>
