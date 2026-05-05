@@ -1307,6 +1307,23 @@ export const deleteClinic = async (req: Request, res: Response) => {
   }
 }
 
+export const getClinicById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    console.log(`[Master Clinic] Fetching Clinic by ID: "${id}"`)
+    const clinic = await prisma.clinic.findUnique({
+      where: { id }
+    })
+    if (!clinic) {
+      console.warn(`[Master Clinic] Clinic NOT FOUND: "${id}"`)
+      return res.status(404).json({ message: 'Klinik tidak ditemukan' })
+    }
+    res.json(clinic)
+  } catch (e: any) {
+    res.status(500).json({ message: e.message })
+  }
+}
+
 // ==================== ASSETS ====================
 
 /**

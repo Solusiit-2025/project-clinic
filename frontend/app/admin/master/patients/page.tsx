@@ -37,7 +37,7 @@ type Patient = typeof EMPTY & { id: string; createdAt: string; updatedAt: string
 
 export default function PatientsPage() {
   const { user } = useAuthStore()
-  const isAllowed = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'DOCTOR'
+  const isAllowed = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'DOCTOR' || user?.role === 'NURSE'
   const [data, setData] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')

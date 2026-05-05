@@ -205,7 +205,9 @@ export const getProfitLoss = async (req: Request, res: Response) => {
 export const getBalanceSheet = async (req: Request, res: Response) => {
   try {
     const { date, clinicId } = req.query
-    const targetClinicId = clinicId ? String(clinicId) : (req as any).clinicId
+    const currentClinicId = (req as any).clinicId
+    const isAdminView = (req as any).isAdminView
+    const targetClinicId = clinicId ? String(clinicId) : (isAdminView ? undefined : currentClinicId)
     
     // Robust date parsing — kompensasi UTC+7 (WIB)
     let targetDate = new Date()
@@ -265,7 +267,7 @@ export const getBalanceSheet = async (req: Request, res: Response) => {
       where: {
         accountType: 'DETAIL',
         category: { in: ['ASSET', 'LIABILITY', 'EQUITY'] },
-        OR: [{ clinicId: targetClinicId }, { clinicId: null }]
+        ...(targetClinicId ? { OR: [{ clinicId: targetClinicId }, { clinicId: null }] } : {})
       },
       orderBy: { code: 'asc' }
     })

@@ -22,6 +22,7 @@ import accountingRoutes from './routes/accounting.routes'
 import inventoryLedgerRoutes from './routes/inventoryLedger.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import systemRoutes from './routes/system.routes';
+import labRoutes from './routes/lab.routes';
 
 // Load environment variables
 dotenv.config();
@@ -97,6 +98,7 @@ app.use('/api/accounting', accountingRoutes)
 app.use('/api/inventory-ledger', inventoryLedgerRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/system', systemRoutes);
+app.use('/api/lab', labRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
@@ -109,8 +111,12 @@ app.get('/api/test-route', (req, res) => {
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error(err);
-  res.status(500).json({ error: 'Internal server error' });
+  console.error('[Error]', err.message || err);
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({ 
+    message: err.message || 'Internal server error',
+    error: process.env.NODE_ENV === 'development' ? err : undefined
+  });
 });
 
 // Start server

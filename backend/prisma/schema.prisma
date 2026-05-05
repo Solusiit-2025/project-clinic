@@ -996,24 +996,39 @@ model SiteSetting {
 }
 
 model LabOrder {
-  id              String            @id @default(uuid())
-  orderNo         String            @unique
+  id              String               @id @default(uuid())
+  orderNo         String               @unique
   medicalRecordId String
   patientId       String
   doctorId        String
-  orderDate       DateTime          @default(now())
-  status          String            @default("pending")
-  priority        String            @default("normal")
+  orderDate       DateTime             @default(now())
+  status          String               @default("pending")
+  priority        String               @default("normal")
   clinicalNotes   String?
   completedAt     DateTime?
   analystId       String?
   validatorId     String?
-  doctor          Doctor            @relation(fields: [doctorId], references: [id])
-  medicalRecord   MedicalRecord     @relation(fields: [medicalRecordId], references: [id])
-  patient         Patient           @relation(fields: [patientId], references: [id])
+  doctor          Doctor               @relation(fields: [doctorId], references: [id])
+  medicalRecord   MedicalRecord        @relation(fields: [medicalRecordId], references: [id])
+  patient         Patient              @relation(fields: [patientId], references: [id])
   results         LabResultDetail[]
+  attachments     LabOrderAttachment[]
 
   @@map("lab_orders")
+}
+
+model LabOrderAttachment {
+  id         String   @id @default(uuid())
+  labOrderId String
+  fileUrl    String
+  fileName   String
+  fileType   String
+  fileSize   Int?
+  uploadedAt DateTime @default(now())
+  labOrder   LabOrder @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
+
+  @@index([labOrderId])
+  @@map("lab_order_attachments")
 }
 
 model LabTestMaster {
@@ -1492,6 +1507,7 @@ enum Role {
   ACCOUNTING
   LOGISTIC
   STAFF
+  NURSE
 }
 
 enum AccountCategory {

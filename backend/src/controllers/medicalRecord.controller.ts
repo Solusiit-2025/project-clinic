@@ -167,24 +167,67 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
           notes,
           hasInformedConsent: !!hasInformedConsent,
           consultationDraft: !isFinal ? { subjective, objective, diagnosis, treatmentPlan, services, prescriptions } : Prisma.DbNull,
-          doctorId: (req as any).user.doctor?.id || null 
+          // Only update doctorId if we have a valid doctor account
+          ...( (req as any).user.doctor?.id ? { doctorId: (req as any).user.doctor.id } : {} )
         },
         include: { patient: true, services: true }
       })
 
-      // 1.1 Handle Clinical Services (Tindakan) - Record them to MedicalRecord
-      if (isFinal && services && Array.isArray(services)) {
-        await tx.medicalRecordService.deleteMany({ where: { medicalRecordId: mr.id } })
-        for (const s of services) {
-          await tx.medicalRecordService.create({
-            data: {
-              medicalRecordId: mr.id,
-              serviceId: s.serviceId,
-              quantity: s.quantity || 1,
-              price: s.price,
-              notes: s.notes || ''
-            }
+      // 1.1 Handle Clinical Services (Tindakan)
+      if (services && Array.isArray(services)) {
+        // Record them to MedicalRecord only if FINAL (for billing/history)
+        if (isFinal) {
+          await tx.medicalRecordService.deleteMany({ where: { medicalRecordId: mr.id } })
+          for (const s of services) {
+            await tx.medicalRecordService.create({
+              data: {
+                medicalRecordId: mr.id,
+                serviceId: s.serviceId,
+                quantity: s.quantity || 1,
+                price: s.price,
+                notes: s.notes || ''
+              }
+            })
+          }
+        }
+
+        // 1.2 Always check for Lab Services to trigger LabOrder (even for DRAFTS)
+        // Check both isLab flag and service name as fallback
+        const hasLab = services.some((s: any) => 
+          s.isLab || 
+          (s.name && s.name.toUpperCase().includes('LAB')) ||
+          (s.serviceName && s.serviceName.toUpperCase().includes('LAB'))
+        )
+
+        if (hasLab) {
+          const existingOrder = await tx.labOrder.findFirst({
+            where: { medicalRecordId: mr.id }
           })
+          
+          if (!existingOrder) {
+            const lCount = await tx.labOrder.count()
+            const orderNo = `LAB-${Date.now().toString().slice(-6)}-${(lCount + 1).toString().padStart(3, '0')}`
+            
+            // Get doctorId from user profile, existing MR, or queue
+            let finalDoctorId = (req as any).user.doctor?.id || mr.doctorId
+            if (!finalDoctorId) {
+                const q = await tx.queue.findUnique({ where: { id: queueId } })
+                finalDoctorId = q?.doctorId
+            }
+
+            if (finalDoctorId) {
+              await tx.labOrder.create({
+                data: {
+                  orderNo,
+                  medicalRecordId: mr.id,
+                  patientId: mr.patientId,
+                  doctorId: finalDoctorId,
+                  status: 'pending',
+                  orderDate: new Date()
+                }
+              })
+            }
+          }
         }
       }
 
@@ -367,6 +410,14 @@ export const getMedicalRecordByRegistration = async (req: Request, res: Response
                 prescriptions: { include: { items: { include: { medicine: true } } } },
                 services: { include: { service: true } },
                 referrals: { include: { toClinic: true, toDepartment: true } },
+                labOrders: { 
+                    include: { 
+                        results: { 
+                            include: { testMaster: true } 
+                        } 
+                    },
+                    orderBy: { orderDate: 'desc' }
+                },
                 attachments: true,
                 patient: true,
                 doctor: true

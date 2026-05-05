@@ -136,9 +136,11 @@ export default function FinanceDashboard() {
       amount: 0,
       transactionRef: '',
       bankId: '',
-      insuranceProvider: '',
       insuranceNo: '',
-      notes: ''
+      notes: '',
+      discount: 0,
+      discountType: 'amount' as 'amount' | 'percent',
+      discountInput: 0
    })
   const [processing, setProcessing] = useState(false)
   const [receivedAmount, setReceivedAmount] = useState<number>(0)
@@ -242,11 +244,24 @@ export default function FinanceDashboard() {
           paymentMethod: paymentData.method,
           transactionRef: paymentData.transactionRef || paymentData.insuranceNo || '',
           bankId: paymentData.bankId || null,
-          notes: paymentData.notes
+          notes: paymentData.notes,
+          discount: paymentData.discount,
+          discountType: paymentData.discountType
         })
         toast.success('Pembayaran berhasil diproses')
         setShowPaymentModal(false)
         setSelectedInvoice(null)
+        setPaymentData({
+           method: 'cash',
+           amount: 0,
+           transactionRef: '',
+           bankId: '',
+           insuranceNo: '',
+           notes: '',
+           discount: 0,
+           discountType: 'amount',
+           discountInput: 0
+        })
         fetchData()
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Gagal memproses pembayaran')
@@ -422,8 +437,16 @@ export default function FinanceDashboard() {
                              <p className="text-[10px] font-bold text-gray-400 mt-1">{new Date(inv.invoiceDate).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}</p>
                          </div>
                          <div className="col-span-2 text-right">
-                             <p className="text-base font-black text-gray-900">{formatCurrency(inv.total)}</p>
-                             {inv.amountPaid > 0 && <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest">Lunas: {formatCurrency(inv.amountPaid)}</p>}
+                             <div className="flex flex-col">
+                                <span className="text-base font-black text-gray-900 leading-none">{formatCurrency(inv.total)}</span>
+                                {inv.discount > 0 && (
+                                   <div className="flex flex-col mt-1">
+                                      <span className="text-[9px] font-bold text-gray-400 line-through decoration-rose-400/50 uppercase tracking-widest">{formatCurrency(inv.subtotal)}</span>
+                                      <span className="text-[8px] font-black text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded-md inline-block w-fit ml-auto mt-0.5">-{formatCurrency(inv.discount)}</span>
+                                   </div>
+                                )}
+                                {inv.amountPaid > 0 && <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest mt-1">Lunas: {formatCurrency(inv.amountPaid)}</p>}
+                             </div>
                          </div>
                          <div className="col-span-2 flex flex-col items-center gap-1.5">
                             {getStatusBadge(inv.status)}
@@ -464,8 +487,16 @@ export default function FinanceDashboard() {
                                    disabled={['waiting', 'ongoing', 'triage', 'ready', 'called'].includes(inv.registration?.queueNumbers?.[0]?.status || '')}
                                    onClick={() => { 
                                      setSelectedInvoice(inv); 
-                                     setReceivedAmount(inv.total - (inv.amountPaid || 0)); 
-                                     setPaymentData({ ...paymentData, amount: inv.total - (inv.amountPaid || 0), method: 'cash' }); 
+                                     const remaining = inv.total - (inv.amountPaid || 0);
+                                     setReceivedAmount(remaining); 
+                                     setPaymentData({ 
+                                       ...paymentData, 
+                                       amount: remaining, 
+                                       method: 'cash',
+                                       discount: 0,
+                                       discountInput: 0,
+                                       discountType: 'amount'
+                                     }); 
                                      setShowPaymentModal(true); 
                                    }} 
                                    className={`px-5 py-3 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all tooltip ${
@@ -543,9 +574,75 @@ export default function FinanceDashboard() {
                               </div>
                            )}
                            <div className="flex justify-between pt-2">
-                              <span className="text-xs font-black text-gray-900 uppercase">Total Tagihan</span>
-                              <span className="text-lg font-black text-primary">{formatCurrency(selectedInvoice.total - (selectedInvoice.amountPaid || 0))}</span>
-                           </div>
+                               <span className="text-xs font-black text-gray-900 uppercase">Subtotal Sisa</span>
+                               <span className="text-sm font-black text-gray-900">{formatCurrency(selectedInvoice.total - (selectedInvoice.amountPaid || 0))}</span>
+                            </div>
+
+                            <div className="pt-4 space-y-4">
+                               <div className="flex items-center justify-between">
+                                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tipe Diskon</label>
+                                  <div className="flex bg-gray-100 p-1 rounded-xl">
+                                     <button 
+                                        type="button"
+                                        onClick={() => {
+                                           const remaining = selectedInvoice.total - (selectedInvoice.amountPaid || 0);
+                                           setPaymentData({ ...paymentData, discountType: 'percent', discount: 0, discountInput: 0, amount: remaining });
+                                           setReceivedAmount(remaining);
+                                        }}
+                                        className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${paymentData.discountType === 'percent' ? 'bg-white text-primary shadow-sm' : 'text-gray-400'}`}
+                                     >
+                                        %
+                                     </button>
+                                     <button 
+                                        type="button"
+                                        onClick={() => {
+                                           const remaining = selectedInvoice.total - (selectedInvoice.amountPaid || 0);
+                                           setPaymentData({ ...paymentData, discountType: 'amount', discount: 0, discountInput: 0, amount: remaining });
+                                           setReceivedAmount(remaining);
+                                        }}
+                                        className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${paymentData.discountType === 'amount' ? 'bg-white text-primary shadow-sm' : 'text-gray-400'}`}
+                                     >
+                                        Rp
+                                     </button>
+                                  </div>
+                               </div>
+
+                               <div className="relative">
+                                  <input 
+                                     type="number" 
+                                     value={paymentData.discountInput || ''}
+                                     onChange={(e) => {
+                                        const val = parseFloat(e.target.value) || 0;
+                                        const remaining = selectedInvoice.total - (selectedInvoice.amountPaid || 0);
+                                        let discAmount = 0;
+                                        if (paymentData.discountType === 'percent') {
+                                           discAmount = (val / 100) * remaining;
+                                        } else {
+                                           discAmount = val;
+                                        }
+                                        const finalAmount = Math.max(0, remaining - discAmount);
+                                        setPaymentData({ ...paymentData, discountInput: val, discount: discAmount, amount: finalAmount });
+                                        setReceivedAmount(finalAmount);
+                                     }}
+                                     placeholder={paymentData.discountType === 'percent' ? "0%" : "Rp 0"}
+                                     className="w-full px-4 py-3 bg-white border border-gray-100 rounded-xl text-xs font-black focus:border-primary outline-none transition-all"
+                                  />
+                               </div>
+
+                               {paymentData.discount > 0 && (
+                                  <div className="flex justify-between text-[10px] font-bold text-rose-500 uppercase">
+                                     <span>Potongan</span>
+                                     <span>-{formatCurrency(paymentData.discount)}</span>
+                                  </div>
+                               )}
+                            </div>
+
+                            <div className="pt-4 border-t border-dashed border-gray-200">
+                               <div className="flex justify-between items-center">
+                                  <span className="text-xs font-black text-gray-900 uppercase">Total Bayar</span>
+                                  <span className="text-xl font-black text-primary">{formatCurrency(paymentData.amount)}</span>
+                               </div>
+                            </div>
                         </div>
                      </div>
                   </div>
@@ -643,19 +740,19 @@ export default function FinanceDashboard() {
                                  </div>
 
                                  <div className={`p-8 rounded-[2.5rem] border-2 text-center transition-all ${
-                                    receivedAmount - (selectedInvoice.total - (selectedInvoice.amountPaid || 0)) >= 0 
+                                    receivedAmount - paymentData.amount >= 0 
                                     ? 'bg-emerald-50 border-emerald-100' 
                                     : 'bg-rose-50 border-rose-100'
                                  }`}>
                                     <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${
-                                       receivedAmount - (selectedInvoice.total - (selectedInvoice.amountPaid || 0)) >= 0 ? 'text-emerald-500' : 'text-rose-500'
+                                       receivedAmount - paymentData.amount >= 0 ? 'text-emerald-500' : 'text-rose-500'
                                     }`}>
-                                       {receivedAmount - (selectedInvoice.total - (selectedInvoice.amountPaid || 0)) >= 0 ? 'Kembalian' : 'Kurang'}
+                                       {receivedAmount - paymentData.amount >= 0 ? 'Kembalian' : 'Kurang'}
                                     </p>
                                     <p className={`text-4xl font-black ${
-                                       receivedAmount - (selectedInvoice.total - (selectedInvoice.amountPaid || 0)) >= 0 ? 'text-emerald-700' : 'text-rose-700'
+                                       receivedAmount - paymentData.amount >= 0 ? 'text-emerald-700' : 'text-rose-700'
                                     }`}>
-                                       {formatCurrency(Math.abs(receivedAmount - (selectedInvoice.total - (selectedInvoice.amountPaid || 0))))}
+                                       {formatCurrency(Math.abs(receivedAmount - paymentData.amount))}
                                     </p>
                                  </div>
                               </div>
@@ -775,9 +872,9 @@ export default function FinanceDashboard() {
                         <div className="pt-8 border-t border-gray-100">
                            <button 
                                onClick={handleProcessPayment} 
-                               disabled={processing || (paymentData.method === 'cash' && (receivedAmount < (selectedInvoice.total - (selectedInvoice.amountPaid || 0)) || (cashBanks.length > 0 && !paymentData.bankId))) || (paymentData.method === 'transfer' && !paymentData.bankId)} 
+                               disabled={processing || (paymentData.method === 'cash' && (receivedAmount < paymentData.amount || (cashBanks.length > 0 && !paymentData.bankId))) || (paymentData.method === 'transfer' && !paymentData.bankId)} 
                                className={`w-full py-6 rounded-[2.5rem] text-sm font-black uppercase tracking-[0.2em] shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-3 ${
-                                  processing || (paymentData.method === 'cash' && (receivedAmount < (selectedInvoice.total - (selectedInvoice.amountPaid || 0)) || (cashBanks.length > 0 && !paymentData.bankId))) || (paymentData.method === 'transfer' && !paymentData.bankId)
+                                  processing || (paymentData.method === 'cash' && (receivedAmount < paymentData.amount || (cashBanks.length > 0 && !paymentData.bankId))) || (paymentData.method === 'transfer' && !paymentData.bankId)
                                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                   : 'bg-primary text-white shadow-primary/30'
                                }`}
@@ -896,10 +993,35 @@ export default function FinanceDashboard() {
                      )}
                   </div>
 
+                  <div className="px-8 py-6 bg-gray-50 border-t border-gray-100">
+                     <div className="space-y-2 max-w-xs ml-auto">
+                        <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                           <span>Subtotal</span>
+                           <span>{formatCurrency(selectedInvoice.subtotal)}</span>
+                        </div>
+                        {selectedInvoice.discount > 0 && (
+                           <div className="flex justify-between text-[10px] font-black text-rose-500 uppercase tracking-widest">
+                              <span>Diskon</span>
+                              <span>-{formatCurrency(selectedInvoice.discount)}</span>
+                           </div>
+                        )}
+                        <div className="flex justify-between text-xs font-black text-gray-900 uppercase tracking-widest pt-2 border-t border-gray-200">
+                           <span>Total Akhir</span>
+                           <span>{formatCurrency(selectedInvoice.total)}</span>
+                        </div>
+                        {selectedInvoice.amountPaid > 0 && (
+                           <div className="flex justify-between text-[10px] font-black text-emerald-600 uppercase tracking-widest pt-1">
+                              <span>Telah Dibayar</span>
+                              <span>{formatCurrency(selectedInvoice.amountPaid)}</span>
+                           </div>
+                        )}
+                     </div>
+                  </div>
+
                   <div className="p-8 bg-gray-900 text-white flex justify-between items-center">
                      <div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Outstanding</p>
-                        <p className="text-2xl font-black">{formatCurrency(selectedInvoice.total - (selectedInvoice.amountPaid || 0))}</p>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Sisa Tagihan (AR)</p>
+                        <p className="text-2xl font-black">{formatCurrency(Math.max(0, selectedInvoice.total - (selectedInvoice.amountPaid || 0)))}</p>
                      </div>
                      <div className="text-right">
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Tagihan</p>

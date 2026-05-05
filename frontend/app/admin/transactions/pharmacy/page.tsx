@@ -97,7 +97,7 @@ export default function PharmacyQueuePage() {
               <div className="text-center py-10">
                 <Beaker className="w-8 h-8 text-gray-200 mx-auto mb-2" />
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Tidak ada resep baru</p>
-                <p className="text-[10px] text-gray-300 mt-1 px-4 italic leading-relaxed">Resep akan muncul secara otomatis di sini jika invoice pasien sudah dilunasi di bagian kasir.</p>
+                <p className="text-[10px] text-gray-300 mt-1 px-4 italic leading-relaxed">Resep dari dokter akan muncul di sini secara otomatis untuk segera diproses oleh bagian Farmasi.</p>
               </div>
             ) : (
               pending.map((p, idx) => (

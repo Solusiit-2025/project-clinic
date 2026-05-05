@@ -15,6 +15,7 @@ import { HiOutlineBeaker } from 'react-icons/hi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { toast } from 'react-hot-toast'
 import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import html2canvas from 'html2canvas'
 
 interface Queue {
@@ -212,7 +213,20 @@ export default function DoctorConsultationPage() {
           if (data.consultationDraft) {
              const draft = data.consultationDraft;
              if (draft.prescriptions) setPrescriptionItems(draft.prescriptions);
-             if (draft.services) setServiceItems(draft.services);
+             if (draft.services) {
+                // Separate general services and lab services
+                const generalServices = draft.services.filter((s: any) => !s.isLab);
+                const labServices = draft.services.filter((s: any) => s.isLab);
+                
+                setServiceItems(generalServices);
+                // Map labServices back to the format expected by labItems state if needed
+                setLabItems(labServices.map((s: any) => ({
+                   id: s.serviceId,
+                   serviceName: s.name || s.serviceName,
+                   price: s.price,
+                   serviceCode: s.code || s.serviceCode
+                })));
+             }
           }
            // In actual completed items, they should come from actual medical record services if present
            if (data.services && data.services.length > 0 && qData.status === 'completed') {
@@ -375,11 +389,15 @@ export default function DoctorConsultationPage() {
         services: [
           ...serviceItems.map(s => ({ 
             serviceId: s.serviceId, 
-            quantity: parseInt(s.quantity) || 0, 
-            price: parseFloat(s.price) || 0 
+            name: s.name,
+            code: s.code,
+            quantity: parseInt(s.quantity as any) || 0, 
+            price: parseFloat(s.price as any) || 0 
           })),
           ...labItems.map(l => ({
             serviceId: l.id,
+            name: l.serviceName,
+            code: l.serviceCode,
             quantity: 1,
             price: l.price || 0,
             isLab: true
@@ -487,6 +505,96 @@ export default function DoctorConsultationPage() {
     } finally {
       setIsPrinting(false)
     }
+  }
+
+  const generateLabResultPDF = (order: any) => {
+    if (!order || !queue) return;
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // --- Header / Letterhead ---
+    // Note: In doctor view, we might not have full clinic details in the order, 
+    // but we can try to get them from activeClinic (though not stored here yet)
+    // For now, use the order's clinic if available or fallback
+    const clinic = order.medicalRecord?.clinic;
+    const clinicName = clinic?.name || 'KLINIK SOLUSI IT';
+    const clinicAddress = clinic?.address || 'Alamat Klinik Belum Diatur';
+    const clinicPhone = clinic?.phone || '-';
+
+    doc.setFontSize(20);
+    doc.setTextColor(2, 132, 199); // Sky-700 (Biru Laut)
+    doc.setFont('helvetica', 'bold');
+    doc.text(clinicName.toUpperCase(), pageWidth / 2, 20, { align: 'center' });
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${clinicAddress} | Telp: ${clinicPhone}`, pageWidth / 2, 27, { align: 'center' });
+    
+    doc.setDrawColor(200);
+    doc.line(15, 32, pageWidth - 15, 32);
+
+    // --- Report Title ---
+    doc.setFontSize(14);
+    doc.setTextColor(30);
+    doc.setFont('helvetica', 'bold');
+    doc.text('HASIL PEMERIKSAAN LABORATORIUM', pageWidth / 2, 45, { align: 'center' });
+
+    // --- Patient & Order Info ---
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    
+    const leftX = 15;
+    const rightX = pageWidth / 2 + 10;
+    let currentY = 55;
+
+    // Left Column
+    doc.text(`No. Rekam Medis : ${queue.patient.medicalRecordNo}`, leftX, currentY);
+    doc.text(`Nama Pasien      : ${queue.patient.name}`, leftX, currentY + 7);
+
+    // Right Column
+    doc.text(`No. Order        : ${order.orderNo}`, rightX, currentY);
+    doc.text(`Tgl. Pemeriksaan : ${new Date(order.orderDate).toLocaleString('id-ID')}`, rightX, currentY + 7);
+
+    currentY += 20;
+
+    // --- Results Table ---
+    const tableData = order.results.map((r: any) => [
+      r.testMaster?.name || '-',
+      r.resultValue,
+      r.testMaster?.unit || '-',
+      r.testMaster?.normalRangeText || '-',
+      r.isCritical ? 'KRITIS' : 'Normal'
+    ]);
+
+    autoTable(doc, {
+      startY: currentY,
+      head: [['Parameter Pemeriksaan', 'Hasil', 'Satuan', 'Nilai Rujukan', 'Keterangan']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillColor: [2, 132, 199], textColor: 255, fontSize: 10, halign: 'center' },
+      columnStyles: {
+        0: { fontStyle: 'bold' },
+        1: { halign: 'center', fontStyle: 'bold' },
+        2: { halign: 'center' },
+        3: { halign: 'center' },
+        4: { halign: 'center' }
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 4 && data.cell.text[0] === 'KRITIS') {
+          data.cell.styles.textColor = [225, 29, 72];
+          data.cell.styles.fontStyle = 'bold';
+        }
+      }
+    });
+
+    const finalY = (doc as any).lastAutoTable.finalY + 20;
+    const signY = finalY + 40;
+    doc.text('Petugas Laboratorium,', pageWidth - 60, signY);
+    doc.text('( ____________________ )', pageWidth - 60, signY + 25);
+
+    doc.save(`Hasil_Lab_${order.orderNo}_${queue.patient.name}.pdf`);
   }
 
   const handlePrintLabOrder = () => {
@@ -981,6 +1089,15 @@ export default function DoctorConsultationPage() {
                         >
                            <FiPrinter /> Cetak Order Lab
                         </button>
+                         <button 
+                            onClick={() => {
+                               hasFetchedRef.current = null;
+                               fetchData();
+                            }}
+                            className='px-6 py-3 bg-white border border-slate-200 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:text-primary hover:border-primary transition-all shadow-sm flex items-center gap-2'
+                         >
+                            <FiRefreshCw className={loading ? 'animate-spin' : ''} /> Refresh Hasil
+                         </button>
                      </div>
                   </div>
 
@@ -1101,15 +1218,66 @@ export default function DoctorConsultationPage() {
                            />
                         </div>
                         <div className='space-y-3'>
-                           <label className='text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]'>Ringkasan Hasil Lab</label>
+                           <label className='text-[10px] font-black text-rose-500 uppercase tracking-[0.2em] flex items-center gap-2'>
+                              <FiCheckCircle /> Ringkasan & Hasil Lab Terstruktur
+                           </label>
                            <textarea 
-                              disabled={isReadOnly}
-                              value={labResults} 
-                              onChange={(e) => setLabResults(e.target.value)}
-                              className={`w-full p-6 bg-indigo-50/30 border border-slate-200 rounded-2xl min-h-[120px] text-sm font-bold focus:bg-white focus:border-indigo-500 outline-none transition-all shadow-inner ${isReadOnly ? 'opacity-60' : ''}`}
-                              placeholder='Kesimpulan hasil lab (jika sudah ada)...'
+                               disabled={isReadOnly}
+                               value={labResults} 
+                               onChange={(e) => setLabResults(e.target.value)}
+                               className={`w-full p-6 bg-indigo-50/30 border border-slate-200 rounded-2xl min-h-[100px] text-sm font-bold focus:bg-white focus:border-indigo-500 outline-none transition-all shadow-inner ${isReadOnly ? 'opacity-60' : ''}`}
+                               placeholder='Kesimpulan hasil lab (jika sudah ada)...'
                            />
                         </div>
+
+                        {/* Structured Lab Results */}
+                        {(medicalRecord?.labOrders?.length || 0) > 0 && (
+                           <div className='space-y-4 pt-4 border-t border-slate-100'>
+                              <div className='space-y-4'>
+                                 {medicalRecord.labOrders.map((order: any) => (
+                                    <div key={order.id} className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
+                                       <div className="bg-slate-100/50 px-4 py-2 flex justify-between items-center border-b border-slate-100">
+                                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{order.orderNo}</span>
+                                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${order.status === 'completed' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                                             {order.status}
+                                          </span>
+                                           {order.status === 'completed' && (
+                                              <button 
+                                                 onClick={() => generateLabResultPDF(order)}
+                                                 className="text-[9px] font-black text-indigo-600 hover:text-indigo-800 flex items-center gap-1 uppercase tracking-widest bg-indigo-50 px-2 py-1 rounded-lg transition-colors"
+                                              >
+                                                 <FiPrinter className="w-3 h-3" /> Hasil PDF
+                                              </button>
+                                           )}
+                                       </div>
+                                       {order.results?.length > 0 ? (
+                                          <div className="p-4 space-y-2">
+                                             {order.results.map((res: any) => (
+                                                <div key={res.id} className="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0">
+                                                   <div className="flex-1">
+                                                      <p className="text-[11px] font-bold text-slate-700 uppercase">{res.testMaster?.name}</p>
+                                                   </div>
+                                                   <div className="flex-1 text-center">
+                                                      <p className={`text-[11px] font-black ${res.isCritical ? 'text-rose-500' : 'text-slate-900'}`}>
+                                                        {res.resultValue} <span className="text-[9px] font-medium text-slate-400">{res.testMaster?.unit}</span>
+                                                      </p>
+                                                   </div>
+                                                   <div className="flex-1 text-right">
+                                                      <p className="text-[9px] font-medium text-slate-400 italic">Normal: {res.testMaster?.normalRangeText}</p>
+                                                   </div>
+                                                </div>
+                                             ))}
+                                          </div>
+                                       ) : (
+                                          <div className="p-4 text-center">
+                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Belum ada hasil diinput</p>
+                                          </div>
+                                       )}
+                                    </div>
+                                 ))}
+                              </div>
+                           </div>
+                        )}
                         <div className='p-6 bg-amber-50/50 rounded-2xl border border-amber-100'>
                            <p className='text-[9px] font-black text-amber-600 uppercase tracking-[0.2em] mb-2 flex items-center gap-2'>
                               <FiInfo /> Prosedur Digital Lab

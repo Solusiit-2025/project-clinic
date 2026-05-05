@@ -417,11 +417,11 @@ export default function PharmacyDetailPage({ params }: { params: Promise<{ id: s
                                )}
                                <button 
                                  onClick={() => updateStatus('preparing')} 
-                                 disabled={isSubmitting || !isPaid} 
+                                 disabled={isSubmitting} 
                                  className="w-full py-7 bg-primary text-white font-black rounded-[24px] shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all flex flex-col items-center justify-center gap-1 active:scale-95 disabled:grayscale disabled:opacity-50 disabled:scale-100"
                                >
                                   <span className="uppercase tracking-[0.2em] text-[11px]">MULAI PENGERJAAN</span>
-                                  <span className="text-[9px] font-bold opacity-60 uppercase">{!isPaid ? 'Pembayaran Belum Lunas' : 'Ubah Status ke Preparing'}</span>
+                                  <span className="text-[9px] font-bold opacity-60 uppercase">Ubah Status ke Preparing</span>
                                </button>
                           </div>
                         );

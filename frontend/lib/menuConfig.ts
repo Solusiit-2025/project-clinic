@@ -6,6 +6,7 @@ import {
   FiChevronLeft, FiFolder, FiCpu, FiPlus, FiDollarSign, FiFileText, FiTrendingUp, FiLayers, FiBookOpen, FiLock, FiCreditCard,
   FiTool, FiRepeat, FiShield, FiBarChart2, FiAlertCircle, FiArchive
 } from 'react-icons/fi'
+import { HiOutlineBeaker } from 'react-icons/hi'
 
 export const MAIN_MENU = [
   { icon: FiHome, label: 'Dashboard', href: '/admin' },
@@ -29,7 +30,7 @@ export const LAYANAN_UTAMA_GROUPS = [
     items: [
       { icon: FiActivity, label: 'Nurse Station (Triage)', href: '/admin/transactions/nurse' },
       { icon: FiUserCheck, label: 'Doctor Station', href: '/admin/transactions/doctor' },
-      { icon: FiUsers, label: 'Database Pasien', href: '/admin/master/patients', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR'] },
+      { icon: FiUsers, label: 'Database Pasien', href: '/admin/master/patients', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE'] },
     ]
   },
   {
@@ -40,6 +41,15 @@ export const LAYANAN_UTAMA_GROUPS = [
       { icon: FiBox,      label: 'Antrian Farmasi',       href: '/admin/transactions/pharmacy' },
       { icon: FiLayers,   label: 'Master Formula Racikan', href: '/admin/farmasi/formula-racikan' },
       { icon: FiMenu,     label: 'Data Obat & Alkes',      href: '/admin/master/medicines' },
+    ]
+  },
+  {
+    label: 'Laboratorium',
+    icon: HiOutlineBeaker,
+    moduleId: 'LABORATORY',
+    items: [
+      { icon: HiOutlineBeaker, label: 'Antrian Laboratorium', href: '/admin/lab/input' },
+      { icon: FiBookOpen,      label: 'Master Parameter Lab', href: '/admin/master/lab' },
     ]
   }
 ]

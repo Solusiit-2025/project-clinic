@@ -215,7 +215,7 @@ export default function DoctorQueue() {
               Doctor Workstation
             </div>
             <h1 className="text-3xl font-black tracking-tight">
-              Dashboard <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 to-white">Antrian Pasien</span>
+              Dashboard <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 to-white">Antrian Pasien & Lab</span>
             </h1>
             <p className="text-indigo-100/60 font-medium max-w-md text-sm">
               Kelola sesi konsultasi Anda secara efisien dengan pemantauan antrian real-time.

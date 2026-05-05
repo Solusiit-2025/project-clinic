@@ -80,16 +80,18 @@ export const getInvoices = async (req: Request, res: Response) => {
  */
 export const processPayment = async (req: Request, res: Response) => {
   try {
-    const { invoiceId, amount, paymentMethod, notes, transactionRef, bankId } = req.body
+    const { invoiceId, amount, paymentMethod, notes, transactionRef, bankId, discount, discountType } = req.body
     const currentClinicIdContext = (req as any).clinicId
     const amountToPay = parseFloat(amount)
 
-    if (!invoiceId || !amount || !paymentMethod) {
+    if (!invoiceId || !paymentMethod) {
       return res.status(400).json({ message: 'Data pembayaran tidak lengkap' })
     }
 
-    if (amountToPay <= 0) {
-      return res.status(400).json({ message: 'Jumlah pembayaran harus lebih dari 0' })
+    const discountValue = discount ? parseFloat(discount) : 0
+
+    if (amountToPay <= 0 && discountValue <= 0) {
+      return res.status(400).json({ message: 'Jumlah pembayaran atau diskon harus lebih dari 0' })
     }
 
     // --- ATOMIC TRANSACTION ---
@@ -108,6 +110,14 @@ export const processPayment = async (req: Request, res: Response) => {
         throw new Error('Invoice ini sudah LUNAS. Tidak dapat memproses pembayaran tambahan.')
       }
 
+      // --- NEW: Apply Discount to Invoice ---
+      let currentTotal = invoice.total
+      let updatedDiscount = invoice.discount || 0
+      if (discountValue > 0) {
+        updatedDiscount += discountValue
+        currentTotal = Math.max(0, invoice.subtotal - updatedDiscount + (invoice.tax || 0))
+      }
+
       // 2. IDEMPOTENCY: prevent double clicks via transactionRef
       if (transactionRef) {
         const existingByRef = await tx.payment.findFirst({
@@ -119,7 +129,7 @@ export const processPayment = async (req: Request, res: Response) => {
       // 3. Balance Validation — always re-read from DB to prevent race conditions
       const freshPayments = await tx.payment.findMany({ where: { invoiceId } })
       const totalPaidSoFar = freshPayments.reduce((sum, p) => sum + p.amount, 0)
-      const remainingBalance = invoice.total - totalPaidSoFar
+      const remainingBalance = currentTotal - totalPaidSoFar
 
       if (remainingBalance <= 0) {
         throw new Error('Invoice ini sudah LUNAS berdasarkan riwayat pembayaran.')
@@ -180,22 +190,25 @@ export const processPayment = async (req: Request, res: Response) => {
           })
       if (!specificArAccount) throw new Error('Akun Piutang (ACCOUNTS_RECEIVABLE) belum dipetakan di System Accounts.')
 
-      // 5. Create Payment record
-      const count = await tx.payment.count()
-      const paymentNo = `PAY-${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}-${(count + 1).toString().padStart(3, '0')}`
+      // 5. Create Payment record (only if amount > 0)
+      let payment = null
+      if (amountToPay > 0) {
+        const count = await tx.payment.count()
+        const paymentNo = `PAY-${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}-${(count + 1).toString().padStart(3, '0')}`
 
-      const payment = await tx.payment.create({
-        data: {
-          paymentNo,
-          invoiceId,
-          amount: amountToPay,
-          paymentMethod,
-          transactionRef,
-          bankId: paymentMethod === 'transfer' || paymentMethod === 'card' ? bankId : null,
-          notes,
-          paymentDate: new Date()
-        }
-      })
+        payment = await tx.payment.create({
+          data: {
+            paymentNo,
+            invoiceId,
+            amount: amountToPay,
+            paymentMethod,
+            transactionRef,
+            bankId: paymentMethod === 'transfer' || paymentMethod === 'card' ? bankId : null,
+            notes,
+            paymentDate: new Date()
+          }
+        })
+      }
 
       // 6. Create GL Journal — DEFERRED to postInvoice() per centralized posting workflow
       //    Payments no longer affect the GL immediately. Clicking 'Post' will trigger synchronization.
@@ -203,11 +216,16 @@ export const processPayment = async (req: Request, res: Response) => {
       // 7. Update Invoice totals (re-read from DB for accuracy)
       const allPaymentsAfter = await tx.payment.findMany({ where: { invoiceId } })
       const updatedTotalPaid = allPaymentsAfter.reduce((sum, p) => sum + p.amount, 0)
-      const newStatus = updatedTotalPaid >= invoice.total - 0.01 ? 'paid' : 'partial'
+      const newStatus = updatedTotalPaid >= currentTotal - 0.01 ? 'paid' : 'partial'
 
       const updatedInvoice = await tx.invoice.update({
         where: { id: invoiceId },
-        data: { amountPaid: updatedTotalPaid, status: newStatus }
+        data: { 
+          amountPaid: updatedTotalPaid, 
+          status: newStatus,
+          discount: updatedDiscount,
+          total: currentTotal
+        }
       })
 
       return { payment, invoice: updatedInvoice }
@@ -250,7 +268,7 @@ export const postInvoice = async (req: Request, res: Response) => {
             if (!targetClinicId) throw new Error('Klinik tidak teridentifikasi.')
 
             // 3. Resolve System Accounts & COAs
-            const sysAccountKeys = ['CASH_ACCOUNT', 'BANK_ACCOUNT', 'ACCOUNTS_RECEIVABLE', 'SALES_REVENUE', 'SERVICE_REVENUE']
+            const sysAccountKeys = ['CASH_ACCOUNT', 'BANK_ACCOUNT', 'ACCOUNTS_RECEIVABLE', 'SALES_REVENUE', 'SERVICE_REVENUE', 'SALES_DISCOUNT']
             const sysAccounts = await tx.systemAccount.findMany({
                 where: { key: { in: sysAccountKeys }, OR: [{ clinicId: targetClinicId }, { clinicId: null }] },
                 include: { coa: true },
@@ -328,6 +346,9 @@ export const postInvoice = async (req: Request, res: Response) => {
                 const arAccount = arSysAcc?.coa || await tx.chartOfAccount.findFirst({ where: { code: '1-1201', OR: [{ clinicId: targetClinicId }, { clinicId: null }] } })
                 if (!arAccount) throw new Error('Akun Piutang (ACCOUNTS_RECEIVABLE) tidak tersedia.')
 
+                const discountSysAcc = getSysAcc('SALES_DISCOUNT')
+                const discountAccount = discountSysAcc?.coa || getCoaByCode('4-1199')
+
                 await tx.journalEntry.create({
                     data: {
                         date: invoice.invoiceDate,
@@ -338,6 +359,9 @@ export const postInvoice = async (req: Request, res: Response) => {
                         details: {
                             create: [
                                 { coaId: arAccount.id, debit: invoice.total, credit: 0, description: `Piutang Pelanggan - Invoice ${invoice.invoiceNo}` },
+                                ...(invoice.discount > 0 ? [
+                                    { coaId: discountAccount?.id || arAccount.id, debit: invoice.discount, credit: 0, description: `Potongan Harga - Inv ${invoice.invoiceNo}` }
+                                ] : []),
                                 ...Array.from(revenueMap.entries()).map(([coaId, data]) => ({
                                     coaId, debit: 0, credit: data.amount, description: `Pendapatan ${data.coaName} - Inv ${invoice.invoiceNo}`
                                 }))

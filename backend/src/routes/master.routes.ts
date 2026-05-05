@@ -10,7 +10,7 @@ import {
   getMedicines, createMedicine, updateMedicine, deleteMedicine,
   getExpenseCategories, createExpenseCategory, updateExpenseCategory, deleteExpenseCategory,
   getProductMasters, createProductMaster, updateProductMaster, deleteProductMaster,
-  getClinics, createClinic, updateClinic, deleteClinic,
+  getClinics, getClinicById, createClinic, updateClinic, deleteClinic,
   getAssets, createAsset, updateAsset, deleteAsset,
   getProductCategories, createProductCategory, updateProductCategory, deleteProductCategory,
   getInventoryProducts, createInventoryProduct, updateInventoryProduct, deleteInventoryProduct,
@@ -94,6 +94,7 @@ masterRoutes.delete('/products/:id', deleteProductMaster)
 
 // Clinics (Branches)
 masterRoutes.get('/clinics', getClinics)
+masterRoutes.get('/clinics/:id', getClinicById)
 masterRoutes.post('/clinics', createClinic)
 masterRoutes.put('/clinics/:id', updateClinic)
 masterRoutes.delete('/clinics/:id', deleteClinic)
