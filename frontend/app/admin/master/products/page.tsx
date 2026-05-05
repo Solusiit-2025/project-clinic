@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '@/lib/api'
 import toast from 'react-hot-toast'
-import { FiShoppingBag, FiAlertCircle, FiPlus, FiHash, FiImage, FiUpload, FiX, FiCamera } from 'react-icons/fi'
+import { FiShoppingBag, FiAlertCircle, FiPlus, FiHash, FiImage, FiUpload, FiX, FiCamera, FiShield } from 'react-icons/fi'
+import Link from 'next/link'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
 import PageHeader from '@/components/admin/master/PageHeader'
@@ -353,23 +354,23 @@ export default function ProductsPage() {
                     <div className="space-y-4">
                        <div>
                           <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block">Nama Produk *</label>
-                          <input value={form.productName} onChange={(e) => setForm(p => ({...p, productName: e.target.value}))} className="w-full px-5 py-3.5 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-primary/10 transition-all font-black" />
+                          <input value={form.productName || ''} onChange={(e) => setForm(p => ({...p, productName: e.target.value}))} className="w-full px-5 py-3.5 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-primary/10 transition-all font-black" />
                        </div>
                        <div className="grid grid-cols-2 gap-4">
                           <div>
                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block">Kode Master</label>
-                             <input value={form.productCode} onChange={(e) => setForm(p => ({...p, productCode: e.target.value}))} className="w-full px-5 py-3.5 bg-primary/5 text-primary border-none rounded-2xl focus:ring-4 focus:ring-primary/10 transition-all font-black uppercase tracking-widest" />
+                             <input value={form.productCode || ''} onChange={(e) => setForm(p => ({...p, productCode: e.target.value}))} className="w-full px-5 py-3.5 bg-primary/5 text-primary border-none rounded-2xl focus:ring-4 focus:ring-primary/10 transition-all font-black uppercase tracking-widest" />
                           </div>
                           <div>
                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block">SKU / Barcode *</label>
-                             <input value={form.sku} onChange={(e) => setForm(p => ({...p, sku: e.target.value}))} className="w-full px-5 py-3.5 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-primary/10 transition-all font-bold" />
+                             <input value={form.sku || ''} onChange={(e) => setForm(p => ({...p, sku: e.target.value}))} className="w-full px-5 py-3.5 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-primary/10 transition-all font-bold" />
                           </div>
                        </div>
                     </div>
                     <div className="space-y-4">
                        <div>
                           <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block">Kategori *</label>
-                          <select value={form.masterProductId} onChange={(e) => setForm(p => ({ ...p, masterProductId: e.target.value }))} className="w-full px-5 py-3.5 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-primary/10 transition-all font-bold uppercase">
+                          <select value={form.masterProductId || ''} onChange={(e) => setForm(p => ({ ...p, masterProductId: e.target.value }))} className="w-full px-5 py-3.5 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-primary/10 transition-all font-bold uppercase">
                              <option value="">Pilih Kategori</option>
                              {categories.map(c => <option key={c.id} value={c.id}>{c.categoryName}</option>)}
                           </select>
@@ -377,18 +378,18 @@ export default function ProductsPage() {
                        <div className="grid grid-cols-2 gap-4">
                           <div>
                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block">Brand</label>
-                             <input value={form.brand} onChange={(e) => setForm(p => ({...p, brand: e.target.value}))} className="w-full px-5 py-3.5 bg-gray-50 border-none rounded-2xl font-bold" />
+                             <input value={form.brand || ''} onChange={(e) => setForm(p => ({...p, brand: e.target.value}))} className="w-full px-5 py-3.5 bg-gray-50 border-none rounded-2xl font-bold" />
                           </div>
                           <div>
                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block">Vendor</label>
-                             <input value={form.manufacturer} onChange={(e) => setForm(p => ({...p, manufacturer: e.target.value}))} className="w-full px-5 py-3.5 bg-gray-50 border-none rounded-2xl font-bold" />
+                             <input value={form.manufacturer || ''} onChange={(e) => setForm(p => ({...p, manufacturer: e.target.value}))} className="w-full px-5 py-3.5 bg-gray-50 border-none rounded-2xl font-bold" />
                           </div>
                        </div>
                     </div>
                   </div>
                   <div>
                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block">Deskripsi Singkat</label>
-                     <textarea value={form.description} onChange={(e) => setForm(p => ({...p, description: e.target.value}))} rows={3} className="w-full px-5 py-4 bg-gray-50 border-none rounded-3xl outline-none font-medium text-xs text-gray-600" />
+                     <textarea value={form.description || ''} onChange={(e) => setForm(p => ({...p, description: e.target.value}))} rows={3} className="w-full px-5 py-4 bg-gray-50 border-none rounded-3xl outline-none font-medium text-xs text-gray-600" />
                   </div>
                 </motion.div>
               )}
@@ -401,15 +402,15 @@ export default function ProductsPage() {
                         <div className="space-y-4">
                            <div>
                               <label className="text-[9px] font-black text-gray-400 uppercase mb-1 block">Unit Beli (Ex: Box/Lusin)</label>
-                              <input value={form.purchaseUnit} onChange={(e) => setForm(p => ({...p, purchaseUnit: e.target.value}))} className="w-full px-5 py-3 bg-white border border-gray-100 rounded-2xl font-black text-sm uppercase" />
+                              <input value={form.purchaseUnit || ''} onChange={(e) => setForm(p => ({...p, purchaseUnit: e.target.value}))} className="w-full px-5 py-3 bg-white border border-gray-100 rounded-2xl font-black text-sm uppercase" />
                            </div>
                            <div>
                               <label className="text-[9px] font-black text-gray-400 uppercase mb-1 block">Unit Simpan (Ex: Pcs/Btl)</label>
-                              <input value={form.storageUnit} onChange={(e) => setForm(p => ({...p, storageUnit: e.target.value}))} className="w-full px-5 py-3 bg-white border border-gray-100 rounded-2xl font-black text-sm uppercase" />
+                              <input value={form.storageUnit || ''} onChange={(e) => setForm(p => ({...p, storageUnit: e.target.value}))} className="w-full px-5 py-3 bg-white border border-gray-100 rounded-2xl font-black text-sm uppercase" />
                            </div>
                            <div>
                               <label className="text-[9px] font-black text-primary uppercase mb-1 block font-mono">Unit Resep/Gunakan (Ex: Tablet)</label>
-                              <input value={form.usedUnit} onChange={(e) => setForm(p => ({...p, usedUnit: e.target.value}))} className="w-full px-5 py-3 bg-primary/5 text-primary border border-primary/10 rounded-2xl font-black text-sm uppercase" />
+                              <input value={form.usedUnit || ''} onChange={(e) => setForm(p => ({...p, usedUnit: e.target.value}))} className="w-full px-5 py-3 bg-primary/5 text-primary border border-primary/10 rounded-2xl font-black text-sm uppercase" />
                            </div>
                         </div>
                      </div>
@@ -431,11 +432,11 @@ export default function ProductsPage() {
                          <div className="grid grid-cols-2 gap-4">
                             <div>
                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block">Harga Beli Est.</label>
-                               <input type="number" value={form.purchasePrice} onChange={(e) => setForm(p => ({ ...p, purchasePrice: parseFloat(e.target.value) || 0 }))} className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl font-black text-sm" />
+                               <input type="number" value={form.purchasePrice ?? 0} onChange={(e) => setForm(p => ({ ...p, purchasePrice: parseFloat(e.target.value) || 0 }))} className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl font-black text-sm" />
                             </div>
                             <div>
                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block text-right">Harga Jual Est.</label>
-                               <input type="number" value={form.sellingPrice} onChange={(e) => setForm(p => ({ ...p, sellingPrice: parseFloat(e.target.value) || 0 }))} className="w-full px-5 py-4 bg-emerald-50 text-emerald-600 border-none rounded-2xl font-black text-sm text-right" />
+                               <input type="number" value={form.sellingPrice ?? 0} onChange={(e) => setForm(p => ({ ...p, sellingPrice: parseFloat(e.target.value) || 0 }))} className="w-full px-5 py-4 bg-emerald-50 text-emerald-600 border-none rounded-2xl font-black text-sm text-right" />
                             </div>
                          </div>
                          <div className="p-6 bg-rose-50 rounded-[2.5rem] border border-rose-100">
@@ -443,11 +444,11 @@ export default function ProductsPage() {
                             <div className="grid grid-cols-2 gap-6">
                                <div>
                                   <label className="text-[9px] font-black text-gray-400 uppercase mb-1 block">Stok Minimum</label>
-                                  <input type="number" value={form.minStock} onChange={(e) => setForm(p => ({ ...p, minStock: parseInt(e.target.value) || 0 }))} className="w-full px-4 py-2.5 bg-white border-2 border-transparent focus:border-rose-200 rounded-xl font-black text-center text-rose-600 outline-none" />
+                                  <input type="number" value={form.minStock ?? 0} onChange={(e) => setForm(p => ({ ...p, minStock: parseInt(e.target.value) || 0 }))} className="w-full px-4 py-2.5 bg-white border-2 border-transparent focus:border-rose-200 rounded-xl font-black text-center text-rose-600 outline-none" />
                                </div>
                                <div>
                                   <label className="text-[9px] font-black text-gray-400 uppercase mb-1 block">Titik Reorder</label>
-                                  <input type="number" value={form.reorderPoint} onChange={(e) => setForm(p => ({ ...p, reorderPoint: parseInt(e.target.value) || 0 }))} className="w-full px-4 py-2.5 bg-white border-2 border-transparent focus:border-blue-200 rounded-xl font-black text-center text-blue-600 outline-none" />
+                                  <input type="number" value={form.reorderPoint ?? 0} onChange={(e) => setForm(p => ({ ...p, reorderPoint: parseInt(e.target.value) || 0 }))} className="w-full px-4 py-2.5 bg-white border-2 border-transparent focus:border-blue-200 rounded-xl font-black text-center text-blue-600 outline-none" />
                                </div>
                             </div>
                          </div>
@@ -459,7 +460,7 @@ export default function ProductsPage() {
                             </div>
                             <div>
                                <label className="text-[9px] font-black text-gray-400 uppercase mb-1 block">Supplier Prioritas</label>
-                               <input value={form.supplier} onChange={(e) => setForm(p => ({ ...p, supplier: e.target.value }))} className="w-full px-5 py-3.5 bg-white border-none rounded-2xl font-black text-sm" placeholder="Ex: Kimia Farma" />
+                               <input value={form.supplier || ''} onChange={(e) => setForm(p => ({ ...p, supplier: e.target.value }))} className="w-full px-5 py-3.5 bg-white border-none rounded-2xl font-black text-sm" placeholder="Ex: Kimia Farma" />
                             </div>
                          </div>
                       </div>

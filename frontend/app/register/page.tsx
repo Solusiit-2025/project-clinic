@@ -93,7 +93,7 @@ export default function BookingPublicPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-50 via-white to-white">
-      <div className="max-w-2xl w-full">
+      <div className="max-w-4xl w-full">
         <button
           onClick={() => step > 1 ? setStep(step - 1) : router.back()}
           className="flex items-center gap-2 text-gray-400 hover:text-primary transition-colors mb-8 font-black text-[10px] uppercase tracking-widest"
@@ -205,14 +205,39 @@ export default function BookingPublicPage() {
                                     </motion.div>
                                 )}
                             </AnimatePresence>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="col-span-2 md:col-span-1">
-                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Tanggal Janji</label>
-                                    <input type="date" value={form.appointmentDate} onChange={e => setForm({...form, appointmentDate: e.target.value})} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:border-primary" />
+                            <div className="p-6 bg-gray-50/50 rounded-[2.5rem] border border-gray-100/80 space-y-5">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2.5 px-1 flex items-center gap-2">
+                                            <FiCalendar className="text-primary w-3.5 h-3.5" /> Tanggal Janji
+                                        </label>
+                                        <div className="relative">
+                                            <input 
+                                                type="date" 
+                                                value={form.appointmentDate} 
+                                                onChange={e => setForm({...form, appointmentDate: e.target.value})} 
+                                                className="w-full px-5 py-4 bg-white border border-gray-100 rounded-2xl font-black text-sm text-gray-700 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all cursor-pointer" 
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2.5 px-1 flex items-center gap-2">
+                                            <FiClock className="text-primary w-3.5 h-3.5" /> Jam Kedatangan
+                                        </label>
+                                        <div className="relative">
+                                            <input 
+                                                type="time" 
+                                                value={form.appointmentTime} 
+                                                onChange={e => setForm({...form, appointmentTime: e.target.value})} 
+                                                className="w-full px-5 py-4 bg-white border border-gray-100 rounded-2xl font-black text-sm text-gray-700 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all cursor-pointer" 
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="col-span-2 md:col-span-1">
-                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Jam Kedatangan</label>
-                                    <input type="time" value={form.appointmentTime} onChange={e => setForm({...form, appointmentTime: e.target.value})} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:border-primary" />
+                                <div className="flex items-center justify-center gap-2">
+                                    <div className="h-[1px] w-4 bg-gray-200" />
+                                    <p className="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em] italic">Jadwal estimasi kedatangan</p>
+                                    <div className="h-[1px] w-4 bg-gray-200" />
                                 </div>
                             </div>
                             {/* Honeypot Field (Hidden for Humans) */}

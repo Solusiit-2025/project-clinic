@@ -171,7 +171,7 @@ export default function PatientsPage() {
     <div>
       <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">{label}</label>
       <input 
-        type={type} value={(form as any)[key]} 
+        type={type} value={(form as any)[key] ?? ''} 
         onChange={(e) => setForm(p => ({...p, [key]: e.target.value}))} 
         placeholder={placeholder}
         className="w-full px-4 py-2.5 text-sm border border-gray-100 bg-gray-50/30 rounded-2xl focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-bold placeholder:text-gray-300 text-gray-700" 
@@ -228,7 +228,7 @@ export default function PatientsPage() {
                   <span className="text-[9px] font-black uppercase">Gen</span>
                 </button>
               </label>
-              <input value={form.medicalRecordNo} onChange={(e) => setForm(p => ({...p, medicalRecordNo: e.target.value}))}
+              <input value={form.medicalRecordNo || ''} onChange={(e) => setForm(p => ({...p, medicalRecordNo: e.target.value}))}
                 placeholder="RM-20240409-0001" className="w-full px-4 py-2.5 text-sm border border-gray-100 bg-gray-50/30 rounded-2xl focus:outline-none focus:border-primary font-black font-mono text-primary" />
             </div>
 
@@ -270,7 +270,7 @@ export default function PatientsPage() {
             
             <div className="md:col-span-2">
                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Alamat Domisili</label>
-               <textarea value={form.address} onChange={(e) => setForm(p => ({...p, address: e.target.value}))} rows={2}
+               <textarea value={form.address || ''} onChange={(e) => setForm(p => ({...p, address: e.target.value}))} rows={2}
                  className="w-full px-4 py-3 text-sm border border-gray-100 bg-gray-50/30 rounded-2xl focus:outline-none focus:border-primary font-bold placeholder:text-gray-300 text-gray-700 resize-none" placeholder="Alamat lengkap..." />
             </div>
 
@@ -285,7 +285,7 @@ export default function PatientsPage() {
 
             <div className="md:col-span-3">
                <label className="block text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1.5 flex items-center gap-2"><FiActivity className="w-3 h-3" /> Riwayat Alergi</label>
-               <textarea value={form.allergies} onChange={(e) => setForm(p => ({...p, allergies: e.target.value}))} rows={2}
+               <textarea value={form.allergies || ''} onChange={(e) => setForm(p => ({...p, allergies: e.target.value}))} rows={2}
                  className="w-full px-4 py-3 text-sm border border-rose-100 bg-rose-50/10 rounded-2xl focus:outline-none focus:border-rose-400 font-bold placeholder:text-gray-300 text-gray-700 resize-none" placeholder="Sebutkan alergi obat, makanan, dll (Jika ada)..." />
             </div>
 

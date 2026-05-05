@@ -178,13 +178,34 @@ export const createRegistration = async (req: Request, res: Response) => {
       const todayInv = new Date()
       const dateStrInv = todayInv.toISOString().split('T')[0].replace(/-/g, '')
       todayInv.setHours(0, 0, 0, 0)
-      const invCount = await tx.invoice.count({
+      
+      let nextInvNum = 1
+      const lastInv = await tx.invoice.findFirst({
         where: { 
-          clinicId,
-          createdAt: { gte: todayInv } 
-        }
+          invoiceNo: { startsWith: `INV-${dateStrInv}-` }
+        },
+        orderBy: { invoiceNo: 'desc' }
       })
-      const invoiceNo = `INV-${dateStrInv}-${(invCount + 1).toString().padStart(4, '0')}`
+
+      if (lastInv) {
+        const parts = lastInv.invoiceNo.split('-')
+        const lastNum = parseInt(parts[parts.length - 1])
+        if (!isNaN(lastNum)) nextInvNum = lastNum + 1
+      }
+
+      let invoiceNo = ''
+      let isInvUnique = false
+      while (!isInvUnique) {
+        invoiceNo = `INV-${dateStrInv}-${nextInvNum.toString().padStart(4, '0')}`
+        const existing = await tx.invoice.findUnique({
+          where: { invoiceNo }
+        })
+        if (!existing) {
+          isInvUnique = true
+        } else {
+          nextInvNum++
+        }
+      }
 
       const invoice = await tx.invoice.create({
         data: {

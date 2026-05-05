@@ -216,7 +216,7 @@ export default function UsersPage() {
                     <div className="relative group">
                       <input
                         type="text"
-                        value={form.username}
+                        value={form.username || ''}
                         onChange={(e) => setForm(p => ({ ...p, username: e.target.value }))}
                         placeholder="johndoe"
                         className="w-full pl-4 pr-4 py-3 text-sm bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-bold text-gray-700 placeholder:text-gray-300"
@@ -230,7 +230,7 @@ export default function UsersPage() {
                     </label>
                     <input
                       type="password"
-                      value={form.password}
+                      value={form.password || ''}
                       onChange={(e) => setForm(p => ({ ...p, password: e.target.value }))}
                       placeholder="••••••••"
                       className="w-full px-4 py-3 text-sm bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-bold text-gray-700 placeholder:text-gray-300"
@@ -252,7 +252,7 @@ export default function UsersPage() {
                   </label>
                   <input
                     type="text"
-                    value={form.name}
+                    value={form.name || ''}
                     onChange={(e) => setForm(p => ({ ...p, name: e.target.value }))}
                     placeholder="Contoh: John Doe, M.Kes"
                     className="w-full px-4 py-3 text-sm bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-bold text-gray-700 placeholder:text-gray-300"
@@ -266,7 +266,7 @@ export default function UsersPage() {
                     </label>
                     <input
                       type="email"
-                      value={form.email}
+                      value={form.email || ''}
                       onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))}
                       placeholder="john@example.com"
                       className="w-full px-4 py-3 text-sm bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-bold text-gray-700 placeholder:text-gray-300"
@@ -279,7 +279,7 @@ export default function UsersPage() {
                     </label>
                     <input
                       type="tel"
-                      value={form.phone}
+                      value={form.phone || ''}
                       onChange={(e) => setForm(p => ({ ...p, phone: e.target.value }))}
                       placeholder="081234567890"
                       className="w-full px-4 py-3 text-sm bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-bold text-gray-700 placeholder:text-gray-300"
@@ -294,7 +294,7 @@ export default function UsersPage() {
                     <FiShield className="w-3 h-3 text-amber-500" /> Hak Akses / Role *
                   </label>
                   <select
-                    value={form.role}
+                    value={form.role || ''}
                     onChange={(e) => setForm(p => ({ ...p, role: e.target.value }))}
                     className="w-full px-4 py-3 text-sm bg-amber-50/30 border border-amber-100 rounded-2xl focus:outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 transition-all font-black text-amber-700 cursor-pointer appearance-none uppercase tracking-widest"
                   >

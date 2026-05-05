@@ -298,7 +298,7 @@ export default function DoctorsPage() {
   const field = (label: string, key: string, type = 'text', placeholder = '') => (
     <div>
       <label className="block text-xs font-bold text-gray-700 mb-1.5">{label}</label>
-      <input type={type} value={(form as any)[key]} onChange={(e) => setForm(p => ({ ...p, [key]: e.target.value }))} placeholder={placeholder}
+      <input type={type} value={(form as any)[key] ?? ''} onChange={(e) => setForm(p => ({ ...p, [key]: e.target.value }))} placeholder={placeholder}
         className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-medium" />
     </div>
   )
@@ -386,7 +386,7 @@ export default function DoctorsPage() {
                 <FiLock className="w-3.5 h-3.5" /> Akun Login (User) *
               </label>
               <select
-                value={form.userId}
+                value={form.userId || ''}
                 onChange={(e) => setForm(p => ({ ...p, userId: e.target.value }))}
                 disabled={!!editing}
                 className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary bg-white font-medium shadow-sm transition-all disabled:bg-gray-50 disabled:text-gray-400"
@@ -513,7 +513,7 @@ export default function DoctorsPage() {
           </div>
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1.5">Profil / Biografi Singkat</label>
-            <textarea value={form.bio} onChange={(e) => setForm(p => ({ ...p, bio: e.target.value }))} placeholder="Keahlian khusus, riwayat pendidikan, atau pesan untuk pasien..." rows={3}
+            <textarea value={form.bio || ''} onChange={(e) => setForm(p => ({ ...p, bio: e.target.value }))} placeholder="Keahlian khusus, riwayat pendidikan, atau pesan untuk pasien..." rows={3}
               className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-medium resize-none shadow-sm" />
           </div>
           <div className="flex gap-3 pt-4 border-t border-gray-100">

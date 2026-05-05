@@ -12,7 +12,7 @@ import {
   FiAlertTriangle, FiPackage, FiTool, FiFileText,
   FiTrendingUp, FiTrendingDown, FiActivity, FiClock,
   FiUserPlus, FiCheckCircle, FiAlertCircle, FiArrowRight, FiLock,
-  FiSettings, FiDatabase, FiFolder
+  FiSettings, FiDatabase, FiFolder, FiCreditCard, FiHome, FiLayers, FiBriefcase, FiPocket, FiBookOpen, FiShoppingBag
 } from 'react-icons/fi'
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -112,6 +112,17 @@ function StatCard({ stat, index, isClient }: { stat: any; index: number; isClien
 function QuickShortcuts({ user }: { user: any }) {
   const [activeSection, setActiveSection] = useState<string | null>(null)
   
+  const groups = [
+    { label: 'Pendaftaran', id: 'reg',        icon: FiUserPlus,    color: 'bg-emerald-500',  section: 'Layanan Utama',         groupLabel: 'Pendaftaran & Antrian' },
+    { label: 'Pelayanan',   id: 'medis',      icon: FiActivity,    color: 'bg-indigo-500',   section: 'Layanan Utama',         groupLabel: 'Pelayanan Medis' },
+    { label: 'Farmasi',     id: 'farmasi',    icon: FiPackage,     color: 'bg-violet-500',   section: 'Layanan Utama',         groupLabel: 'Farmasi' },
+    { label: 'Billing',     id: 'billing',    icon: FiCreditCard,  color: 'bg-teal-500',     section: 'Keuangan & Akuntansi',  groupLabel: 'Billing & Pembayaran' },
+    { label: 'Logistik',    id: 'logistik',   icon: FiShoppingBag, color: 'bg-orange-500',   section: 'Logistik & Inventaris', groupLabel: 'Pengadaan & Logistik' },
+    { label: 'Inventaris',  id: 'inventaris', icon: FiBox,         color: 'bg-cyan-500',     section: 'Logistik & Inventaris', groupLabel: 'Stok & Inventaris' },
+    { label: 'Akuntansi',   id: 'accounting', icon: FiBookOpen,    color: 'bg-amber-500',    section: 'Keuangan & Akuntansi',  groupLabel: 'Laporan & Akuntansi' },
+    { label: 'Master Data', id: 'master',     icon: FiDatabase,    color: 'bg-slate-700',    section: 'Pengaturan Master',     groupLabel: 'Pengaturan Sistem' },
+  ]
+
   const colors = [
     { text: 'text-indigo-500', bg: 'bg-indigo-50' },
     { text: 'text-emerald-500', bg: 'bg-emerald-50' },
@@ -125,64 +136,69 @@ function QuickShortcuts({ user }: { user: any }) {
     { text: 'text-blue-500', bg: 'bg-blue-50' },
   ]
 
-  const sectionIcons: Record<string, any> = {
-    'LAYANAN UTAMA': FiActivity,
-    'KEUANGAN & AKUNTANSI': FiDollarSign,
-    'LOGISTIK & INVENTARIS': FiPackage,
-    'MANAJEMEN ASET': FiBox,
-    'PENGATURAN MASTER': FiDatabase,
-    'PENGATURAN SISTEM': FiSettings,
-    'MASTER TENAGA MEDIS': FiUsers,
+  // Get items for a group based on role/permissions
+  const getGroupItems = (sectionName: string, groupLabel: string) => {
+    const section = ALL_MENU_GROUPS.find(s => s.section === sectionName)
+    if (!section) return []
+    const group = section.groups.find(g => g.label === groupLabel)
+    if (!group) return []
+    
+    return group.items.filter((item: any) => {
+      if (item.roles && !item.roles.includes(user.role)) return false
+      if (item.role && item.role !== user.role) return false
+      if (group.moduleId && user.permissions && !user.permissions.includes(group.moduleId)) {
+          if (user.role !== 'SUPER_ADMIN') return false
+      }
+      return true
+    })
   }
 
-  const filteredSections = ALL_MENU_GROUPS.map(section => {
-    const filteredGroups = section.groups.map(group => {
-      const filteredItems = group.items.filter((item: any) => {
-        if (item.roles && !item.roles.includes(user.role)) return false
-        if (item.role && item.role !== user.role) return false
-        if (group.moduleId && user.permissions && !user.permissions.includes(group.moduleId)) {
-            if (user.role !== 'SUPER_ADMIN') return false
-        }
-        return true
-      })
-      return { ...group, items: filteredItems }
-    }).filter(group => group.items.length > 0)
-    return { ...section, groups: filteredGroups }
-  }).filter(section => section.groups.length > 0)
-
-  const activeData = filteredSections.find(s => s.section === activeSection)
+  const activeItems = activeSection ? getGroupItems(
+    groups.find(g => g.id === activeSection)?.section || '',
+    groups.find(g => g.id === activeSection)?.groupLabel || ''
+  ) : []
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-        {filteredSections.map((section, idx) => {
-          const isActive = activeSection === section.section
-          const Icon = sectionIcons[section.section] || FiFolder
+      <div className="flex items-center justify-between px-2">
+        <div className="flex items-center gap-3">
+          <div className="w-1.5 h-6 bg-primary rounded-full" />
+          <h3 className="text-base font-black text-slate-800 tracking-tight">Quick Access</h3>
+        </div>
+        <div className="px-3 py-1 bg-slate-100 rounded-full text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+          {groups.length} groups
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-4">
+        {groups.map((group, idx) => {
+          const items = getGroupItems(group.section, group.groupLabel)
+          const isActive = activeSection === group.id
+          if (items.length === 0) return null
+
           return (
             <button 
               key={idx}
-              onClick={() => setActiveSection(isActive ? null : section.section)}
-              className={`p-6 rounded-[2.5rem] border transition-all duration-500 flex flex-col items-center gap-4 group relative overflow-hidden ${
+              onClick={() => setActiveSection(isActive ? null : group.id)}
+              className={`p-6 rounded-[2rem] border transition-all duration-300 flex flex-col items-center gap-4 group relative ${
                 isActive 
-                 ? 'bg-primary border-primary shadow-2xl shadow-primary/30 text-white scale-105' 
-                 : 'bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-700 text-gray-500 hover:border-primary/20 hover:shadow-xl'
+                 ? 'bg-white border-primary shadow-xl ring-2 ring-primary/10' 
+                 : 'bg-white border-gray-100 hover:border-gray-300 hover:shadow-lg'
               }`}
             >
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 ${
-                isActive ? 'bg-white/20' : 'bg-gray-50 dark:bg-slate-900 group-hover:bg-primary/10'
-              }`}>
-                 <Icon className={`w-7 h-7 ${isActive ? 'text-white' : 'text-primary'}`} />
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 shadow-lg ${group.color}`}>
+                 <group.icon className="w-7 h-7 text-white" />
               </div>
               <div className="text-center">
-                 <span className={`text-[10px] font-black uppercase tracking-widest leading-tight ${isActive ? 'text-white' : 'text-gray-900 dark:text-white'}`}>
-                   {section.section.split(' ')[0]}
-                 </span>
-                 <p className={`text-[8px] font-bold mt-1 ${isActive ? 'text-white/60' : 'text-gray-400'}`}>
-                   {section.groups.flatMap(g => g.items).length} Menu
+                 <p className="text-xs font-black text-slate-800 uppercase tracking-wider leading-tight">
+                   {group.label}
+                 </p>
+                 <p className="text-[10px] font-bold mt-1 text-slate-400 tracking-tight">
+                   {items.length} menus
                  </p>
               </div>
               {isActive && (
-                 <div className="absolute bottom-1 w-1 h-1 bg-white rounded-full" />
+                 <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-1 bg-primary rounded-full" />
               )}
             </button>
           )
@@ -190,35 +206,33 @@ function QuickShortcuts({ user }: { user: any }) {
       </div>
 
       <AnimatePresence mode="wait">
-        {activeSection && activeData && (
+        {activeSection && activeItems.length > 0 && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.4, ease: "circOut" }}
-            className="overflow-hidden"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.3 }}
           >
-            <div className="p-8 bg-white/50 dark:bg-slate-800/50 backdrop-blur-xl rounded-[3rem] border border-gray-100 dark:border-slate-700 shadow-2xl space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                   <div className="w-1.5 h-6 bg-primary rounded-full" />
-                   <h4 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest">{activeSection}</h4>
-                </div>
-                <button onClick={() => setActiveSection(null)} className="text-[10px] font-black text-gray-400 hover:text-primary uppercase tracking-widest">Tutup</button>
+            <div className="p-6 bg-white rounded-[2rem] border border-gray-100 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-50 pb-3">
+                 <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">
+                   {groups.find(g => g.id === activeSection)?.label} Menu Selection
+                 </h4>
+                 <button onClick={() => setActiveSection(null)} className="text-[10px] font-bold text-slate-400 hover:text-primary uppercase tracking-widest transition-colors">Close</button>
               </div>
 
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
-                {activeData.groups.flatMap(group => group.items).map((item, i) => {
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+                {activeItems.map((item: any, i: number) => {
                   const ItemIcon = item.icon
                   const color = colors[i % colors.length]
                   return (
                     <Link key={i} href={item.href} 
-                      className="flex flex-col items-center gap-2 p-2 rounded-2xl hover:bg-white dark:hover:bg-slate-700 hover:shadow-lg transition-all group active:scale-90"
+                      className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-gray-50 transition-all group active:scale-90"
                     >
-                      <div className={`w-12 h-12 rounded-2xl ${color.bg} flex items-center justify-center group-hover:shadow-md group-hover:scale-105 transition-all duration-300`}>
+                      <div className={`w-10 h-10 rounded-xl ${color.bg} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
                         <ItemIcon className={`w-5 h-5 ${color.text}`} />
                       </div>
-                      <span className="text-[9px] font-bold text-gray-500 text-center uppercase tracking-tighter group-hover:text-primary leading-tight truncate w-full px-1">
+                      <span className="text-[9px] font-black text-slate-500 text-center uppercase tracking-tight leading-tight group-hover:text-primary">
                         {item.label}
                       </span>
                     </Link>

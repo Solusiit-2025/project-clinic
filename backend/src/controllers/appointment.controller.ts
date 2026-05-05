@@ -270,24 +270,76 @@ export const checkInAppointment = async (req: Request, res: Response) => {
     // but we link it to this appointment.
     
     const result = await prisma.$transaction(async (tx) => {
-        // 1. Generate Reg No
+        // 1. Generate Reg No (Robust)
         const today = new Date()
         const dateStr = today.toISOString().split('T')[0].replace(/-/g, '')
-        const regCount = await tx.registration.count({
-          where: { clinicId: appointment.clinicId, createdAt: { gte: new Date(today.setHours(0,0,0,0)) } }
+        
+        let nextRegNum = 1
+        const lastReg = await tx.registration.findFirst({
+          where: { 
+            clinicId: appointment.clinicId,
+            registrationNo: { startsWith: `REG-${dateStr}-` }
+          },
+          orderBy: { registrationNo: 'desc' }
         })
-        const registrationNo = `REG-${dateStr}-${(regCount + 1).toString().padStart(4, '0')}`
 
-        // 2. Generate Queue No
+        if (lastReg) {
+          const parts = lastReg.registrationNo.split('-')
+          const lastNum = parseInt(parts[parts.length - 1])
+          if (!isNaN(lastNum)) nextRegNum = lastNum + 1
+        }
+
+        let registrationNo = ''
+        let isRegUnique = false
+        while (!isRegUnique) {
+          registrationNo = `REG-${dateStr}-${nextRegNum.toString().padStart(4, '0')}`
+          const existing = await tx.registration.findUnique({
+            where: { registrationNo_clinicId: { registrationNo, clinicId: appointment.clinicId! } }
+          })
+          if (!existing) {
+            isRegUnique = true
+          } else {
+            nextRegNum++
+          }
+        }
+
+        // 2. Generate Queue No (Robust)
+        const todayQueue = new Date()
+        todayQueue.setHours(0, 0, 0, 0)
+        const nextDayQueue = new Date(todayQueue)
+        nextDayQueue.setDate(todayQueue.getDate() + 1)
+
         let prefix = appointment.doctor.queueCode || appointment.doctor.name.charAt(0).toUpperCase()
-        const queueCount = await tx.queueNumber.count({
-            where: { 
-                clinicId: appointment.clinicId, 
-                doctorId: appointment.doctorId,
-                queueDate: { gte: new Date(new Date().setHours(0,0,0,0)) } 
-            }
+        
+        let nextQueueNum = 1
+        const lastQueue = await tx.queueNumber.findFirst({
+          where: { 
+            clinicId: appointment.clinicId,
+            queueDate: { gte: todayQueue, lt: nextDayQueue },
+            queueNo: { startsWith: prefix }
+          },
+          orderBy: { queueNo: 'desc' }
         })
-        const queueNo = `${prefix}-${(queueCount + 1).toString().padStart(3, '0')}`
+
+        if (lastQueue) {
+          const qParts = lastQueue.queueNo.split('-')
+          const lastQNum = parseInt(qParts[qParts.length - 1])
+          if (!isNaN(lastQNum)) nextQueueNum = lastQNum + 1
+        }
+
+        let queueNo = ''
+        let isQueueUnique = false
+        while (!isQueueUnique) {
+          queueNo = `${prefix}-${nextQueueNum.toString().padStart(3, '0')}`
+          const qExists = await tx.queueNumber.findUnique({
+            where: { queueNo_clinicId_queueDate: { queueNo, clinicId: appointment.clinicId!, queueDate: todayQueue } }
+          })
+          if (!qExists) {
+            isQueueUnique = true
+          } else {
+            nextQueueNum++
+          }
+        }
 
         // 3. Create Registration
         const registration = await tx.registration.create({
@@ -340,10 +392,34 @@ export const checkInAppointment = async (req: Request, res: Response) => {
         }
 
         const dateStrInv = today.toISOString().split('T')[0].replace(/-/g, '')
-        const invCount = await tx.invoice.count({
-          where: { clinicId: appointment.clinicId, createdAt: { gte: today } }
+        
+        let nextInvNum = 1
+        const lastInv = await tx.invoice.findFirst({
+          where: { 
+            invoiceNo: { startsWith: `INV-${dateStrInv}-` }
+          },
+          orderBy: { invoiceNo: 'desc' }
         })
-        const invoiceNo = `INV-${dateStrInv}-${(invCount + 1).toString().padStart(4, '0')}`
+
+        if (lastInv) {
+          const parts = lastInv.invoiceNo.split('-')
+          const lastNum = parseInt(parts[parts.length - 1])
+          if (!isNaN(lastNum)) nextInvNum = lastNum + 1
+        }
+
+        let invoiceNo = ''
+        let isInvUnique = false
+        while (!isInvUnique) {
+          invoiceNo = `INV-${dateStrInv}-${nextInvNum.toString().padStart(4, '0')}`
+          const existing = await tx.invoice.findUnique({
+            where: { invoiceNo }
+          })
+          if (!existing) {
+            isInvUnique = true
+          } else {
+            nextInvNum++
+          }
+        }
 
         const invoice = await tx.invoice.create({
           data: {
