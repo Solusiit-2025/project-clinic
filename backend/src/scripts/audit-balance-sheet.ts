@@ -14,7 +14,7 @@ async function main() {
   coas.forEach(coa => {
     // Current Balance = openingBalance + currentBalance (depending on your logic)
     // For this audit, let's look at openingBalance first
-    const balance = (coa.openingBalance || 0) + (coa.currentBalance || 0)
+    const balance = coa.openingBalance || 0
     
     if (coa.category === 'ASSET') totalAssets += balance
     else if (coa.category === 'LIABILITY') totalLiabilities += balance

@@ -211,7 +211,7 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
             // Get doctorId from user profile, existing MR, or queue
             let finalDoctorId = (req as any).user.doctor?.id || mr.doctorId
             if (!finalDoctorId) {
-                const q = await tx.queue.findUnique({ where: { id: queueId } })
+                const q = await tx.queueNumber.findUnique({ where: { id: queueId } })
                 finalDoctorId = q?.doctorId
             }
 
