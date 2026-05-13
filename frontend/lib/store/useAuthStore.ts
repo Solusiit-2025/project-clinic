@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import api from '@/lib/api'
 
-type Role = 'SUPER_ADMIN' | 'ADMIN' | 'DOCTOR' | 'RECEPTIONIST' | 'FARMASI' | 'ACCOUNTING' | 'LOGISTIC' | 'STAFF'
+type Role = 'SUPER_ADMIN' | 'ADMIN' | 'DOCTOR' | 'NURSE' | 'RECEPTIONIST' | 'FARMASI' | 'ACCOUNTING' | 'LOGISTIC' | 'STAFF'
 
 interface Clinic {
   id: string

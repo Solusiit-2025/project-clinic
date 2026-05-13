@@ -327,6 +327,7 @@ export default function DoctorConsultationPage() {
       setFilteredServices([])
       return
     }
+    const searchLower = searchService.toLowerCase()
     const filtered = allServices.filter(s => {
       // Exclude laboratory services from Tindakan Medis
       const categoryName = s.serviceCategory?.categoryName?.toLowerCase() || '';
@@ -339,8 +340,8 @@ export default function DoctorConsultationPage() {
       if (isLab) return false;
       
       return !searchService || 
-        name.includes(searchService.toLowerCase()) ||
-        s.serviceCode.toLowerCase().includes(searchService.toLowerCase());
+        serviceName.includes(searchLower) ||
+        s.serviceCode.toLowerCase().includes(searchLower);
     })
     setFilteredServices(filtered.slice(0, 100))
   }, [searchService, allServices, isServiceDropdownOpen, isReadOnly])

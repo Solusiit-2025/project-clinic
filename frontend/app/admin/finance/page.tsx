@@ -54,6 +54,8 @@ interface Invoice {
   id: string
   invoiceNo: string
   invoiceDate: string
+  subtotal: number
+  discount: number
   total: number
   amountPaid: number
   status: 'paid' | 'unpaid' | 'partial' | 'cancelled'
@@ -137,6 +139,7 @@ export default function FinanceDashboard() {
       transactionRef: '',
       bankId: '',
       insuranceNo: '',
+      insuranceProvider: '',
       notes: '',
       discount: 0,
       discountType: 'amount' as 'amount' | 'percent',
@@ -257,6 +260,7 @@ export default function FinanceDashboard() {
            transactionRef: '',
            bankId: '',
            insuranceNo: '',
+           insuranceProvider: '',
            notes: '',
            discount: 0,
            discountType: 'amount',
