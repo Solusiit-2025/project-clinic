@@ -326,14 +326,21 @@ export default function DoctorConsultationPage() {
           params: { 
             isActive: true, 
             search: searchMed || undefined, 
-            limit: 50, // Tingkatkan limit agar lebih banyak produk muncul
+            limit: 100, // Meningkatkan limit agar lebih banyak produk muncul
             clinicId: queue?.clinicId
           },
           signal: controller.signal
         })
         const list = medRes.data.data || medRes.data
         // Filter produk yang punya medicineId (obat klinis) ATAU compoundFormulaId (racikan)
-        setSearchMedicines(Array.isArray(list) ? list.filter((m: any) => m.medicineId || m.compoundFormulaId) : [])
+        // Standarisasi: Tampilkan yang ada stoknya saja dan urutkan berdasarkan stok terbanyak (User Request)
+        const processedList = Array.isArray(list) 
+          ? list
+              .filter((m: any) => m.medicineId || m.compoundFormulaId)
+              .filter((m: any) => (m.availableStock ?? m.stock) > 0)
+              .sort((a: any, b: any) => (b.availableStock ?? b.stock) - (a.availableStock ?? a.stock))
+          : []
+        setSearchMedicines(processedList)
       } catch (e: any) {
         if (e.name === 'CanceledError' || e.name === 'AbortError') {
           // Silently ignore aborted requests
@@ -1738,7 +1745,7 @@ export default function DoctorConsultationPage() {
                       <input 
                         value={searchMed} 
                         onChange={(e) => setSearchMed(e.target.value)} 
-                        placeholder="Cari nama obat atau generic..." 
+                        placeholder="Cari nama obat (Hanya menampilkan yang ada stok)..." 
                         className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black outline-none focus:bg-white focus:border-primary shadow-sm transition-all" 
                       />
                     </div>
@@ -1747,25 +1754,19 @@ export default function DoctorConsultationPage() {
                     {searchMedicines.map(m => {
                       const isSelected = selectedMedicines.some(sm => sm.id === m.id)
                       const stock = m.availableStock ?? m.stock
-                      const isOutOfStock = stock <= 0
                       return (
                         <button 
                           key={m.id} 
                           onClick={() => {
-                            if (isOutOfStock) {
-                              toast.error('Obat ini sedang kosong (Stok 0)')
-                              return
-                            }
                             if (isSelected) {
                               setSelectedMedicines(selectedMedicines.filter(sm => sm.id !== m.id))
                             } else {
                               setSelectedMedicines([...selectedMedicines, m])
                             }
                           }} 
-                          disabled={isOutOfStock}
-                          className={`w-full p-4 text-left rounded-2xl transition-all group flex items-start gap-4 border ${isSelected ? 'border-primary bg-primary/5' : isOutOfStock ? 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed' : 'border-slate-100 hover:bg-slate-50'}`}
+                          className={`w-full p-4 text-left rounded-2xl transition-all group flex items-start gap-4 border ${isSelected ? 'border-primary bg-primary/5' : 'border-slate-100 hover:bg-slate-50'}`}
                         >
-                          <div className={`w-5 h-5 mt-0.5 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-primary border-primary text-white' : isOutOfStock ? 'border-slate-200 bg-slate-100' : 'border-slate-300'}`}>
+                          <div className={`w-5 h-5 mt-0.5 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-primary border-primary text-white' : 'border-slate-300'}`}>
                             {isSelected && <FiCheckCircle className="w-3 h-3" />}
                           </div>
                           <div className="flex-1">
@@ -1773,18 +1774,18 @@ export default function DoctorConsultationPage() {
                             <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase italic">{m.medicine?.genericName} • {m.medicine?.strength}</p>
                           </div>
                           <div className="text-right">
-                            <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${isOutOfStock ? 'bg-slate-100 text-slate-400' : stock > 10 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                              {isOutOfStock ? 'STOK HABIS' : `Stok: ${stock} ${m.unit}`}
+                            <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${stock > 10 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                              Stok: {stock} {m.unit}
                             </span>
                           </div>
                         </button>
                       )
                     })}
                     {searchMedicines.length === 0 && searchMed && (
-                      <div className="text-center py-10 text-slate-400 text-xs font-bold">Obat tidak ditemukan</div>
+                      <div className="text-center py-10 text-slate-400 text-xs font-bold">Obat tidak ditemukan (atau stok kosong)</div>
                     )}
                     {searchMedicines.length === 0 && !searchMed && (
-                      <div className="text-center py-10 text-slate-400 text-xs font-bold animate-pulse">Memuat daftar obat...</div>
+                      <div className="text-center py-10 text-slate-400 text-xs font-bold animate-pulse">Memuat daftar obat tersedia...</div>
                     )}
                   </div>
                 </div>
