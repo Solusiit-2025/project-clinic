@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   FiRepeat, FiSearch, FiFilter,
   FiClock, FiCheckCircle, FiMoreVertical,
-  FiCalendar, FiPlus, FiX, FiActivity, FiArrowRight, FiTrash2, FiFileText, FiPrinter
+  FiCalendar, FiPlus, FiX, FiActivity, FiArrowRight, FiTrash2, FiFileText, FiPrinter, FiEye
 } from 'react-icons/fi'
 import { toast } from 'react-hot-toast'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -171,7 +171,7 @@ export default function CashTransferPage() {
     }
   }
 
-  const handlePrint = (trf: CashTransfer) => {
+  const handlePrint = (trf: CashTransfer, preview = false) => {
     const doc = new jsPDF({
       orientation: 'landscape',
       unit: 'mm',
@@ -243,8 +243,12 @@ export default function CashTransferPage() {
     doc.text('( ........................ )', centerX - sigWidth / 2 + 10, sigY + 20)
     doc.text('( ........................ )', width - margin - sigWidth, sigY + 20)
 
-    doc.save(`Kwitansi_Transfer_${trf.transferNo}.pdf`)
-    toast.success('Bukti transfer berhasil diunduh')
+    if (preview) {
+      window.open(doc.output('bloburl'), '_blank')
+    } else {
+      doc.save(`Kwitansi_Transfer_${trf.transferNo}.pdf`)
+      toast.success('Bukti transfer berhasil diunduh')
+    }
   }
 
   const formatCurrency = (amount: number) => {
@@ -366,9 +370,17 @@ export default function CashTransferPage() {
                   <td className="px-8 py-8 text-center">
                     <div className="flex items-center justify-center gap-3">
                       <button
+                        onClick={() => handlePrint(trf, true)}
+                        className="w-10 h-10 flex items-center justify-center text-slate-500 bg-slate-50 hover:bg-slate-900 hover:text-white rounded-2xl transition-all duration-300 shadow-sm hover:shadow-lg hover:shadow-slate-200"
+                        title="Preview Bukti Transfer"
+                      >
+                        <FiEye className="w-4.5 h-4.5" />
+                      </button>
+
+                      <button
                         onClick={() => handlePrint(trf)}
                         className="w-10 h-10 flex items-center justify-center text-indigo-600 bg-indigo-50/50 hover:bg-indigo-600 hover:text-white rounded-2xl transition-all duration-300 shadow-sm hover:shadow-lg hover:shadow-indigo-200"
-                        title="Cetak Bukti Transfer (Kwitansi)"
+                        title="Cetak/Download PDF"
                       >
                         <FiPrinter className="w-4.5 h-4.5" />
                       </button>

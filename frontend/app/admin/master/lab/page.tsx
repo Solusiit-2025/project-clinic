@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import api from '@/lib/api'
 import { FiActivity, FiAlertCircle, FiRefreshCw, FiInfo } from 'react-icons/fi'
 import { HiOutlineBeaker } from 'react-icons/hi'
@@ -8,8 +8,9 @@ import DataTable, { Column } from '@/components/admin/master/DataTable'
 import PageHeader from '@/components/admin/master/PageHeader'
 import MasterModal from '@/components/admin/master/MasterModal'
 import { StatusBadge, CategoryBadge } from '@/components/admin/master/StatusBadge'
+import { useAuthStore } from '@/lib/store/useAuthStore'
 
-const EMPTY = { code: '', name: '', category: 'Hematologi', unit: '', normalRangeText: '', minNormal: '', maxNormal: '', price: '', isActive: true }
+const EMPTY = { code: '', name: '', category: 'HEMATOLOGI', unit: '', normalRangeText: '', minNormal: '', maxNormal: '', price: '', isActive: true }
 
 type LabTest = {
   id: string; code: string; name: string; category: string; unit?: string;
@@ -17,6 +18,7 @@ type LabTest = {
 }
 
 export default function LabMasterPage() {
+  const { user } = useAuthStore()
   const [data, setData] = useState<LabTest[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -25,6 +27,8 @@ export default function LabMasterPage() {
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  const isAdmin = useMemo(() => user && ['SUPER_ADMIN', 'ADMIN'].includes(user.role), [user])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -78,21 +82,33 @@ export default function LabMasterPage() {
     try { await api.delete(`/lab/test-masters/${r.id}`); fetchData() } catch { }
   }
 
-  const columns: Column<LabTest>[] = [
-    { key: 'code', label: 'Kode', render: (r) => <span className="text-xs font-bold font-mono text-gray-500 bg-gray-50 px-2 py-1 rounded-lg">{r.code}</span> },
-    { key: 'name', label: 'Nama Parameter', render: (r) => <span className="text-sm font-semibold text-gray-800">{r.name}</span> },
-    { key: 'category', label: 'Kategori', render: (r) => <CategoryBadge category={r.category} /> },
-    { key: 'unit', label: 'Satuan', render: (r) => <span className="text-xs font-medium text-gray-500">{r.unit || '-'}</span> },
-    { key: 'normalRangeText', label: 'Nilai Normal', render: (r) => <span className="text-xs font-medium text-slate-500 italic">{r.normalRangeText || '-'}</span> },
-    { key: 'isActive', label: 'Status', render: (r) => <StatusBadge active={r.isActive} /> },
-  ]
+  const columns = useMemo(() => {
+    const cols: Column<LabTest>[] = [
+      { key: 'code', label: 'Kode', render: (r) => <span className="text-xs font-bold font-mono text-gray-500 bg-gray-50 px-2 py-1 rounded-lg">{r.code}</span> },
+      { key: 'name', label: 'Nama Parameter', render: (r) => <span className="text-sm font-semibold text-gray-800">{r.name}</span> },
+      { key: 'category', label: 'Kategori', render: (r) => <CategoryBadge category={r.category} /> },
+      { key: 'unit', label: 'Satuan', render: (r) => <span className="text-xs font-medium text-gray-500">{r.unit || '-'}</span> },
+      { key: 'normalRangeText', label: 'Nilai Normal', render: (r) => <span className="text-xs font-medium text-slate-500 italic">{r.normalRangeText || '-'}</span> },
+    ]
+
+    if (isAdmin) {
+      cols.push({ 
+        key: 'price', 
+        label: 'Harga', 
+        render: (r) => <span className="text-xs font-black text-primary">Rp {(r.price || 0).toLocaleString('id-ID')}</span> 
+      })
+    }
+
+    cols.push({ key: 'isActive', label: 'Status', render: (r) => <StatusBadge active={r.isActive} /> })
+    return cols
+  }, [isAdmin])
 
   return (
     <div>
       <PageHeader
         title="Master Laboratorium" subtitle="Kelola parameter pemeriksaan, nilai rujukan, dan satuan lab"
         icon={<HiOutlineBeaker className="w-5 h-5 sm:w-6 sm:h-6" />}
-        onAdd={openAdd} addLabel="Tambah Parameter" count={data.length}
+        onAdd={isAdmin ? openAdd : undefined} addLabel="Tambah Parameter" count={data.length}
         breadcrumb={['Admin', 'Data Master', 'Laboratorium']}
       />
       
@@ -109,7 +125,7 @@ export default function LabMasterPage() {
         groupBy={(r) => r.category}
         searchValue={search} onSearchChange={setSearch}
         searchPlaceholder="Cari kode atau nama parameter..."
-        onEdit={openEdit} onDelete={handleDelete}
+        onEdit={isAdmin ? openEdit : undefined} onDelete={isAdmin ? handleDelete : undefined}
         emptyText="Belum ada data parameter laboratorium."
       />
 
@@ -134,15 +150,16 @@ export default function LabMasterPage() {
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1.5">Kategori *</label>
               <select value={form.category} onChange={(e) => setForm(p => ({...p, category: e.target.value}))}
-                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary bg-white font-medium">
-                <option value="Hematologi">Hematologi</option>
-                <option value="Kimia Darah">Kimia Darah</option>
-                <option value="Urinalisa">Urinalisa</option>
-                <option value="Imunologi">Imunologi</option>
-                <option value="Imunoserologi">Imunoserologi</option>
-                <option value="Paket Lab">Paket Lab</option>
-                <option value="Mikrobiologi">Mikrobiologi</option>
-                <option value="Lainnya">Lainnya</option>
+                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary bg-white font-medium uppercase">
+                <option value="HEMATOLOGI">HEMATOLOGI</option>
+                <option value="IMUNOSEROLOGI">IMUNOSEROLOGI</option>
+                <option value="KIMIA METABOLISME LEMAK">KIMIA METABOLISME LEMAK</option>
+                <option value="KIMIA - METABOLISMS GULA">KIMIA - METABOLISMS GULA</option>
+                <option value="METABOLISME FAAL HATI">METABOLISME FAAL HATI</option>
+                <option value="KIMIA - METABOLISME FAAL GINJAL">KIMIA - METABOLISME FAAL GINJAL</option>
+                <option value="URINALISA">URINALISA</option>
+                <option value="PAKET LABORATORIUM">PAKET LABORATORIUM</option>
+                <option value="LAINNYA">LAINNYA</option>
               </select>
             </div>
 
@@ -152,11 +169,13 @@ export default function LabMasterPage() {
                 className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-medium" />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1.5">Harga (Opsional)</label>
-              <input type="number" value={form.price} onChange={(e) => setForm(p => ({...p, price: e.target.value}))}
-                placeholder="0" className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-medium" />
-            </div>
+            {isAdmin && (
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">Harga (Opsional)</label>
+                <input type="number" value={form.price} onChange={(e) => setForm(p => ({...p, price: e.target.value}))}
+                  placeholder="0" className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-medium" />
+              </div>
+            )}
 
             <div className="md:col-span-2">
               <label className="block text-xs font-bold text-gray-700 mb-1.5">Nilai Normal (Teks)</label>
@@ -178,16 +197,18 @@ export default function LabMasterPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button type="button" onClick={() => setForm(p => ({ ...p, isActive: !p.isActive }))} className={`relative w-12 h-6 rounded-full transition-colors ${form.isActive ? 'bg-primary' : 'bg-gray-300'}`}>
+            <button type="button" onClick={() => isAdmin && setForm(p => ({ ...p, isActive: !p.isActive }))} className={`relative w-12 h-6 rounded-full transition-colors ${form.isActive ? 'bg-primary' : 'bg-gray-300'} ${!isAdmin ? 'cursor-not-allowed opacity-50' : ''}`}>
               <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.isActive ? 'translate-x-6' : ''}`} />
             </button>
             <span className="text-sm font-semibold text-gray-700">{form.isActive ? 'Aktif' : 'Nonaktif'}</span>
           </div>
 
-          <div className="flex gap-3 pt-2 border-t border-gray-100">
-            <button onClick={() => setModalOpen(false)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
-            <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-sm disabled:opacity-60">{saving ? 'Menyimpan...' : (editing ? 'Simpan' : 'Tambah')}</button>
-          </div>
+          {isAdmin && (
+            <div className="flex gap-3 pt-2 border-t border-gray-100">
+              <button onClick={() => setModalOpen(false)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
+              <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-sm disabled:opacity-60">{saving ? 'Menyimpan...' : (editing ? 'Simpan' : 'Tambah')}</button>
+            </div>
+          )}
         </div>
       </MasterModal>
     </div>
