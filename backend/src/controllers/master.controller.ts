@@ -1016,7 +1016,8 @@ export const getProductMasters = async (req: Request, res: Response) => {
         OR: [
           { masterName: { contains: String(search), mode: 'insensitive' } },
           { masterCode: { contains: String(search), mode: 'insensitive' } },
-          { sku: { contains: String(search), mode: 'insensitive' } }
+          { sku: { contains: String(search), mode: 'insensitive' } },
+          { productType: { contains: String(search), mode: 'insensitive' } }
         ]
       } : {}),
       ...(categoryId ? { categoryId: String(categoryId) } : {}),
@@ -1073,7 +1074,7 @@ export const getProductMasters = async (req: Request, res: Response) => {
         totalStock: physicalStock,
         stock: targetClinicId && primaryProduct ? Math.max(0, primaryProduct.quantity - primaryReserved) : totalAvailable,
         availableStock: totalAvailable,
-        unit: primaryProduct?.usedUnit || primaryProduct?.unit || p.defaultUnit || 'Unit'
+        unit: primaryProduct?.usedUnit || primaryProduct?.unit || p.usedUnit || p.defaultUnit || 'Unit'
       }
     })
 
@@ -1106,10 +1107,19 @@ export const createProductMaster = async (req: Request, res: Response) => {
     if (data.sellingPrice) data.sellingPrice = parseFloat(data.sellingPrice)
     if (data.minStock) data.minStock = parseInt(data.minStock)
     if (data.reorderPoint) data.reorderPoint = parseInt(data.reorderPoint)
+    if (data.qtyPerPurchaseUnit) data.qtyPerPurchaseUnit = parseFloat(data.qtyPerPurchaseUnit)
+    if (data.qtyPerStorageUnit) data.qtyPerStorageUnit = parseFloat(data.qtyPerStorageUnit)
     
     // 3. Handle Boolean
     if (data.isActive !== undefined) {
       data.isActive = data.isActive === 'true' || data.isActive === true
+    }
+
+    // 4. Auto-generate Master Code if empty
+    if (!data.masterCode || data.masterCode.trim() === '' || data.masterCode === 'AUTO-GEN') {
+      const timestamp = Date.now().toString().slice(-6)
+      const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
+      data.masterCode = `PM-${timestamp}${random}`
     }
 
     const product = await prisma.productMaster.create({ 
@@ -1138,6 +1148,8 @@ export const updateProductMaster = async (req: Request, res: Response) => {
     if (data.sellingPrice) data.sellingPrice = parseFloat(data.sellingPrice)
     if (data.minStock) data.minStock = parseInt(data.minStock)
     if (data.reorderPoint) data.reorderPoint = parseInt(data.reorderPoint)
+    if (data.qtyPerPurchaseUnit) data.qtyPerPurchaseUnit = parseFloat(data.qtyPerPurchaseUnit)
+    if (data.qtyPerStorageUnit) data.qtyPerStorageUnit = parseFloat(data.qtyPerStorageUnit)
 
     // 3. Handle Boolean
     if (data.isActive !== undefined) {
@@ -1158,6 +1170,9 @@ export const updateProductMaster = async (req: Request, res: Response) => {
       if (data.masterName !== undefined) syncData.productName = data.masterName
       if (data.description !== undefined) syncData.description = data.description
       if (data.isActive !== undefined) syncData.isActive = data.isActive
+      if (data.productType !== undefined) syncData.productType = data.productType
+      if (data.qtyPerPurchaseUnit !== undefined) syncData.qtyPerPurchaseUnit = data.qtyPerPurchaseUnit
+      if (data.qtyPerStorageUnit !== undefined) syncData.qtyPerStorageUnit = data.qtyPerStorageUnit
 
       if (Object.keys(syncData).length > 0) {
         await prisma.product.updateMany({

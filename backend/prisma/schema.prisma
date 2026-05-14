@@ -619,6 +619,7 @@ model ProductMaster {
   categoryId        String?
   image             String?
   brand             String?
+  productType       String?
   defaultUnit       String?          @default("pcs")
   manufacturer      String?
   minStock          Int?             @default(0)
@@ -630,6 +631,8 @@ model ProductMaster {
   storageUnit       String?          @default("pcs")
   supplier          String?
   usedUnit          String?          @default("pcs")
+  qtyPerPurchaseUnit Float?           @default(1)
+  qtyPerStorageUnit  Float?           @default(1)
   compoundFormulaId String?          @unique
   assets            Asset[]
   productCategory   ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
@@ -660,12 +663,15 @@ model Product {
   productCode        String
   sku                String
   productName        String
+  productType        String?
   description        String?
   unit               String
   purchaseUnit       String
   storageUnit        String
   usedUnit           String
-  quantity           Int
+  qtyPerPurchaseUnit  Float?           @default(1)
+  qtyPerStorageUnit   Float?           @default(1)
+  quantity           Float            @default(0)
   minimumStock       Int
   reorderQuantity    Int
   purchasePrice      Float

@@ -1,4 +1,4 @@
-import rateLimit from 'express-rate-limit'
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 
 // Rate limiter for login endpoint - prevent brute force attacks
 export const loginLimiter = rateLimit({
@@ -8,9 +8,10 @@ export const loginLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
-  keyGenerator: (req) => {
+  keyGenerator: (req, res) => {
     // Combine IP and Email to avoid blocking everyone behind the same NAT
-    return `${req.ip}_${req.body.email || 'anonymous'}`;
+    // Use ipKeyGenerator to safely handle IPv6 normalization
+    return `${ipKeyGenerator(req.ip || '')}_${req.body.email || 'anonymous'}`;
   },
   handler: (req, res) => {
     res.status(429).json({
