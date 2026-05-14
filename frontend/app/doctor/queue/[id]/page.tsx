@@ -341,7 +341,6 @@ export default function DoctorConsultationPage() {
         // Standarisasi: Tampilkan yang ada stoknya saja dan urutkan berdasarkan stok terbanyak (User Request)
         const processedList = Array.isArray(list) 
           ? list
-              .filter((m: any) => m.medicineId || m.compoundFormulaId)
               .filter((m: any) => (m.availableStock ?? m.stock) > 0)
               .sort((a: any, b: any) => (b.availableStock ?? b.stock) - (a.availableStock ?? a.stock))
           : []
