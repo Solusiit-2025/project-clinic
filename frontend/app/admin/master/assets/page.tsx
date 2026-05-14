@@ -10,6 +10,7 @@ import MasterModal from '@/components/admin/master/MasterModal'
 import SearchableSelect from '@/components/admin/master/SearchableSelect'
 import { StatusBadge } from '@/components/admin/master/StatusBadge'
 import { motion, AnimatePresence } from 'framer-motion'
+import { getLocalDateString } from '@/lib/utils/date'
 
 const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
 const EMPTY = { 
@@ -26,7 +27,7 @@ const EMPTY = {
   depreciationMethod: 'STRAIGHT_LINE',
   condition: 'excellent', 
   status: 'active', 
-  purchaseDate: new Date().toISOString().substring(0, 10),
+  purchaseDate: getLocalDateString(),
   clinicId: '',
   masterProductId: '',
   totalDepreciated: 0,
@@ -315,7 +316,7 @@ export default function AssetsPage() {
             model: r.model || '',
             clinicId: r.clinicId || '',
             masterProductId: r.masterProductId || '',
-            purchaseDate: r.purchaseDate ? r.purchaseDate.substring(0, 10) : new Date().toISOString().substring(0, 10),
+            purchaseDate: r.purchaseDate ? r.purchaseDate.substring(0, 10) : getLocalDateString(),
             salvageValue: r.salvageValue || 0,
             usefulLifeYears: r.usefulLifeYears || 5,
             depreciationMethod: r.depreciationMethod || 'STRAIGHT_LINE',

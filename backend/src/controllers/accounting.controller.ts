@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import { prisma } from '../lib/prisma'
 import { AccountCategory } from '@prisma/client'
+import { parseLocalDate } from '../utils/date'
 
 /**
  * Get Trial Balance (Real-time)
@@ -15,14 +16,7 @@ export const getTrialBalance = async (req: Request, res: Response) => {
     // Otherwise, force currentClinicId or provided clinicId
     const targetClinicId = clinicId ? String(clinicId) : (isAdminView ? undefined : currentClinicId)
     
-    // Robust date parsing — kompensasi UTC+7 (WIB)
-    let targetDate = new Date()
-    if (date && typeof date === 'string' && date.trim() !== '') {
-        const parsed = new Date(`${date}T23:59:59+07:00`)
-        if (!isNaN(parsed.getTime())) {
-            targetDate = parsed
-        }
-    }
+    let targetDate = parseLocalDate(String(date || ''), true)
 
     const whereAccount: any = {
       accountType: 'DETAIL',
@@ -109,28 +103,8 @@ export const getProfitLoss = async (req: Request, res: Response) => {
     const isAdminView = (req as any).isAdminView
     const targetClinicId = clinicId ? String(clinicId) : (isAdminView ? undefined : currentClinicId)
 
-    // Robust date parsing — kompensasi UTC+7 (WIB)
-    // Frontend kirim tanggal lokal, kita konversi ke UTC yang benar
-    const WIB_OFFSET = 7 * 60 * 60 * 1000
-    let start = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-    let end = new Date()
-
-    if (startDate && typeof startDate === 'string' && startDate.trim() !== '') {
-        // startDate = "2026-04-01" → jam 00:00:00 WIB = 2026-03-31T17:00:00Z
-        const parsedStart = new Date(`${startDate}T00:00:00+07:00`)
-        if (!isNaN(parsedStart.getTime())) start = parsedStart
-    } else {
-        // Default: awal bulan ini jam 00:00 WIB
-        start = new Date(Date.UTC(start.getFullYear(), start.getMonth(), 1) - WIB_OFFSET)
-    }
-    if (endDate && typeof endDate === 'string' && endDate.trim() !== '') {
-        // endDate = "2026-04-24" → jam 23:59:59 WIB = 2026-04-24T16:59:59Z
-        const parsedEnd = new Date(`${endDate}T23:59:59+07:00`)
-        if (!isNaN(parsedEnd.getTime())) end = parsedEnd
-    } else {
-        // Default: sekarang
-        end = new Date()
-    }
+    const start = parseLocalDate(String(startDate || ''), false)
+    const end = parseLocalDate(String(endDate || ''), true)
 
     console.log('[ProfitLoss] WIB-corrected UTC Range:', { start: start.toISOString(), end: end.toISOString(), targetClinicId })
 
@@ -209,15 +183,7 @@ export const getBalanceSheet = async (req: Request, res: Response) => {
     const isAdminView = (req as any).isAdminView
     const targetClinicId = clinicId ? String(clinicId) : (isAdminView ? undefined : currentClinicId)
     
-    // Robust date parsing — kompensasi UTC+7 (WIB)
-    let targetDate = new Date()
-    if (date && typeof date === 'string' && date.trim() !== '') {
-        // "2026-04-24" → jam 23:59:59 WIB = 2026-04-24T16:59:59Z
-        const parsed = new Date(`${date}T23:59:59+07:00`)
-        if (!isNaN(parsed.getTime())) {
-            targetDate = parsed
-        }
-    }
+    let targetDate = parseLocalDate(String(date || ''), true)
 
     // 1. Calculate Profit/Loss up to targetDate (for "Laba Tahun Berjalan")
     const plAccounts = await prisma.chartOfAccount.findMany({
@@ -339,18 +305,8 @@ export const getGeneralLedger = async (req: Request, res: Response) => {
     const isAdminView = (req as any).isAdminView
     const targetClinicId = clinicId ? String(clinicId) : (isAdminView ? undefined : currentClinicId)
 
-    // Date parsing — kompensasi UTC+7 (WIB)
-    let start = new Date(new Date().getFullYear(), 0, 1) // default: awal tahun ini
-    let end = new Date()
-
-    if (startDate && typeof startDate === 'string' && startDate.trim() !== '') {
-        const parsedStart = new Date(`${startDate}T00:00:00+07:00`)
-        if (!isNaN(parsedStart.getTime())) start = parsedStart
-    }
-    if (endDate && typeof endDate === 'string' && endDate.trim() !== '') {
-        const parsedEnd = new Date(`${endDate}T23:59:59+07:00`)
-        if (!isNaN(parsedEnd.getTime())) end = parsedEnd
-    }
+    const start = parseLocalDate(String(startDate || ''), false)
+    const end = parseLocalDate(String(endDate || ''), true)
 
     const l = Number(limit) || 50
     const skip = (Number(page || 1) - 1) * l

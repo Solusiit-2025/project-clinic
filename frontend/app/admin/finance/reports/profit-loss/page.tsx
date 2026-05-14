@@ -8,6 +8,7 @@ import {
 } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { motion, AnimatePresence } from 'framer-motion'
+import { getLocalDateString, getFirstDayOfMonthString, formatFullDateID } from '@/lib/utils/date'
 import { toast } from 'react-hot-toast'
 
 const API = process.env.NEXT_PUBLIC_API_URL + '/api/accounting'
@@ -33,8 +34,8 @@ export default function ProfitLossPage() {
    const { activeClinicId } = useAuthStore()
    const [report, setReport] = useState<PLReport | null>(null)
    const [loading, setLoading] = useState(true)
-   const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().substring(0, 10))
-   const [endDate, setEndDate] = useState(new Date().toISOString().substring(0, 10))
+   const [startDate, setStartDate] = useState(getFirstDayOfMonthString())
+   const [endDate, setEndDate] = useState(getLocalDateString())
    const user = useAuthStore(state => state.user)
    const activeClinic = user?.clinics?.find(c => c.id === activeClinicId) || user?.clinics?.[0]
 
@@ -341,7 +342,7 @@ export default function ProfitLossPage() {
                                  <div className="bg-slate-50 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-slate-100 inline-block">
                                     <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5 leading-none">Periode Laporan</p>
                                     <p className="text-xs sm:text-sm font-black text-slate-900 uppercase">
-                                       {new Date(startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} - {new Date(endDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                       {formatFullDateID(startDate)} - {formatFullDateID(endDate)}
                                     </p>
                                  </div>
                               </div>

@@ -11,6 +11,7 @@ import DataTable, { Column } from '@/components/admin/master/DataTable'
 import PageHeader from '@/components/admin/master/PageHeader'
 import MasterModal from '@/components/admin/master/MasterModal'
 import { motion, AnimatePresence } from 'framer-motion'
+import { getLocalDateString } from '@/lib/utils/date'
 import { toast } from 'react-hot-toast'
 
 const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
@@ -110,8 +111,8 @@ export default function AssetInsurancePage() {
         policyNumber: '',
         coverageAmount: 0,
         premium: 0,
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
+        startDate: getLocalDateString(),
+        endDate: getLocalDateString(new Date(new Date().setFullYear(new Date().getFullYear() + 1))),
       })
     }
     setIsModalOpen(true)

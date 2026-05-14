@@ -230,10 +230,20 @@ export default function DoctorQueue() {
               <p className="text-indigo-100/30 text-[9px] font-black uppercase tracking-[0.3em]">Live Clinic Sync</p>
             </div>
             <button 
-              onClick={fetchQueues} 
-              className="p-4 bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl text-white hover:bg-white/20 transition-all active:scale-95 shadow-lg"
+              onClick={() => {
+                setLoading(true)
+                fetchQueues()
+              }}
+              disabled={loading}
+              className="group flex items-center gap-3 px-5 py-3 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl text-white hover:bg-white/20 hover:border-white/30 transition-all active:scale-95 shadow-2xl shadow-indigo-500/10 disabled:opacity-50"
             >
-              <FiRefreshCw className={loading ? 'animate-spin' : 'w-5 h-5'} />
+              <div className={`p-2 bg-indigo-500/30 rounded-xl group-hover:bg-indigo-500/50 transition-colors ${loading ? 'animate-spin' : ''}`}>
+                <FiRefreshCw className="w-4 h-4" />
+              </div>
+              <div className="text-left hidden sm:block">
+                <p className="text-[10px] font-black uppercase tracking-widest leading-none mb-1">Refresh Data</p>
+                <p className="text-[8px] text-indigo-200 font-bold opacity-70">Live Sync</p>
+              </div>
             </button>
           </div>
         </div>

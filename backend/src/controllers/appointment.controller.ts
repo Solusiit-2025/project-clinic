@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import { prisma } from '../lib/prisma'
 import { getPaginationOptions, PaginatedResult } from '../utils/pagination'
+import { parseLocalDate, getJakartaDateRef } from '../utils/date'
 
 /**
  * Get all appointments with filtering
@@ -22,8 +23,8 @@ export const getAppointments = async (req: Request, res: Response) => {
 
     if (startDate || endDate) {
       where.appointmentDate = {
-        ...(startDate ? { gte: new Date(startDate as string) } : {}),
-        ...(endDate ? { lte: new Date(endDate as string) } : {}),
+        ...(startDate ? { gte: parseLocalDate(startDate as string) } : {}),
+        ...(endDate ? { lte: parseLocalDate(endDate as string, true) } : {}),
       }
     }
 
@@ -114,10 +115,9 @@ export const createAppointment = async (req: Request, res: Response) => {
       if (!patient) {
           // Jika tidak ketemu yang persis (nama beda tapi HP sama, tetap buat pasien baru)
           // Ini mendukung kasus keluarga (Anak/Istri) pakai 1 HP yang sama
-          const today = new Date()
-          const dateStr = today.toISOString().split('T')[0].replace(/-/g, '')
+          const dateStr = getJakartaDateRef()
           const count = await prisma.patient.count({
-            where: { createdAt: { gte: new Date(today.getFullYear(), today.getMonth(), today.getDate()) } }
+            where: { createdAt: { gte: parseLocalDate('') } }
           })
           const medicalRecordNo = `TEMP-${dateStr}-${(count + 1).toString().padStart(3, '0')}`
   
@@ -139,11 +139,7 @@ export const createAppointment = async (req: Request, res: Response) => {
     }
 
     // 2. Generate Appointment No
-    const today = new Date()
-    const y = today.getFullYear()
-    const m = (today.getMonth() + 1).toString().padStart(2, '0')
-    const d = today.getDate().toString().padStart(2, '0')
-    const dStr = `${y}${m}${d}`
+    const dStr = getJakartaDateRef()
     
     // Cari data terakhir hari ini untuk menentukan nomor urut berikutnya
     const lastAppt = await prisma.appointment.findFirst({
@@ -271,8 +267,7 @@ export const checkInAppointment = async (req: Request, res: Response) => {
     
     const result = await prisma.$transaction(async (tx) => {
         // 1. Generate Reg No (Robust)
-        const today = new Date()
-        const dateStr = today.toISOString().split('T')[0].replace(/-/g, '')
+        const dateStr = getJakartaDateRef()
         
         let nextRegNum = 1
         const lastReg = await tx.registration.findFirst({
@@ -304,10 +299,9 @@ export const checkInAppointment = async (req: Request, res: Response) => {
         }
 
         // 2. Generate Queue No (Robust)
-        const todayQueue = new Date()
-        todayQueue.setHours(0, 0, 0, 0)
-        const nextDayQueue = new Date(todayQueue)
-        nextDayQueue.setDate(todayQueue.getDate() + 1)
+        const todayQueue = parseLocalDate('')
+        const nextDayQueue = parseLocalDate('', true)
+        nextDayQueue.setSeconds(nextDayQueue.getSeconds() + 1) // Force next day start if needed, but parseLocalDate(true) is 23:59:59
 
         let prefix = appointment.doctor.queueCode || appointment.doctor.name.charAt(0).toUpperCase()
         
@@ -391,7 +385,7 @@ export const checkInAppointment = async (req: Request, res: Response) => {
           })
         }
 
-        const dateStrInv = today.toISOString().split('T')[0].replace(/-/g, '')
+        const dateStrInv = getJakartaDateRef()
         
         let nextInvNum = 1
         const lastInv = await tx.invoice.findFirst({

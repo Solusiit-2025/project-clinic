@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { getLocalDateString } from '@/lib/utils/date'
 import {
   FiRepeat, FiSearch, FiFilter,
   FiClock, FiCheckCircle, FiMoreVertical,
@@ -54,7 +55,7 @@ export default function CashTransferPage() {
   // Modal State
   const [showAddModal, setShowAddModal] = useState(false)
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalDateString(),
     fromCoaId: '',
     toCoaId: '',
     amount: '',
@@ -132,7 +133,7 @@ export default function CashTransferPage() {
       toast.success('Draft transfer berhasil dibuat')
       setShowAddModal(false)
       setFormData({
-        date: new Date().toISOString().split('T')[0],
+        date: getLocalDateString(),
         fromCoaId: '', toCoaId: '', amount: '', description: ''
       })
       fetchData()

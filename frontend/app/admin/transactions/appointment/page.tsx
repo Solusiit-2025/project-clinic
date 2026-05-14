@@ -14,7 +14,8 @@ import PageHeader from '@/components/admin/master/PageHeader'
 import MasterModal from '@/components/admin/master/MasterModal'
 import { StatusBadge } from '@/components/admin/master/StatusBadge'
 import SearchableSelect from '@/components/admin/master/SearchableSelect'
-import { format } from 'date-fns'
+import { motion, AnimatePresence } from 'framer-motion'
+import { getLocalDateTimeString, formatDateTimeID } from '@/lib/utils/date'
 import { id } from 'date-fns/locale'
 
 const API = process.env.NEXT_PUBLIC_API_URL + '/api/transactions'
@@ -69,7 +70,7 @@ export default function AppointmentPage() {
   useEffect(() => {
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    const localIso = now.toISOString().substring(0, 16);
+    const localIso = getLocalDateTimeString();
     setForm(prev => ({ ...prev, appointmentDate: localIso }));
   }, [])
 
@@ -169,7 +170,7 @@ export default function AppointmentPage() {
       appointmentDate: (() => {
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-        return now.toISOString().substring(0, 16);
+        return getLocalDateTimeString();
       })(),
       appDurationMin: 30,
       notes: '',
@@ -190,7 +191,7 @@ export default function AppointmentPage() {
       appointmentDate: (() => {
           const d = new Date(appt.appointmentDate);
           d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-          return d.toISOString().substring(0, 16);
+          return getLocalDateTimeString(d);
       })(),
       appDurationMin: appt.appDurationMin,
       notes: appt.notes || '',

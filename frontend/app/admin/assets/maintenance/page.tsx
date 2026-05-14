@@ -13,6 +13,7 @@ import PageHeader from '@/components/admin/master/PageHeader'
 import MasterModal from '@/components/admin/master/MasterModal'
 import SearchableSelect from '@/components/admin/master/SearchableSelect'
 import { motion, AnimatePresence } from 'framer-motion'
+import { getLocalDateString } from '@/lib/utils/date'
 
 
 type Asset = {
@@ -40,7 +41,7 @@ type MaintenanceRecord = {
 
 const EMPTY_FORM = {
   assetId: '',
-  maintenanceDate: new Date().toISOString().substring(0, 10),
+  maintenanceDate: getLocalDateString(),
   maintenanceType: 'Routine',
   description: '',
   cost: 0,

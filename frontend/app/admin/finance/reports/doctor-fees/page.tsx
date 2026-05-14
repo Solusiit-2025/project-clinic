@@ -8,6 +8,7 @@ import {
 } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { motion, AnimatePresence } from 'framer-motion'
+import { getLocalDateString, formatFullDateID } from '@/lib/utils/date'
 import { toast } from 'react-hot-toast'
 
 interface DoctorFeeReportItem {
@@ -43,8 +44,8 @@ export default function DoctorFeeReportPage() {
   const [data, setData] = useState<DoctorFeeReportItem[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [startDate, setStartDate] = useState(new Date().toISOString().substring(0, 10))
-  const [endDate, setEndDate] = useState(new Date().toISOString().substring(0, 10))
+  const [startDate, setStartDate] = useState(getLocalDateString())
+  const [endDate, setEndDate] = useState(getLocalDateString())
   const [doctors, setDoctors] = useState<{id: string, name: string}[]>([])
   const [services, setServices] = useState<ServiceItem[]>([])
   const [cashBankAccounts, setCashBankAccounts] = useState<COAItem[]>([])
@@ -63,13 +64,13 @@ export default function DoctorFeeReportPage() {
     doctorId: '',
     amount: '',
     description: '',
-    date: new Date().toISOString().substring(0, 10),
+    date: getLocalDateString(),
     serviceId: ''
   })
 
   const [paymentForm, setPaymentForm] = useState({
     coaId: '',
-    date: new Date().toISOString().substring(0, 10),
+    date: getLocalDateString(),
     notes: ''
   })
 
@@ -291,7 +292,7 @@ export default function DoctorFeeReportPage() {
                 </td>
                 <td className="px-4 py-5">
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{new Date(row.date).toLocaleDateString('id-ID')}</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{formatFullDateID(row.date)}</span>
                     <span className="text-xs font-black text-slate-900 mt-0.5">{row.type === 'MANUAL' ? 'Manual Adj' : row.invoiceNo}</span>
                   </div>
                 </td>

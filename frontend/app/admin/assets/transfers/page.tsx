@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { getLocalDateString } from '@/lib/utils/date'
 import { 
   FiArrowRight, 
   FiPlus, 
@@ -46,7 +48,7 @@ export default function AssetTransfersPage() {
   const [syncLoading, setSyncLoading] = useState(false)
   const [transferData, setTransferData] = useState({
     toClinicId: '',
-    transferDate: new Date().toISOString().split('T')[0],
+    transferDate: getLocalDateString(),
     reason: '',
     notes: ''
   })
@@ -135,7 +137,7 @@ export default function AssetTransfersPage() {
 
     setSyncLoading(true)
     try {
-      const res = await api.post('/master/assets/sync-opening-balance', { goLiveDate: new Date().toISOString().split('T')[0] })
+      const res = await api.post('/master/assets/sync-opening-balance', { goLiveDate: getLocalDateString() })
       setSuccess(res.data.message)
     } catch (e: any) {
       setError(e.response?.data?.message || 'Gagal sinkronisasi saldo awal')

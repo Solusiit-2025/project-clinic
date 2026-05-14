@@ -10,6 +10,7 @@ import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
 import PageHeader from '@/components/admin/master/PageHeader'
 import { motion, AnimatePresence } from 'framer-motion'
+import { getLocalMonthString } from '@/lib/utils/date'
 
 
 type AssetToDepreciate = {
@@ -30,7 +31,7 @@ export default function DepreciationPage() {
   const [data, setData] = useState<AssetToDepreciate[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [period, setPeriod] = useState(new Date().toISOString().substring(0, 7)) // YYYY-MM
+  const [period, setPeriod] = useState(getLocalMonthString()) // YYYY-MM
   const [processing, setProcessing] = useState(false)
   const [result, setResult] = useState<any>(null)
 

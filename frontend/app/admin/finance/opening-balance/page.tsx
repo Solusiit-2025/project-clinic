@@ -10,6 +10,7 @@ import {
 import PageHeader from '@/components/admin/master/PageHeader'
 import MasterModal from '@/components/admin/master/MasterModal'
 import { motion, AnimatePresence } from 'framer-motion'
+import { getLocalDateString } from '@/lib/utils/date'
 import { toast } from 'react-hot-toast'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 
@@ -50,7 +51,7 @@ export default function OpeningBalancePage() {
 
   // Form State
   const [form, setForm] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalDateString(),
     description: '',
     items: [{ coaId: '', debit: 0, credit: 0 }]
   })
@@ -127,7 +128,7 @@ export default function OpeningBalancePage() {
       setModalOpen(false)
       fetchData()
       setForm({
-        date: new Date().toISOString().split('T')[0],
+        date: getLocalDateString(),
         description: '',
         items: [{ coaId: '', debit: 0, credit: 0 }]
       })

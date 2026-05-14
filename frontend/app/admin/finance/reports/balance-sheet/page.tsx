@@ -8,6 +8,7 @@ import {
 } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { motion, AnimatePresence } from 'framer-motion'
+import { getLocalDateString, formatFullDateID } from '@/lib/utils/date'
 import { toast } from 'react-hot-toast'
 
 const API = process.env.NEXT_PUBLIC_API_URL + '/api/accounting'
@@ -35,7 +36,7 @@ export default function BalanceSheetPage() {
    const { activeClinicId } = useAuthStore()
    const [report, setReport] = useState<BSReport | null>(null)
    const [loading, setLoading] = useState(true)
-   const [targetDate, setTargetDate] = useState(new Date().toISOString().substring(0, 10))
+   const [targetDate, setTargetDate] = useState(getLocalDateString())
    const user = useAuthStore(state => state.user)
    const activeClinic = user?.clinics?.find(c => c.id === activeClinicId) || user?.clinics?.[0]
 
@@ -347,7 +348,7 @@ export default function BalanceSheetPage() {
                                   </div>
                                   <div className="bg-slate-50 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-slate-100 inline-block">
                                      <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5 leading-none">Posisi Saldo Per</p>
-                                     <p className="text-xs sm:text-sm font-black text-slate-900 uppercase">{new Date(targetDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                                     <p className="text-xs sm:text-sm font-black text-slate-900 uppercase">{formatFullDateID(targetDate)}</p>
                                   </div>
                                </div>
                                <div className="text-left sm:text-right space-y-1 sm:space-y-2">

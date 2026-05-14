@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { getLocalDateString } from '@/lib/utils/date'
 import {
   FiDollarSign, FiSearch, FiFilter,
   FiClock, FiCheckCircle, FiMoreVertical,
@@ -58,7 +59,7 @@ export default function ExpensesPage() {
   // Modal State
   const [showAddModal, setShowAddModal] = useState(false)
   const [formData, setFormData] = useState({
-    expenseDate: new Date().toISOString().split('T')[0],
+    expenseDate: getLocalDateString(),
     categoryId: '',
     amount: '',
     paymentMethod: 'cash',
@@ -127,7 +128,7 @@ export default function ExpensesPage() {
       toast.success('Pengeluaran berhasil dicatat dan masuk ke Buku Besar')
       setShowAddModal(false)
       setFormData({
-        expenseDate: new Date().toISOString().split('T')[0],
+        expenseDate: getLocalDateString(),
         categoryId: '', amount: '', paymentMethod: 'cash',
         description: '', bankId: '', notes: ''
       })

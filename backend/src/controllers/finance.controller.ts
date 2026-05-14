@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import { prisma } from '../lib/prisma'
 import { getPaginationOptions, PaginatedResult } from '../utils/pagination'
+import { parseLocalDate } from '../utils/date'
 
 /**
  * Get all invoices with filtering (Paginated)
@@ -25,8 +26,8 @@ export const getInvoices = async (req: Request, res: Response) => {
       } : {}),
       ...(startDate || endDate ? {
         invoiceDate: {
-          ...(startDate ? { gte: new Date(String(startDate)) } : {}),
-          ...(endDate ? { lte: new Date(String(endDate)) } : {}),
+          ...(startDate ? { gte: parseLocalDate(String(startDate)) } : {}),
+          ...(endDate ? { lte: parseLocalDate(String(endDate), true) } : {}),
         }
       } : {}),
     }
@@ -716,8 +717,8 @@ export const getExpenses = async (req: Request, res: Response) => {
       } : {}),
       ...(startDate || endDate ? {
         expenseDate: {
-          ...(startDate ? { gte: new Date(String(startDate)) } : {}),
-          ...(endDate ? { lte: new Date(String(endDate)) } : {}),
+          ...(startDate ? { gte: parseLocalDate(String(startDate)) } : {}),
+          ...(endDate ? { lte: parseLocalDate(String(endDate), true) } : {}),
         }
       } : {}),
     }

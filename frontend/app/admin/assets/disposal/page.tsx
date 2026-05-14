@@ -11,6 +11,7 @@ import DataTable, { Column } from '@/components/admin/master/DataTable'
 import PageHeader from '@/components/admin/master/PageHeader'
 import MasterModal from '@/components/admin/master/MasterModal'
 import { toast } from 'react-hot-toast'
+import { getLocalDateString } from '@/lib/utils/date'
 
 const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
 
@@ -35,7 +36,7 @@ export default function AssetDisposalPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedAsset, setSelectedAsset] = useState<AssetRegisterItem | null>(null)
   const [formData, setFormData] = useState({
-    disposalDate: new Date().toISOString().split('T')[0],
+    disposalDate: getLocalDateString(),
     disposalValue: 0,
     notes: ''
   })
@@ -73,7 +74,7 @@ export default function AssetDisposalPage() {
   const handleOpenModal = (asset: AssetRegisterItem) => {
     setSelectedAsset(asset)
     setFormData({
-      disposalDate: new Date().toISOString().split('T')[0],
+      disposalDate: getLocalDateString(),
       disposalValue: 0,
       notes: ''
     })

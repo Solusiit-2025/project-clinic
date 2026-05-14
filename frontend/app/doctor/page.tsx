@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import api from '@/lib/api'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  FiClock, FiUsers, FiCheckCircle, FiAlertCircle, FiArrowRight, 
-  FiCalendar, FiActivity, FiUser, FiZap 
+import {
+  FiClock, FiUsers, FiCheckCircle, FiAlertCircle, FiArrowRight,
+  FiCalendar, FiActivity, FiUser, FiZap,
+  FiRefreshCw
 } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { useRouter } from 'next/navigation'
@@ -45,7 +46,7 @@ export default function DoctorDashboard() {
     try {
       const { data } = await api.get('transactions/queues?today=true')
       const allQueues = data || []
-      
+
       setQueues(allQueues)
       setStats({
         totalQueue: allQueues.length,
@@ -63,7 +64,7 @@ export default function DoctorDashboard() {
   useEffect(() => {
     fetchDashboardData()
     const interval = setInterval(fetchDashboardData, 30000)
-    
+
     const hour = new Date().getHours()
     if (hour < 11) setGreeting('Selamat Pagi')
     else if (hour < 15) setGreeting('Selamat Siang')
@@ -79,50 +80,50 @@ export default function DoctorDashboard() {
 
   const nextPatient = useMemo(() => {
     // Priority: 'ready' first, then 'triage', then 'waiting/called'
-    return queues.find(q => q.status === 'ready') || 
-           queues.find(q => q.status === 'triage') || 
-           queues.find(q => q.status === 'waiting' || q.status === 'called')
+    return queues.find(q => q.status === 'ready') ||
+      queues.find(q => q.status === 'triage') ||
+      queues.find(q => q.status === 'waiting' || q.status === 'called')
   }, [queues])
 
   const statCards = [
-    { 
-      label: 'Antrian Hari Ini', 
-      value: stats.totalQueue, 
-      icon: FiUsers, 
+    {
+      label: 'Antrian Hari Ini',
+      value: stats.totalQueue,
+      icon: FiUsers,
       color: 'from-blue-500 to-indigo-600',
       bgColor: 'bg-blue-50',
       textColor: 'text-blue-600'
     },
-    { 
-      label: 'Menunggu', 
-      value: stats.waiting, 
-      icon: FiClock, 
+    {
+      label: 'Menunggu',
+      value: stats.waiting,
+      icon: FiClock,
       color: 'from-amber-400 to-orange-500',
       bgColor: 'bg-amber-50',
       textColor: 'text-amber-600'
     },
-    { 
-      label: 'Dalam Proses', 
-      value: stats.inProgress, 
-      icon: FiActivity, 
+    {
+      label: 'Dalam Proses',
+      value: stats.inProgress,
+      icon: FiActivity,
       color: 'from-purple-500 to-pink-500',
       bgColor: 'bg-purple-50',
       textColor: 'text-purple-600'
     },
-    { 
-      label: 'Selesai', 
-      value: stats.completed, 
-      icon: FiCheckCircle, 
+    {
+      label: 'Selesai',
+      value: stats.completed,
+      icon: FiCheckCircle,
       color: 'from-emerald-400 to-teal-500',
       bgColor: 'bg-emerald-50',
-      textColor: 'text-emerald-600' 
+      textColor: 'text-emerald-600'
     },
   ]
 
   return (
     <div className="space-y-6 pb-8">
       {/* Hero Greeting Section - Slimmed down for Laptop */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-[2rem] p-6 text-white shadow-xl shadow-indigo-900/20"
@@ -141,12 +142,31 @@ export default function DoctorDashboard() {
               Anda memiliki {stats.waiting} pasien dalam antrian.
             </p>
           </div>
-          <div className="hidden lg:flex flex-col items-end text-right">
-            <div className="flex items-center gap-2 text-indigo-100 font-bold text-sm mb-0.5">
-              <FiCalendar className="w-3.5 h-3.5" />
-              {format(new Date(), 'EEEE, d MMM yyyy', { locale: id })}
+          <div className="flex items-center gap-4">
+            <div className="hidden lg:flex flex-col items-end text-right">
+              <div className="flex items-center gap-2 text-indigo-100 font-bold text-sm mb-0.5">
+                <FiCalendar className="w-3.5 h-3.5" />
+                {format(new Date(), 'EEEE, d MMM yyyy', { locale: id })}
+              </div>
+              <p className="text-indigo-100/40 text-[9px] font-black uppercase tracking-[0.2em]">Yasfina Management</p>
             </div>
-            <p className="text-indigo-100/40 text-[9px] font-black uppercase tracking-[0.2em]">Yasfina Management</p>
+
+            <button
+              onClick={() => {
+                setLoading(true)
+                fetchDashboardData()
+              }}
+              disabled={loading}
+              className="group flex items-center gap-3 px-5 py-3 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl text-white hover:bg-white/20 hover:border-white/30 transition-all active:scale-95 shadow-2xl shadow-indigo-500/10 disabled:opacity-50"
+            >
+              <div className={`p-2 bg-indigo-500/30 rounded-xl group-hover:bg-indigo-500/50 transition-colors ${loading ? 'animate-spin' : ''}`}>
+                <FiRefreshCw className="w-4 h-4" />
+              </div>
+              <div className="text-left hidden sm:block">
+                <p className="text-[10px] font-black uppercase tracking-widest leading-none mb-1">Refresh Data</p>
+                <p className="text-[8px] text-indigo-200 font-bold opacity-70">Sync Queue List</p>
+              </div>
+            </button>
           </div>
         </div>
       </motion.div>
@@ -193,7 +213,7 @@ export default function DoctorDashboard() {
               </div>
               <div className="text-[10px] font-black uppercase tracking-widest bg-white/10 px-2 py-1 rounded-md border border-white/10">Active</div>
             </div>
-            
+
             <div className="p-6">
               {currentPatient ? (
                 <div className="flex flex-col md:flex-row items-center gap-6">
@@ -205,12 +225,12 @@ export default function DoctorDashboard() {
                       <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping"></div>
                     </div>
                   </div>
-                  
+
                   <div className="flex-1 text-center md:text-left">
                     <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">Data Pasien</p>
                     <h4 className="text-xl md:text-2xl font-black text-gray-900">{currentPatient.patient.name}</h4>
                     <p className="text-xs text-gray-500 font-bold mt-0.5">RM: {currentPatient.patient.medicalRecordNo} • {['M', 'L', 'Laki-laki'].includes(currentPatient.patient.gender) ? 'Laki-laki' : 'Perempuan'}</p>
-                    
+
                     <button
                       onClick={() => router.push(`/doctor/queue/${currentPatient.id}`)}
                       className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-black text-xs hover:bg-primary/90 hover:shadow-lg transition-all group"
@@ -314,7 +334,7 @@ export default function DoctorDashboard() {
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-black text-gray-900 truncate group-hover:text-primary transition-colors">{q.patient.name}</p>
                           <p className="text-[9px] text-gray-400 font-bold flex items-center gap-1 mt-0.5">
-                            <FiClock className="w-2.5 h-2.5" /> 
+                            <FiClock className="w-2.5 h-2.5" />
                             {format(new Date(q.createdAt), 'HH:mm')}
                           </p>
                         </div>
