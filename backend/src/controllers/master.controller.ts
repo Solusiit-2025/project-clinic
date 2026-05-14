@@ -2107,7 +2107,7 @@ export const importPatients = async (req: Request, res: Response) => {
     if (!req.file) return res.status(400).json({ message: 'File tidak ditemukan' })
 
     const workbook = new ExcelJS.Workbook()
-    await workbook.xlsx.load(req.file.buffer)
+    await workbook.xlsx.load(req.file.buffer as any)
 
     let totalImported = 0
     let totalUpdated = 0
