@@ -392,15 +392,9 @@ export const postInvoice = async (req: Request, res: Response) => {
                     
                     const totalDoctorFee = doctorFeePerUnit * item.quantity
 
-                    const clinicPortion = totalItemSubtotal - totalDoctorFee
-
-                    if (clinicPortion > 0) {
-                        const current = revenueMap.get(targetCoa.id) || { amount: 0, coaName: targetCoa.name }
-                        revenueMap.set(targetCoa.id, { amount: current.amount + clinicPortion, coaName: current.coaName })
-                    } else if (clinicPortion < 0) {
-                        // If fee > price, the clinic pays out of pocket (Subsidy/Expense)
-                        totalDoctorSubsidies += Math.abs(clinicPortion)
-                    }
+                    // PRO ACCOUNTING: Record full revenue (Gross) and full expense (Commission)
+                    const current = revenueMap.get(targetCoa.id) || { amount: 0, coaName: targetCoa.name }
+                    revenueMap.set(targetCoa.id, { amount: current.amount + totalItemSubtotal, coaName: current.coaName })
 
                     if (totalDoctorFee > 0) {
                         totalDoctorFees += totalDoctorFee
@@ -441,17 +435,17 @@ export const postInvoice = async (req: Request, res: Response) => {
                                 ...(invoice.discount > 0 ? [
                                     { coaId: discountAccount?.id || arAccount.id, debit: invoice.discount, credit: 0, description: `Potongan Harga - Inv ${invoice.invoiceNo}` }
                                 ] : []),
-                                ...(totalDoctorSubsidies > 0 ? [
+                                ...Array.from(revenueMap.entries()).map(([coaId, data]) => ({
+                                    coaId, debit: 0, credit: data.amount, description: `Pendapatan ${data.coaName} - Inv ${invoice.invoiceNo}`
+                                })),
+                                ...(totalDoctorFees > 0 ? [
                                     { 
                                         coaId: doctorExpenseAccount?.id || '', 
-                                        debit: totalDoctorSubsidies, 
+                                        debit: totalDoctorFees, 
                                         credit: 0, 
-                                        description: `Beban Subsidi Jasa Medik - Inv ${invoice.invoiceNo}` 
+                                        description: `Beban Jasa Medik Dokter - Inv ${invoice.invoiceNo}` 
                                     }
                                 ] : []),
-                                ...Array.from(revenueMap.entries()).map(([coaId, data]) => ({
-                                    coaId, debit: 0, credit: data.amount, description: `Pendapatan ${data.coaName} (Net) - Inv ${invoice.invoiceNo}`
-                                })),
                                 ...(totalDoctorFees > 0 ? [
                                     { 
                                         coaId: doctorPayableAccount?.id || '', 
