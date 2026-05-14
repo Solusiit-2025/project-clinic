@@ -63,7 +63,7 @@ io.on('connection', (socket) => {
 // Middleware
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3004'
 app.use(cors({
-  origin: [FRONTEND_URL, 'http://localhost:3000', 'http://127.0.0.1:3004'],
+  origin: [FRONTEND_URL, 'https://yasfina-app.com', 'http://localhost:3000', 'http://127.0.0.1:3004'],
   credentials: true, // Required for cookies to be sent cross-origin
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-clinic-id'],
