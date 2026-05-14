@@ -62,6 +62,7 @@ export const FINANCE_GROUPS = [
     items: [
       { icon: FiFileText, label: 'Invoice & Bayar', href: '/admin/finance' },
       { icon: FiDollarSign, label: 'Pengeluaran Operasional', href: '/admin/finance/expenses' },
+      { icon: FiRepeat, label: 'Transfer Antar Kas', href: '/admin/finance/cash-transfer' },
       { icon: FiClock, label: 'Tutup Buku (Closing)', href: '/admin/finance/closing', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTING'] },
     ]
   },

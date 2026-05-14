@@ -2,7 +2,8 @@ import { Router } from 'express'
 import { authMiddleware } from '../middleware/auth.middleware'
 import { 
   getInvoices, processPayment, getFinancialSummary, postInvoice, 
-  resetInvoicePayment, updateInvoiceBank, getExpenses, createExpense, deleteExpense
+  resetInvoicePayment, updateInvoiceBank, getExpenses, createExpense, deleteExpense,
+  getCashTransfers, createCashTransfer, updateCashTransfer, deleteCashTransfer, postCashTransfer
 } from '../controllers/finance.controller'
 import { uploadBon } from '../middleware/procurementUpload.middleware'
 
@@ -31,5 +32,12 @@ financeRoutes.get('/summary', getFinancialSummary)
 financeRoutes.get('/expenses', getExpenses)
 financeRoutes.post('/expenses', uploadBon.single('attachment'), createExpense)
 financeRoutes.delete('/expenses/:id', deleteExpense)
+
+// Cash Transfers
+financeRoutes.get('/cash-transfers', getCashTransfers)
+financeRoutes.post('/cash-transfers', createCashTransfer)
+financeRoutes.put('/cash-transfers/:id', updateCashTransfer)
+financeRoutes.delete('/cash-transfers/:id', deleteCashTransfer)
+financeRoutes.post('/cash-transfers/:id/post', postCashTransfer)
 
 export default financeRoutes

@@ -7,7 +7,7 @@ import {
   getSchedules, createSchedule, updateSchedule, deleteSchedule,
   getServices, createService, updateService, deleteService, getNextServiceCode,
   getServiceCategories, createServiceCategory, updateServiceCategory, deleteServiceCategory,
-  getMedicines, createMedicine, updateMedicine, deleteMedicine,
+  getMedicines, createMedicine, updateMedicine, deleteMedicine, syncMasterToMedicines,
   getExpenseCategories, createExpenseCategory, updateExpenseCategory, deleteExpenseCategory,
   getProductMasters, createProductMaster, updateProductMaster, deleteProductMaster,
   getClinics, getClinicById, createClinic, updateClinic, deleteClinic,
@@ -77,6 +77,7 @@ masterRoutes.delete('/service-categories/:id', deleteServiceCategory)
 // Medicines
 masterRoutes.get('/medicines', getMedicines)
 masterRoutes.post('/medicines', upload.single('image'), createMedicine)
+masterRoutes.post('/medicines/sync-master', syncMasterToMedicines)
 masterRoutes.put('/medicines/:id', upload.single('image'), updateMedicine)
 masterRoutes.delete('/medicines/:id', deleteMedicine)
 

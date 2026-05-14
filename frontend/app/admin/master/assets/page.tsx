@@ -92,9 +92,15 @@ export default function AssetsPage() {
 
   const fetchMasters = useCallback(async () => {
     try {
-      const { data: resData } = await api.get('/master/products')
+      const { data: resData } = await api.get('/master/products', { params: { limit: 1000 } })
       const masterList = Array.isArray(resData) ? resData : (resData?.data || [])
-      setMasters(masterList)
+      // Exclude Obat-obatan, Alkes, and BHP from Asset registration
+      const excludeIds = [
+        'de1cf644-3b0c-453e-8982-ffdf28af8860', // Obat-obatan
+        'f83bc6a9-62ee-4d16-b1eb-daba37de3faa', // Alkes
+        'd43ab4ce-82fa-47d6-b36c-ecb23d7b1897'  // BHP
+      ]
+      setMasters(masterList.filter((m: any) => !excludeIds.includes(m.categoryId)))
     } catch (e) { 
       console.error('Failed to fetch masters', e) 
       setMasters([])
@@ -388,13 +394,28 @@ export default function AssetsPage() {
                   description: m.description
                 }))}
                 value={form.masterProductId}
-                onChange={(id, opt) => {
+                onChange={(id, opt: any) => {
+                  if (!id) return
+                  // Find full master data from masters state
+                  const master = masters.find(m => m.id === id)
+                  
+                  // Map ProductType to AssetType
+                  const typeMap: Record<string, string> = {
+                    'Elektronik': 'computer',
+                    'Alat Medis': 'clinical-device',
+                    'Furniture': 'furniture',
+                    'Kendaraan': 'vehicle'
+                  }
+                  
                   setForm(p => ({ 
                     ...p, 
                     masterProductId: id,
                     assetName: opt?.label || p.assetName,
                     assetCode: opt ? `${opt.code}-AST` : p.assetCode,
                     description: opt?.description || p.description,
+                    manufacturer: master?.brand || p.manufacturer,
+                    purchasePrice: master?.purchasePrice || p.purchasePrice,
+                    assetType: typeMap[master?.productType] || p.assetType
                   }))
                 }}
                 helperText="Data nama dan tipe akan otomatis menyesuaikan dengan katalog terpilih."

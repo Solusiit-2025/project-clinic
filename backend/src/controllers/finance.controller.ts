@@ -866,3 +866,200 @@ export const deleteExpense = async (req: Request, res: Response) => {
     res.status(500).json({ message: e.message })
   }
 }
+
+/**
+ * Get all cash transfers with filtering (Paginated)
+ */
+export const getCashTransfers = async (req: Request, res: Response) => {
+  try {
+    const { status, search, startDate, endDate, page: pageParam } = req.query
+    const currentClinicId = (req as any).clinicId
+    const isAdminView = (req as any).isAdminView
+
+    const { skip, take, page, limit } = getPaginationOptions(req.query)
+
+    const where: any = {
+      ...(!isAdminView ? { clinicId: currentClinicId } : {}),
+      ...(status ? { status: String(status) } : {}),
+      ...(search ? {
+        transferNo: { contains: String(search), mode: 'insensitive' }
+      } : {}),
+      ...(startDate || endDate ? {
+        date: {
+          ...(startDate ? { gte: new Date(String(startDate)) } : {}),
+          ...(endDate ? { lte: new Date(String(endDate)) } : {}),
+        }
+      } : {}),
+    }
+
+    const [total, transfers] = await Promise.all([
+      prisma.cashTransfer.count({ where }),
+      prisma.cashTransfer.findMany({
+        where,
+        include: {
+          fromCoa: true,
+          toCoa: true,
+          journalEntry: true
+        },
+        orderBy: { date: 'desc' },
+        skip: pageParam ? skip : undefined,
+        take: pageParam ? take : undefined,
+      })
+    ])
+
+    if (pageParam) {
+      return res.json({
+        data: transfers,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit)
+        }
+      })
+    }
+
+    res.json(transfers)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+/**
+ * Create a new cash transfer (DRAFT)
+ */
+export const createCashTransfer = async (req: Request, res: Response) => {
+  try {
+    const { date, fromCoaId, toCoaId, amount, description } = req.body
+    const clinicId = req.body.clinicId || (req as any).clinicId
+
+    if (!date || !fromCoaId || !toCoaId || !amount) {
+      return res.status(400).json({ message: 'Data transfer tidak lengkap' })
+    }
+
+    const count = await prisma.cashTransfer.count()
+    const transferNo = `TRF-${Date.now().toString().slice(-6)}-${(count + 1).toString().padStart(3, '0')}`
+
+    const transfer = await prisma.cashTransfer.create({
+      data: {
+        transferNo,
+        date: new Date(`${date}T00:00:00+07:00`),
+        fromCoaId,
+        toCoaId,
+        amount: parseFloat(amount),
+        description,
+        status: 'DRAFT',
+        clinicId
+      }
+    })
+
+    res.status(201).json(transfer)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+/**
+ * Update a cash transfer (only if DRAFT)
+ */
+export const updateCashTransfer = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { date, fromCoaId, toCoaId, amount, description } = req.body
+
+    const existing = await prisma.cashTransfer.findUnique({ where: { id } })
+    if (!existing) return res.status(404).json({ message: 'Data tidak ditemukan' })
+    if (existing.status === 'POSTED') return res.status(400).json({ message: 'Data sudah diposting dan tidak dapat diubah' })
+
+    const updated = await prisma.cashTransfer.update({
+      where: { id },
+      data: {
+        ...(date ? { date: new Date(`${date}T00:00:00+07:00`) } : {}),
+        fromCoaId,
+        toCoaId,
+        ...(amount ? { amount: parseFloat(amount) } : {}),
+        description
+      }
+    })
+
+    res.json(updated)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+/**
+ * Delete a cash transfer (only if DRAFT)
+ */
+export const deleteCashTransfer = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const existing = await prisma.cashTransfer.findUnique({ where: { id } })
+    if (!existing) return res.status(404).json({ message: 'Data tidak ditemukan' })
+    if (existing.status === 'POSTED') return res.status(400).json({ message: 'Data sudah diposting dan tidak dapat dihapus' })
+
+    await prisma.cashTransfer.delete({ where: { id } })
+    res.json({ message: 'Data berhasil dihapus' })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+/**
+ * Post cash transfer to General Ledger
+ */
+export const postCashTransfer = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    
+    const transfer = await prisma.cashTransfer.findUnique({
+      where: { id },
+      include: { fromCoa: true, toCoa: true }
+    })
+
+    if (!transfer) return res.status(404).json({ message: 'Data tidak ditemukan' })
+    if (transfer.status === 'POSTED') return res.status(400).json({ message: 'Data sudah diposting' })
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Create Journal Entry
+      const journal = await tx.journalEntry.create({
+        data: {
+          date: transfer.date,
+          description: `Transfer Antar Kas: ${transfer.description || ''} (${transfer.transferNo})`,
+          referenceNo: transfer.transferNo,
+          entryType: 'SYSTEM',
+          clinicId: transfer.clinicId,
+          details: {
+            create: [
+              {
+                coaId: transfer.toCoaId,
+                debit: transfer.amount,
+                credit: 0,
+                description: `Penerimaan Transfer - ${transfer.transferNo}`
+              },
+              {
+                coaId: transfer.fromCoaId,
+                debit: 0,
+                credit: transfer.amount,
+                description: `Pengiriman Transfer - ${transfer.transferNo}`
+              }
+            ]
+          }
+        }
+      })
+
+      // 2. Update Transfer status and link journal
+      return await tx.cashTransfer.update({
+        where: { id },
+        data: {
+          status: 'POSTED',
+          journalEntryId: journal.id
+        }
+      })
+    })
+
+    res.json(result)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}

@@ -37,6 +37,7 @@ type Medicine = {
   stock?: number;
   unit?: string;
   productMaster?: {
+    image?: string;
     products: {
       id: string;
       quantity: number;
@@ -55,6 +56,7 @@ export default function MedicinesPage() {
   const [data, setData] = useState<Medicine[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
   const [form, setForm] = useState(EMPTY)
@@ -65,6 +67,9 @@ export default function MedicinesPage() {
   const [productMasters, setProductMasters] = useState<{id: string, masterName: string, masterCode: string, description?: string}[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [limit] = useState(10)
 
   // Use a derived isAdmin state for UI logic
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.clinics?.some(c => c.isMain)
@@ -72,31 +77,49 @@ export default function MedicinesPage() {
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const params: any = {}
+      const params: any = { page, limit }
       if (search) params.search = search
       if (filterClinic) params.clinicId = filterClinic
       
       const { data: resData } = await api.get('/master/medicines', { params })
-      const medicineList = Array.isArray(resData) ? resData : (resData?.data || [])
+      const medicineList = resData?.data || []
       setData(medicineList)
+      setTotalPages(resData?.meta?.totalPages || 1)
     } catch (e) {
       console.error('Failed to fetch medicines', e)
       setData([])
     } finally { setLoading(false) }
-  }, [search, filterClinic])
+  }, [search, filterClinic, page, limit])
 
   const fetchClinics = useCallback(async () => {
     try {
       const [cRes, pRes] = await Promise.all([
         api.get('/master/clinics'),
-        api.get('/master/products')
+        api.get('/master/products', { params: { limit: 1000 } })
       ])
       setClinics(Array.isArray(cRes.data) ? cRes.data : (cRes.data?.data || []))
-      setProductMasters(Array.isArray(pRes.data) ? pRes.data : (pRes.data?.data || []))
+      
+      const masterList = Array.isArray(pRes.data) ? pRes.data : (pRes.data?.data || [])
+      // Include only Obat-obatan, Alkes, and BHP for Medicine registration
+      const includeIds = [
+        'de1cf644-3b0c-453e-8982-ffdf28af8860', // Obat-obatan
+        'f83bc6a9-62ee-4d16-b1eb-daba37de3faa', // Alkes
+        'd43ab4ce-82fa-47d6-b36c-ecb23d7b1897'  // BHP
+      ]
+      const filteredMasters = masterList.filter((m: any) => includeIds.includes(m.categoryId))
+      setProductMasters(filteredMasters)
     } catch (e) { 
       console.error('Failed to fetch support data', e)
     }
   }, [])
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setSearch(searchInput)
+      setPage(1)
+    }, 500)
+    return () => clearTimeout(handler)
+  }, [searchInput])
 
   useEffect(() => { 
     fetchData()
@@ -127,7 +150,8 @@ export default function MedicinesPage() {
       masterProductId: '',
       image: r.image || null
     })
-    setImagePreview(r.image ? process.env.NEXT_PUBLIC_API_URL + r.image : null)
+    const img = getProductImage(r)
+    setImagePreview(img ? (process.env.NEXT_PUBLIC_API_URL || '') + img : null)
     setError('')
     setModalOpen(true)
   }
@@ -154,7 +178,7 @@ export default function MedicinesPage() {
           if (value instanceof File) formData.append('image', value)
         } else if (key === 'expiryDate') {
           if (value) formData.append('expiryDate', new Date(value as string).toISOString())
-        } else {
+        } else if (value !== null && value !== undefined && typeof value !== 'object') {
           formData.append(key, String(value))
         }
       })
@@ -182,17 +206,26 @@ export default function MedicinesPage() {
 
   const [previewImage, setPreviewImage] = useState<{ url: string, name: string } | null>(null)
 
+  const getProductImage = (r: Medicine) => {
+    const img = r.image || r.productMaster?.image
+    if (!img || img === 'null' || img === 'undefined' || img.includes('undefined') || img.includes('/null')) return null
+    return img
+  }
+
   const columns: Column<Medicine>[] = [
     { key: 'medicineName', label: 'Detail Obat', render: (r) => (
       <div className="py-1 sm:py-2.5 flex items-start gap-2 sm:gap-4">
         {/* Photo Thumbnail */}
         <button 
-          onClick={() => r.image && setPreviewImage({ url: process.env.NEXT_PUBLIC_API_URL + r.image, name: r.medicineName })}
+          onClick={() => {
+            const img = getProductImage(r)
+            if (img) setPreviewImage({ url: (process.env.NEXT_PUBLIC_API_URL || '') + img, name: r.medicineName })
+          }}
           className="w-10 h-10 sm:w-14 sm:h-14 rounded-lg sm:rounded-2xl bg-gray-50 border border-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center relative group active:scale-95 transition-all"
         >
-          {r.image ? (
+          {getProductImage(r) ? (
             <img 
-              src={process.env.NEXT_PUBLIC_API_URL + r.image} 
+              src={(process.env.NEXT_PUBLIC_API_URL || '') + getProductImage(r)} 
               alt={r.medicineName} 
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
             />
@@ -203,7 +236,7 @@ export default function MedicinesPage() {
             </div>
           )}
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-            {r.image && <FiCamera className="text-white opacity-0 group-hover:opacity-100 scale-50 group-hover:scale-100 transition-all pointer-events-none" />}
+            {getProductImage(r) && <FiCamera className="text-white opacity-0 group-hover:opacity-100 scale-50 group-hover:scale-100 transition-all pointer-events-none" />}
           </div>
         </button>
 
@@ -379,6 +412,20 @@ export default function MedicinesPage() {
     </div>
   )
 
+  const [syncing, setSyncing] = useState(false)
+  const handleSyncMaster = async () => {
+    if (!confirm('Impor produk kategori "Obat-obatan" & "Alkes" dari Master ke Katalog Obat?')) return
+    setSyncing(true)
+    try {
+      const { data } = await api.post('/master/medicines/sync-master')
+      fetchData()
+    } catch (e: any) {
+      setError(e.response?.data?.message || 'Gagal sinkronisasi')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   return (
     <div className="w-full px-2 sm:px-4 md:px-6 py-4 md:py-6 space-y-4 sm:space-y-6 md:space-y-8 text-left min-h-screen"
          style={{ 
@@ -405,14 +452,25 @@ export default function MedicinesPage() {
           </div>
         </div>
         
-        <button 
-          onClick={openAdd}
-          className="mt-2 sm:mt-0 bg-indigo-600 text-white flex items-center gap-2 px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-lg sm:shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95 touch-button"
-        >
-          <FiPackage className="w-3 h-3 sm:w-4 sm:h-4" /> 
-          <span className="hidden sm:inline">Tambah Obat</span>
-          <span className="sm:hidden">Tambah</span>
-        </button>
+        <div className="flex items-center gap-2 mt-2 sm:mt-0">
+          <button 
+            onClick={handleSyncMaster}
+            disabled={syncing}
+            className="bg-white text-indigo-600 border-2 border-indigo-100 flex items-center gap-2 px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest hover:bg-indigo-50 transition-all active:scale-95 disabled:opacity-50"
+          >
+            <FiUpload className={`w-3 h-3 sm:w-4 sm:h-4 ${syncing ? 'animate-bounce' : ''}`} /> 
+            <span>{syncing ? 'SINKRON...' : 'Sync Master'}</span>
+          </button>
+
+          <button 
+            onClick={openAdd}
+            className="bg-indigo-600 text-white flex items-center gap-2 px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-lg sm:shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95 touch-button"
+          >
+            <FiPackage className="w-3 h-3 sm:w-4 sm:h-4" /> 
+            <span className="hidden sm:inline">Tambah Obat</span>
+            <span className="sm:hidden">Tambah</span>
+          </button>
+        </div>
       </div>
 
       {/* FILTER BAR */}
@@ -425,7 +483,7 @@ export default function MedicinesPage() {
               <input
                 type="text" placeholder="Nama, generik, atau produsen..."
                 className="w-full pl-8 sm:pl-10 pr-4 sm:pr-6 py-2.5 sm:py-3 bg-slate-50 border border-slate-100 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/10 transition-all text-slate-800"
-                value={search} onChange={(e) => setSearch(e.target.value)}
+                value={searchInput} onChange={(e) => setSearchInput(e.target.value)}
               />
             </div>
           </div>
@@ -451,10 +509,11 @@ export default function MedicinesPage() {
           const val = r.dosageForm || 'Other'
           return val.charAt(0).toUpperCase() + val.slice(1).toLowerCase()
         }}
-        searchValue={search} onSearchChange={setSearch}
+        searchValue={searchInput} onSearchChange={setSearchInput}
         searchPlaceholder="Cari nama obat, generik, atau produsen..."
         extraFilters={null}
         onEdit={openEdit} onDelete={handleDelete}
+        page={page} totalPages={totalPages} onPageChange={setPage}
         emptyText="Database obat masih kosong."
       />
       
@@ -474,7 +533,7 @@ export default function MedicinesPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             <div className="sm:col-span-2">
               <SearchableSelect 
-                label="Pilih dari Katalog Master Produk"
+                label="Pilih dari Katalog Master Produk (Opsional)"
                 placeholder="Cari nama atau kode produk (ex: Sanmol)..."
                 options={(Array.isArray(productMasters) ? productMasters : []).map(m => ({
                   id: m.id,
@@ -487,12 +546,11 @@ export default function MedicinesPage() {
                   setForm(p => ({
                     ...p,
                     masterProductId: id,
-                    medicineName: opt?.label || '',
+                    medicineName: opt?.label || p.medicineName,
                     description: opt?.description || p.description
                   }))
                 }}
-                helperText="Jika produk belum ada, daftarkan dulu di menu Katalog Master."
-                required
+                helperText="Kosongkan jika ingin mendaftarkan produk baru secara otomatis ke Katalog Master."
               />
             </div>
 
@@ -556,9 +614,9 @@ export default function MedicinesPage() {
               <label className="block text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Nama Produk Obat (Sesuai Katalog)</label>
               <input 
                 type="text" value={form.medicineName} 
-                readOnly
-                placeholder="Pilih dari produk master di atas..."
-                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm border border-gray-100 bg-gray-100/50 rounded-lg sm:rounded-2xl focus:outline-none font-black text-gray-400 cursor-not-allowed uppercase" 
+                onChange={(e) => setForm(p => ({ ...p, medicineName: e.target.value }))}
+                placeholder="Pilih dari produk master di atas atau ketik nama..."
+                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm border border-gray-100 bg-gray-50/30 rounded-lg sm:rounded-2xl focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-bold placeholder:text-gray-300 text-gray-700 uppercase" 
               />
             </div>
             {inp('Komposisi / Nama Generik', 'genericName', 'text', 'cth: Acetaminophen')}

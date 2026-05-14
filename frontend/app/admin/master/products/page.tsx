@@ -240,7 +240,9 @@ export default function ProductsPage() {
       }
 
       Object.entries(payload).forEach(([key, value]) => {
-        formData.append(key, String(value))
+        if (value !== null && value !== undefined && typeof value !== 'object') {
+          formData.append(key, String(value))
+        }
       })
 
       if (form.image instanceof File) {
@@ -388,6 +390,12 @@ export default function ProductsPage() {
 
       <MasterModal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Edit Produk' : 'Master Baru'} size="2xl">
         <div className="space-y-6">
+          {error && (
+            <div className="p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl flex items-center gap-3 animate-shake">
+              <FiAlertCircle className="w-5 h-5 flex-shrink-0" />
+              <p className="text-xs font-bold uppercase tracking-tight">{error}</p>
+            </div>
+          )}
           <Tabs 
             tabs={[
               { id: 'info', label: 'Identitas', icon: <Package className="w-4 h-4" /> },

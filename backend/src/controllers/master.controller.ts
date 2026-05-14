@@ -739,6 +739,7 @@ const processMedicinePhoto = async (file: Express.Multer.File): Promise<string> 
 export const getMedicines = async (req: Request, res: Response) => {
   try {
     const { search, isActive, clinicId } = req.query
+    const { page, limit, skip } = getPaginationOptions(req.query)
     const currentClinicId = (req as any).clinicId
     const isAdminView = (req as any).isAdminView
 
@@ -746,38 +747,46 @@ export const getMedicines = async (req: Request, res: Response) => {
       ? (clinicId === 'all' ? undefined : (clinicId ? String(clinicId) : undefined))
       : currentClinicId
 
-    const medicines = await prisma.medicine.findMany({
-      where: {
-        AND: [
-          ...(targetClinicId ? [{
-            OR: [
-              { clinicId: targetClinicId },
-              { clinicId: null }
-            ]
-          }] : []),
-          ...(search ? [{
-            OR: [
-              { medicineName: { contains: String(search), mode: 'insensitive' as "insensitive" } },
-              { genericName: { contains: String(search), mode: 'insensitive' as "insensitive" } },
-              { description: { contains: String(search), mode: 'insensitive' as "insensitive" } },
-            ]
-          }] : []),
-          ...(isActive !== undefined ? [{ isActive: isActive === 'true' }] : []),
-        ]
-      },
-      include: { 
-        clinic: true,
-        productMaster: {
-          include: {
-            products: {
-              where: targetClinicId ? { clinicId: targetClinicId } : {},
-              include: { clinic: true }
+    const where: any = {
+      AND: [
+        ...(targetClinicId ? [{
+          OR: [
+            { clinicId: targetClinicId },
+            { clinicId: null }
+          ]
+        }] : []),
+        ...(search ? [{
+          OR: [
+            { medicineName: { contains: String(search), mode: 'insensitive' as "insensitive" } },
+            { genericName: { contains: String(search), mode: 'insensitive' as "insensitive" } },
+            { description: { contains: String(search), mode: 'insensitive' as "insensitive" } },
+            { productMaster: { masterCode: { contains: String(search), mode: 'insensitive' as "insensitive" } } }
+          ]
+        }] : []),
+        ...(isActive !== undefined ? [{ isActive: isActive === 'true' }] : []),
+      ]
+    }
+
+    const [total, medicines] = await Promise.all([
+      prisma.medicine.count({ where }),
+      prisma.medicine.findMany({
+        where,
+        include: { 
+          clinic: true,
+          productMaster: {
+            include: {
+              products: {
+                where: targetClinicId ? { clinicId: targetClinicId } : {},
+                include: { clinic: true }
+              }
             }
-          }
-        } 
-      },
-      orderBy: { medicineName: 'asc' },
-    })
+          } 
+        },
+        orderBy: { medicineName: 'asc' },
+        skip,
+        take: limit
+      })
+    ])
 
     // Map to unified stock format using synced quantity field and reserved calculation
     const allProdIds = medicines.flatMap(m => m.productMaster?.products?.map(p => p.id) || [])
@@ -793,7 +802,8 @@ export const getMedicines = async (req: Request, res: Response) => {
     }, {} as Record<string, number>)
 
     const data = medicines.map(m => {
-      const products = m.productMaster?.products || []
+      const pm = m.productMaster
+      const products = pm?.products || []
       const physicalStock = products.reduce((sum, p) => sum + (p.quantity || 0), 0)
       const reservedStock = products.reduce((sum, p) => sum + (reservedByProduct[p.id] || 0), 0)
       const totalAvailable = Math.max(0, physicalStock - reservedStock)
@@ -810,7 +820,15 @@ export const getMedicines = async (req: Request, res: Response) => {
       }
     })
 
-    res.json(data)
+    res.json({
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    })
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })
   }
@@ -836,29 +854,38 @@ export const createMedicine = async (req: Request, res: Response) => {
     
     // LINK TO MASTER: If masterProductId is provided, link it. Otherwise create one.
     try {
-      if (masterProductId) {
+      if (masterProductId && masterProductId !== '') {
         await prisma.productMaster.update({
           where: { id: masterProductId },
           data: { medicineId: med.id }
         })
       } else {
         // Fallback: Create Product Master entry for this medicine if none provided
-        let category = await prisma.productCategory.findUnique({ where: { categoryName: 'Medicine' } })
+        let category = await prisma.productCategory.findFirst({ 
+          where: { 
+            OR: [
+              { categoryName: 'Obat-obatan' },
+              { categoryName: 'Medicine' }
+            ]
+          } 
+        })
+        
         if (!category) {
           category = await prisma.productCategory.create({ 
-            data: { categoryName: 'Medicine', description: 'Kategori otomatis untuk obat-obatan klinis' } 
+            data: { categoryName: 'Obat-obatan', description: 'Kategori otomatis untuk obat-obatan klinis' } 
           })
         }
 
         await prisma.productMaster.create({
           data: {
-            masterCode: `MED-${Date.now().toString().slice(-6)}`,
+            masterCode: med.medicineCode || `MED-${Date.now().toString().slice(-6)}`,
             masterName: med.medicineName,
             description: med.description,
             image: med.image,
             categoryId: category.id,
             medicineId: med.id,
-            isActive: med.isActive
+            isActive: med.isActive,
+            manufacturer: med.manufacturer
           }
         })
       }
@@ -930,6 +957,48 @@ export const updateMedicine = async (req: Request, res: Response) => {
     res.json(med)
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const syncMasterToMedicines = async (req: Request, res: Response) => {
+  try {
+    // Category IDs for Obat-obatan and Alkes
+    const categories = [
+      'de1cf644-3b0c-453e-8982-ffdf28af8860', // Obat-obatan
+      'f83bc6a9-62ee-4d16-b1eb-daba37de3faa', // Alkes
+      'd43ab4ce-82fa-47d6-b36c-ecb23d7b1897'  // BHP
+    ];
+
+    const products = await prisma.productMaster.findMany({
+      where: {
+        categoryId: { in: categories },
+        medicineId: null
+      }
+    });
+
+    let count = 0;
+    for (const p of products) {
+      const medicine = await prisma.medicine.create({
+        data: {
+          medicineName: p.masterName,
+          medicineCode: p.masterCode,
+          description: p.description,
+          manufacturer: p.manufacturer,
+          image: p.image,
+          isActive: p.isActive
+        }
+      });
+
+      await prisma.productMaster.update({
+        where: { id: p.id },
+        data: { medicineId: medicine.id }
+      });
+      count++;
+    }
+
+    res.json({ message: `Successfully synced ${count} products to medicine catalog`, count });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
   }
 }
 
@@ -1506,7 +1575,7 @@ export const createAsset = async (req: Request, res: Response) => {
         if (creditCoa) {
           await tx.journalEntry.create({
             data: {
-              date: purchaseDate ? new Date(`${purchaseDate}T00:00:00+07:00`) : new Date(),
+              date: asset.purchaseDate || new Date(),
               description: `Pembelian Aset: ${otherData.assetName} (${asset.assetCode})`,
               referenceNo: `ASSET-${asset.assetCode}`,
               entryType: 'SYSTEM',
