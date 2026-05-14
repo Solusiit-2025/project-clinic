@@ -4,21 +4,15 @@ import { AuthService } from '../services/auth.service'
 const IS_PRODUCTION = process.env.NODE_ENV === 'production'
 
 // Access token cookie — short-lived (15 min), HttpOnly
-const accessCookieOptions = {
-  httpOnly: true,
-  secure: IS_PRODUCTION,
-  sameSite: 'lax' as const,
-  maxAge: 15 * 60 * 1000, // 15 minutes
-  path: '/',
-}
-
-// Refresh token cookie — long-lived (7 days), HttpOnly, restricted path
-const refreshCookieOptions = {
-  httpOnly: true,
-  secure: IS_PRODUCTION,
-  sameSite: 'lax' as const,
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-  path: '/api/auth', // Only sent to /api/auth/* — not every request
+const getCookieOptions = (req: Request, isRefresh: boolean = false) => {
+  const isLocalhost = req.hostname === 'localhost' || req.hostname === '127.0.0.1'
+  return {
+    httpOnly: true,
+    secure: IS_PRODUCTION && !isLocalhost,
+    sameSite: 'lax' as const,
+    maxAge: isRefresh ? 7 * 24 * 60 * 60 * 1000 : 15 * 60 * 1000,
+    path: isRefresh ? '/api/auth' : '/',
+  }
 }
 
 const clearCookieOptions = { path: '/' }
@@ -33,10 +27,10 @@ export class AuthController {
       }
 
       const result = await AuthService.login(email, password)
-
-      // Set both tokens as HttpOnly cookies — never exposed to JavaScript
-      res.cookie('auth_token', result.accessToken, accessCookieOptions)
-      res.cookie('refresh_token', result.refreshToken, refreshCookieOptions)
+      
+      // Set both tokens as HttpOnly cookies using the dynamic options
+      res.cookie('auth_token', result.accessToken, getCookieOptions(req))
+      res.cookie('refresh_token', result.refreshToken, getCookieOptions(req, true))
 
       // Return user data only — no tokens in response body
       res.status(200).json({ user: result.user })
@@ -56,7 +50,7 @@ export class AuthController {
       const result = await AuthService.refreshAccessToken(refreshToken)
 
       // Issue new access token cookie
-      res.cookie('auth_token', result.accessToken, accessCookieOptions)
+      res.cookie('auth_token', result.accessToken, getCookieOptions(req))
 
       res.status(200).json({ message: 'Token diperbarui' })
     } catch (error) {

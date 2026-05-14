@@ -326,24 +326,35 @@ export default function DoctorConsultationPage() {
       }
       try {
         setIsSearchingMed(true)
+        console.log(`[Debug] Fetching medicines for clinic: ${queue?.clinicId || 'global'}`)
         const medRes = await api.get('master/products', { 
           headers: queue?.clinicId ? { 'x-clinic-id': queue.clinicId } : undefined,
           params: { 
             isActive: true, 
             search: searchMed || undefined, 
-            limit: 100, // Meningkatkan limit agar lebih banyak produk muncul
-            clinicId: queue?.clinicId
+            limit: 100,
+            clinicId: queue?.clinicId || activeClinicId // Gunakan activeClinicId sebagai fallback
           },
           signal: controller.signal
         })
+        
+        console.log('[Debug] Medicine response:', medRes.data)
         const list = medRes.data.data || medRes.data
-        // Filter produk yang punya medicineId (obat klinis) ATAU compoundFormulaId (racikan)
-        // Standarisasi: Tampilkan yang ada stoknya saja dan urutkan berdasarkan stok terbanyak (User Request)
+        
         const processedList = Array.isArray(list) 
           ? list
-              .filter((m: any) => (m.availableStock ?? m.stock) > 0)
-              .sort((a: any, b: any) => (b.availableStock ?? b.stock) - (a.availableStock ?? a.stock))
+              .filter((m: any) => {
+                const stock = m.availableStock ?? m.stock ?? 0
+                return stock > 0
+              })
+              .sort((a: any, b: any) => {
+                const stockA = a.availableStock ?? a.stock ?? 0
+                const stockB = b.availableStock ?? b.stock ?? 0
+                return stockB - stockA
+              })
           : []
+        
+        console.log('[Debug] Processed medicines:', processedList.length)
         setSearchMedicines(processedList)
       } catch (e: any) {
         if (e.name === 'CanceledError' || e.name === 'AbortError') return

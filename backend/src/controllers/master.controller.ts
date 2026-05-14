@@ -1089,7 +1089,16 @@ export const getProductMasters = async (req: Request, res: Response) => {
           { sku: { contains: String(search), mode: 'insensitive' } },
           { productType: { contains: String(search), mode: 'insensitive' } }
         ]
-      } : {}),
+      } : {
+        // Jika tidak sedang mencari (awal buka dialog), 
+        // hanya ambil produk yang punya stok > 0 di klinik target
+        products: {
+          some: {
+            clinicId: targetClinicId || undefined,
+            quantity: { gt: 0 }
+          }
+        }
+      }),
       ...(categoryId ? { categoryId: String(categoryId) } : {}),
       ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
     }
@@ -1101,18 +1110,15 @@ export const getProductMasters = async (req: Request, res: Response) => {
         include: { 
           productCategory: true,
           medicine: true,
-          compoundFormula: true, // Include compound formula info
+          compoundFormula: true,
           products: { 
             where: targetClinicId ? { clinicId: targetClinicId } : {},
             include: { clinic: true }
           }
         },
-        orderBy: [
-          { productCategory: { categoryName: 'asc' } },
-          { masterName: 'asc' }
-        ],
+        orderBy: { masterName: 'asc' },
         skip,
-        take
+        take: search ? take : 1000 // Ambil sampai 1000 data agar "semua" yang punya stok muncul
       })
     ])
     
@@ -1148,6 +1154,11 @@ export const getProductMasters = async (req: Request, res: Response) => {
         unit: primaryProduct?.usedUnit || primaryProduct?.unit || p.usedUnit || p.defaultUnit || 'Unit'
       }
     })
+
+    // Sort by stock DESC only when not searching (so initial list shows available items first)
+    if (!search) {
+      data.sort((a, b) => (b.availableStock || 0) - (a.availableStock || 0))
+    }
 
     const result: PaginatedResult<any> = {
       data,
