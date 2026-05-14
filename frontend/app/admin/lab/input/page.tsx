@@ -706,7 +706,7 @@ export default function LabInputPage() {
                     const seenNames = new Set()
 
                     // Priority 1: Specific ordered tests from doctor instructions
-                    ordered.forEach(t => {
+                    ordered.forEach((t: any) => {
                       const nameLower = t.name?.toLowerCase()
                       if (nameLower && !seenNames.has(nameLower)) {
                         mergedInstructions.push({ name: t.name, source: 'ordered' })
@@ -715,7 +715,7 @@ export default function LabInputPage() {
                     })
 
                     // Priority 2: Finalized services in medical record
-                    finalServiceLab.forEach(s => {
+                    finalServiceLab.forEach((s: any) => {
                       const name = s.service?.serviceName
                       const nameLower = name?.toLowerCase()
                       if (nameLower && !seenNames.has(nameLower)) {
@@ -726,7 +726,7 @@ export default function LabInputPage() {
 
                     // Priority 3: Draft services if no final services exist
                     if (finalServiceLab.length === 0) {
-                      draftLab.forEach(s => {
+                      draftLab.forEach((s: any) => {
                         const nameLower = s.name?.toLowerCase()
                         if (nameLower && !seenNames.has(nameLower)) {
                           mergedInstructions.push({ name: s.name, source: 'draft' })
