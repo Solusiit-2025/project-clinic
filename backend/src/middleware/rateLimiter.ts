@@ -3,15 +3,19 @@ import rateLimit from 'express-rate-limit'
 // Rate limiter for login endpoint - prevent brute force attacks
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 login attempts per 15 minutes per IP
-  message: 'Terlalu banyak percobaan login dari IP ini. Silakan coba lagi dalam 15 menit.',
-  standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
-  legacyHeaders: false, // Disable `X-RateLimit-*` headers
-  skipSuccessfulRequests: true, // Don't count successful logins against the limit
+  max: 5, // 5 login attempts per 15 minutes per IP + Email
+  message: 'Terlalu banyak percobaan login. Akun Anda mungkin sedang diserang. Coba lagi dalam 15 menit atau hubungi administrator.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  keyGenerator: (req) => {
+    // Combine IP and Email to avoid blocking everyone behind the same NAT
+    return `${req.ip}_${req.body.email || 'anonymous'}`;
+  },
   handler: (req, res) => {
     res.status(429).json({
       message: 'Terlalu banyak percobaan login. Akun Anda mungkin sedang diserang. Coba lagi dalam 15 menit atau hubungi administrator.',
-      retryAfter: Math.ceil(15 * 60), // seconds
+      retryAfter: Math.ceil(15 * 60),
     })
   },
 })

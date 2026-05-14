@@ -357,123 +357,188 @@ export default function NurseStation() {
         title="Pemeriksaan Tanda Vital & Keluhan"
         size="lg"
       >
-        <div className="space-y-6">
+        <div className="space-y-8">
+          {/* Patient Info Header - Compact & Professional */}
           {selectedQueue && (
-            <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-black text-primary uppercase tracking-widest leading-none mb-1">Pasien</p>
-                <p className="text-sm font-black text-gray-900">{selectedQueue.patient.name} ({selectedQueue.queueNo})</p>
+            <div className="bg-slate-900 rounded-2xl p-5 text-white shadow-xl flex items-center justify-between border-b-4 border-primary">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
+                  <FiUser className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] leading-none mb-1">Identitas Pasien</p>
+                  <h3 className="text-base font-black tracking-tight">{selectedQueue.patient.name}</h3>
+                  <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest">{selectedQueue.patient.medicalRecordNo} • {selectedQueue.patient.gender === 'M' ? 'Laki-laki' : 'Perempuan'}</p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-[10px] font-black text-primary uppercase tracking-widest leading-none mb-1">Tujuan</p>
-                <p className="text-sm font-black text-gray-900">{selectedQueue.department?.name || 'Umum'}</p>
+              <div className="text-right hidden sm:block">
+                <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] leading-none mb-1">Unit Layanan</p>
+                <h3 className="text-sm font-black uppercase">{selectedQueue.department?.name || 'Umum'}</h3>
+                <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest">Antrean: {selectedQueue.queueNo}</p>
               </div>
             </div>
           )}
 
-          <div className="space-y-4">
-             <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 px-1">Keluhan Utama (Chief Complaint) *</label>
-                <textarea 
-                  value={form.chiefComplaint}
-                  onChange={(e) => setForm({...form, chiefComplaint: e.target.value})}
-                  className="w-full px-4 py-3 text-sm border border-gray-100 bg-gray-50/30 rounded-2xl focus:outline-none focus:border-primary font-bold placeholder:text-gray-300 text-gray-700 resize-none h-24"
-                  placeholder="Ceritakan keluhan utama pasien..."
-                />
-             </div>
+          <div className="space-y-8">
+            {/* Chief Complaint Section */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-1 px-1">
+                <FiClipboard className="text-primary w-4 h-4" />
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-[0.15em]">Keluhan & Anamnesa Awal</h3>
+              </div>
+              <textarea 
+                value={form.chiefComplaint}
+                onChange={(e) => setForm({...form, chiefComplaint: e.target.value})}
+                className="w-full px-5 py-4 text-sm border-2 border-slate-100 bg-slate-50/30 rounded-2xl focus:outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/5 transition-all font-bold placeholder:text-slate-300 text-slate-700 resize-none h-28 shadow-inner"
+                placeholder="Tuliskan keluhan utama dan riwayat singkat pasien..."
+              />
+            </div>
 
-             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-1.5">
-                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1 px-1">
-                      <FiActivity className="w-3 h-3" /> BB (kg)
-                   </label>
-                   <input 
+            {/* Vitals Grid - Metric Card Style */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-1 px-1">
+                <FiActivity className="text-primary w-4 h-4" />
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-[0.15em]">Pemeriksaan Fisik / Tanda Vital</h3>
+              </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {/* Weight */}
+                <div className="group space-y-2 p-4 bg-white border-2 border-slate-50 rounded-2xl hover:border-primary/30 transition-all shadow-sm">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Berat Badan</label>
+                  <div className="relative">
+                    <input 
                       type="number" step="0.1" value={form.vitals.weight}
                       onChange={(e) => setForm({...form, vitals: {...form.vitals, weight: e.target.value}})}
-                      className="w-full px-4 py-2.5 text-sm border border-gray-100 bg-gray-50/30 rounded-xl focus:outline-none focus:border-primary font-black"
-                   />
+                      className="w-full pl-0 pr-8 py-1 text-lg font-black text-slate-900 bg-transparent border-none focus:ring-0 outline-none"
+                      placeholder="0.0"
+                    />
+                    <span className="absolute right-0 bottom-1.5 text-[10px] font-black text-slate-300 group-hover:text-primary transition-colors">kg</span>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1 px-1">
-                      <FiActivity className="w-3 h-3" /> TB (cm)
-                   </label>
-                   <input 
+
+                {/* Height */}
+                <div className="group space-y-2 p-4 bg-white border-2 border-slate-50 rounded-2xl hover:border-primary/30 transition-all shadow-sm">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Tinggi Badan</label>
+                  <div className="relative">
+                    <input 
                       type="number" value={form.vitals.height}
                       onChange={(e) => setForm({...form, vitals: {...form.vitals, height: e.target.value}})}
-                      className="w-full px-4 py-2.5 text-sm border border-gray-100 bg-gray-50/30 rounded-xl focus:outline-none focus:border-primary font-black"
-                   />
+                      className="w-full pl-0 pr-8 py-1 text-lg font-black text-slate-900 bg-transparent border-none focus:ring-0 outline-none"
+                      placeholder="0"
+                    />
+                    <span className="absolute right-0 bottom-1.5 text-[10px] font-black text-slate-300 group-hover:text-primary transition-colors">cm</span>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1 px-1">
-                      <FiThermometer className="w-3 h-3" /> Suhu (°C)
-                   </label>
-                   <input 
+
+                {/* Temperature */}
+                <div className="group space-y-2 p-4 bg-white border-2 border-slate-50 rounded-2xl hover:border-primary/30 transition-all shadow-sm">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Suhu Tubuh</label>
+                  <div className="relative">
+                    <input 
                       type="number" step="0.1" value={form.vitals.temperature}
                       onChange={(e) => setForm({...form, vitals: {...form.vitals, temperature: e.target.value}})}
-                      className="w-full px-4 py-2.5 text-sm border border-gray-100 bg-gray-50/30 rounded-xl focus:outline-none focus:border-primary font-black"
-                   />
+                      className="w-full pl-0 pr-8 py-1 text-lg font-black text-slate-900 bg-transparent border-none focus:ring-0 outline-none"
+                      placeholder="36.5"
+                    />
+                    <span className="absolute right-0 bottom-1.5 text-[10px] font-black text-slate-300 group-hover:text-primary transition-colors">°C</span>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1 px-1">
-                      <FiHeart className="w-3 h-3" /> Tensi (syst/diast)
-                   </label>
-                   <input 
-                      type="text" value={form.vitals.bloodPressure} placeholder="120/80"
+
+                {/* Blood Pressure */}
+                <div className="group space-y-2 p-4 bg-white border-2 border-slate-50 rounded-2xl hover:border-primary/30 transition-all shadow-sm">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Tekanan Darah</label>
+                  <div className="relative">
+                    <input 
+                      type="text" value={form.vitals.bloodPressure}
                       onChange={(e) => setForm({...form, vitals: {...form.vitals, bloodPressure: e.target.value}})}
-                      className="w-full px-4 py-2.5 text-sm border border-gray-100 bg-gray-50/30 rounded-xl focus:outline-none focus:border-primary font-black"
-                   />
+                      className="w-full pl-0 pr-12 py-1 text-lg font-black text-slate-900 bg-transparent border-none focus:ring-0 outline-none"
+                      placeholder="120/80"
+                    />
+                    <span className="absolute right-0 bottom-1.5 text-[10px] font-black text-slate-300 group-hover:text-primary transition-colors">mmHg</span>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1 px-1">
-                      <FiHeart className="w-3 h-3" /> Nadi (bpm)
-                   </label>
-                   <input 
+
+                {/* Heart Rate */}
+                <div className="group space-y-2 p-4 bg-white border-2 border-slate-50 rounded-2xl hover:border-primary/30 transition-all shadow-sm">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Detak Jantung</label>
+                  <div className="relative">
+                    <input 
                       type="number" value={form.vitals.heartRate}
                       onChange={(e) => setForm({...form, vitals: {...form.vitals, heartRate: e.target.value}})}
-                      className="w-full px-4 py-2.5 text-sm border border-gray-100 bg-gray-50/30 rounded-xl focus:outline-none focus:border-primary font-black"
-                   />
+                      className="w-full pl-0 pr-10 py-1 text-lg font-black text-slate-900 bg-transparent border-none focus:ring-0 outline-none"
+                      placeholder="80"
+                    />
+                    <span className="absolute right-0 bottom-1.5 text-[10px] font-black text-slate-300 group-hover:text-primary transition-colors">bpm</span>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1 px-1">
-                      <FiWind className="w-3 h-3" /> Resp (bpm)
-                   </label>
-                   <input 
+
+                {/* Respiratory Rate */}
+                <div className="group space-y-2 p-4 bg-white border-2 border-slate-50 rounded-2xl hover:border-primary/30 transition-all shadow-sm">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Laju Nafas</label>
+                  <div className="relative">
+                    <input 
                       type="number" value={form.vitals.respiratoryRate}
                       onChange={(e) => setForm({...form, vitals: {...form.vitals, respiratoryRate: e.target.value}})}
-                      className="w-full px-4 py-2.5 text-sm border border-gray-100 bg-gray-50/30 rounded-xl focus:outline-none focus:border-primary font-black"
-                   />
+                      className="w-full pl-0 pr-10 py-1 text-lg font-black text-slate-900 bg-transparent border-none focus:ring-0 outline-none"
+                      placeholder="20"
+                    />
+                    <span className="absolute right-0 bottom-1.5 text-[10px] font-black text-slate-300 group-hover:text-primary transition-colors">x/mnt</span>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1 px-1">
-                      <FiActivity className="w-3 h-3" /> SpO2 (%)
-                   </label>
-                   <input 
+
+                {/* Blood Oxygen */}
+                <div className="group space-y-2 p-4 bg-white border-2 border-slate-50 rounded-2xl hover:border-primary/30 transition-all shadow-sm">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Saturasi O2</label>
+                  <div className="relative">
+                    <input 
                       type="number" value={form.vitals.bloodOxygen}
                       onChange={(e) => setForm({...form, vitals: {...form.vitals, bloodOxygen: e.target.value}})}
-                      className="w-full px-4 py-2.5 text-sm border border-gray-100 bg-gray-50/30 rounded-xl focus:outline-none focus:border-primary font-black"
-                   />
+                      className="w-full pl-0 pr-8 py-1 text-lg font-black text-slate-900 bg-transparent border-none focus:ring-0 outline-none"
+                      placeholder="98"
+                    />
+                    <span className="absolute right-0 bottom-1.5 text-[10px] font-black text-slate-300 group-hover:text-primary transition-colors">%</span>
+                  </div>
                 </div>
-             </div>
+              </div>
+            </div>
 
-             <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 px-1">Catatan Tambahan Perawat</label>
-                <textarea 
-                  value={form.vitals.notes}
-                  onChange={(e) => setForm({...form, vitals: {...form.vitals, notes: e.target.value}})}
-                  className="w-full px-4 py-3 text-sm border border-gray-100 bg-gray-50/30 rounded-2xl focus:outline-none focus:border-primary font-bold placeholder:text-gray-300 text-gray-700 resize-none h-20"
-                  placeholder="Catatan jika ada kondisi khusus..."
-                />
-             </div>
+            {/* Nurse Notes */}
+            <div className="space-y-3 pt-2">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Catatan Tambahan Perawat</label>
+              <textarea 
+                value={form.vitals.notes}
+                onChange={(e) => setForm({...form, vitals: {...form.vitals, notes: e.target.value}})}
+                className="w-full px-5 py-4 text-xs border-2 border-slate-100 bg-slate-50/30 rounded-2xl focus:outline-none focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/5 transition-all font-bold placeholder:text-slate-300 text-slate-700 resize-none h-20 shadow-inner"
+                placeholder="Catatan tambahan (misal: kondisi sadar, gcs, dll)..."
+              />
+            </div>
           </div>
 
-          <div className="flex gap-4 pt-4 border-t border-gray-100">
-            <button type="button" onClick={() => setModalOpen(false)} className="flex-1 py-3 border border-gray-100 rounded-2xl text-[11px] font-black text-gray-400 tracking-widest uppercase hover:bg-gray-50 transition-all">Batal</button>
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t-2 border-slate-50">
+            <button 
+              type="button" 
+              onClick={() => setModalOpen(false)} 
+              className="flex-1 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] font-black text-slate-400 tracking-[0.2em] uppercase hover:bg-slate-100 transition-all"
+            >
+              Batal
+            </button>
             <button 
               onClick={handleSaveVitals} 
               disabled={saving || !form.chiefComplaint}
-              className="flex-1 py-3 bg-primary text-white rounded-2xl text-[11px] font-black tracking-widest uppercase shadow-lg shadow-primary/20 disabled:opacity-50 transition-all active:scale-95"
+              className="flex-[2] py-4 bg-primary text-white rounded-2xl text-[11px] font-black tracking-[0.2em] uppercase shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-3"
             >
-                {saving ? 'MENYIMPAN...' : 'SIMPAN & KIRIM KE ANTREAN DOKTER'}
+              {saving ? (
+                <>
+                  <FiRefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Sedang Menyimpan...</span>
+                </>
+              ) : (
+                <>
+                  <span>Simpan & Kirim ke Dokter</span>
+                  <FiArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </div>
         </div>

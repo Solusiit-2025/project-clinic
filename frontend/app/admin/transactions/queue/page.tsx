@@ -11,7 +11,7 @@ import {
 } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import Link from 'next/link'
-import { announceQueue } from '@/lib/utils/speech'
+import { announceQueue, resetSpeech } from '@/lib/utils/speech'
 
 // API endpoint for transactions
 const TX_API = 'transactions'
@@ -220,7 +220,13 @@ export default function QueueDashboard() {
           
           {/* SOUND TOGGLE */}
           <button 
-            onClick={() => setIsSoundEnabled(!isSoundEnabled)}
+            onClick={() => {
+              const nextState = !isSoundEnabled
+              setIsSoundEnabled(nextState)
+              if (nextState) {
+                resetSpeech() // Unlock and clear any stuck speech states
+              }
+            }}
             className={`flex items-center gap-2 px-3 md:px-4 py-2 md:py-2 rounded-xl border transition-all ${
               isSoundEnabled 
               ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-[1.02]' 
@@ -347,12 +353,23 @@ export default function QueueDashboard() {
                           <p className="text-[10px] font-black text-amber-600 uppercase tracking-tighter italic">Sedang diperiksa perawat...</p>
                        </div>
                     ) : (
-                       <button 
-                         onClick={() => updateStatus(q.id, 'called')}
-                         className="w-full mt-5 py-3.5 bg-primary text-white text-xs font-black rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-primary/20 uppercase tracking-widest"
-                       >
-                         {q.status === 'called' ? 'PANGGIL ULANG' : 'PANGGIL KE PRA-PEMERIKSAAN'}
-                       </button>
+                      <>
+                        <button 
+                          onClick={() => updateStatus(q.id, 'called')}
+                          className="w-full mt-5 py-3.5 bg-primary text-white text-xs font-black rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-primary/20 uppercase tracking-widest"
+                        >
+                          {q.status === 'called' ? 'PANGGIL ULANG' : 'PANGGIL KE PRA-PEMERIKSAAN'}
+                        </button>
+                        
+                        {q.status === 'called' && (
+                          <Link 
+                            href="/admin/transactions/nurse"
+                            className="w-full mt-2 py-3 bg-white border border-gray-200 text-gray-500 text-[10px] font-black rounded-2xl hover:bg-gray-50 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+                          >
+                            <FiExternalLink className="w-3.5 h-3.5 text-primary" /> Input Vital Sign (Nurse)
+                          </Link>
+                        )}
+                      </>
                     )}
                   </motion.div>
                 ))}

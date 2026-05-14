@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   FiHome, FiGlobe, FiUsers, FiCalendar, FiUserPlus,
   FiSettings, FiLogOut, FiChevronDown, FiDatabase,
@@ -20,23 +20,77 @@ import {
   MAIN_MENU, LAYANAN_UTAMA_GROUPS, FINANCE_GROUPS, LOGISTIK_GROUPS, ASSET_GROUPS, MASTER_GROUPS
 } from '@/lib/menuConfig'
 
-// --- Tooltip Component ---
-const Tooltip = ({ text, visible }: { text: string; visible: boolean }) => (
-  <AnimatePresence>
-    {visible && (
-      <motion.div
-        initial={{ opacity: 0, x: 10 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: 10 }}
-        className="fixed left-20 z-[60] px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg shadow-2xl pointer-events-none whitespace-nowrap border border-white/10 backdrop-blur-md"
-        style={{ backgroundColor: 'var(--text-primary)', color: 'var(--bg-surface)' }}
-      >
-        {text}
-        <div className="absolute left-[-4px] top-1/2 -translate-y-1/2 border-y-[4px] border-y-transparent border-r-[4px]" style={{ borderRightColor: 'var(--text-primary)' }} />
-      </motion.div>
-    )}
-  </AnimatePresence>
-)
+// --- Floating Menu Component ---
+const FloatingMenu = ({
+  label,
+  items,
+  visible,
+  top,
+  pathname,
+  onMouseEnter,
+  onMouseLeave
+}: {
+  label: string;
+  items?: any[];
+  visible: boolean;
+  top: number;
+  pathname: string;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+}) => {
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          initial={{ opacity: 0, x: 8 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: 8 }}
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
+          className="fixed z-[100] min-w-[220px] rounded-2xl shadow-2xl border border-white/10 backdrop-blur-xl p-2.5"
+          style={{ 
+            left: '74px', 
+            top: Math.max(10, Math.min(top, typeof window !== 'undefined' ? window.innerHeight - 300 : top)),
+            backgroundColor: 'var(--sidebar-bg)',
+            boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)',
+            borderLeft: '3px solid var(--primary)'
+          }}
+        >
+          <div className="px-3 py-2 mb-1.5 border-b border-white/5">
+            <p className="text-[10px] font-black uppercase tracking-[0.15em] opacity-50" style={{ color: 'var(--text-primary)' }}>
+              {label}
+            </p>
+          </div>
+          <div className="flex flex-col gap-1">
+            {items && items.length > 0 ? (
+              items.map((item) => {
+                const isActive = pathname === item.href
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-[13px] font-bold group/float"
+                    style={{
+                      backgroundColor: isActive ? 'var(--primary)' : 'transparent',
+                      color: isActive ? '#ffffff' : 'var(--text-muted)',
+                    }}
+                  >
+                    <item.icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : 'group-hover/float:text-primary'}`} />
+                    <span className="truncate tracking-tight">{item.label}</span>
+                  </Link>
+                )
+              })
+            ) : (
+              <div className="px-3 py-2 text-[11px] font-bold italic opacity-30">No sub-items</div>
+            )}
+          </div>
+          {/* Connector Arrow */}
+          <div className="absolute left-[-6px] top-4 w-3 h-3 rotate-45 border-l border-b border-white/10" style={{ backgroundColor: 'var(--sidebar-bg)' }} />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
 
 // --- Nav Item Component ---
 const SidebarNavItem = ({
@@ -51,12 +105,29 @@ const SidebarNavItem = ({
   isMobile: boolean;
 }) => {
   const [hover, setHover] = useState(false)
+  const [menuTop, setMenuTop] = useState(0)
+  const timeoutRef = useRef<any>(null)
+  const itemRef = useRef<HTMLDivElement>(null)
   const isActive = pathname === item.href
+
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    if (itemRef.current) {
+      const rect = itemRef.current.getBoundingClientRect()
+      setMenuTop(rect.top)
+    }
+    setHover(true)
+  }
+
+  const handleMouseLeave = () => {
+    timeoutRef.current = setTimeout(() => setHover(false), 100)
+  }
 
   return (
     <div
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
+      ref={itemRef}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       className="relative"
     >
       <Link
@@ -68,18 +139,6 @@ const SidebarNavItem = ({
           color: isActive ? 'var(--primary)' : 'var(--text-muted)',
           fontWeight: isActive ? '800' : '600',
         }}
-        onMouseEnter={(e) => {
-          if (!isActive) {
-            (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--sidebar-item-hover)'
-            ;(e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!isActive) {
-            (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'
-            ;(e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'
-          }
-        }}
       >
         <item.icon className="w-5 h-5 flex-shrink-0" />
         {(!isCollapsed || isMobile) && <span className="text-[13px] truncate tracking-tight">{item.label}</span>}
@@ -87,7 +146,19 @@ const SidebarNavItem = ({
           <motion.span layoutId="active-dot" className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
         )}
       </Link>
-      {isCollapsed && !isMobile && <Tooltip text={item.label} visible={hover} />}
+      {isCollapsed && !isMobile && (
+        <FloatingMenu 
+          label={item.label} 
+          visible={hover} 
+          top={menuTop} 
+          pathname={pathname}
+          onMouseEnter={() => {
+            if (timeoutRef.current) clearTimeout(timeoutRef.current)
+            setHover(true)
+          }}
+          onMouseLeave={() => setHover(false)}
+        />
+      )}
     </div>
   )
 }
@@ -113,6 +184,10 @@ const SidebarNavGroup = ({
   user?: any;
 }) => {
   const [hover, setHover] = useState(false)
+  const [menuTop, setMenuTop] = useState(0)
+  const timeoutRef = useRef<any>(null)
+  const groupRef = useRef<HTMLDivElement>(null)
+
   const isGroupActive = useMemo(() => group.items.some((i: any) => pathname === i.href), [group.items, pathname])
   const isOpen = openGroups.includes(group.label) || isGroupActive
 
@@ -124,26 +199,38 @@ const SidebarNavGroup = ({
     return null;
   }
 
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    if (groupRef.current) {
+      const rect = groupRef.current.getBoundingClientRect()
+      setMenuTop(rect.top)
+    }
+    setHover(true)
+  }
+
+  const handleMouseLeave = () => {
+    timeoutRef.current = setTimeout(() => setHover(false), 100)
+  }
+
+  const filteredItems = group.items.filter((item: any) => {
+    if (item.roles) return item.roles.includes(user?.role)
+    if (item.role) return user?.role === item.role
+    return true
+  })
+
   return (
-    <div className="relative" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+    <div 
+      ref={groupRef}
+      className="relative" 
+      onMouseEnter={handleMouseEnter} 
+      onMouseLeave={handleMouseLeave}
+    >
       <button
         onClick={() => toggleGroup(group.label)}
         className={`flex items-center rounded-xl transition-all ${isCollapsed && !isMobile ? 'justify-center w-10 h-10 mx-auto' : 'gap-2.5 px-3 py-2.5 w-full'}`}
         style={{
           backgroundColor: isGroupActive && !isOpen ? 'var(--sidebar-item-active)' : 'transparent',
           color: isGroupActive ? 'var(--primary)' : 'var(--text-muted)',
-        }}
-        onMouseEnter={(e) => {
-          if (!isGroupActive || isOpen) {
-            (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--sidebar-item-hover)'
-            ;(e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!isGroupActive || isOpen) {
-            (e.currentTarget as HTMLElement).style.backgroundColor = isGroupActive && !isOpen ? 'var(--sidebar-item-active)' : 'transparent'
-            ;(e.currentTarget as HTMLElement).style.color = isGroupActive ? 'var(--primary)' : 'var(--text-muted)'
-          }
         }}
       >
         <group.icon className={`w-5 h-5 flex-shrink-0`} />
@@ -156,7 +243,21 @@ const SidebarNavGroup = ({
           </>
         )}
       </button>
-      {isCollapsed && !isMobile && <Tooltip text={group.label} visible={hover} />}
+      
+      {isCollapsed && !isMobile && (
+        <FloatingMenu 
+          label={group.label} 
+          items={filteredItems}
+          visible={hover} 
+          top={menuTop} 
+          pathname={pathname}
+          onMouseEnter={() => {
+            if (timeoutRef.current) clearTimeout(timeoutRef.current)
+            setHover(true)
+          }}
+          onMouseLeave={() => setHover(false)}
+        />
+      )}
 
       <AnimatePresence initial={false}>
         {isOpen && (!isCollapsed || isMobile) && (
@@ -182,7 +283,7 @@ const SidebarNavGroup = ({
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all text-xs font-bold`}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all text-[13px] font-bold`}
                       style={{
                         backgroundColor: isActive ? 'var(--primary)' : 'transparent',
                         color: isActive ? '#ffffff' : 'var(--text-muted)',
@@ -201,7 +302,7 @@ const SidebarNavGroup = ({
                         }
                       }}
                     >
-                      <item.icon className="w-3.5 h-3.5 flex-shrink-0" />
+                      <item.icon className="w-4 h-4 flex-shrink-0" />
                       <span className="truncate tracking-tight">{item.label}</span>
                     </Link>
                   )
@@ -292,11 +393,13 @@ const SidebarContent = ({
 
         {/* Navigation */}
         <nav className="flex-1 px-3 overflow-y-auto custom-scrollbar pb-10">
-          {(!isCollapsed || isMobile) && (
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] px-3 pt-4 pb-2" style={{ color: 'var(--text-faint)' }}>
-              Menu Farmasi
-            </p>
-          )}
+          <div className="flex items-center justify-between px-3 pt-4 pb-2">
+            {(!isCollapsed || isMobile) && (
+              <p className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: 'var(--text-faint)' }}>
+                Menu Farmasi
+              </p>
+            )}
+          </div>
           <div className="flex flex-col gap-1">
             {FARMASI_MENU.map((item) => (
               <SidebarNavItem
@@ -356,11 +459,36 @@ const SidebarContent = ({
 
     {/* Navigation */}
     <nav className="flex-1 px-3 overflow-y-auto custom-scrollbar pb-10">
-      {(!isCollapsed || isMobile) && (
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] px-3 pt-4 pb-2" style={{ color: 'var(--text-faint)' }}>
-          Menu Utama
-        </p>
-      )}
+      <div className="flex items-center justify-between px-3 pt-4 pb-2">
+        {(!isCollapsed || isMobile) && (
+          <p className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: 'var(--text-faint)' }}>
+            Menu Utama
+          </p>
+        )}
+        {(!isCollapsed || isMobile) && (
+          <button 
+            onClick={() => {
+              const allGroups = [
+                ...MASTER_GROUPS, ...LAYANAN_UTAMA_GROUPS,
+                ...FINANCE_GROUPS, ...LOGISTIK_GROUPS, ...ASSET_GROUPS,
+              ].map(g => g.label)
+              const areAllOpen = allGroups.every(g => openGroups.includes(g))
+              if (areAllOpen) {
+                toggleGroup('__COLLAPSE_ALL__')
+              } else {
+                toggleGroup('__EXPAND_ALL__')
+              }
+            }}
+            className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded hover:bg-primary/10 transition-colors"
+            style={{ color: 'var(--primary)' }}
+          >
+            {[
+              ...MASTER_GROUPS, ...LAYANAN_UTAMA_GROUPS,
+              ...FINANCE_GROUPS, ...LOGISTIK_GROUPS, ...ASSET_GROUPS,
+            ].every(g => openGroups.includes(g.label)) ? 'Collapse All' : 'Expand All'}
+          </button>
+        )}
+      </div>
 
       <div className="flex flex-col gap-1">
         {MAIN_MENU.map((item) => (
@@ -508,7 +636,7 @@ export default function Sidebar({
 } = {}) {
   const pathname = usePathname()
   const { logout, user } = useAuthStore()
-  const [isCollapsed, setIsCollapsed] = useState(true)
+  const [isCollapsed, setIsCollapsed] = useState(false)
   const [openGroups, setOpenGroups] = useState<string[]>([])
   const [mounted, setMounted] = useState(false)
   const [isDesktop, setIsDesktop] = useState(false)
@@ -525,12 +653,12 @@ export default function Sidebar({
     checkDesktop()
     window.addEventListener('resize', checkDesktop)
     
-    // Check for saved preference, but default to collapsed (true) if never set
+    // Check for saved preference, default to expanded (false) if never set
     const saved = localStorage.getItem('sidebar-collapsed')
-    if (saved === 'false') {
-      setIsCollapsed(false)
-    } else {
+    if (saved === 'true') {
       setIsCollapsed(true)
+    } else {
+      setIsCollapsed(false)
     }
 
     const allGroups = [
@@ -538,7 +666,9 @@ export default function Sidebar({
       ...FINANCE_GROUPS, ...LOGISTIK_GROUPS, ...ASSET_GROUPS,
     ]
     const activeGroup = allGroups.find(g => g.items.some((i: any) => i.href === pathname))
-    if (activeGroup) setOpenGroups([activeGroup.label])
+    if (activeGroup) {
+      setOpenGroups(prev => prev.includes(activeGroup.label) ? prev : [...prev, activeGroup.label])
+    }
 
     return () => window.removeEventListener('resize', checkDesktop)
   }, [pathname])
@@ -557,6 +687,21 @@ export default function Sidebar({
       setIsCollapsed(false)
       localStorage.setItem('sidebar-collapsed', 'false')
     }
+
+    if (label === '__EXPAND_ALL__') {
+      const allLabels = [
+        ...MASTER_GROUPS, ...LAYANAN_UTAMA_GROUPS,
+        ...FINANCE_GROUPS, ...LOGISTIK_GROUPS, ...ASSET_GROUPS,
+      ].map(g => g.label)
+      setOpenGroups(allLabels)
+      return
+    }
+
+    if (label === '__COLLAPSE_ALL__') {
+      setOpenGroups([])
+      return
+    }
+
     setOpenGroups(prev =>
       prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label]
     )

@@ -54,6 +54,7 @@ scratch/
 # Database & Cache
 *.db
 *.sqlite
+*.sql
 .eslintcache
 .stylelintcache
 .npm

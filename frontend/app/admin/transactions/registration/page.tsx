@@ -536,108 +536,235 @@ export default function RegistrationPage() {
         )}
       </AnimatePresence>
 
-      {/* Quick Add Patient Modal */}
       <MasterModal 
         isOpen={patientModalOpen} 
         onClose={() => setPatientModalOpen(false)}
         title="Registrasi Pasien Baru" 
-        size="lg"
+        subtitle="Lengkapi informasi identitas dan kontak pasien secara lengkap sebelum melakukan pendaftaran layanan."
+        size="3xl"
       >
-        <div className="space-y-4 md:space-y-6">
+        <div className="py-2 space-y-6">
           {patientError && (
-            <div className="p-2.5 md:p-3 bg-red-50 border border-red-100 rounded-xl text-xs font-medium text-red-700 flex items-center gap-2">
-              <FiAlertCircle className="w-3.5 h-3.5 md:w-4 md:h-4" /> {patientError}
+            <div className="flex items-center gap-3 p-3 bg-red-50 border border-red-100 rounded-md text-sm font-medium text-red-600">
+              <FiAlertCircle className="w-4 h-4 shrink-0" />
+              {patientError}
             </div>
           )}
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-            {/* Identity Group */}
-            <div className="md:col-span-3 pb-2 md:pb-3 border-b border-gray-50 flex items-center gap-2">
-              <div className="w-1.5 h-3 md:w-1.5 md:h-4 bg-primary rounded-full" />
-              <h4 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-gray-900">Identitas Utama</h4>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            {/* Left Section: Personal & Contact */}
+            <div className="lg:col-span-7 space-y-6">
+              
+              {/* Identity Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                  <FiUser className="w-4 h-4 text-slate-400" />
+                  <h3 className="text-sm font-semibold text-slate-900">Identitas Pasien</h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2 md:col-span-1">
+                    <label className="text-[11px] font-medium text-slate-500 flex justify-between items-center">
+                      <span>No. Rekam Medis *</span>
+                      <button type="button" onClick={fetchNextMR} className="text-primary hover:underline flex items-center gap-1 text-[10px] font-semibold">
+                        <FiRefresh className="w-2.5 h-2.5" /> Auto
+                      </button>
+                    </label>
+                    <input 
+                      value={patientForm.medicalRecordNo} 
+                      onChange={(e) => setPatientForm(p => ({...p, medicalRecordNo: e.target.value}))}
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all font-mono font-medium text-primary" 
+                      placeholder="RM-XXXX"
+                    />
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-[11px] font-medium text-slate-500">Nama Lengkap Pasien *</label>
+                    <input 
+                      type="text" 
+                      value={patientForm.name} 
+                      onChange={(e) => setPatientForm(p => ({...p, name: e.target.value}))} 
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all" 
+                      placeholder="Contoh: Budi Santoso"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-slate-500">Jenis Kelamin</label>
+                    <div className="flex gap-1 p-1 bg-slate-50 rounded-md border border-slate-200">
+                      {['M', 'F'].map(g => (
+                        <button 
+                          key={g} type="button" 
+                          onClick={() => setPatientForm(p => ({ ...p, gender: g }))}
+                          className={`flex-1 py-1.5 rounded text-xs font-medium transition-all ${patientForm.gender === g ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                          {g === 'M' ? 'Laki-laki' : 'Perempuan'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-slate-500">Tanggal Lahir</label>
+                    <input 
+                      type="date" 
+                      value={patientForm.dateOfBirth} 
+                      onChange={(e) => setPatientForm(p => ({...p, dateOfBirth: e.target.value}))}
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all" 
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact & Address Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                  <FiMapPin className="w-4 h-4 text-slate-400" />
+                  <h3 className="text-sm font-semibold text-slate-900">Kontak & Alamat</h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-slate-500">No. WhatsApp Aktif *</label>
+                    <input 
+                      type="tel" 
+                      value={patientForm.phone} 
+                      onChange={(e) => setPatientForm(p => ({...p, phone: e.target.value}))}
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all" 
+                      placeholder="0812XXXXXXXX"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-slate-500">Email (Opsional)</label>
+                    <input 
+                      type="email" 
+                      value={patientForm.email} 
+                      onChange={(e) => setPatientForm(p => ({...p, email: e.target.value}))}
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all" 
+                      placeholder="pasien@email.com"
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-[11px] font-medium text-slate-500">Alamat Lengkap</label>
+                    <textarea 
+                      value={patientForm.address} 
+                      onChange={(e) => setPatientForm(p => ({...p, address: e.target.value}))} 
+                      rows={2}
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all resize-none" 
+                      placeholder="Jalan, Blok, No Rumah..." 
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 flex justify-between items-center">
-                <span>No. Rekam Medis *</span>
-                <button type="button" onClick={fetchNextMR} className="text-primary hover:text-primary-dark transition-colors flex items-center gap-1">
-                  <FiRefresh className="w-3 h-3 md:w-3.5 md:h-3.5" />
-                  <span className="text-[8px] md:text-[9px] font-black uppercase">Gen</span>
-                </button>
-              </label>
-              <input 
-                value={patientForm.medicalRecordNo} 
-                onChange={(e) => setPatientForm(p => ({...p, medicalRecordNo: e.target.value}))}
-                placeholder="RM-20240409-0001" 
-                className="w-full px-3 md:px-4 py-2 md:py-2.5 text-sm border border-gray-100 bg-gray-50/30 rounded-2xl focus:outline-none focus:border-primary font-black font-mono text-primary" 
-              />
-            </div>
+            {/* Right Section: Medical & Emergency */}
+            <div className="lg:col-span-5 space-y-6">
+              
+              {/* Medical Information */}
+              <div className="p-4 border border-slate-200 rounded-lg bg-slate-50/30 space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <FiActivity className="w-4 h-4 text-slate-400" />
+                  <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-wider">Informasi Medis</h4>
+                </div>
 
-            <div className="md:col-span-2">{patientInp('Nama Lengkap Pasien *', 'name', 'text', 'Sesuai KTP')}</div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-slate-500 block">Golongan Darah</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {['-', 'A', 'B', 'AB', 'O'].map(t => (
+                        <button 
+                          key={t} type="button" 
+                          onClick={() => setPatientForm(p => ({...p, bloodType: t}))}
+                          className={`w-8 h-8 flex items-center justify-center rounded border text-[10px] font-medium transition-all ${patientForm.bloodType === t ? 'bg-primary border-primary text-white shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-            <div>
-               <label className="block text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Jenis Kelamin</label>
-               <div className="grid grid-cols-2 gap-2">
-                  {['M', 'F'].map(g => (
-                    <button 
-                      key={g} type="button" 
-                      onClick={() => setPatientForm(p => ({ ...p, gender: g }))}
-                      className={`py-2 md:py-2.5 rounded-2xl border text-[9px] md:text-[10px] font-black transition-all ${patientForm.gender === g ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20' : 'bg-gray-50 border-gray-100 text-gray-400 hover:bg-gray-100'}`}
-                    >
-                      {g === 'M' ? 'LAKI-LAKI' : 'PEREMPUAN'}
-                    </button>
-                  ))}
-               </div>
-            </div>
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-slate-500 block">Catatan Alergi</label>
+                    <textarea 
+                      value={patientForm.allergies} 
+                      onChange={(e) => setPatientForm(p => ({...p, allergies: e.target.value}))} 
+                      rows={2}
+                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-md bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all resize-none" 
+                      placeholder="Sebutkan alergi (jika ada)..." 
+                    />
+                  </div>
+                </div>
+              </div>
 
-            {patientInp('Tanggal Lahir', 'dateOfBirth', 'date')}
-            
-            <div>
-              <label className="block text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Golongan Darah</label>
-              <select 
-                value={patientForm.bloodType || ''} 
-                onChange={(e) => setPatientForm(p => ({...p, bloodType: e.target.value}))}
-                className="w-full px-3 md:px-4 py-2 md:py-2.5 text-sm border border-gray-100 bg-gray-50/30 rounded-2xl focus:outline-none focus:border-primary font-black text-gray-700"
-              >
-                {['-', 'A', 'B', 'AB', 'O'].map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
+              {/* Insurance Section */}
+              <div className="p-4 border border-slate-200 rounded-lg bg-slate-50/30 space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <FiCreditCard className="w-4 h-4 text-slate-400" />
+                  <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-wider">Jaminan & Asuransi</h4>
+                </div>
 
-            {/* Contact Group */}
-            <div className="md:col-span-3 pb-2 md:pb-3 border-b border-gray-50 mt-4 flex items-center gap-2">
-              <div className="w-1.5 h-3 md:w-1.5 md:h-4 bg-primary rounded-full" />
-              <h4 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-gray-900">Kontak & Alamat</h4>
-            </div>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-medium text-slate-500 block">No. Kartu BPJS</label>
+                    <input 
+                      type="text" 
+                      value={patientForm.bpjsNumber} 
+                      onChange={(e) => setPatientForm(p => ({...p, bpjsNumber: e.target.value}))} 
+                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-md bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all" 
+                      placeholder="0001XXXXXXXXX"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-medium text-slate-500 block">Asuransi Lain</label>
+                    <input 
+                      type="text" 
+                      value={patientForm.insuranceName} 
+                      onChange={(e) => setPatientForm(p => ({...p, insuranceName: e.target.value}))} 
+                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-md bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all" 
+                      placeholder="Nama Asuransi..."
+                    />
+                  </div>
+                </div>
+              </div>
 
-            {patientInp('No. Handphone (WhatsApp) *', 'phone', 'tel', '0812xxxx')}
-            {patientInp('Email (Opsional)', 'email', 'email', 'pasien@mail.com')}
-            
-            <div className="md:col-span-2">
-               <label className="block text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Alamat Domisili</label>
-               <textarea 
-                value={patientForm.address} 
-                onChange={(e) => setPatientForm(p => ({...p, address: e.target.value}))} 
-                rows={2}
-                className="w-full px-3 md:px-4 py-2 md:py-3 text-sm border border-gray-100 bg-gray-50/30 rounded-2xl focus:outline-none focus:border-primary font-bold placeholder:text-gray-300 text-gray-700 resize-none" 
-                placeholder="Alamat lengkap..." 
-              />
+              {/* Emergency Contact */}
+              <div className="space-y-3">
+                 <div className="space-y-3">
+                    <div className="group space-y-1.5">
+                       <label className="text-[11px] font-medium text-slate-500 uppercase tracking-wider ml-1">Kontak Darurat (Nama)</label>
+                       <input value={patientForm.emergencyContact} onChange={(e) => setPatientForm(p => ({...p, emergencyContact: e.target.value}))} placeholder="Nama Keluarga..." className="w-full px-3 py-2 text-xs border border-slate-200 rounded-md bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all" />
+                    </div>
+                    <div className="group space-y-1.5">
+                       <label className="text-[11px] font-medium text-slate-500 uppercase tracking-wider ml-1">No. HP Darurat</label>
+                       <input value={patientForm.emergencyPhone} onChange={(e) => setPatientForm(p => ({...p, emergencyPhone: e.target.value}))} placeholder="08xxxxxxxx" className="w-full px-3 py-2 text-xs border border-slate-200 rounded-md bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all" />
+                    </div>
+                 </div>
+              </div>
             </div>
           </div>
 
-          <div className="flex gap-3 md:gap-4 pt-4 md:pt-6 mt-4 border-t border-gray-100">
+          <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-100">
             <button 
               type="button" 
               onClick={() => setPatientModalOpen(false)} 
-              className="flex-1 py-3 md:py-3.5 border border-gray-100 rounded-2xl text-[10px] md:text-[11px] font-black text-gray-400 tracking-widest uppercase hover:bg-gray-50 transition-all"
+              className="px-6 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 transition-all active:scale-95"
             >
               Batal
             </button>
             <button 
               onClick={handleSaveNewPatient} 
               disabled={patientSaving} 
-              className="flex-1 py-3 md:py-3.5 bg-primary text-white rounded-2xl text-[10px] md:text-[11px] font-black tracking-widest uppercase shadow-lg shadow-primary/20 disabled:opacity-60 transition-all"
+              className="px-8 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary/90 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-primary/20"
             >
-                {patientSaving ? 'MENYIMPAN...' : 'SIMPAN & LANJUT DAFTAR'}
+              {patientSaving ? (
+                <>
+                  <FiRefresh className="w-3.5 h-3.5 animate-spin" />
+                  <span>Menyimpan...</span>
+                </>
+              ) : (
+                <span>Simpan & Lanjut Daftar</span>
+              )}
             </button>
           </div>
         </div>
