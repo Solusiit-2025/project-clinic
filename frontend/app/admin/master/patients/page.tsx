@@ -168,6 +168,11 @@ export default function PatientsPage() {
         </div>
       </div>
     )},
+    { key: 'address', label: 'Alamat', mobileHide: true, render: (r) => (
+      <span className="text-[10px] text-gray-400 font-medium line-clamp-2 max-w-[200px]">
+        {r.address || <span className="text-gray-200 italic">Tidak ada alamat</span>}
+      </span>
+    )},
     { key: 'phone', label: 'Kontak', render: (r) => (
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-1.5 text-gray-700">
@@ -237,7 +242,7 @@ export default function PatientsPage() {
       <DataTable
         data={data} columns={columns} loading={loading}
         searchValue={search} onSearchChange={setSearch}
-        searchPlaceholder="Cari nama, No. RM, No. HP, atau No. KTP..."
+        searchPlaceholder="Cari nama, RM, Alamat, No. HP, KTP, Nama KK, atau BPJS..."
         onEdit={openEdit} onDelete={handleDelete}
         emptyText="Belum ada data pasien terdaftar."
         page={page}

@@ -1986,6 +1986,10 @@ export const getPatients = async (req: Request, res: Response) => {
             { oldMedicalRecordNo: { contains: String(search), mode: 'insensitive' as any } },
             { phone: { contains: String(search), mode: 'insensitive' as any } },
             { identityNumber: { contains: String(search), mode: 'insensitive' as any } },
+            { address: { contains: String(search), mode: 'insensitive' as any } },
+            { familyHeadName: { contains: String(search), mode: 'insensitive' as any } },
+            { city: { contains: String(search), mode: 'insensitive' as any } },
+            { bpjsNumber: { contains: String(search), mode: 'insensitive' as any } },
           ]
         }] : [])
       ]
