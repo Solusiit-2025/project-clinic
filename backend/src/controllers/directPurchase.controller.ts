@@ -67,7 +67,7 @@ export const createDirectPurchase = async (req: Request, res: Response) => {
             batchId: item.batchId || null
           }))
         }
-      },
+      } as any,
       include: { items: true }
     });
 
@@ -125,7 +125,7 @@ export const updateDirectPurchase = async (req: Request, res: Response) => {
               batchId: item.batchId || null
             }))
           }
-        },
+        } as any,
         include: { items: true }
       });
     });
