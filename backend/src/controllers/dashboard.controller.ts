@@ -303,6 +303,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         ])
         const r = (revAgg._sum.credit || 0) - (revAgg._sum.debit || 0)
         const ex = (expAgg._sum.debit || 0) - (expAgg._sum.credit || 0)
+        const label = new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: '2-digit', timeZone: 'Asia/Jakarta' }).format(d)
         financialTrend.push({ label, revenue: r, expense: ex, profit: r - ex })
       }
     } else if (range === 'year') {
