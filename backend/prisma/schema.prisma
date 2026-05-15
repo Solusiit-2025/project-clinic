@@ -142,6 +142,7 @@ model Registration {
   visitType        String
   referralDocument String?
   referralFrom     String?
+  isDirectLab      Boolean        @default(false)
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   clinicId         String?
@@ -150,6 +151,7 @@ model Registration {
   invoices         Invoice[]
   medicalRecord    MedicalRecord?
   queueNumbers     QueueNumber[]
+  labOrders        LabOrder[]
   clinic           Clinic?        @relation(fields: [clinicId], references: [id])
   department       Department?    @relation(fields: [departmentId], references: [id])
   doctor           Doctor?        @relation(fields: [doctorId], references: [id])
@@ -889,16 +891,16 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id          String  @id @default(uuid())
+  id          String   @id @default(uuid())
   invoiceId   String
-  serviceId   String
+  serviceId   String?
   description String
   quantity    Int
   price       Float
-  discount    Float   @default(0)
+  discount    Float    @default(0)
   subtotal    Float
-  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  service     Service @relation(fields: [serviceId], references: [id])
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  service     Service? @relation(fields: [serviceId], references: [id])
 
   @@index([invoiceId])
   @@map("invoice_items")
@@ -1014,9 +1016,11 @@ model SiteSetting {
 model LabOrder {
   id              String               @id @default(uuid())
   orderNo         String               @unique
-  medicalRecordId String
+  medicalRecordId String?
   patientId       String
-  doctorId        String
+  doctorId        String?
+  registrationId  String?
+  isDirectLab     Boolean              @default(false)
   orderDate       DateTime             @default(now())
   status          String               @default("pending")
   priority        String               @default("normal")
@@ -1025,9 +1029,10 @@ model LabOrder {
   analystId       String?
   validatorId     String?
   attachments     LabOrderAttachment[]
-  doctor          Doctor               @relation(fields: [doctorId], references: [id])
-  medicalRecord   MedicalRecord        @relation(fields: [medicalRecordId], references: [id])
+  doctor          Doctor?              @relation(fields: [doctorId], references: [id])
+  medicalRecord   MedicalRecord?       @relation(fields: [medicalRecordId], references: [id])
   patient         Patient              @relation(fields: [patientId], references: [id])
+  registration    Registration?        @relation(fields: [registrationId], references: [id])
   results         LabResultDetail[]
 
   @@map("lab_orders")

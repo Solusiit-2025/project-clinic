@@ -12,7 +12,7 @@ import { getPaginationOptions, PaginatedResult } from '../utils/pagination'
 export const createRegistration = async (req: Request, res: Response) => {
   const startedAt = Date.now()
   try {
-    const { patientId, clinicId, doctorId, departmentId, visitType, referralFrom } = req.body
+    const { patientId, clinicId, doctorId, departmentId, visitType, referralFrom, isDirectLab } = req.body
     
     if (!patientId || !clinicId) {
       return res.status(400).json({ message: 'Patient ID dan Clinic ID wajib diisi' })
@@ -90,6 +90,8 @@ export const createRegistration = async (req: Request, res: Response) => {
         }
       }
 
+      if (isDirectLab) prefix = 'L'
+
       const lastQueue = await tx.queueNumber.findFirst({
         where: { 
           clinicId,
@@ -126,15 +128,53 @@ export const createRegistration = async (req: Request, res: Response) => {
         data: {
           patientId,
           clinicId,
-          doctorId: doctorId || null,
+          doctorId: isDirectLab ? null : (doctorId || null),
           departmentId: departmentId || null,
           registrationNo,
           registrationDate: new Date(),
-          visitType: visitType || 'outpatient',
+          visitType: isDirectLab ? 'lab' : (visitType || 'outpatient'),
           referralFrom,
+          isDirectLab,
           status: 'completed'
         }
       })
+
+      // 4. Handle Direct Lab Order creation if applicable
+      let labOrder = null
+      const { labTestIds } = req.body
+
+      if (isDirectLab) {
+        let nextLabOrderNum = 1
+        console.log(`[Reg-Lab-Debug] Creating Direct Lab Order. Test IDs:`, labTestIds)
+        const lastLabOrder = await tx.labOrder.findFirst({
+          where: { orderNo: { startsWith: `LAB-${dateStr}-` } },
+          orderBy: { orderNo: 'desc' }
+        })
+        if (lastLabOrder) {
+          const parts = lastLabOrder.orderNo.split('-')
+          const lastNum = parseInt(parts[parts.length - 1])
+          if (!isNaN(lastNum)) nextLabOrderNum = lastNum + 1
+        }
+        const orderNo = `LAB-${dateStr}-${nextLabOrderNum.toString().padStart(4, '0')}`
+        
+        labOrder = await tx.labOrder.create({
+          data: {
+            orderNo,
+            patientId,
+            registrationId: registration.id,
+            isDirectLab: true,
+            status: 'pending',
+            orderDate: new Date(),
+            results: {
+              create: (labTestIds || []).map((testId: string) => ({
+                testMasterId: testId,
+                resultValue: '' // Empty result to be filled by analyst
+              }))
+            }
+          }
+        })
+      }
+
       // 2. Create Queue Number
       const queueNumber = await tx.queueNumber.create({
         data: {
@@ -142,7 +182,7 @@ export const createRegistration = async (req: Request, res: Response) => {
           patientId,
           clinicId,
           registrationId: registration.id,
-          doctorId: doctorId || null,
+          doctorId: isDirectLab ? null : (doctorId || null),
           departmentId: departmentId || null,
           queueDate: today, // Use standardized day start
           status: 'waiting'
@@ -150,10 +190,9 @@ export const createRegistration = async (req: Request, res: Response) => {
       })
 
       // 3. Create Invoice logic...
-      // [Omitted standard invoice creation logic for brevity, keeping existing implementation]
       let regService = await tx.service.findFirst({
         where: { 
-          serviceName: { contains: 'Pendaftaran', mode: 'insensitive' },
+          serviceName: { contains: isDirectLab ? 'Lab' : 'Pendaftaran', mode: 'insensitive' },
           OR: [ { clinicId: clinicId }, { clinic: { isMain: true } } ]
         }
       })
@@ -173,10 +212,9 @@ export const createRegistration = async (req: Request, res: Response) => {
         })
       }
 
-      const { getJakartaDateString } = require('../utils/date')
-      const jakartaTodayStrInv = getJakartaDateString()
-      const dateStrInv = jakartaTodayStrInv.replace(/-/g, '')
-      const todayInv = new Date(`${jakartaTodayStrInv}T00:00:00+07:00`)
+      const jakartaTodayStrInv = jakartaTodayStr
+      const dateStrInv = dateStr
+      const todayInv = today
       
       let nextInvNum = 1
       const lastInv = await tx.invoice.findFirst({
@@ -206,6 +244,17 @@ export const createRegistration = async (req: Request, res: Response) => {
         }
       }
 
+      let labTestsTotal = 0
+      const selectedLabTests = []
+      
+      if (isDirectLab && labTestIds && labTestIds.length > 0) {
+        const tests = await tx.labTestMaster.findMany({
+          where: { id: { in: labTestIds } }
+        })
+        selectedLabTests.push(...tests)
+        labTestsTotal = tests.reduce((sum, t) => sum + t.price, 0)
+      }
+
       const invoice = await tx.invoice.create({
         data: {
           invoiceNo,
@@ -213,12 +262,13 @@ export const createRegistration = async (req: Request, res: Response) => {
           clinicId,
           registrationId: registration.id,
           invoiceDate: new Date(),
-          total: regService.price,
-          subtotal: regService.price,
+          total: regService.price + labTestsTotal,
+          subtotal: regService.price + labTestsTotal,
           status: 'unpaid'
         }
       })
 
+      // Add Registration Service Item
       await tx.invoiceItem.create({
         data: {
           invoiceId: invoice.id,
@@ -230,7 +280,23 @@ export const createRegistration = async (req: Request, res: Response) => {
         }
       })
 
-      return { registration, queueNumber, invoice }
+      // Add Lab Test Items
+      for (const test of selectedLabTests) {
+        await tx.invoiceItem.create({
+          data: {
+            invoiceId: invoice.id,
+            description: `Lab: ${test.name}`,
+            quantity: 1,
+            price: test.price,
+            subtotal: test.price,
+            // Since it's from LabTestMaster not Service, we leave serviceId null or link if possible
+          }
+        })
+      }
+
+      return { registration, queueNumber, invoice, labOrder }
+    }, {
+      timeout: 30000
     })
 
     // REAL-TIME: Notify clinic listeners
@@ -313,6 +379,7 @@ export const getQueues = async (req: Request, res: Response) => {
     // Flatten logic for compatibility with existing frontend
     const result = queues.map(q => ({
       ...q,
+      isDirectLab: q.registration?.isDirectLab || false,
       hasMedicalRecord: !!q.registration?.medicalRecord,
       medicalRecord: q.registration?.medicalRecord ? {
         id: q.registration.medicalRecord.id,
@@ -365,6 +432,7 @@ export const updateQueueStatus = async (req: Request, res: Response) => {
         department: { select: { id: true, name: true } },
         registration: {
           select: {
+            isDirectLab: true,
             medicalRecord: {
               select: { id: true }
             }
@@ -379,8 +447,10 @@ export const updateQueueStatus = async (req: Request, res: Response) => {
       io.to(`clinic:${queue.clinicId}`).emit('queue-updated', { type: 'STATUS_CHANGED', queueId: id, status })
     }
 
+    console.log(`[Lab-Debug] Queue ${id} update status to ${status}. isDirectLab: ${queue.registration?.isDirectLab}, hasMR: ${!!queue.registration?.medicalRecord}`)
     res.json({
       ...queue,
+      isDirectLab: queue.registration?.isDirectLab || false,
       hasMedicalRecord: !!queue.registration?.medicalRecord
     })
     console.log(`[Perf] updateQueueStatus took ${Date.now() - startedAt}ms`)

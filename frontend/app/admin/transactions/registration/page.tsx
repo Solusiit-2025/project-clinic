@@ -86,7 +86,10 @@ export default function RegistrationPage() {
   const [selectedDeptId, setSelectedDeptId] = useState('')
   const [visitType, setVisitType] = useState('outpatient')
   const [referralFrom, setReferralFrom] = useState('')
-  
+  const [isDirectLab, setIsDirectLab] = useState(false)
+  const [labTests, setLabTests] = useState<any[]>([])
+  const [selectedLabTestIds, setSelectedLabTestIds] = useState<string[]>([])
+  const [labSearchQuery, setLabSearchQuery] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [regError, setRegError] = useState('')
   const [result, setResult] = useState<any>(null)
@@ -98,13 +101,14 @@ export default function RegistrationPage() {
   useEffect(() => {
     const fetchSelectables = async () => {
       try {
-        const [docsRes, deptsRes] = await Promise.all([
+        const [docsRes, deptsRes, labRes] = await Promise.all([
           api.get('/master/doctors', { params: { clinicId: activeClinicId, minimal: true } }),
-          api.get('/master/departments', { params: { clinicId: activeClinicId, minimal: true } })
+          api.get('/master/departments', { params: { clinicId: activeClinicId, minimal: true } }),
+          api.get('/lab/test-masters')
         ])
-        console.log('Fetched D&D:', docsRes.data.length, deptsRes.data.length)
         setDoctors(docsRes.data)
         setDepartments(deptsRes.data)
+        setLabTests(labRes.data)
       } catch (e) { console.error(e) }
     }
     if (activeClinicId) {
@@ -115,6 +119,15 @@ export default function RegistrationPage() {
   useEffect(() => {
     setIsMounted(true)
   }, [])
+
+  // Memoize filtered lab tests
+  const filteredLabTests = useMemo(() => {
+    if (!labSearchQuery) return labTests
+    return labTests.filter(t => 
+      t.name.toLowerCase().includes(labSearchQuery.toLowerCase()) || 
+      t.category.toLowerCase().includes(labSearchQuery.toLowerCase())
+    )
+  }, [labTests, labSearchQuery])
 
   // Search Patient
   useEffect(() => {
@@ -155,8 +168,10 @@ export default function RegistrationPage() {
         clinicId: activeClinicId,
         doctorId: selectedDoctorId || null,
         departmentId: selectedDeptId || null,
-        visitType,
-        referralFrom
+        visitType: isDirectLab ? 'lab' : visitType,
+        referralFrom,
+        isDirectLab,
+        labTestIds: isDirectLab ? selectedLabTestIds : []
       })
       
       setResult(data)
@@ -207,10 +222,11 @@ export default function RegistrationPage() {
   }, [doctors, selectedDeptId])
 
   const canContinue = useMemo(() => {
+    if (isDirectLab) return true
     if (!selectedDeptId && !selectedDoctorId) return false
     if (selectedDeptId && availableDoctors.length === 0) return false
     return true
-  }, [selectedDeptId, selectedDoctorId, availableDoctors])
+  }, [isDirectLab, selectedDeptId, selectedDoctorId, availableDoctors])
 
   // UI Helpers
   const StepIndicator = () => (
@@ -357,9 +373,10 @@ export default function RegistrationPage() {
                   <div className="space-y-1.5">
                     <label className="text-[10px] md:text-xs font-bold text-gray-500">Poli / Departemen</label>
                     <select 
+                      disabled={isDirectLab}
                       value={selectedDeptId || ''}
                       onChange={(e) => { setSelectedDeptId(e.target.value); setSelectedDoctorId(''); }}
-                      className="w-full px-3 md:px-4 py-2 md:py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-xs md:text-sm font-bold focus:outline-none focus:bg-white focus:border-primary transition-all"
+                      className={`w-full px-3 md:px-4 py-2 md:py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-xs md:text-sm font-bold focus:outline-none focus:bg-white focus:border-primary transition-all ${isDirectLab ? 'opacity-50' : ''}`}
                     >
                       <option value="">Semua Poli</option>
                       {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -368,15 +385,90 @@ export default function RegistrationPage() {
                   <div className="space-y-1.5">
                     <label className="text-[10px] md:text-xs font-bold text-gray-500">Dokter (Opsional)</label>
                     <select 
+                      disabled={isDirectLab}
                       value={selectedDoctorId || ''}
                       onChange={(e) => setSelectedDoctorId(e.target.value)}
-                      className="w-full px-3 md:px-4 py-2 md:py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-xs md:text-sm font-bold focus:outline-none focus:bg-white focus:border-primary transition-all"
+                      className={`w-full px-3 md:px-4 py-2 md:py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-xs md:text-sm font-bold focus:outline-none focus:bg-white focus:border-primary transition-all ${isDirectLab ? 'opacity-50' : ''}`}
                     >
                       <option value="">Pilih Dokter</option>
                       {availableDoctors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
                   </div>
                 </div>
+
+                {/* Direct Lab Toggle */}
+                <div className="pt-2">
+                  <button
+                    onClick={() => setIsDirectLab(!isDirectLab)}
+                    className={`w-full p-4 rounded-2xl border-2 flex items-center justify-between transition-all ${
+                      isDirectLab 
+                      ? 'bg-rose-50 border-rose-500 text-rose-700' 
+                      : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDirectLab ? 'bg-rose-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                        <FiCheckCircle className="w-5 h-5" />
+                      </div>
+                      <div className="text-left">
+                        <p className="text-[10px] font-black uppercase tracking-widest leading-none mb-1">Direct to Laboratory</p>
+                        <p className="text-xs font-bold">Pasien langsung periksa Lab tanpa melalui Dokter</p>
+                      </div>
+                    </div>
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isDirectLab ? 'border-rose-500 bg-rose-500' : 'border-gray-200'}`}>
+                      {isDirectLab && <div className="w-2 h-2 bg-white rounded-full" />}
+                    </div>
+                  </button>
+                </div>
+
+                {/* Lab Test Selection (Conditional) */}
+                {isDirectLab && (
+                  <div className="pt-4 space-y-3 animate-in fade-in slide-in-from-top-2 border-t border-rose-100 mt-2">
+                    <div className="flex items-center justify-between">
+                       <label className="text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest">Pilih Parameter Lab</label>
+                       <span className="text-[10px] font-black text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full">{selectedLabTestIds.length} Terpilih</span>
+                    </div>
+                    
+                    <div className="relative group">
+                      <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-rose-500 transition-colors" />
+                      <input 
+                        type="text"
+                        placeholder="Cari test (Darah, Urine, Gula, dll)..."
+                        value={labSearchQuery}
+                        onChange={(e) => setLabSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:outline-none focus:bg-white focus:border-rose-500 transition-all"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
+                      {filteredLabTests.map(test => (
+                        <button
+                          key={test.id}
+                          onClick={() => {
+                            if (selectedLabTestIds.includes(test.id)) {
+                              setSelectedLabTestIds(selectedLabTestIds.filter(id => id !== test.id))
+                            } else {
+                              setSelectedLabTestIds([...selectedLabTestIds, test.id])
+                            }
+                          }}
+                          className={`p-2.5 rounded-xl border text-[10px] font-bold text-left transition-all ${
+                            selectedLabTestIds.includes(test.id)
+                            ? 'bg-rose-500 border-rose-600 text-white shadow-md'
+                            : 'bg-white border-gray-100 text-gray-500 hover:border-gray-300'
+                          }`}
+                        >
+                          <p className="truncate leading-tight">{test.name}</p>
+                          <p className={`text-[8px] mt-0.5 opacity-60 ${selectedLabTestIds.includes(test.id) ? 'text-white' : 'text-gray-400'}`}>
+                            {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(test.price)}
+                          </p>
+                        </button>
+                      ))}
+                      {filteredLabTests.length === 0 && (
+                        <div className="col-span-3 py-10 text-center text-[10px] font-bold text-gray-400 italic">Test tidak ditemukan</div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {selectedDeptId && availableDoctors.length === 0 && (
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-3 text-amber-700 animate-in fade-in slide-in-from-top-1">
@@ -473,8 +565,12 @@ export default function RegistrationPage() {
                   </div>
                   <div>
                     <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-gray-400">Tujuan Layanan</label>
-                    <p className="text-sm font-bold text-gray-800 mt-1 truncate">{departments.find(d => d.id === selectedDeptId)?.name || 'Poli Umum'}</p>
-                    <p className="text-xs text-gray-500 font-medium truncate">{doctors.find(d => d.id === selectedDoctorId)?.name || 'Dokter Jaga'}</p>
+                    <p className="text-sm font-bold text-gray-800 mt-1 truncate">
+                      {isDirectLab ? 'LABORATORIUM (DIRECT)' : (departments.find(d => d.id === selectedDeptId)?.name || 'Poli Umum')}
+                    </p>
+                    <p className="text-xs text-gray-500 font-medium truncate">
+                      {isDirectLab ? 'Pemeriksaan Mandiri' : (doctors.find(d => d.id === selectedDoctorId)?.name || 'Dokter Jaga')}
+                    </p>
                   </div>
                   <div>
                     <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-gray-400">Waktu Kedatangan</label>
@@ -483,9 +579,25 @@ export default function RegistrationPage() {
                   </div>
                   <div>
                     <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-gray-400">Jenis Kunjungan</label>
-                    <p className="text-sm font-bold text-gray-800 mt-1 uppercase truncate">{visitType}</p>
+                    <p className="text-sm font-bold text-gray-800 mt-1 uppercase truncate">{isDirectLab ? 'LAB' : visitType}</p>
                   </div>
                 </div>
+
+                {isDirectLab && selectedLabTestIds.length > 0 && (
+                   <div className="p-4 bg-rose-50/50 border border-rose-100 rounded-2xl">
+                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-500 mb-3">Parameter Lab Terpilih</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedLabTestIds.map(id => {
+                          const test = labTests.find(t => t.id === id)
+                          return (
+                            <span key={id} className="px-3 py-1.5 bg-white border border-rose-200 text-rose-700 text-[10px] font-black rounded-full shadow-sm">
+                              {test?.name}
+                            </span>
+                          )
+                        })}
+                      </div>
+                   </div>
+                )}
 
                 {regError && (
                   <div className="p-3 md:p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-2 md:gap-3 text-red-700 animate-pulse">
@@ -504,9 +616,18 @@ export default function RegistrationPage() {
                   <button 
                     onClick={handleRegistration}
                     disabled={submitting}
-                    className="flex-1 px-4 md:px-6 py-3 md:py-4 bg-primary text-white font-black rounded-2xl text-xs md:text-sm shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                    className={`flex-1 px-4 md:px-6 py-3 md:py-4 text-white font-black rounded-2xl text-xs md:text-sm shadow-xl transition-all flex items-center justify-center gap-2 ${
+                      submitting 
+                      ? 'bg-indigo-400 cursor-not-allowed' 
+                      : 'bg-primary shadow-primary/20 hover:scale-[1.02] active:scale-95'
+                    }`}
                   >
-                    {submitting ? 'Memproses...' : (
+                    {submitting ? (
+                      <>
+                        <FiRefresh className="w-4 h-4 animate-spin" />
+                        Sedang Memproses...
+                      </>
+                    ) : (
                       <>
                         Simpan & Ambil Antrian <FiArrowRight className="w-3.5 h-3.5 md:w-4 md:h-4" />
                       </>

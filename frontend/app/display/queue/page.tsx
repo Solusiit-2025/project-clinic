@@ -29,6 +29,7 @@ interface Queue {
   doctor: { name: string } | null
   department: { name: string } | null
   hasMedicalRecord: boolean
+  isDirectLab: boolean
   callCounter?: number
 }
 
@@ -287,7 +288,7 @@ function DisplayQueueContent() {
 
     if (hasNewSignal && newestCall) {
       // 1. Voice Announcement with Synchronized Overlay
-      const room = newestCall.hasMedicalRecord ? 'RUANG PEMERIKSAAN DOKTER' : 'RUANG PRA-PEMERIKSAAN'
+      const room = newestCall.isDirectLab ? 'LABORATORIUM' : (newestCall.hasMedicalRecord ? 'RUANG PEMERIKSAAN DOKTER' : 'RUANG PRA-PEMERIKSAAN')
       
       announceQueue(
         newestCall.queueNo, 
@@ -476,7 +477,9 @@ function DisplayQueueContent() {
                               <div className="w-px h-8 bg-white/10 flex-shrink-0" />
                               <div className="flex-1 min-w-0">
                                  <p className={`text-[15px] font-black uppercase tracking-tight leading-tight truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{q.patient.name}</p>
-                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">{q.doctor?.name || 'Dokter Jaga'}</p>
+                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">
+                                   {q.isDirectLab ? 'PEMERIKSAAN MANDIRI' : (q.doctor?.name || 'Dokter Jaga')}
+                                 </p>
                               </div>
                            </div>
                            <div className={`px-4 py-1.5 text-[10px] font-black rounded-lg border ml-2 flex-shrink-0 ${
@@ -484,7 +487,7 @@ function DisplayQueueContent() {
                              q.status === "ready" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40" : 
                              "bg-indigo-500/20 text-indigo-400 border-indigo-500/40"}`}
                            >
-                             {q.status === "called" ? "DIPANGGIL" : q.status === "ready" ? "SIAP PERIKSA" : "DIPERIKSA"}
+                             {q.status === "called" ? "DIPANGGIL" : q.status === "ready" ? "SIAP PERIKSA" : (q.isDirectLab ? "LABORATORIUM" : "DIPERIKSA")}
                            </div>
                         </motion.div>
                       ))}
@@ -705,7 +708,7 @@ function DisplayQueueContent() {
                           <div className="flex flex-col items-center gap-2 flex-shrink-0">
                              <span className="text-slate-300 uppercase tracking-[0.4em] text-[10px] font-black">MENUJU:</span>
                              <span className="px-8 md:px-12 py-3 md:py-5 bg-slate-50 rounded-[2rem] md:rounded-[2.5rem] border border-slate-200 uppercase text-slate-900 shadow-sm text-[2.5vh] md:text-[3.5vh] font-black tracking-tight">
-                               {activeCallingPatient.hasMedicalRecord ? "RUANG PEMERIKSAAN DOKTER" : "RUANG PRA-PEMERIKSAAN"}
+                               {activeCallingPatient.isDirectLab ? "LABORATORIUM" : (activeCallingPatient.hasMedicalRecord ? "RUANG PEMERIKSAAN DOKTER" : "RUANG PRA-PEMERIKSAAN")}
                              </span>
                           </div>
                        </motion.div>

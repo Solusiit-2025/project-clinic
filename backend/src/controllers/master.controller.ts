@@ -1951,7 +1951,8 @@ export const getPatients = async (req: Request, res: Response) => {
     const { search, isActive } = req.query
     const currentUser = (req as any).user
     const currentClinicId = (req as any).clinicId
-    const isAdminView = (req as any).isAdminView || currentUser?.role === 'ADMIN'
+    const isAdminView = (req as any).isAdminView || 
+                        ['ADMIN', 'STAFF', 'RECEPTIONIST', 'FARMASI'].includes(currentUser?.role)
 
     // Security Filter: Doctors only see their own patients
     const isDoctor = currentUser?.role === 'DOCTOR'

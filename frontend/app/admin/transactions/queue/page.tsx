@@ -27,6 +27,7 @@ interface Queue {
   doctor: { name: string; specialization: string } | null
   department: { name: string } | null
   hasMedicalRecord: boolean
+  isDirectLab: boolean
 }
 
 export default function QueueDashboard() {
@@ -67,10 +68,11 @@ export default function QueueDashboard() {
   const updateStatus = async (id: string, status: string) => {
     try {
       const { data } = await api.patch(`${TX_API}/queues/${id}/status`, { status })
+      console.log('[Queue-Debug] Received data:', data)
       setQueues(prev => prev.map(q => q.id === id ? data : q))
       
       if (status === 'called') {
-        const room = data.hasMedicalRecord ? 'Ruang Pemeriksaan Dokter' : 'Ruang Pra-Pemeriksaan'
+        const room = data.isDirectLab ? 'Laboratorium' : (data.hasMedicalRecord ? 'Ruang Pemeriksaan Dokter' : 'Ruang Pra-Pemeriksaan')
         
         // Synchronized Voice & Toast
         if (isSoundEnabled) {
@@ -97,7 +99,7 @@ export default function QueueDashboard() {
   const ongoing = queues.filter(q => q.status === 'ongoing').length
   const completed = queues.filter(q => q.status === 'completed').length
 
-  const StatusPill = ({ status }: { status: string }) => {
+  const StatusPill = ({ status, isDirectLab }: { status: string; isDirectLab: boolean }) => {
     const map: any = {
       waiting: { label: 'MENUNGGU TRIAGE', cls: 'bg-amber-50 text-amber-600 border-amber-100 opacity-60' },
       called: { label: 'DIPANGGIL', cls: 'bg-blue-50 text-blue-600 border-blue-100' },
@@ -107,6 +109,9 @@ export default function QueueDashboard() {
       'no-show': { label: 'LEWATI', cls: 'bg-red-50 text-red-500 border-red-100' },
     }
     const s = map[status] || map.waiting
+    if (status === 'waiting' && isDirectLab) {
+      return <span className="text-[10px] font-black px-2 py-0.5 rounded-full border bg-rose-50 text-rose-600 border-rose-100">ANTRIAN LAB</span>
+    }
     return <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${s.cls}`}>{s.label}</span>
   }
   // Get Current Clinic Code for the monitor link
@@ -288,7 +293,9 @@ export default function QueueDashboard() {
                     </div>
                   </div>
                   <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between relative z-10">
-                     <span className="text-[9px] font-black bg-white/20 px-2.5 py-1 rounded-full uppercase">Pemeriksaan Dokter</span>
+                     <span className="text-[9px] font-black bg-white/20 px-2.5 py-1 rounded-full uppercase">
+                       {q.isDirectLab ? 'Pemeriksaan Laboratorium' : 'Pemeriksaan Dokter'}
+                     </span>
                      <button 
                         onClick={() => updateStatus(q.id, 'completed')}
                         className="p-2 bg-white text-emerald-600 rounded-xl hover:scale-110 active:scale-90 transition-all shadow-lg"
@@ -334,7 +341,7 @@ export default function QueueDashboard() {
                       }`}>
                         {q.queueNo}
                       </div>
-                      <StatusPill status={q.status} />
+                      <StatusPill status={q.status} isDirectLab={q.isDirectLab} />
                     </div>
                     
                     <div className="space-y-1">
@@ -356,12 +363,21 @@ export default function QueueDashboard() {
                       <>
                         <button 
                           onClick={() => updateStatus(q.id, 'called')}
-                          className="w-full mt-5 py-3.5 bg-primary text-white text-xs font-black rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-primary/20 uppercase tracking-widest"
+                          className={`w-full mt-5 py-3.5 ${q.isDirectLab ? 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20' : 'bg-primary hover:bg-indigo-700 shadow-primary/20'} text-white text-xs font-black rounded-2xl transition-all shadow-lg uppercase tracking-widest`}
                         >
-                          {q.status === 'called' ? 'PANGGIL ULANG' : 'PANGGIL KE PRA-PEMERIKSAAN'}
+                          {q.status === 'called' ? 'PANGGIL ULANG' : (q.isDirectLab ? 'PANGGIL KE LAB' : 'PANGGIL KE PRA-PEMERIKSAAN')}
                         </button>
+
+                        {q.status === 'called' && q.isDirectLab && (
+                          <button 
+                            onClick={() => updateStatus(q.id, 'ongoing')}
+                            className="w-full mt-2 py-3.5 bg-emerald-500 text-white text-xs font-black rounded-2xl hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20 uppercase tracking-widest flex items-center justify-center gap-2"
+                          >
+                             <FiArrowRight className="w-4 h-4" /> PERIKSA LAB
+                          </button>
+                        )}
                         
-                        {q.status === 'called' && (
+                        {q.status === 'called' && !q.isDirectLab && (
                           <Link 
                             href="/admin/transactions/nurse"
                             className="w-full mt-2 py-3 bg-white border border-gray-200 text-gray-500 text-[10px] font-black rounded-2xl hover:bg-gray-50 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"

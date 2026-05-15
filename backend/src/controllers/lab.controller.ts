@@ -90,14 +90,18 @@ export const getLabOrders = async (req: Request, res: Response) => {
     const status = req.query.status
     const clinicId = req.headers['x-clinic-id'] || req.query.clinicId
     
-    const where: any = {
-      ...(clinicId ? { medicalRecord: { clinicId: String(clinicId) } } : {})
-    }
-
+    const where: any = {}
     if (status === 'pending') {
       where.status = { in: ['pending', 'in_progress'] }
     } else if (status) {
       where.status = String(status)
+    }
+
+    if (clinicId) {
+      where.OR = [
+        { medicalRecord: { clinicId: String(clinicId) } },
+        { registration: { clinicId: String(clinicId) } }
+      ]
     }
 
     const orders = await prisma.labOrder.findMany({
@@ -105,6 +109,7 @@ export const getLabOrders = async (req: Request, res: Response) => {
       include: {
         patient: { select: { name: true, medicalRecordNo: true } },
         doctor: { select: { name: true } },
+        registration: { select: { isDirectLab: true, clinicId: true } },
         medicalRecord: {
           select: {
             id: true,
@@ -114,20 +119,36 @@ export const getLabOrders = async (req: Request, res: Response) => {
             consultationDraft: true
           }
         },
-        attachments: true
+        attachments: true,
+        results: {
+          include: { testMaster: true }
+        }
       },
       orderBy: { orderDate: 'desc' }
     })
 
+    console.log(`[Lab-Order-Debug] Found ${orders.length} orders for clinic ${clinicId}, status ${status}`)
+
     // Enrich each order with a summary of ordered tests
     const enriched = orders.map(order => {
-      const draft = (order.medicalRecord as any)?.consultationDraft
-      const orderedTests = draft?.services
-        ?.filter((s: any) => s.isLab)
-        .map((s: any) => s.name) || []
+      let orderedTests: string[] = []
+      
+      if (order.isDirectLab) {
+        // For direct lab, test names are in the results relation
+        orderedTests = (order.results as any[] || [])
+          .map(r => r.testMaster?.name)
+          .filter(Boolean)
+      } else {
+        // For doctor orders, tests are in consultation draft
+        const draft = (order.medicalRecord as any)?.consultationDraft
+        orderedTests = draft?.services
+          ?.filter((s: any) => s.isLab)
+          .map((s: any) => s.name) || []
+      }
+
       return {
         ...order,
-        labNotesSummary: (order.medicalRecord as any)?.labNotes || '',
+        labNotesSummary: (order.medicalRecord as any)?.labNotes || (order.isDirectLab ? 'Pemeriksaan Mandiri' : ''),
         orderedTestsSummary: orderedTests
       }
     })
@@ -154,7 +175,9 @@ export const getLabOrderDetails = async (req: Request, res: Response) => {
             services: { include: { service: true } },
             clinic: true
           },
-          // Include labNotes, labResults, and consultationDraft for doctor instructions
+        },
+        registration: {
+          include: { clinic: true }
         },
         results: {
           include: { testMaster: true }
@@ -168,16 +191,20 @@ export const getLabOrderDetails = async (req: Request, res: Response) => {
     const enriched = {
       ...order,
       doctorInstructions: {
-        labNotes: (order.medicalRecord as any)?.labNotes || '',
+        labNotes: (order.medicalRecord as any)?.labNotes || (order.isDirectLab ? 'Pemeriksaan Mandiri' : ''),
         labResults: (order.medicalRecord as any)?.labResults || '',
-        // Lab tests requested: from consultationDraft (draft mode) or from services (final mode)
-        orderedTests: (
-          (order.medicalRecord as any)?.consultationDraft?.services
-            ?.filter((s: any) => s.isLab)
-            .map((s: any) => ({ name: s.name, price: s.price, code: s.code })) ||
-          []
-        ),
-      }
+        // Lab tests requested:
+        orderedTests: order.isDirectLab 
+          ? (order.results as any[]).map(r => ({ name: r.testMaster?.name, code: r.testMaster?.code }))
+          : (
+            (order.medicalRecord as any)?.consultationDraft?.services
+              ?.filter((s: any) => s.isLab)
+              .map((s: any) => ({ name: s.name, price: s.price, code: s.code })) ||
+            []
+          ),
+      },
+      // Fallback clinic info for direct lab
+      clinic: (order as any).medicalRecord?.clinic || (order as any).registration?.clinic || null
     }
 
     res.json(enriched)
@@ -226,19 +253,26 @@ export const updateLabResults = async (req: Request, res: Response) => {
           medicalRecord: {
             select: { id: true, patientId: true, clinicId: true }
           },
+          registration: {
+            select: { id: true, patientId: true, clinicId: true }
+          },
           patient: { select: { id: true } }
         }
       })
 
       // 4. SYNC INVOICE — Only when marking as COMPLETED (final send to doctor)
       if (status === 'completed' && results && Array.isArray(results) && results.length > 0) {
-        const mr = (updatedOrder as any).medicalRecord
-        if (mr) {
+        const mr = updatedOrder.medicalRecord
+        const reg = updatedOrder.registration
+        const targetPatientId = updatedOrder.patientId
+        const targetClinicId = mr?.clinicId || reg?.clinicId
+
+        if (targetClinicId) {
           // Find the active invoice for this patient
           const invoice = await tx.invoice.findFirst({
             where: {
-              patientId: mr.patientId,
-              clinicId: mr.clinicId,
+              patientId: targetPatientId,
+              clinicId: targetClinicId,
               status: { in: ['unpaid', 'draft'] }
             },
             orderBy: { createdAt: 'desc' }
@@ -253,7 +287,7 @@ export const updateLabResults = async (req: Request, res: Response) => {
                   { serviceName: { contains: 'Pemeriksaan Laboratorium', mode: 'insensitive' } }
                 ],
                 AND: {
-                  OR: [{ clinicId: mr.clinicId }, { clinic: { isMain: true } }]
+                  OR: [{ clinicId: targetClinicId }, { clinic: { isMain: true } }]
                 }
               }
             })
@@ -264,7 +298,7 @@ export const updateLabResults = async (req: Request, res: Response) => {
                   serviceName: 'Pemeriksaan Laboratorium',
                   price: 0,
                   isActive: true,
-                  clinicId: mr.clinicId
+                  clinicId: targetClinicId
                 }
               })
             }
