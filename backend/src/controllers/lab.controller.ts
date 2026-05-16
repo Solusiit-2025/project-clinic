@@ -8,7 +8,14 @@ import path from 'path'
  */
 export const getLabTestMasters = async (req: Request, res: Response) => {
   try {
+    const { isActive } = req.query
+    const where: any = {}
+    if (isActive === 'true') where.isActive = true
+    if (isActive === 'false') where.isActive = false
+
     const tests = await prisma.labTestMaster.findMany({
+      where,
+      include: { children: true, parent: true },
       orderBy: { category: 'asc' }
     })
     res.json(tests)
@@ -22,7 +29,7 @@ export const getLabTestMasters = async (req: Request, res: Response) => {
  */
 export const createLabTestMaster = async (req: Request, res: Response) => {
   try {
-    const { code, name, category, unit, normalRangeText, minNormal, maxNormal, price } = req.body
+    const { code, name, category, unit, normalRangeText, minNormal, maxNormal, price, parentId } = req.body
     const test = await prisma.labTestMaster.create({
       data: {
         code,
@@ -33,6 +40,7 @@ export const createLabTestMaster = async (req: Request, res: Response) => {
         minNormal: minNormal ? parseFloat(minNormal) : null,
         maxNormal: maxNormal ? parseFloat(maxNormal) : null,
         price: parseFloat(price) || 0,
+        parentId: parentId || null,
         isActive: true
       }
     })
@@ -48,7 +56,7 @@ export const createLabTestMaster = async (req: Request, res: Response) => {
 export const updateLabTestMaster = async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { code, name, category, unit, normalRangeText, minNormal, maxNormal, price, isActive } = req.body
+    const { code, name, category, unit, normalRangeText, minNormal, maxNormal, price, isActive, parentId } = req.body
     const test = await prisma.labTestMaster.update({
       where: { id },
       data: {
@@ -60,6 +68,7 @@ export const updateLabTestMaster = async (req: Request, res: Response) => {
         minNormal: minNormal ? parseFloat(minNormal) : null,
         maxNormal: maxNormal ? parseFloat(maxNormal) : null,
         price: price ? parseFloat(price) : undefined,
+        parentId: parentId || null,
         isActive
       }
     })

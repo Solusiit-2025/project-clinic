@@ -30,8 +30,12 @@ type LabResultItem = {
   unit: string;
   normalRange: string;
   isCritical: boolean;
+  minNormal?: number;
+  maxNormal?: number;
   notes: string;
   category: string;
+  parentId?: string;
+  isParent?: boolean;
 }
 
 export default function LabInputPage() {
@@ -104,20 +108,53 @@ export default function LabInputPage() {
       setOrderDetails(data)
       setClinicalNotes(data.clinicalNotes || '')
 
-      // Map existing results if any
-      if (data.results && data.results.length > 0) {
-        setResults(data.results.map((r: any) => ({
-          testMasterId: r.testMasterId,
-          testName: r.testMaster?.name || '',
-          category: r.testMaster?.category || 'Umum',
-          resultValue: r.resultValue,
-          unit: r.testMaster?.unit || '',
-          normalRange: r.testMaster?.normalRangeText || '',
-          isCritical: r.isCritical,
-          notes: r.notes || ''
-        })))
+      // Map existing results from database
+      const dbResults = data.results?.map((r: any) => ({
+        testMasterId: r.testMasterId,
+        testName: r.testMaster?.name || '',
+        category: r.testMaster?.category || 'Umum',
+        resultValue: r.resultValue || '',
+        unit: r.testMaster?.unit || '',
+        normalRange: r.testMaster?.normalRangeText || '',
+        minNormal: r.testMaster?.minNormal,
+        maxNormal: r.testMaster?.maxNormal,
+        isCritical: r.isCritical || false,
+        notes: r.notes || '',
+        isParent: !!(r.testMaster?.children && r.testMaster.children.length > 0)
+      })) || []
+
+      // Auto-expand packages if status is not completed
+      if (data.status !== 'completed' && dbResults.length > 0) {
+        const expandedResults = [...dbResults]
+        let changed = false
+
+        dbResults.forEach((r: any) => {
+          // Find the master record to get children
+          const master = testMasters.find((m: any) => m.id === r.testMasterId)
+          if (master?.children && master.children.length > 0) {
+            master.children.forEach((child: any) => {
+              if (!expandedResults.find(er => er.testMasterId === child.id)) {
+                expandedResults.push({
+                  testMasterId: child.id,
+                  testName: child.name,
+                  category: child.category || r.category || 'Umum',
+                  resultValue: '',
+                  unit: child.unit || '',
+                  normalRange: child.normalRangeText || '',
+                  minNormal: child.minNormal,
+                  maxNormal: child.maxNormal,
+                  isCritical: false,
+                  notes: '',
+                  parentId: r.testMasterId
+                })
+                changed = true
+              }
+            })
+          }
+        })
+        setResults(expandedResults)
       } else {
-        setResults([])
+        setResults(dbResults)
       }
     } catch (e) {
       toast.error('Gagal memuat detail order')
@@ -213,13 +250,19 @@ export default function LabInputPage() {
       ])
       // Add items
       items.forEach(r => {
-        tableData.push([
-          r.testName,
-          r.resultValue,
-          r.unit,
-          r.normalRange,
-          r.isCritical ? 'KRITIS' : 'Normal'
-        ])
+        if (r.isParent) {
+          tableData.push([
+            { content: r.testName, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [248, 250, 252], textColor: [51, 65, 85] } }
+          ])
+        } else {
+          tableData.push([
+            r.parentId ? `   ${r.testName}` : r.testName,
+            r.resultValue,
+            r.unit,
+            r.normalRange,
+            r.isCritical ? '*' : ''
+          ])
+        }
       })
     })
 
@@ -238,9 +281,12 @@ export default function LabInputPage() {
         4: { halign: 'center' }
       },
       didParseCell: (data) => {
-        if (data.section === 'body' && data.column.index === 4 && data.cell.text[0] === 'KRITIS') {
-          data.cell.styles.textColor = [225, 29, 72];
-          data.cell.styles.fontStyle = 'bold';
+        if (data.section === 'body' && (data.column.index === 1 || data.column.index === 4)) {
+          const rowData = data.row.raw as any[];
+          if (rowData && rowData[4] === '*') {
+            data.cell.styles.textColor = [225, 29, 72];
+            data.cell.styles.fontStyle = 'bold';
+          }
         }
       }
     });
@@ -356,13 +402,19 @@ export default function LabInputPage() {
       ])
       // Add items
       items.forEach(r => {
-        tableData.push([
-          r.testName,
-          r.resultValue,
-          r.unit,
-          r.normalRange,
-          r.isCritical ? 'KRITIS' : 'Normal'
-        ])
+        if (r.isParent) {
+          tableData.push([
+            { content: r.testName, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [248, 250, 252], textColor: [51, 65, 85] } }
+          ])
+        } else {
+          tableData.push([
+            r.parentId ? `   ${r.testName}` : r.testName,
+            r.resultValue,
+            r.unit,
+            r.normalRange,
+            r.isCritical ? '*' : ''
+          ])
+        }
       })
     })
 
@@ -381,9 +433,12 @@ export default function LabInputPage() {
         4: { halign: 'center' }
       },
       didParseCell: (data) => {
-        if (data.section === 'body' && data.column.index === 4 && data.cell.text[0] === 'KRITIS') {
-          data.cell.styles.textColor = [225, 29, 72];
-          data.cell.styles.fontStyle = 'bold';
+        if (data.section === 'body' && (data.column.index === 1 || data.column.index === 4)) {
+          const rowData = data.row.raw as any[];
+          if (rowData && rowData[4] === '*') {
+            data.cell.styles.textColor = [225, 29, 72];
+            data.cell.styles.fontStyle = 'bold';
+          }
         }
       }
     });
@@ -433,17 +488,47 @@ export default function LabInputPage() {
   const isReadOnly = orderDetails?.status === 'completed'
 
   const addTest = (master: any) => {
-    if (results.find(r => r.testMasterId === master.id)) return
-    setResults([...results, {
-      testMasterId: master.id,
-      testName: master.name,
-      category: master.category || 'Umum',
-      resultValue: '',
-      unit: master.unit || '',
-      normalRange: master.normalRangeText || '',
-      isCritical: false,
-      notes: ''
-    }])
+    const toAdd: LabResultItem[] = []
+    
+    // Always add the master itself if not present
+    if (!results.find(r => r.testMasterId === master.id)) {
+      toAdd.push({
+        testMasterId: master.id,
+        testName: master.name,
+        category: master.category || 'Umum',
+        resultValue: '',
+        unit: master.unit || '',
+        normalRange: master.normalRangeText || '',
+        minNormal: master.minNormal,
+        maxNormal: master.maxNormal,
+        isCritical: false,
+        notes: '',
+        isParent: !!(master.children && master.children.length > 0)
+      })
+    }
+
+    // Add children if any
+    if (master.children && master.children.length > 0) {
+      master.children.forEach((m: any) => {
+        if (!results.find(r => r.testMasterId === m.id)) {
+          toAdd.push({
+            testMasterId: m.id,
+            testName: m.name,
+            category: m.category || master.category || 'Umum',
+            resultValue: '',
+            unit: m.unit || '',
+            normalRange: m.normalRangeText || '',
+            minNormal: m.minNormal,
+            maxNormal: m.maxNormal,
+            isCritical: false,
+            notes: '',
+            parentId: master.id
+          })
+        }
+      })
+    }
+    
+    if (toAdd.length > 0) setResults([...results, ...toAdd])
   }
 
   const handleSaveResults = async (status: string = 'completed') => {
@@ -914,21 +999,46 @@ export default function LabInputPage() {
                         const idx = results.findIndex(res => res.testMasterId === r.testMasterId);
                         return (
                           <tr key={idx} className="border-b border-slate-50/50 group">
-                            <td className="py-6 px-4 pl-8">
-                              <p className="text-sm font-black text-slate-800 uppercase">{r.testName}</p>
+                            <td className={`py-6 px-4 ${r.parentId ? 'pl-12' : 'pl-8'}`}>
+                              <p className={`text-sm font-black uppercase ${r.isParent ? 'text-indigo-600' : 'text-slate-800'}`}>
+                                {r.testName}
+                                {r.isParent && <span className="ml-2 text-[8px] bg-indigo-100 text-indigo-500 px-1.5 py-0.5 rounded">PAKET</span>}
+                              </p>
                             </td>
                             <td className="py-4 px-4 w-full">
-                              <input
-                                value={r.resultValue}
-                                disabled={isReadOnly}
-                                onChange={(e) => {
-                                  const n = [...results];
-                                  n[idx].resultValue = e.target.value;
-                                  setResults(n);
-                                }}
-                                className={`w-full min-w-[160px] p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black focus:bg-white focus:border-primary outline-none transition-all disabled:opacity-75 disabled:bg-slate-100/50 ${r.isCritical ? 'text-rose-500 border-rose-200 bg-rose-50' : ''}`}
-                                placeholder="Masukkan nilai..."
-                              />
+                              {r.isParent ? (
+                                <div className="text-[10px] font-bold text-slate-300 italic uppercase">Paket - Lihat detail di bawah</div>
+                              ) : (
+                                <input
+                                  value={r.resultValue}
+                                  disabled={isReadOnly}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    const n = [...results];
+                                    n[idx].resultValue = val;
+                                    
+                                    // Auto-detect critical status
+                                    const numVal = parseFloat(val.replace(',', '.'));
+                                    if (!isNaN(numVal)) {
+                                      const min = n[idx].minNormal;
+                                      const max = n[idx].maxNormal;
+                                      if (min !== undefined && min !== null && numVal < min) {
+                                        n[idx].isCritical = true;
+                                      } else if (max !== undefined && max !== null && numVal > max) {
+                                        n[idx].isCritical = true;
+                                      } else {
+                                        n[idx].isCritical = false;
+                                      }
+                                    } else {
+                                      n[idx].isCritical = false;
+                                    }
+
+                                    setResults(n);
+                                  }}
+                                  className={`w-full min-w-[160px] p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black focus:bg-white focus:border-primary outline-none transition-all disabled:opacity-75 disabled:bg-slate-100/50 ${r.isCritical ? 'text-rose-500 border-rose-200 bg-rose-50' : ''}`}
+                                  placeholder="Masukkan nilai..."
+                                />
+                              )}
                             </td>
                             <td className="py-6 px-4">
                               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{r.unit || '-'}</span>

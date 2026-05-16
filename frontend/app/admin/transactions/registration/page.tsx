@@ -104,7 +104,7 @@ export default function RegistrationPage() {
         const [docsRes, deptsRes, labRes] = await Promise.all([
           api.get('/master/doctors', { params: { clinicId: activeClinicId, minimal: true } }),
           api.get('/master/departments', { params: { clinicId: activeClinicId, minimal: true } }),
-          api.get('/lab/test-masters')
+          api.get('/lab/test-masters', { params: { isActive: 'true' } })
         ])
         setDoctors(docsRes.data)
         setDepartments(deptsRes.data)
@@ -122,8 +122,9 @@ export default function RegistrationPage() {
 
   // Memoize filtered lab tests
   const filteredLabTests = useMemo(() => {
-    if (!labSearchQuery) return labTests
-    return labTests.filter(t => 
+    const activeTests = labTests.filter(t => t.isActive !== false)
+    if (!labSearchQuery) return activeTests
+    return activeTests.filter(t => 
       t.name.toLowerCase().includes(labSearchQuery.toLowerCase()) || 
       t.category.toLowerCase().includes(labSearchQuery.toLowerCase())
     )

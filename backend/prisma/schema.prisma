@@ -1065,6 +1065,11 @@ model LabTestMaster {
   maxNormal       Float?
   price           Float
   isActive        Boolean           @default(true)
+  
+  parentId        String?
+  parent          LabTestMaster?    @relation("LabHierarchy", fields: [parentId], references: [id])
+  children        LabTestMaster[]   @relation("LabHierarchy")
+  
   results         LabResultDetail[]
 
   @@map("lab_test_master")

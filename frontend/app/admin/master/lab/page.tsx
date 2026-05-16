@@ -10,11 +10,13 @@ import MasterModal from '@/components/admin/master/MasterModal'
 import { StatusBadge, CategoryBadge } from '@/components/admin/master/StatusBadge'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 
-const EMPTY = { code: '', name: '', category: 'HEMATOLOGI', unit: '', normalRangeText: '', minNormal: '', maxNormal: '', price: '', isActive: true }
+const EMPTY = { code: '', name: '', category: 'HEMATOLOGI', unit: '', normalRangeText: '', minNormal: '', maxNormal: '', price: '', isActive: true, parentId: '' }
 
 type LabTest = {
   id: string; code: string; name: string; category: string; unit?: string;
   normalRangeText?: string; minNormal?: number; maxNormal?: number; price: number; isActive: boolean;
+  parentId?: string;
+  parent?: { name: string };
 }
 
 export default function LabMasterPage() {
@@ -57,7 +59,8 @@ export default function LabMasterPage() {
       minNormal: r.minNormal ? String(r.minNormal) : '', 
       maxNormal: r.maxNormal ? String(r.maxNormal) : '', 
       price: String(r.price), 
-      isActive: r.isActive 
+      isActive: r.isActive,
+      parentId: r.parentId || ''
     })
     setError(''); setModalOpen(true)
   }
@@ -85,7 +88,16 @@ export default function LabMasterPage() {
   const columns = useMemo(() => {
     const cols: Column<LabTest>[] = [
       { key: 'code', label: 'Kode', render: (r) => <span className="text-xs font-bold font-mono text-gray-500 bg-gray-50 px-2 py-1 rounded-lg">{r.code}</span> },
-      { key: 'name', label: 'Nama Parameter', render: (r) => <span className="text-sm font-semibold text-gray-800">{r.name}</span> },
+      { key: 'name', label: 'Nama Parameter', render: (r) => (
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold text-gray-800">{r.name}</span>
+          {r.parent && (
+            <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-tighter">
+              Induk: {r.parent.name}
+            </span>
+          )}
+        </div>
+      ) },
       { key: 'category', label: 'Kategori', render: (r) => <CategoryBadge category={r.category} /> },
       { key: 'unit', label: 'Satuan', render: (r) => <span className="text-xs font-medium text-gray-500">{r.unit || '-'}</span> },
       { key: 'normalRangeText', label: 'Nilai Normal', render: (r) => <span className="text-xs font-medium text-slate-500 italic">{r.normalRangeText || '-'}</span> },
@@ -160,6 +172,25 @@ export default function LabMasterPage() {
                 <option value="URINALISA">URINALISA</option>
                 <option value="PAKET LABORATORIUM">PAKET LABORATORIUM</option>
                 <option value="LAINNYA">LAINNYA</option>
+              </select>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-indigo-600 mb-1.5 flex items-center gap-2">
+                <HiOutlineBeaker className="w-3 h-3" /> Induk Pemeriksaan (Jika merupakan bagian dari paket)
+              </label>
+              <select 
+                value={form.parentId} 
+                onChange={(e) => setForm(p => ({...p, parentId: e.target.value}))}
+                className="w-full px-4 py-2.5 text-sm border border-indigo-100 rounded-xl focus:outline-none focus:border-indigo-500 bg-indigo-50/30 font-medium"
+              >
+                <option value="">-- Berdiri Sendiri (Bukan bagian dari paket) --</option>
+                {data
+                  .filter(t => t.id !== editing?.id && !t.parentId) // Only allow top-level items as parents
+                  .map(t => (
+                    <option key={t.id} value={t.id}>{t.name} ({t.category})</option>
+                  ))
+                }
               </select>
             </div>
 
