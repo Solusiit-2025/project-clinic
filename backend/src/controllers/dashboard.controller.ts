@@ -29,7 +29,8 @@ export const getDashboardStats = async (req: Request, res: Response) => {
     const yesterdayEnd = new Date(`${yesterdayStr}T23:59:59+07:00`)
     
     // Day Name for schedule
-    const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'Asia/Jakarta' }).format(today)
+    const daysIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
+    const dayName = daysIndo[today.getDay()]
 
     // Clinic filter — SUPER_ADMIN / isMain sees all, others see their clinic
     const clinicFilter = isAdminView ? {} : (clinicId ? { clinicId } : {})
@@ -382,7 +383,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
           where: {
             dayOfWeek: dayName,
             isActive: true,
-            ...(clinicId ? { clinicId } : {}),
+            ...clinicFilter,
           },
           select: {
             startTime: true,

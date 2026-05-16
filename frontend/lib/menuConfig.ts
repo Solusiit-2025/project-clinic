@@ -27,10 +27,11 @@ export const LAYANAN_UTAMA_GROUPS = [
     label: 'Pelayanan Medis',
     icon: FiActivity,
     moduleId: 'MEDICAL_SERVICES',
+    roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'STAFF'],
     items: [
-      { icon: FiActivity, label: 'Nurse Station (Triage)', href: '/admin/transactions/nurse' },
-      { icon: FiUserCheck, label: 'Doctor Station', href: '/admin/transactions/doctor' },
-      { icon: FiUsers, label: 'Database Pasien', href: '/admin/master/patients', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE'] },
+      { icon: FiActivity, label: 'Nurse Station (Triage)', href: '/admin/transactions/nurse', roles: ['SUPER_ADMIN', 'ADMIN', 'NURSE'] },
+      { icon: FiUserCheck, label: 'Doctor Station', href: '/admin/transactions/doctor', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR'] },
+      { icon: FiUsers, label: 'Database Pasien', href: '/admin/master/patients', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'STAFF'] },
     ]
   },
   {

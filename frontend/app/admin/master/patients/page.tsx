@@ -40,7 +40,7 @@ type Patient = typeof EMPTY & { id: string; createdAt: string; updatedAt: string
 
 export default function PatientsPage() {
   const { user } = useAuthStore()
-  const isAllowed = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'DOCTOR' || user?.role === 'NURSE'
+  const isAllowed = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'DOCTOR' || user?.role === 'NURSE' || user?.role === 'STAFF'
   const [data, setData] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -52,6 +52,7 @@ export default function PatientsPage() {
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [updatedId, setUpdatedId] = useState<string | null>(null)
 
   // Debounce logic
   useEffect(() => {
@@ -120,15 +121,18 @@ export default function PatientsPage() {
     }
     setSaving(true); setError('')
     try {
-      if (editing) await api.put(`/master/patients/${editing.id}`, form)
-      else await api.post('/master/patients', form)
+      if (editing) {
+        await api.put(`/master/patients/${editing.id}`, form)
+        setUpdatedId(editing.id)
+        setTimeout(() => setUpdatedId(null), 8000) // Highlight for 8 seconds
+      } else {
+        await api.post('/master/patients', form)
+        setSearch('')
+        setPage(1)
+      }
       
-      // Reset flow: Clear search and close modal FIRST, then fetch
-      setSearch('')
       setModalOpen(false)
-      
-      // Delay fetch slightly to ensure DB has indexed if needed, and search state has cleared
-      setTimeout(() => fetchData(), 100)
+      fetchData()
     } catch (e: any) { setError(e.response?.data?.message || 'Terjadi kesalahan') }
     finally { setSaving(false) }
   }
@@ -156,7 +160,14 @@ export default function PatientsPage() {
           {r.name.charAt(0)}
         </div>
         <div className="flex flex-col">
-          <span className="text-[13px] font-black text-gray-900 tracking-tight leading-tight">{r.name}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-black text-gray-900 tracking-tight leading-tight">{r.name}</span>
+            {r.id === updatedId && (
+              <span className="text-[9px] font-black bg-amber-500 text-white px-2 py-0.5 rounded-lg animate-pulse shadow-sm shadow-amber-200">
+                BARU SAJA DIUPDATE
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2 mt-0.5">
              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{r.gender === 'M' ? 'L' : 'P'} • {r.age || (r.dateOfBirth ? `${new Date().getFullYear() - new Date(r.dateOfBirth).getFullYear()} Thn` : '-')}</span>
              {r.familyHeadName && (
@@ -217,7 +228,7 @@ export default function PatientsPage() {
           <FiLock className="w-10 h-10 text-rose-500" />
         </div>
         <h2 className="text-xl font-black text-gray-900 mb-2">Akses Terbatas</h2>
-        <p className="text-sm text-gray-400 max-w-md">Maaf, halaman Database Pasien hanya dapat diakses oleh Super Admin, Admin, dan Dokter.</p>
+        <p className="text-sm text-gray-400 max-w-md">Maaf, halaman Database Pasien hanya dapat diakses oleh Admin, Dokter, dan Staff.</p>
       </div>
     )
   }
