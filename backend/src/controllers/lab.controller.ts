@@ -15,7 +15,7 @@ export const getLabTestMasters = async (req: Request, res: Response) => {
 
     const tests = await prisma.labTestMaster.findMany({
       where,
-      include: { children: true, parent: true },
+      include: { children: true, parents: true },
       orderBy: { category: 'asc' }
     })
     res.json(tests)
@@ -29,7 +29,7 @@ export const getLabTestMasters = async (req: Request, res: Response) => {
  */
 export const createLabTestMaster = async (req: Request, res: Response) => {
   try {
-    const { code, name, category, unit, normalRangeText, minNormal, maxNormal, price, parentId } = req.body
+    const { code, name, category, unit, normalRangeText, minNormal, maxNormal, price, parentIds, childrenIds } = req.body
     const test = await prisma.labTestMaster.create({
       data: {
         code,
@@ -40,8 +40,9 @@ export const createLabTestMaster = async (req: Request, res: Response) => {
         minNormal: minNormal ? parseFloat(minNormal) : null,
         maxNormal: maxNormal ? parseFloat(maxNormal) : null,
         price: parseFloat(price) || 0,
-        parentId: parentId || null,
-        isActive: true
+        isActive: true,
+        parents: parentIds && parentIds.length > 0 ? { connect: parentIds.map((id: string) => ({ id })) } : undefined,
+        children: childrenIds && childrenIds.length > 0 ? { connect: childrenIds.map((id: string) => ({ id })) } : undefined
       }
     })
     res.status(201).json(test)
@@ -56,7 +57,7 @@ export const createLabTestMaster = async (req: Request, res: Response) => {
 export const updateLabTestMaster = async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { code, name, category, unit, normalRangeText, minNormal, maxNormal, price, isActive, parentId } = req.body
+    const { code, name, category, unit, normalRangeText, minNormal, maxNormal, price, isActive, parentIds, childrenIds } = req.body
     const test = await prisma.labTestMaster.update({
       where: { id },
       data: {
@@ -67,9 +68,10 @@ export const updateLabTestMaster = async (req: Request, res: Response) => {
         normalRangeText,
         minNormal: minNormal ? parseFloat(minNormal) : null,
         maxNormal: maxNormal ? parseFloat(maxNormal) : null,
-        price: price ? parseFloat(price) : undefined,
-        parentId: parentId || null,
-        isActive
+        price: parseFloat(price) || 0,
+        isActive,
+        parents: { set: parentIds ? parentIds.map((id: string) => ({ id })) : [] },
+        children: { set: childrenIds ? childrenIds.map((id: string) => ({ id })) : [] }
       }
     })
     res.json(test)

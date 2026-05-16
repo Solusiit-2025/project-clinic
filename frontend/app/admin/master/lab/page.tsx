@@ -10,13 +10,17 @@ import MasterModal from '@/components/admin/master/MasterModal'
 import { StatusBadge, CategoryBadge } from '@/components/admin/master/StatusBadge'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 
-const EMPTY = { code: '', name: '', category: 'HEMATOLOGI', unit: '', normalRangeText: '', minNormal: '', maxNormal: '', price: '', isActive: true, parentId: '' }
+const EMPTY = { 
+  code: '', name: '', category: 'HEMATOLOGI', unit: '', 
+  normalRangeText: '', minNormal: '', maxNormal: '', 
+  price: '', isActive: true, parentIds: [] as string[], childrenIds: [] as string[] 
+}
 
 type LabTest = {
   id: string; code: string; name: string; category: string; unit?: string;
   normalRangeText?: string; minNormal?: number; maxNormal?: number; price: number; isActive: boolean;
-  parentId?: string;
-  parent?: { name: string };
+  parents: { id: string, name: string }[];
+  children: { id: string, name: string }[];
 }
 
 export default function LabMasterPage() {
@@ -60,7 +64,8 @@ export default function LabMasterPage() {
       maxNormal: r.maxNormal ? String(r.maxNormal) : '', 
       price: String(r.price), 
       isActive: r.isActive,
-      parentId: r.parentId || ''
+      parentIds: r.parents?.map(p => p.id) || [],
+      childrenIds: r.children?.map(c => c.id) || []
     })
     setError(''); setModalOpen(true)
   }
@@ -72,7 +77,12 @@ export default function LabMasterPage() {
     }
     setSaving(true); setError('')
     try {
-      const payload = { ...form, price: Number(form.price) }
+      const payload = { 
+        ...form, 
+        price: Number(form.price),
+        parentIds: form.parentIds,
+        childrenIds: form.childrenIds
+      }
       if (editing) await api.put(`/lab/test-masters/${editing.id}`, payload)
       else await api.post('/lab/test-masters', payload)
       setModalOpen(false); fetchData()
@@ -88,16 +98,28 @@ export default function LabMasterPage() {
   const columns = useMemo(() => {
     const cols: Column<LabTest>[] = [
       { key: 'code', label: 'Kode', render: (r) => <span className="text-xs font-bold font-mono text-gray-500 bg-gray-50 px-2 py-1 rounded-lg">{r.code}</span> },
-      { key: 'name', label: 'Nama Parameter', render: (r) => (
-        <div className="flex flex-col">
-          <span className="text-sm font-semibold text-gray-800">{r.name}</span>
-          {r.parent && (
-            <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-tighter">
-              Induk: {r.parent.name}
-            </span>
-          )}
-        </div>
-      ) },
+      { key: 'name', label: 'Nama Parameter', render: (r) => {
+        const isChild = r.parents && r.parents.length > 0;
+        const hasChildren = r.children && r.children.length > 0;
+
+        return (
+          <div className={`flex items-center gap-2 ${isChild ? 'pl-6' : ''}`}>
+            {isChild && <span className="text-gray-300">↳</span>}
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <span className={`text-sm font-semibold ${isChild ? 'text-gray-600' : 'text-gray-900'}`}>{r.name}</span>
+                {hasChildren && <span className="text-[9px] font-black bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded border border-indigo-100 uppercase tracking-tighter flex items-center gap-1">📦 PAKET</span>}
+                {isChild && <span className="text-[9px] font-bold bg-slate-50 text-slate-400 px-1.5 py-0.5 rounded border border-slate-100 uppercase tracking-tighter">SUB</span>}
+              </div>
+              {isChild && (
+                <span className="text-[9px] font-medium text-gray-400">
+                  Bagian dari: {r.parents.map(p => p.name).join(', ')}
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      } },
       { key: 'category', label: 'Kategori', render: (r) => <CategoryBadge category={r.category} /> },
       { key: 'unit', label: 'Satuan', render: (r) => <span className="text-xs font-medium text-gray-500">{r.unit || '-'}</span> },
       { key: 'normalRangeText', label: 'Nilai Normal', render: (r) => <span className="text-xs font-medium text-slate-500 italic">{r.normalRangeText || '-'}</span> },
@@ -113,7 +135,43 @@ export default function LabMasterPage() {
 
     cols.push({ key: 'isActive', label: 'Status', render: (r) => <StatusBadge active={r.isActive} /> })
     return cols
-  }, [isAdmin])
+  }, [isAdmin, data])
+
+  // Hierarchical Sorting Logic
+  const hierarchicalData = useMemo(() => {
+    // 1. Filter by search
+    const filtered = data.filter(r => 
+      r.name.toLowerCase().includes(search.toLowerCase()) || 
+      r.code.toLowerCase().includes(search.toLowerCase()) ||
+      r.category.toLowerCase().includes(search.toLowerCase())
+    );
+
+    // If searching, just show flat list to avoid confusion
+    if (search) return filtered;
+
+    // 2. Build Hierarchy
+    const parents = filtered.filter(r => !r.parents || r.parents.length === 0);
+    const children = filtered.filter(r => r.parents && r.parents.length > 0);
+
+    const result: LabTest[] = [];
+
+    // Group parents by category to maintain DataTable's grouping expectation
+    const sortedParents = [...parents].sort((a, b) => a.category.localeCompare(b.category));
+
+    sortedParents.forEach(parent => {
+      result.push(parent);
+      // Find and add its children immediately after
+      const itsChildren = children.filter(c => c.parents.some(p => p.id === parent.id));
+      result.push(...itsChildren);
+    });
+
+    // Add orphaned children (if any)
+    const addedIds = new Set(result.map(r => r.id));
+    const orphans = children.filter(c => !addedIds.has(c.id));
+    result.push(...orphans);
+
+    return result;
+  }, [data, search])
 
   return (
     <div>
@@ -133,8 +191,7 @@ export default function LabMasterPage() {
       </div>
 
       <DataTable
-        data={data} columns={columns} loading={loading}
-        groupBy={(r) => r.category}
+        data={hierarchicalData} columns={columns} loading={loading}
         searchValue={search} onSearchChange={setSearch}
         searchPlaceholder="Cari kode atau nama parameter..."
         onEdit={isAdmin ? openEdit : undefined} onDelete={isAdmin ? handleDelete : undefined}
@@ -175,23 +232,61 @@ export default function LabMasterPage() {
               </select>
             </div>
 
-            <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-indigo-600 mb-1.5 flex items-center gap-2">
-                <HiOutlineBeaker className="w-3 h-3" /> Induk Pemeriksaan (Jika merupakan bagian dari paket)
+            <div className="md:col-span-2 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
+              <label className="block text-xs font-bold text-indigo-600 mb-2 flex items-center gap-2">
+                <HiOutlineBeaker className="w-4 h-4" /> 
+                {form.childrenIds.length > 0 || form.category === 'PAKET LABORATORIUM' ? 'Isi Parameter Paket (Package Builder)' : 'Pilih Induk (Jika bagian dari paket)'}
               </label>
-              <select 
-                value={form.parentId} 
-                onChange={(e) => setForm(p => ({...p, parentId: e.target.value}))}
-                className="w-full px-4 py-2.5 text-sm border border-indigo-100 rounded-xl focus:outline-none focus:border-indigo-500 bg-indigo-50/30 font-medium"
-              >
-                <option value="">-- Berdiri Sendiri (Bukan bagian dari paket) --</option>
-                {data
-                  .filter(t => t.id !== editing?.id && !t.parentId) // Only allow top-level items as parents
-                  .map(t => (
-                    <option key={t.id} value={t.id}>{t.name} ({t.category})</option>
-                  ))
-                }
-              </select>
+              
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {form.childrenIds.map(cid => {
+                    const child = data.find(t => t.id === cid);
+                    return (
+                      <span key={cid} className="flex items-center gap-1 px-2 py-1 bg-white border border-indigo-200 rounded-lg text-[10px] font-bold text-indigo-700">
+                        {child?.name}
+                        <button onClick={() => setForm(p => ({ ...p, childrenIds: p.childrenIds.filter(id => id !== cid) }))} className="text-red-400 hover:text-red-600">×</button>
+                      </span>
+                    );
+                  })}
+                  {form.parentIds.map(pid => {
+                    const p = data.find(t => t.id === pid);
+                    return (
+                      <span key={pid} className="flex items-center gap-1 px-2 py-1 bg-white border border-indigo-200 rounded-lg text-[10px] font-bold text-indigo-700">
+                        Induk: {p?.name}
+                        <button onClick={() => setForm(p => ({ ...p, parentIds: p.parentIds.filter(id => id !== pid) }))} className="text-red-400 hover:text-red-600">×</button>
+                      </span>
+                    );
+                  })}
+                </div>
+
+                <select 
+                  value=""
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    if (!id) return;
+                    // Logic: If I am a package (or choosing children), add to childrenIds
+                    // Otherwise add to parentIds. 
+                    if (form.category === 'PAKET LABORATORIUM' || form.childrenIds.length > 0) {
+                      if (!form.childrenIds.includes(id)) setForm(p => ({ ...p, childrenIds: [...p.childrenIds, id] }));
+                    } else {
+                      if (!form.parentIds.includes(id)) setForm(p => ({ ...p, parentIds: [...p.parentIds, id] }));
+                    }
+                  }}
+                  className="w-full px-4 py-2.5 text-sm border border-indigo-100 rounded-xl focus:outline-none focus:border-indigo-500 bg-white font-medium shadow-sm"
+                >
+                  <option value="">-- Tambah Parameter / Induk --</option>
+                  {data
+                    .filter(t => t.id !== editing?.id && !form.childrenIds.includes(t.id) && !form.parentIds.includes(t.id))
+                    .map(t => (
+                      <option key={t.id} value={t.id}>{t.name} ({t.category})</option>
+                    ))
+                  }
+                </select>
+                <p className="text-[10px] text-indigo-400 font-medium italic">
+                  * Tip: Tambahkan parameter ke sini untuk membuat paket (Package), atau pilih Induk jika parameter ini bagian dari paket lain.
+                </p>
+              </div>
             </div>
 
             <div>
