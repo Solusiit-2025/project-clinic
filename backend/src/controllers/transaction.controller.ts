@@ -281,15 +281,41 @@ export const createRegistration = async (req: Request, res: Response) => {
       })
 
       // Add Lab Test Items
+      let labService = null
+      if (isDirectLab && selectedLabTests.length > 0) {
+        labService = await tx.service.findFirst({
+          where: { 
+            OR: [
+              { serviceCode: 'LAB-GEN' },
+              { serviceName: { contains: 'Pemeriksaan Laboratorium', mode: 'insensitive' } }
+            ],
+            AND: {
+              OR: [ { clinicId: clinicId }, { clinic: { isMain: true } } ]
+            }
+          }
+        })
+        if (!labService) {
+          labService = await tx.service.create({
+            data: {
+              serviceCode: 'LAB-GEN',
+              serviceName: 'Pemeriksaan Laboratorium',
+              price: 0,
+              isActive: true,
+              clinicId: clinicId!
+            }
+          })
+        }
+      }
+
       for (const test of selectedLabTests) {
         await tx.invoiceItem.create({
           data: {
             invoiceId: invoice.id,
-            description: `Lab: ${test.name}`,
+            serviceId: labService?.id || null,
+            description: test.name, // Use plain name to match lab.controller
             quantity: 1,
             price: test.price,
             subtotal: test.price,
-            // Since it's from LabTestMaster not Service, we leave serviceId null or link if possible
           }
         })
       }

@@ -267,6 +267,20 @@ export const updateLabResults = async (req: Request, res: Response) => {
         const targetPatientId = updatedOrder.patientId
         const targetClinicId = mr?.clinicId || reg?.clinicId
 
+        // NEW: Update Queue Status for Direct Lab to enable payment
+        if (updatedOrder.isDirectLab && updatedOrder.registrationId) {
+          await tx.queueNumber.updateMany({
+            where: { registrationId: updatedOrder.registrationId },
+            data: { status: 'completed' }
+          })
+          
+          // Notify socket listeners
+          const io = (req as any).app?.get('io')
+          if (io && targetClinicId) {
+            io.to(`clinic:${targetClinicId}`).emit('queue-updated', { type: 'STATUS_CHANGED', clinicId: targetClinicId })
+          }
+        }
+
         if (targetClinicId) {
           // Find the active invoice for this patient
           const invoice = await tx.invoice.findFirst({
