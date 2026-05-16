@@ -4,6 +4,8 @@ import { upload } from '../middleware/upload.middleware'
 import {
   createReferral,
   getReferralsByMedicalRecord,
+  updateReferral,
+  deleteReferral,
   getTemplates,
   createTemplate,
   uploadAttachment,
@@ -18,6 +20,8 @@ clinicalRoutes.use(authMiddleware)
 // Referrals
 clinicalRoutes.post('/referrals', createReferral)
 clinicalRoutes.get('/referrals/record/:id', getReferralsByMedicalRecord)
+clinicalRoutes.put('/referrals/:id', updateReferral)
+clinicalRoutes.delete('/referrals/:id', deleteReferral)
 
 // Templates
 clinicalRoutes.get('/templates', getTemplates)

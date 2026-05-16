@@ -49,6 +49,44 @@ export const getReferralsByMedicalRecord = async (req: Request, res: Response) =
   }
 }
 
+export const updateReferral = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { type, toClinicId, toDepartmentId, toHospitalName, notes } = req.body
+    
+    const referral = await prisma.referral.update({
+      where: { id },
+      data: {
+        type,
+        toClinicId: type === 'INTERNAL' ? toClinicId : null,
+        toDepartmentId: type === 'INTERNAL' ? toDepartmentId : null,
+        toHospitalName: type === 'EXTERNAL' ? toHospitalName : null,
+        notes
+      },
+      include: {
+        toClinic: { select: { name: true } },
+        toDepartment: { select: { name: true } }
+      }
+    })
+    
+    res.json(referral)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const deleteReferral = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    await prisma.referral.delete({
+      where: { id }
+    })
+    res.json({ message: 'Referral deleted successfully' })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
 // ==================== CLINICAL TEMPLATES ====================
 
 export const getTemplates = async (req: Request, res: Response) => {

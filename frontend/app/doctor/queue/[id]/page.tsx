@@ -26,7 +26,7 @@ interface Queue {
   registrationId: string | null
   queueNo: string
   status: 'waiting' | 'called' | 'triage' | 'ready' | 'ongoing' | 'completed' | 'no-show'
-  patient: { name: string; medicalRecordNo: string; gender: string; allergies?: string }
+  patient: { name: string; medicalRecordNo: string; gender: string; allergies?: string; dateOfBirth?: string; address?: string }
   doctor: { name: string; specialization: string } | null
   department: { name: string } | null
 }
@@ -151,8 +151,17 @@ export default function DoctorConsultationPage() {
   
   const [isRMEInfoOpen, setIsRMEInfoOpen] = useState(false)
   const [showFinalConfirm, setShowFinalConfirm] = useState(false)
+  const [finalChecklist, setFinalChecklist] = useState({
+    soap: false,
+    diagnosis: false,
+    services: false,
+    prescription: false,
+    laboratory: false,
+    consent: false
+  })
   const [isPrescriptionRedirect, setIsPrescriptionRedirect] = useState(false)
   const [isSearchingMed, setIsSearchingMed] = useState(false)
+  const [editingReferralId, setEditingReferralId] = useState<string | null>(null)
   const hasFetchedRef = useRef<string | null>(null)
   const labDropdownRef = useRef<HTMLDivElement>(null)
   const icdContainerRef = useRef<HTMLDivElement>(null)
@@ -189,7 +198,7 @@ export default function DoctorConsultationPage() {
           params: { isActive: true, allClinics: true },
           headers: queueHeaders
         }),
-        api.get('/lab/test-masters'),
+        api.get('/lab/test-masters', { params: { isActive: true } }),
         api.get('clinical/templates'),
         api.get('master/clinics'),
         api.get('master/departments')
@@ -605,25 +614,53 @@ export default function DoctorConsultationPage() {
         notes: referralNotes
       }
       
-      const res = await api.post('clinical/referrals', payload)
+      const res = editingReferralId 
+        ? await api.put(`clinical/referrals/${editingReferralId}`, payload)
+        : await api.post('clinical/referrals', payload)
       
-      toast.success('Rujukan berhasil disimpan', { id: toastId })
-      
-      // Update local referrals list
-      setReferrals([res.data, ...referrals])
+      if (editingReferralId) {
+        toast.success('Rujukan berhasil diperbarui', { id: toastId })
+        setReferrals(referrals.map(r => r.id === editingReferralId ? res.data : r))
+      } else {
+        toast.success('Rujukan berhasil disimpan', { id: toastId })
+        setReferrals([res.data, ...referrals])
+      }
       
       // Set print data and trigger print
       setCurrentPrintReferral(res.data)
       setIsReferralPreviewOpen(true)
       
       // Reset form
+      setEditingReferralId(null)
       setReferralNotes('')
       setReferralToClinicId('')
       setReferralToDepartmentId('')
       setReferralToHospitalName('')
       
     } catch (e: any) {
-      toast.error(e.response?.data?.message || 'Gagal menyimpan rujukan', { id: toastId })
+      toast.error(e.response?.data?.message || 'Gagal memproses rujukan', { id: toastId })
+    }
+  }
+
+  const handleDeleteReferral = async (referralId: string) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus rujukan ini?')) return
+    
+    const toastId = toast.loading('Menghapus rujukan...')
+    try {
+      await api.delete(`clinical/referrals/${referralId}`)
+      setReferrals(referrals.filter(r => r.id !== referralId))
+      toast.success('Rujukan berhasil dihapus', { id: toastId })
+      
+      // Reset form if we were editing the deleted referral
+      if (editingReferralId === referralId) {
+        setEditingReferralId(null)
+        setReferralNotes('')
+        setReferralToClinicId('')
+        setReferralToDepartmentId('')
+        setReferralToHospitalName('')
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Gagal menghapus rujukan', { id: toastId })
     }
   }
 
@@ -666,87 +703,151 @@ export default function DoctorConsultationPage() {
 
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
-    
-    // --- Header / Letterhead ---
-    // Note: In doctor view, we might not have full clinic details in the order, 
-    // but we can try to get them from activeClinic (though not stored here yet)
-    // For now, use the order's clinic if available or fallback
-    const clinic = order.medicalRecord?.clinic;
-    const clinicName = clinic?.name || 'KLINIK SOLUSI IT';
-    const clinicAddress = clinic?.address || 'Alamat Klinik Belum Diatur';
-    const clinicPhone = clinic?.phone || '-';
+    const pageHeight = doc.internal.pageSize.getHeight();
 
-    doc.setFontSize(20);
-    doc.setTextColor(2, 132, 199); // Sky-700 (Biru Laut)
+    // --- Colors (Yasfina Green) ---
+    const primaryGreen: [number, number, number] = [21, 128, 61]; 
+
+    // --- Header ---
+    try {
+      doc.addImage('/logo-yasfina.png', 'PNG', 15, 8, 30, 25);
+    } catch (e) {
+      doc.setDrawColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+      doc.setLineWidth(1);
+      doc.rect(15, 8, 30, 25); 
+      doc.setFontSize(8);
+      doc.text('LOGO', 23, 22);
+    }
+
+    doc.setFontSize(18);
+    doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
     doc.setFont('helvetica', 'bold');
-    doc.text(clinicName.toUpperCase(), pageWidth / 2, 20, { align: 'center' });
+    doc.text('LABORATORIUM KLINIK PRATAMA YASFINA', 50, 20);
     
-    doc.setFontSize(10);
-    doc.setTextColor(100);
+    doc.setFontSize(9);
+    doc.setTextColor(80);
     doc.setFont('helvetica', 'normal');
-    doc.text(`${clinicAddress} | Telp: ${clinicPhone}`, pageWidth / 2, 27, { align: 'center' });
-    
-    doc.setDrawColor(200);
-    doc.line(15, 32, pageWidth - 15, 32);
+    doc.text('Villa Bogor Indah Blok BB 2 No. 1 Kedung Halang - Bogor', 50, 26);
+    doc.text('Telp. : 0251-8666169', 50, 31);
 
-    // --- Report Title ---
-    doc.setFontSize(14);
-    doc.setTextColor(30);
+    // --- Patient & Doctor Info Box ---
+    let currentY = 40;
+    doc.setDrawColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+    doc.setLineWidth(0.5);
+    doc.rect(15, currentY, pageWidth - 30, 25); // Main Box
+    doc.line(pageWidth / 2, currentY, pageWidth / 2, currentY + 25); // Vertical Divider
+
+    doc.setFontSize(9);
+    doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
     doc.setFont('helvetica', 'bold');
-    doc.text('HASIL PEMERIKSAAN LABORATORIUM', pageWidth / 2, 45, { align: 'center' });
 
-    // --- Patient & Order Info ---
-    doc.setFontSize(10);
+    const leftX = 20;
+    const rightX = pageWidth / 2 + 5;
+
+    // Info Labels
+    doc.text('Nama Pasien :', leftX, currentY + 7);
+    doc.text('Umur :', leftX, currentY + 14);
+    doc.text('Alamat :', leftX, currentY + 21);
+
+    doc.text('Dokter :', rightX, currentY + 7);
+    doc.text('No. Order :', rightX, currentY + 14);
+    doc.text('Tanggal :', rightX, currentY + 21);
+
+    doc.setTextColor(0);
     doc.setFont('helvetica', 'normal');
-    
-    const leftX = 15;
-    const rightX = pageWidth / 2 + 10;
-    let currentY = 55;
 
-    // Left Column
-    doc.text(`No. Rekam Medis : ${queue.patient.medicalRecordNo}`, leftX, currentY);
-    doc.text(`Nama Pasien      : ${queue.patient.name}`, leftX, currentY + 7);
+    // Calculate Age
+    const birthDate = queue.patient.dateOfBirth ? new Date(queue.patient.dateOfBirth) : null;
+    const age = birthDate ? new Date().getFullYear() - birthDate.getFullYear() : '-';
+    const gender = queue.patient.gender === 'M' || queue.patient.gender === 'L' ? 'L' : 'P';
 
-    // Right Column
-    doc.text(`No. Order        : ${order.orderNo}`, rightX, currentY);
-    doc.text(`Tgl. Pemeriksaan : ${new Date(order.orderDate).toLocaleString('id-ID')}`, rightX, currentY + 7);
+    doc.text(queue.patient.name.toUpperCase(), leftX + 25, currentY + 7);
+    doc.text(`${age} Thn (${gender})`, leftX + 25, currentY + 14);
+    doc.text(queue.patient.address || '-', leftX + 25, currentY + 21, { maxWidth: pageWidth / 2 - 35 });
 
-    currentY += 20;
+    doc.text(order.doctor?.name || 'PASIEN MANDIRI', rightX + 25, currentY + 7);
+    doc.text(order.orderNo, rightX + 25, currentY + 14);
+    doc.text(new Date(order.orderDate).toLocaleDateString('id-ID'), rightX + 25, currentY + 21);
 
-    // --- Results Table ---
-    const tableData = order.results.map((r: any) => [
-      r.testMaster?.name || '-',
-      r.resultValue,
-      r.testMaster?.unit || '-',
-      r.testMaster?.normalRangeText || '-',
-      r.isCritical ? 'KRITIS' : 'Normal'
-    ]);
+    currentY += 35;
+
+    // --- Results Table grouped by Category ---
+    const results = order.results || [];
+    const groupedResults = results.reduce((acc: any, curr: any) => {
+      const cat = curr.testMaster?.category || 'Umum'
+      if (!acc[cat]) acc[cat] = []
+      acc[cat].push(curr)
+      return acc
+    }, {});
+
+    const tableData: any[] = []
+    Object.entries(groupedResults).forEach(([category, items]: [string, any]) => {
+      // Add category row
+      tableData.push([
+        { content: category.toUpperCase(), colSpan: 5, styles: { fillColor: primaryGreen, textColor: 255, fontStyle: 'bold', halign: 'left' } }
+      ])
+      // Add items
+      items.forEach((r: any) => {
+        const isParent = !!(r.testMaster?.children && r.testMaster.children.length > 0);
+        if (isParent) {
+          tableData.push([
+            { content: r.testMaster?.name, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [248, 250, 252], textColor: [51, 65, 85] } }
+          ])
+        } else {
+          tableData.push([
+            r.testMaster?.parentId ? `   ${r.testMaster?.name}` : r.testMaster?.name,
+            r.resultValue,
+            r.testMaster?.unit || '',
+            r.testMaster?.normalRangeText || '',
+            r.isCritical ? '*' : ''
+          ])
+        }
+      })
+    })
 
     autoTable(doc, {
       startY: currentY,
       head: [['Parameter Pemeriksaan', 'Hasil', 'Satuan', 'Nilai Rujukan', 'Keterangan']],
       body: tableData,
-      theme: 'striped',
-      headStyles: { fillColor: [2, 132, 199], textColor: 255, fontSize: 10, halign: 'center' },
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: primaryGreen, textColor: 255, fontSize: 9, halign: 'center', fontStyle: 'bold' },
       columnStyles: {
-        0: { fontStyle: 'bold' },
-        1: { halign: 'center', fontStyle: 'bold' },
-        2: { halign: 'center' },
-        3: { halign: 'center' },
+        0: { cellWidth: 60, fontStyle: 'bold' },
+        1: { cellWidth: 30, halign: 'center', fontStyle: 'bold' },
+        2: { cellWidth: 25, halign: 'center' },
+        3: { cellWidth: 40, halign: 'center' },
         4: { halign: 'center' }
       },
       didParseCell: (data) => {
-        if (data.section === 'body' && data.column.index === 4 && data.cell.text[0] === 'KRITIS') {
-          data.cell.styles.textColor = [225, 29, 72];
-          data.cell.styles.fontStyle = 'bold';
+        if (data.section === 'body' && (data.column.index === 1 || data.column.index === 4)) {
+          const rowData = data.row.raw as any[];
+          if (rowData && rowData[4] === '*') {
+            data.cell.styles.textColor = [225, 29, 72];
+            data.cell.styles.fontStyle = 'bold';
+          }
         }
       }
     });
 
-    const finalY = (doc as any).lastAutoTable.finalY + 20;
-    const signY = finalY + 40;
-    doc.text('Petugas Laboratorium,', pageWidth - 60, signY);
-    doc.text('( ____________________ )', pageWidth - 60, signY + 25);
+    // --- Footer ---
+    const finalY = (doc as any).lastAutoTable.finalY + 15;
+
+    doc.setFontSize(9);
+    doc.setTextColor(0);
+    doc.setFont('helvetica', 'normal');
+
+    if (order.clinicalNotes) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('Catatan / Kesimpulan:', 15, finalY);
+      doc.setFont('helvetica', 'normal');
+      doc.text(order.clinicalNotes, 15, finalY + 5, { maxWidth: pageWidth - 30 });
+    }
+
+    const footerY = Math.max(finalY + 25, pageHeight - 40);
+    doc.text(`Bogor, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, pageWidth - 70, footerY);
+    doc.text('Petugas Laboratorium,', pageWidth - 70, footerY + 5);
+    doc.text('( ____________________ )', pageWidth - 70, footerY + 25);
 
     doc.save(`Hasil_Lab_${order.orderNo}_${queue.patient.name}.pdf`);
   }
@@ -1679,7 +1780,23 @@ export default function DoctorConsultationPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <div className="space-y-6">
                       <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100">
-                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Buat Rujukan Baru</p>
+                         <div className="flex items-center justify-between mb-4">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{editingReferralId ? 'Edit Rujukan Terpilih' : 'Buat Rujukan Baru'}</p>
+                            {editingReferralId && (
+                               <button 
+                                 onClick={() => {
+                                   setEditingReferralId(null)
+                                   setReferralNotes('')
+                                   setReferralToClinicId('')
+                                   setReferralToDepartmentId('')
+                                   setReferralToHospitalName('')
+                                 }}
+                                 className="text-[9px] font-black text-rose-500 uppercase tracking-widest hover:underline"
+                               >
+                                 Batal Edit
+                               </button>
+                            )}
+                         </div>
                          <div className="space-y-4">
                              <div className="flex gap-2">
                                 {['INTERNAL', 'EXTERNAL'].map(type => (
@@ -1714,8 +1831,8 @@ export default function DoctorConsultationPage() {
 
                              <textarea value={referralNotes} onChange={e => setReferralNotes(e.target.value)} placeholder="Catatan medis tambahan atau rincian klinis untuk rujukan..." className="w-full px-4 py-3 border border-slate-200 rounded-xl text-[11px] font-bold bg-white focus:border-primary outline-none min-h-[120px]" />
                              
-                             <button disabled={isPrinting} onClick={handleSaveAndPrintReferral} className="w-full py-4 mt-2 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all disabled:opacity-50">
-                                {isPrinting ? 'Mencetak...' : 'Cetak & Simpan Rujukan'}
+                             <button disabled={isPrinting} onClick={handleSaveAndPrintReferral} className={`w-full py-4 mt-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all disabled:opacity-50 ${editingReferralId ? 'bg-amber-500 text-white shadow-amber-200 hover:bg-amber-600' : 'bg-primary text-white shadow-primary/20 hover:bg-primary/90'}`}>
+                                {isPrinting ? 'Memproses...' : editingReferralId ? 'Perbarui & Cetak Rujukan' : 'Cetak & Simpan Rujukan'}
                              </button>
                           </div>
                       </div>
@@ -1736,7 +1853,35 @@ export default function DoctorConsultationPage() {
                                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Ke: <span className="text-slate-700">{r.type === 'INTERNAL' ? `${r.toClinic?.name || 'Klinik'} - ${r.toDepartment?.name || 'Poli'}` : r.toHospitalName}</span></p>
                                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Status: {r.status || 'Pending'}</p>
                               </div>
-                              <button onClick={() => handleReprintReferral(r)} title="Print Ulang Rujukan" className="p-2 text-primary hover:bg-indigo-50 rounded-lg transition-all"><FiPrinter /></button>
+                              <div className="flex items-center gap-1">
+                                  <button 
+                                    onClick={() => {
+                                      setEditingReferralId(r.id)
+                                      setReferralType(r.type)
+                                      setReferralNotes(r.notes || '')
+                                      if (r.type === 'INTERNAL') {
+                                        setReferralToClinicId(r.toClinicId || '')
+                                        setReferralToDepartmentId(r.toDepartmentId || '')
+                                      } else {
+                                        setReferralToHospitalName(r.toHospitalName || '')
+                                      }
+                                    }} 
+                                    title="Edit Rujukan" 
+                                    className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
+                                  >
+                                    <FiEdit3 className="w-4 h-4" />
+                                  </button>
+                                  <button onClick={() => handleReprintReferral(r)} title="Print Ulang Rujukan" className="p-2 text-primary hover:bg-indigo-50 rounded-lg transition-all"><FiPrinter className="w-4 h-4" /></button>
+                                  {!isReadOnly && (
+                                    <button 
+                                      onClick={() => handleDeleteReferral(r.id)} 
+                                      title="Hapus Rujukan" 
+                                      className="p-2 text-rose-400 hover:bg-rose-50 rounded-lg transition-all"
+                                    >
+                                      <FiTrash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                               </div>
                            </div>
                          ))
                        )}
@@ -2217,6 +2362,87 @@ export default function DoctorConsultationPage() {
         </div>
       )}
 
+      {/* Hidden Lab Result Print Template */}
+      {isPrinting && currentPrintLab && (
+        <div className="fixed -left-[9999px] top-0 pointer-events-none z-[-1]">
+          <div id="print-lab-result-template" className="w-[210mm] min-h-[297mm] bg-white text-slate-800 font-sans box-border relative overflow-hidden" style={{ padding: '20mm' }}>
+                <div className="absolute top-0 left-0 right-0 h-4 bg-rose-500"></div>
+                <div className="flex justify-between items-end border-b-2 border-rose-500 pb-6 mb-8 mt-4">
+                  <div>
+                     <div className="flex items-center gap-3 mb-2">
+                       <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center text-rose-500 font-black text-xl">
+                          <FiHeart />
+                       </div>
+                       <h1 className="text-2xl font-black uppercase tracking-widest text-slate-900">{queue?.clinicId ? clinicsList.find(c => c.id === queue.clinicId)?.name || 'KLINIK' : 'KLINIK PUSAT'}</h1>
+                     </div>
+                     <p className="text-xs text-slate-500 uppercase tracking-widest">Diagnostic & Laboratory Service</p>
+                  </div>
+                  <div className="text-right">
+                     <h2 className="text-3xl font-black uppercase tracking-tight text-rose-500">HASIL LABORATORIUM</h2>
+                     <p className="text-xs font-bold uppercase tracking-widest mt-2 bg-slate-100 text-slate-600 inline-block px-3 py-1 rounded-lg">No. Order: {currentPrintLab.orderNo}</p>
+                  </div>
+                </div>
+                
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 mb-8">
+                   <table className="w-full text-sm">
+                     <tbody>
+                       <tr><td className="w-48 py-2 font-bold text-slate-400 uppercase tracking-widest text-[10px]">Nama Pasien</td><td className="w-4 py-2 text-slate-300">:</td><td className="py-2 font-black text-slate-900">{queue?.patient.name}</td></tr>
+                       <tr><td className="w-48 py-2 font-bold text-slate-400 uppercase tracking-widest text-[10px]">No. Rekam Medis</td><td className="w-4 py-2 text-slate-300">:</td><td className="py-2 text-slate-700">{queue?.patient.medicalRecordNo}</td></tr>
+                       <tr><td className="w-48 py-2 font-bold text-slate-400 uppercase tracking-widest text-[10px]">Dokter Pengirim</td><td className="w-4 py-2 text-slate-300">:</td><td className="py-2 text-slate-700">{currentPrintLab.doctor?.name || queue?.doctor?.name || user?.name}</td></tr>
+                       <tr><td className="w-48 py-2 font-bold text-slate-400 uppercase tracking-widest text-[10px]">Tgl. Periksa</td><td className="w-4 py-2 text-slate-300">:</td><td className="py-2 text-slate-700">{new Date(currentPrintLab.orderDate).toLocaleString('id-ID')}</td></tr>
+                     </tbody>
+                   </table>
+                </div>
+
+                <div className="mb-8">
+                   <table className="w-full text-sm border-collapse">
+                      <thead>
+                         <tr className="bg-rose-500 text-white">
+                            <th className="px-4 py-3 text-left font-black uppercase tracking-widest text-[10px] rounded-tl-xl">Parameter Pemeriksaan</th>
+                            <th className="px-4 py-3 text-center font-black uppercase tracking-widest text-[10px]">Hasil</th>
+                            <th className="px-4 py-3 text-center font-black uppercase tracking-widest text-[10px]">Satuan</th>
+                            <th className="px-4 py-3 text-center font-black uppercase tracking-widest text-[10px]">Nilai Rujukan</th>
+                            <th className="px-4 py-3 text-right font-black uppercase tracking-widest text-[10px] rounded-tr-xl">Status</th>
+                         </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 border-x border-b border-slate-100">
+                         {currentPrintLab.results?.map((res: any, i: number) => (
+                            <tr key={res.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
+                               <td className="px-4 py-4 font-bold text-slate-700">{res.testMaster?.name}</td>
+                               <td className={`px-4 py-4 text-center font-black text-base ${res.isCritical ? 'text-rose-600 animate-pulse' : 'text-slate-900'}`}>{res.resultValue}</td>
+                               <td className="px-4 py-4 text-center text-slate-500 font-medium">{res.testMaster?.unit || '-'}</td>
+                               <td className="px-4 py-4 text-center text-slate-500 font-medium italic">{res.testMaster?.normalRangeText || '-'}</td>
+                               <td className="px-4 py-4 text-right">
+                                  <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg ${res.isCritical ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                     {res.isCritical ? 'KRITIS' : 'NORMAL'}
+                                  </span>
+                               </td>
+                            </tr>
+                         ))}
+                      </tbody>
+                   </table>
+                </div>
+
+                <div className="flex justify-between mt-20">
+                   <div className="text-center w-64">
+                      <p className="text-xs text-slate-400 mb-20 uppercase tracking-widest font-black">Dicetak Oleh,</p>
+                      <div className="border-b border-slate-200 w-full mb-2"></div>
+                      <p className="text-xs font-black text-slate-300 uppercase tracking-widest">Sistem RME Yasfina</p>
+                   </div>
+                   <div className="text-center w-64">
+                      <p className="text-xs text-slate-500 mb-20 uppercase tracking-widest font-black">Petugas Laboratorium,</p>
+                      <div className="border-b-2 border-slate-300 w-full mb-2"></div>
+                      <p className="text-sm font-black uppercase text-slate-900">( .............................. )</p>
+                   </div>
+                </div>
+
+                <div className="absolute bottom-10 left-20 right-20 border-t border-slate-200 pt-6 text-center">
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Hasil ini dihasilkan secara otomatis dan sah melalui Sistem Informasi Laboratorium Klinik</p>
+                </div>
+          </div>
+        </div>
+      )}
+
       {/* Referral Preview Modal */}
       <AnimatePresence>
         {isReferralPreviewOpen && currentPrintReferral && (
@@ -2291,6 +2517,18 @@ export default function DoctorConsultationPage() {
                           </table>
                         </div>
                         
+                        {/* Destination Info */}
+                        <div className="mb-6">
+                           <p className="text-xs text-slate-700 font-bold uppercase tracking-widest mb-2">Tujuan Rujukan:</p>
+                           <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                              <p className="text-sm font-black text-primary uppercase">
+                                 {currentPrintReferral.type === 'INTERNAL' 
+                                    ? `${currentPrintReferral.toClinic?.name || 'Klinik'} - ${currentPrintReferral.toDepartment?.name || 'Poli'}` 
+                                    : currentPrintReferral.toHospitalName}
+                              </p>
+                           </div>
+                        </div>
+
                         <div className="mb-6 border border-slate-200 rounded-xl p-5 relative overflow-hidden">
                            <div className="absolute top-0 left-0 bottom-0 w-1 bg-amber-400"></div>
                            <h3 className="text-[9px] font-black uppercase tracking-widest text-amber-600 mb-4 flex items-center gap-2"><FiActivity /> Informasi Klinis</h3>
@@ -2303,7 +2541,11 @@ export default function DoctorConsultationPage() {
                               </div>
                               <div>
                                  <p className="font-bold text-slate-400 uppercase tracking-widest text-[8px] mb-1">Diagnosa Sementara (A)</p>
-                                 <p className="whitespace-pre-wrap font-bold text-slate-900 mb-4 leading-relaxed">{diagnosis || '-'}</p>
+                                 <p className="whitespace-pre-wrap font-bold text-slate-900 mb-4 leading-relaxed">
+                                   {selectedIcd10 ? `[${selectedIcd10.code}] ${selectedIcd10.nameId || selectedIcd10.nameEn}` : ''}
+                                   {selectedIcd10 && diagnosis ? ' - ' : ''}
+                                   {diagnosis || (!selectedIcd10 ? '-' : '')}
+                                 </p>
                                  <p className="font-bold text-slate-400 uppercase tracking-widest text-[8px] mb-1">Terapi Diberikan (P)</p>
                                  <p className="whitespace-pre-wrap text-slate-700 leading-relaxed">{treatmentPlan || '-'}</p>
                               </div>
@@ -2313,6 +2555,7 @@ export default function DoctorConsultationPage() {
                         <div className="mb-12 bg-indigo-50/50 border border-indigo-100 rounded-2xl p-6 relative overflow-hidden">
                            <div className="absolute top-0 left-0 bottom-0 w-1 bg-primary"></div>
                            <h3 className="text-[10px] font-black uppercase tracking-widest text-primary mb-3">Catatan Rujukan Khusus</h3>
+                           <p className="text-xs text-slate-700 leading-relaxed italic">{currentPrintReferral.notes || '-'}</p>
                         </div>
                         
                         <div className="flex justify-end mt-16">
@@ -2373,6 +2616,18 @@ export default function DoctorConsultationPage() {
               </table>
             </div>
             
+            {/* Destination Info */}
+            <div className="mb-6">
+               <p className="text-xs text-slate-700 font-bold uppercase tracking-widest mb-2">Tujuan Rujukan:</p>
+               <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                  <p className="text-sm font-black text-primary uppercase">
+                     {currentPrintReferral.type === 'INTERNAL' 
+                        ? `${currentPrintReferral.toClinic?.name || 'Klinik'} - ${currentPrintReferral.toDepartment?.name || 'Poli'}` 
+                        : currentPrintReferral.toHospitalName}
+                  </p>
+               </div>
+            </div>
+
             {/* Clinical Info Section */}
             <div className="mb-6 border border-slate-200 rounded-xl p-5 relative overflow-hidden">
                <div className="absolute top-0 left-0 bottom-0 w-1 bg-amber-400"></div>
@@ -2387,7 +2642,11 @@ export default function DoctorConsultationPage() {
                   </div>
                   <div>
                      <p className="font-bold text-slate-400 uppercase tracking-widest text-[8px] mb-1">Diagnosa Sementara (A)</p>
-                     <p className="whitespace-pre-wrap font-bold text-slate-900 mb-4 leading-relaxed">{diagnosis || "-"}</p>
+                     <p className="whitespace-pre-wrap font-bold text-slate-900 mb-4 leading-relaxed">
+                        {selectedIcd10 ? `[${selectedIcd10.code}] ${selectedIcd10.nameId || selectedIcd10.nameEn}` : ''}
+                        {selectedIcd10 && diagnosis ? ' - ' : ''}
+                        {diagnosis || (!selectedIcd10 ? '-' : '')}
+                     </p>
                      
                      <p className="font-bold text-slate-400 uppercase tracking-widest text-[8px] mb-1">Terapi Diberikan (P)</p>
                      <p className="whitespace-pre-wrap text-slate-700 leading-relaxed">{treatmentPlan || "-"}</p>
@@ -2399,6 +2658,7 @@ export default function DoctorConsultationPage() {
             <div className="mb-12 bg-indigo-50/50 border border-indigo-100 rounded-2xl p-6 relative overflow-hidden">
                <div className="absolute top-0 left-0 bottom-0 w-1 bg-primary"></div>
                <h3 className="text-[10px] font-black uppercase tracking-widest text-primary mb-3">Catatan Rujukan Khusus</h3>
+               <p className="text-xs text-slate-700 leading-relaxed italic">{currentPrintReferral.notes || "-"}</p>
             </div>
             
             <div className="flex justify-end mt-16">
@@ -2535,45 +2795,138 @@ export default function DoctorConsultationPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowFinalConfirm(false)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+              className="absolute inset-0 bg-slate-900/80 backdrop-blur-md"
             />
             <motion.div 
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100"
+              className="relative w-full max-w-xl bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-slate-100"
             >
-              <div className="p-10 text-center">
-                <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-8 relative">
-                  <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping opacity-20" />
-                  <FiCheckCircle className="w-12 h-12 text-primary relative z-10" />
+              <div className="p-8">
+                <div className="flex items-center gap-4 mb-6">
+                   <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
+                      <FiCheckCircle className="w-6 h-6" />
+                   </div>
+                   <div>
+                      <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Verifikasi & Kunci Data</h3>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Data akan dikunci permanen untuk arsip medis.</p>
+                   </div>
                 </div>
                 
-                <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest mb-4">Selesaikan Pemeriksaan?</h3>
-                
-                <div className="space-y-4 mb-10">
-                   <p className="text-sm font-medium text-slate-500 leading-relaxed">
-                     Apakah Anda yakin ingin menyelesaikan pemeriksaan ini? Setelah disimpan, **Rekam Medis akan dikunci secara permanen** untuk keperluan arsip dan tidak dapat diubah kembali.
-                   </p>
-                   <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-start gap-3 text-left">
-                     <FiAlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                     <p className="text-[11px] font-bold text-amber-800 leading-tight uppercase tracking-tight">
-                       Pastikan semua Diagnosis (ICD-10), Tindakan Medis, dan Resep Obat sudah benar dan lengkap sebelum melanjutkan.
-                     </p>
-                   </div>
+                <div className="space-y-2 mb-8">
+                   {[
+                     { 
+                       id: 'soap', 
+                       label: 'SOAP (Anamnesa & Fisik)', 
+                       icon: <FiActivity />, 
+                       isFilled: !!(subjective.trim() || objective.trim()) 
+                     },
+                     { 
+                       id: 'diagnosis', 
+                       label: 'Diagnosa & Kode ICD-10', 
+                       icon: <FiAlertCircle />, 
+                       isFilled: !!(diagnosis.trim() || selectedIcd10) 
+                     },
+                     { 
+                       id: 'services', 
+                       label: 'Tindakan Medis (Opsional)', 
+                       icon: <FiPlus />, 
+                       isFilled: serviceItems.length > 0 
+                     },
+                     { 
+                       id: 'prescription', 
+                       label: 'Resep Obat & Aturan Pakai', 
+                       icon: <FiPackage />, 
+                       isFilled: prescriptionItems.length > 0 
+                     },
+                     { 
+                       id: 'laboratory', 
+                       label: 'Order Lab (Opsional)', 
+                       icon: <HiOutlineBeaker />, 
+                       isFilled: labItems.length > 0 
+                     },
+                     { 
+                       id: 'consent', 
+                       label: 'Persetujuan Tindakan', 
+                       icon: <FiCheckCircle />, 
+                       isFilled: hasInformedConsent,
+                       action: () => setHasInformedConsent(!hasInformedConsent)
+                     },
+                   ].map((item) => {
+                     const Content = (
+                       <div className="flex items-center gap-4">
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
+                            item.isFilled ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'
+                          }`}>
+                             {item.icon}
+                          </div>
+                          <div className="text-left">
+                             <div className="flex items-center gap-2">
+                                <p className="text-[10px] font-black uppercase tracking-tight">{item.label}</p>
+                                {item.action && !item.isFilled && (
+                                  <span className="text-[7px] font-black bg-amber-500 text-white px-1.5 py-0.5 rounded-md animate-pulse">KLIK DISINI</span>
+                                )}
+                             </div>
+                             <p className="text-[8px] font-bold uppercase tracking-widest opacity-70">
+                               {item.isFilled ? '✓ Data Sudah Lengkap' : item.action ? 'KLIK UNTUK VERIFIKASI LANGSUNG' : '! Data Belum Diisi'}
+                             </p>
+                          </div>
+                       </div>
+                     );
+
+                     const StatusIcon = (
+                       <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${
+                         item.isFilled ? 'text-emerald-500' : 'text-amber-500'
+                       }`}>
+                          {item.isFilled ? <FiCheckCircle className="w-5 h-5" /> : <FiAlertCircle className="w-5 h-5" />}
+                       </div>
+                     );
+
+                     if (item.action) {
+                       return (
+                         <button
+                           key={item.id}
+                           onClick={item.action}
+                           className={`w-full p-4 rounded-2xl border flex items-center justify-between transition-all hover:scale-[1.02] active:scale-95 ${
+                             item.isFilled 
+                               ? 'bg-emerald-50/50 border-emerald-100 text-emerald-700' 
+                               : 'bg-amber-50/50 border-amber-100 text-amber-700 shadow-lg shadow-amber-500/10'
+                           }`}
+                         >
+                           {Content}
+                           {StatusIcon}
+                         </button>
+                       );
+                     }
+
+                     return (
+                       <div
+                         key={item.id}
+                         className={`w-full p-4 rounded-2xl border flex items-center justify-between transition-all ${
+                           item.isFilled 
+                             ? 'bg-emerald-50/50 border-emerald-100 text-emerald-700' 
+                             : 'bg-amber-50/50 border-amber-100 text-amber-700'
+                         }`}
+                       >
+                         {Content}
+                         {StatusIcon}
+                       </div>
+                     );
+                   })}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <button 
                     onClick={() => setShowFinalConfirm(false)}
-                    className="py-4 px-6 bg-slate-50 text-slate-500 font-black rounded-2xl text-[10px] uppercase tracking-[0.2em] hover:bg-slate-100 transition-all active:scale-95"
+                    className="py-4 px-6 bg-slate-100 text-slate-500 font-black rounded-2xl text-[10px] uppercase tracking-[0.2em] hover:bg-slate-200 transition-all"
                   >
                     Tinjau Kembali
                   </button>
                   <button 
                     onClick={() => executeSave(true, isPrescriptionRedirect)}
                     disabled={saving}
-                    className="py-4 px-6 bg-primary text-white font-black rounded-2xl text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-primary/30 hover:bg-primary/90 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
+                    className="py-4 px-6 bg-primary text-white font-black rounded-2xl text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-primary/30 hover:bg-primary/90 transition-all disabled:opacity-30 disabled:grayscale flex items-center justify-center gap-2"
                   >
                     {saving ? 'MEMPROSES...' : 'YA, SELESAIKAN & KUNCI'}
                   </button>
@@ -2581,7 +2934,9 @@ export default function DoctorConsultationPage() {
               </div>
 
               <div className="bg-slate-50 border-t border-slate-100 p-4 text-center">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Integrasi Rekam Medis Elektronik (RME) Yasfina</p>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center justify-center gap-2">
+                   <FiLock /> PERMANENT LOCKING SYSTEM
+                </p>
               </div>
             </motion.div>
           </div>
