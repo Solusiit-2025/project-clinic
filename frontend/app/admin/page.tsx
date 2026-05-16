@@ -894,7 +894,7 @@ export default function AdminDashboard() {
             </div>
           </div>
           <div className="flex-1 space-y-1.5 overflow-y-auto max-h-[260px] pr-1">
-            {data?.dutyStatus?.map((doc: any) => (
+            {data?.dutyStatus?.filter((doc: any) => doc.isOnDuty).map((doc: any) => (
               <div key={doc.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-all group">
                 <div className="relative flex-shrink-0">
                   <div className="w-9 h-9 bg-gray-100 rounded-xl overflow-hidden border border-gray-100">
@@ -928,7 +928,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
             ))}
-            {(!data?.dutyStatus || data.dutyStatus.length === 0) && (
+            {(!data?.dutyStatus || data.dutyStatus.filter((doc: any) => doc.isOnDuty).length === 0) && (
               <div className="flex flex-col items-center justify-center py-8 text-gray-300">
                 <FiUsers className="w-8 h-8 mb-2" />
                 <p className="text-xs font-semibold">Tidak ada data dokter</p>
