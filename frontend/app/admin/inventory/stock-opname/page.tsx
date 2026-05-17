@@ -364,7 +364,7 @@ export default function StockOpnamePage() {
     // --- Table Configuration ---
     let head = mode === 'blank' 
       ? [['NO', 'DESKRIPSI BARANG / BATCH', 'STOK SISTEM', 'STOK FISIK (ISI DI SINI)', 'CATATAN / KONDISI']]
-      : [['NO', 'DESKRIPSI BARANG', 'SISTEM', 'FISIK', 'HARGA SATUAN', 'SUBTOTAL']]
+      : [['NO', 'DESKRIPSI BARANG', 'SISTEM', 'FISIK', 'HARGA SATUAN BELI', 'SUBTOTAL']]
 
     const tableData = [...session.items]
       .sort((a, b) => a.product.productName.localeCompare(b.product.productName, undefined, { sensitivity: 'base' }))
@@ -756,7 +756,7 @@ export default function StockOpnamePage() {
                     <div className="col-span-1 text-center">Sistem</div>
                     <div className="col-span-1 text-center">Fisik</div>
                     <div className="col-span-1 text-center">Selisih</div>
-                    <div className="col-span-4 text-center">Harga Satuan</div>
+                    <div className="col-span-4 text-center">Harga Satuan Beli</div>
                     <div className="col-span-2 text-right">Total Fisik</div>
                  </div>
 
@@ -842,7 +842,7 @@ export default function StockOpnamePage() {
                                      <input type="number" className="w-full bg-white px-2 py-2 rounded-xl text-center font-black text-sm text-primary outline-none" value={item.physicalQty} onChange={(e) => handleUpdateQty(item, Number(e.target.value))} />
                                   </div>
                                   <div className="space-y-1">
-                                     <p className="text-[8px] font-black text-gray-400 uppercase text-center">Har Satuan</p>
+                                     <p className="text-[8px] font-black text-gray-400 uppercase text-center">Har Satuan Beli</p>
                                      <input type="number" className="w-full bg-white px-2 py-2 rounded-xl text-center font-black text-gray-900 text-sm outline-none" value={item.unitPrice} onChange={(e) => handleUpdatePrice(item, Number(e.target.value))} />
                                   </div>
                                </div>
@@ -1019,7 +1019,7 @@ export default function StockOpnamePage() {
             <th className="text-left">Deskripsi Barang</th>
             <th className="text-center">Sistem</th>
             <th className="text-center">Fisik</th>
-            <th className="text-center">Harga Satuan</th>
+            <th className="text-center">Harga Satuan Beli</th>
             <th className="text-right">Subtotal</th>
           </tr>
         </thead>
