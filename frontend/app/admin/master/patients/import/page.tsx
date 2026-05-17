@@ -12,6 +12,7 @@ export default function ImportPatientsPage() {
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState<any>(null)
+  const [patientType, setPatientType] = useState('Poli Umum')
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -31,7 +32,7 @@ export default function ImportPatientsPage() {
     formData.append('file', file)
 
     try {
-      const res = await api.post('/master/patients/import', formData, {
+      const res = await api.post(`/master/patients/import?patientType=${encodeURIComponent(patientType)}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
       setResult(res.data)
@@ -62,6 +63,26 @@ export default function ImportPatientsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {/* Left Column: Upload Area */}
         <div className="md:col-span-2 space-y-6">
+          
+          {/* Target Polyclinic Selection Card */}
+          <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Pilih Kategori Poli Tujuan</p>
+            <p className="text-xs text-slate-500 font-bold leading-normal">Semua pasien di dalam file Excel ini akan otomatis dikategorikan ke Poli yang Anda pilih di bawah:</p>
+            <div className="flex gap-2 p-1 bg-slate-50 rounded-2xl border border-slate-200">
+              {['Poli Umum', 'Poli Gigi'].map(type => (
+                <button
+                  key={type}
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => setPatientType(type)}
+                  className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${patientType === type ? 'bg-primary text-white shadow-md' : 'text-slate-500 hover:text-slate-700 bg-white/40'}`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className={`relative border-2 border-dashed rounded-3xl p-12 text-center transition-all ${file ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-primary/50'}`}>
             <input 
               type="file" 

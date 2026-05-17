@@ -1948,7 +1948,7 @@ export const getPatientById = async (req: Request, res: Response) => {
 
 export const getPatients = async (req: Request, res: Response) => {
   try {
-    const { search, isActive } = req.query
+    const { search, isActive, patientType } = req.query
     const currentUser = (req as any).user
     const currentClinicId = (req as any).clinicId
     const isAdminView = (req as any).isAdminView || 
@@ -1992,6 +1992,7 @@ export const getPatients = async (req: Request, res: Response) => {
         
         // Other filters
         ...(isActive !== undefined ? [{ isActive: isActive === 'true' }] : []),
+        ...(patientType ? [{ patientType: String(patientType) }] : []),
         ...(search ? [{
           OR: [
             { name: { contains: String(search), mode: 'insensitive' as any } },
@@ -2120,6 +2121,27 @@ export const deletePatient = async (req: Request, res: Response) => {
   }
 }
 
+function getCellValueAsString(value: any): string {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'number') return String(value)
+  if (typeof value === 'object') {
+    // Rich Text object
+    if (Array.isArray(value.richText)) {
+      return value.richText.map((t: any) => t.text || '').join('')
+    }
+    // Formula object
+    if (value.result !== undefined && value.result !== null) {
+      return getCellValueAsString(value.result)
+    }
+    // Hyperlink object
+    if (value.text !== undefined) {
+      return getCellValueAsString(value.text)
+    }
+  }
+  return String(value)
+}
+
 export const importPatients = async (req: Request, res: Response) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'File tidak ditemukan' })
@@ -2135,28 +2157,58 @@ export const importPatients = async (req: Request, res: Response) => {
     // Phase 1: Collect all data from worksheets
     const patientsToProcess: any[] = []
     for (const worksheet of workbook.worksheets) {
+      // Skip empty worksheets
+      if (worksheet.rowCount === 0) continue
+
+      // Find the actual header row dynamically (scanning first 5 rows for keywords)
+      let headerRowIndex = 1
+      for (let rNum = 1; rNum <= 5; rNum++) {
+        const row = worksheet.getRow(rNum)
+        let matches = 0
+        row.eachCell((cell) => {
+          const val = getCellValueAsString(cell.value).toUpperCase().trim()
+          if (
+            val.includes('NAMA') || 
+            val.includes('KELAMIN') || 
+            val.includes('REGISTER') || 
+            val.includes('REGISTRASI') ||
+            val.includes('USIA') ||
+            val.includes('ALAMAT')
+          ) {
+            matches++
+          }
+        })
+        if (matches >= 2) {
+          headerRowIndex = rNum
+          break
+        }
+      }
+
       const headers: string[] = []
-      const headerRow = worksheet.getRow(1)
+      const headerRow = worksheet.getRow(headerRowIndex)
       headerRow.eachCell((cell, colNumber) => {
-        headers[colNumber] = String(cell.value || '').trim()
+        headers[colNumber] = getCellValueAsString(cell.value).trim()
       })
 
       const rowCount = worksheet.rowCount
-      for (let i = 2; i <= rowCount; i++) {
+      for (let i = headerRowIndex + 1; i <= rowCount; i++) {
         const row = worksheet.getRow(i)
         const rowData: any = {}
         row.eachCell((cell, colNumber) => {
           const header = headers[colNumber]
-          if (header) rowData[header] = cell.value
+          if (header) {
+            rowData[header] = getCellValueAsString(cell.value).trim()
+          }
         })
 
-        const oldNo = rowData['NO REGISTRASI'] || rowData['No Registrasi'] || rowData['NO_REGISTRASI']
+        const oldNo = rowData['NO REGISTERSI'] || rowData['No Registersi'] || rowData['NO REGISTRASI'] || rowData['No Registrasi'] || rowData['NO_REGISTRASI']
         const name = rowData['NAMA PASIEN'] || rowData['Nama Pasien'] || rowData['NAMA']
-        const genderRaw = rowData['JENIS KELA'] || rowData['Jenis Kelamin'] || rowData['JK']
+        const genderRaw = rowData['JENIS KELAMIN'] || rowData['Jenis Kelamin'] || rowData['JENIS KELA'] || rowData['JK']
         const age = rowData['USIA'] || rowData['Usia'] || rowData['Umur']
+        const dobRaw = rowData['TANGGAL LAHIR'] || rowData['Tanggal Lahir'] || rowData['DOB'] || rowData['TGL LAHIR']
         const headOfFamily = rowData['Nama KK'] || rowData['Kepala Keluarga']
         const address = rowData['ALAMAT'] || rowData['Alamat']
-        const phone = rowData['No Telp'] || rowData['NO TELP'] || rowData['PHONE'] || rowData['HP'] || rowData['Telepon'] || rowData['no Telp']
+        const phone = rowData['NO TELP'] || rowData['No Telp'] || rowData['PHONE'] || rowData['HP'] || rowData['Telepon'] || rowData['no Telp']
 
         if (!name) continue
 
@@ -2168,16 +2220,36 @@ export const importPatients = async (req: Request, res: Response) => {
           gender = 'MALE'
         }
 
-        let dob = null
+        let parsedAge = null
         if (age) {
-          const birthYear = currentYear - Math.floor(Number(age))
+          // Extract only digits from the age string to handle variations like "8 thn", "8 Tahun", etc.
+          const digits = String(age).replace(/\D/g, '')
+          if (digits) {
+            parsedAge = Number(digits)
+          }
+        }
+
+        // Cap age to a realistic range (1 to 120 years) to avoid trillion-year-old dates or formula glitches
+        if (parsedAge !== null && (parsedAge <= 0 || parsedAge > 120)) {
+          parsedAge = null
+        }
+
+        let dob = null
+        if (dobRaw) {
+          const parsedDob = new Date(dobRaw)
+          if (!isNaN(parsedDob.getTime())) {
+            dob = parsedDob
+          }
+        }
+        if (!dob && parsedAge !== null && !isNaN(parsedAge)) {
+          const birthYear = currentYear - Math.floor(parsedAge)
           dob = new Date(birthYear, 0, 1)
         }
 
         patientsToProcess.push({
           name: String(name),
           gender,
-          age: age ? Number(age) : null,
+          age: parsedAge !== null && !isNaN(parsedAge) ? parsedAge : null,
           dateOfBirth: dob,
           address: address ? String(address) : null,
           familyHeadName: headOfFamily ? String(headOfFamily) : null,
@@ -2187,18 +2259,64 @@ export const importPatients = async (req: Request, res: Response) => {
       }
     }
 
+    // Phase 1.5: Deduplicate patientsToProcess by oldMedicalRecordNo to prevent parallel race conditions
+    const uniquePatients: any[] = []
+    const seenOldRms = new Set<string>()
+    for (const p of patientsToProcess) {
+      if (p.oldMedicalRecordNo && p.oldMedicalRecordNo !== '-' && p.oldMedicalRecordNo.trim() !== '') {
+        const normalized = p.oldMedicalRecordNo.toUpperCase().trim()
+        if (seenOldRms.has(normalized)) {
+          continue // Skip duplicate old RM within the Excel sheet to prevent parallel DB unique index crashes
+        }
+        seenOldRms.add(normalized)
+      }
+      uniquePatients.push(p)
+    }
+
     // Phase 2: Parallel Batch Processing
     const BATCH_SIZE = 500
     const prefix = `RM-${currentYear}`
     
-    // Get initial count once
-    let currentSequence = await prisma.patient.count({ where: { medicalRecordNo: { startsWith: prefix } } })
+    // Dynamically retrieve the absolute highest existing sequence number to prevent unique constraint failures
+    const latestPatient = await prisma.patient.findFirst({
+      where: {
+        medicalRecordNo: {
+          startsWith: prefix
+        }
+      },
+      orderBy: {
+        medicalRecordNo: 'desc'
+      },
+      select: {
+        medicalRecordNo: true
+      }
+    })
 
-    for (let i = 0; i < patientsToProcess.length; i += BATCH_SIZE) {
-      const chunk = patientsToProcess.slice(i, i + BATCH_SIZE)
+    let currentSequence = 0
+    if (latestPatient?.medicalRecordNo) {
+      const parts = latestPatient.medicalRecordNo.split('-')
+      const numPart = parts[parts.length - 1]
+      const parsedNum = parseInt(numPart, 10)
+      if (!isNaN(parsedNum)) {
+        currentSequence = parsedNum
+      }
+    }
+
+    for (let i = 0; i < uniquePatients.length; i += BATCH_SIZE) {
+      const chunk = uniquePatients.slice(i, i + BATCH_SIZE)
       
-      await Promise.all(chunk.map(async (data) => {
+      // Pre-generate MR Numbers for this chunk synchronously to guarantee no race conditions
+      const chunkWithMr = chunk.map(data => {
+        const mrNo = `${prefix}-${(++currentSequence).toString().padStart(6, '0')}`
+        return {
+          ...data,
+          generatedMrNo: mrNo
+        }
+      })
+
+      await Promise.all(chunkWithMr.map(async (item) => {
         try {
+          const { generatedMrNo, ...data } = item
           const existing = await prisma.patient.findFirst({
             where: {
               OR: [
@@ -2211,6 +2329,8 @@ export const importPatients = async (req: Request, res: Response) => {
             }
           })
 
+          const patientType = (req.query.patientType as string) || 'Poli Umum'
+
           if (existing) {
             await (prisma.patient as any).update({
               where: { id: existing.id },
@@ -2220,27 +2340,26 @@ export const importPatients = async (req: Request, res: Response) => {
                 age: data.age,
                 gender: data.gender,
                 dateOfBirth: data.dateOfBirth,
-                phone: data.phone
+                phone: data.phone,
+                patientType
               }
             })
             totalUpdated++
           } else {
-            // Sequence is handled by an atomic increment or we fetch it per chunk to be safe
-            // But since this is a serial loop over chunks, we can increment locally
-            const mrNo = `${prefix}-${(++currentSequence).toString().padStart(6, '0')}`
             await prisma.patient.create({
               data: {
                 ...data,
-                medicalRecordNo: mrNo
+                medicalRecordNo: generatedMrNo,
+                patientType
               }
             })
             totalImported++
           }
         } catch (err: any) {
-          errors.push(`Gagal memproses ${data.name}: ${err.message}`)
+          errors.push(`Gagal memproses ${item.name}: ${err.message}`)
         }
       }))
-      console.log(`[Import] Progress: ${Math.min(i + BATCH_SIZE, patientsToProcess.length)} / ${patientsToProcess.length}`)
+      console.log(`[Import] Progress: ${Math.min(i + BATCH_SIZE, uniquePatients.length)} / ${uniquePatients.length}`)
     }
 
     res.json({

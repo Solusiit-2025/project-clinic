@@ -27,6 +27,7 @@ interface Patient {
   dateOfBirth: string
   identityNumber: string
   address: string
+  patientType?: string
 }
 
 interface Doctor {
@@ -60,6 +61,7 @@ const EMPTY_PATIENT = {
   allergies: '', 
   bpjsNumber: '',
   insuranceName: '',
+  patientType: 'Poli Umum',
   isActive: true 
 }
 
@@ -314,6 +316,15 @@ export default function RegistrationPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1.5">
                         <p className="font-black text-gray-900 text-sm md:text-base leading-tight">{p.name}</p>
+                        {p.patientType && (
+                          <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded border ${
+                            p.patientType === 'Poli Gigi' 
+                              ? 'bg-cyan-50 text-cyan-600 border-cyan-200 shadow-sm' 
+                              : 'bg-indigo-50 text-indigo-600 border-indigo-200 shadow-sm'
+                          }`}>
+                            {p.patientType}
+                          </span>
+                        )}
                         <div className="flex items-center gap-1.5">
                           <span className="text-[9px] md:text-[10px] font-black text-primary bg-primary/5 px-2 py-0.5 rounded border border-primary/20">{p.medicalRecordNo}</span>
                           {p.oldMedicalRecordNo && (
@@ -755,6 +766,21 @@ export default function RegistrationPage() {
                       onChange={(e) => setPatientForm(p => ({...p, dateOfBirth: e.target.value}))}
                       className="w-full px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all" 
                     />
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-[11px] font-medium text-slate-500">Tipe / Kategori Pasien</label>
+                    <div className="flex gap-1 p-1 bg-slate-50 rounded-md border border-slate-200">
+                      {['Poli Umum', 'Poli Gigi'].map(type => (
+                        <button 
+                          key={type} type="button" 
+                          onClick={() => setPatientForm(p => ({ ...p, patientType: type }))}
+                          className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${patientForm.patientType === type ? 'bg-primary text-white shadow-md' : 'text-slate-500 hover:text-slate-700 bg-white/40'}`}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>

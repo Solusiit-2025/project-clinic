@@ -33,6 +33,7 @@ const EMPTY = {
   allergies: '', 
   bpjsNumber: '',
   insuranceName: '',
+  patientType: 'Poli Umum',
   isActive: true 
 }
 
@@ -45,6 +46,7 @@ export default function PatientsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [patientTypeFilter, setPatientTypeFilter] = useState('Semua')
   const [page, setPage] = useState(1)
   const [meta, setMeta] = useState({ total: 0, totalPages: 1 })
   const [modalOpen, setModalOpen] = useState(false)
@@ -63,11 +65,17 @@ export default function PatientsPage() {
     return () => clearTimeout(handler)
   }, [search])
 
+  // Reset page when patientTypeFilter changes
+  useEffect(() => {
+    setPage(1)
+  }, [patientTypeFilter])
+
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       const params: any = { page, limit: 10 }
       if (debouncedSearch) params.search = debouncedSearch
+      if (patientTypeFilter !== 'Semua') params.patientType = patientTypeFilter
       const res = await api.get('/master/patients', { params })
       
       if (res.data.meta) {
@@ -78,7 +86,7 @@ export default function PatientsPage() {
         setData(patientsArray)
       }
     } finally { setLoading(false) }
-  }, [debouncedSearch, page])
+  }, [debouncedSearch, page, patientTypeFilter])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -109,7 +117,8 @@ export default function PatientsPage() {
       city: r.city || '',
       province: r.province || '',
       address: r.address || '',
-      email: r.email || ''
+      email: r.email || '',
+      patientType: r.patientType || 'Poli Umum'
     })
     setError(''); setModalOpen(true)
   }
@@ -162,6 +171,15 @@ export default function PatientsPage() {
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
             <span className="text-[13px] font-black text-gray-900 tracking-tight leading-tight">{r.name}</span>
+            {r.patientType && (
+              <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md border ${
+                r.patientType === 'Poli Gigi' 
+                  ? 'bg-cyan-50 text-cyan-600 border-cyan-100 shadow-sm' 
+                  : 'bg-indigo-50 text-indigo-600 border-indigo-100 shadow-sm'
+              }`}>
+                {r.patientType}
+              </span>
+            )}
             {r.id === updatedId && (
               <span className="text-[9px] font-black bg-amber-500 text-white px-2 py-0.5 rounded-lg animate-pulse shadow-sm shadow-amber-200">
                 BARU SAJA DIUPDATE
@@ -259,6 +277,17 @@ export default function PatientsPage() {
         page={page}
         totalPages={meta.totalPages}
         onPageChange={setPage}
+        extraFilters={
+          <select
+            value={patientTypeFilter}
+            onChange={(e) => setPatientTypeFilter(e.target.value)}
+            className="text-xs font-bold bg-white border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/5 text-gray-700 outline-none cursor-pointer shadow-sm hover:border-gray-300 transition-all"
+          >
+            <option value="Semua">Semua Poli</option>
+            <option value="Poli Umum">Poli Umum</option>
+            <option value="Poli Gigi">Poli Gigi</option>
+          </select>
+        }
       />
 
       <MasterModal 
@@ -337,6 +366,21 @@ export default function PatientsPage() {
                       onChange={(e) => setForm(p => ({...p, dateOfBirth: e.target.value}))}
                       className="w-full px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all" 
                     />
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-[11px] font-medium text-slate-500">Tipe / Kategori Pasien</label>
+                    <div className="flex gap-1 p-1 bg-slate-50 rounded-md border border-slate-200">
+                      {['Poli Umum', 'Poli Gigi'].map(type => (
+                        <button 
+                          key={type} type="button" 
+                          onClick={() => setForm(p => ({ ...p, patientType: type }))}
+                          className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${form.patientType === type ? 'bg-primary text-white shadow-md' : 'text-slate-500 hover:text-slate-700 bg-white/40'}`}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>

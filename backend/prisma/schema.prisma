@@ -121,6 +121,7 @@ model Patient {
   updatedAt          DateTime        @updatedAt
   bpjsNumber         String?
   insuranceName      String?
+  patientType        String?         @default("Poli Umum")
   appointments       Appointment[]
   invoices           Invoice[]
   labOrders          LabOrder[]
