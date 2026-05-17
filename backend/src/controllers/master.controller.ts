@@ -1089,16 +1089,7 @@ export const getProductMasters = async (req: Request, res: Response) => {
           { sku: { contains: String(search), mode: 'insensitive' } },
           { productType: { contains: String(search), mode: 'insensitive' } }
         ]
-      } : {
-        // Jika tidak sedang mencari (awal buka dialog), 
-        // hanya ambil produk yang punya stok > 0 di klinik target
-        products: {
-          some: {
-            clinicId: targetClinicId || undefined,
-            quantity: { gt: 0 }
-          }
-        }
-      }),
+      } : {}),
       ...(categoryId ? { categoryId: String(categoryId) } : {}),
       ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
     }
@@ -1118,7 +1109,7 @@ export const getProductMasters = async (req: Request, res: Response) => {
         },
         orderBy: { masterName: 'asc' },
         skip,
-        take: search ? take : 1000 // Ambil sampai 1000 data agar "semua" yang punya stok muncul
+        take
       })
     ])
     
