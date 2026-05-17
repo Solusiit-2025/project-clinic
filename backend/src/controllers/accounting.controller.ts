@@ -699,3 +699,216 @@ export const postYearEndClosing = async (req: Request, res: Response) => {
         res.status(500).json({ message: (e as Error).message })
     }
 }
+
+/**
+ * Get Reconciliation Data (GL Balance vs Physical Inventory Value)
+ */
+export const getReconciliationData = async (req: Request, res: Response) => {
+  try {
+    const currentClinicId = (req as any).clinicId
+    const isAdminView = (req as any).isAdminView
+    const { clinicId } = req.query
+    const targetClinicId = clinicId ? String(clinicId) : (isAdminView ? undefined : currentClinicId)
+
+    if (!targetClinicId) {
+      return res.status(400).json({ message: 'Clinic ID wajib disertakan.' })
+    }
+
+    // 1. Dapatkan akun Persediaan (1-1301-K001)
+    let coaPersediaan = await prisma.chartOfAccount.findFirst({
+      where: { code: '1-1301-K001', clinicId: targetClinicId }
+    })
+    // Fallback jika tidak ditemukan
+    if (!coaPersediaan) {
+      coaPersediaan = await prisma.chartOfAccount.findFirst({
+        where: { code: { startsWith: '1-13' }, clinicId: targetClinicId }
+      })
+    }
+
+    if (!coaPersediaan) {
+      return res.status(404).json({ message: 'Akun Persediaan (1-1301) tidak ditemukan untuk klinik ini.' })
+    }
+
+    // 2. Dapatkan akun Penyesuaian/Tuslah (4-1302-K001)
+    let coaTuslah = await prisma.chartOfAccount.findFirst({
+      where: { code: '4-1302-K001', clinicId: targetClinicId }
+    })
+    if (!coaTuslah) {
+      coaTuslah = await prisma.chartOfAccount.findFirst({
+        where: { code: { startsWith: '4-' }, clinicId: targetClinicId }
+      })
+    }
+
+    // 3. Hitung Saldo GL Persediaan
+    const aggregate = await prisma.journalDetail.aggregate({
+      where: {
+        coaId: coaPersediaan.id,
+        journalEntry: { clinicId: targetClinicId }
+      },
+      _sum: { debit: true, credit: true }
+    })
+    const totalDebit = aggregate._sum.debit || 0
+    const totalCredit = aggregate._sum.credit || 0
+    const glBalance = coaPersediaan.openingBalance + (totalDebit - totalCredit)
+
+    // 4. Hitung Nilai Fisik Persediaan (Sum quantity * purchasePrice dari seluruh Produk aktif)
+    const products = await prisma.product.findMany({
+      where: {
+        branchId: targetClinicId,
+        isDeleted: false,
+        status: 'ACTIVE'
+      },
+      select: {
+        id: true,
+        name: true,
+        sku: true,
+        quantity: true,
+        purchasePrice: true,
+        productMaster: {
+          select: {
+            name: true,
+            sku: true
+          }
+        }
+      }
+    })
+
+    let physicalValue = 0
+    const stockDetails = []
+    for (const p of products) {
+      const value = p.quantity * (p.purchasePrice || 0)
+      physicalValue += value
+      if (p.quantity > 0 || (p.purchasePrice || 0) > 0) {
+        stockDetails.push({
+          id: p.id,
+          name: p.name || p.productMaster?.name || 'Produk Tanpa Nama',
+          sku: p.sku || p.productMaster?.sku || '-',
+          quantity: p.quantity,
+          purchasePrice: p.purchasePrice || 0,
+          totalValue: value
+        })
+      }
+    }
+
+    const discrepancy = glBalance - physicalValue
+
+    // 5. Ambil Jurnal Penyesuaian Terakhir (History)
+    const recentAdjustments = await prisma.journalEntry.findMany({
+      where: {
+        clinicId: targetClinicId,
+        referenceNo: { startsWith: 'ADJ-' }
+      },
+      include: {
+        details: {
+          include: {
+            coa: { select: { code: true, name: true } }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10
+    })
+
+    res.json({
+      glBalance,
+      physicalValue,
+      discrepancy,
+      inventoryAccount: {
+        id: coaPersediaan.id,
+        code: coaPersediaan.code,
+        name: coaPersediaan.name
+      },
+      adjustmentAccount: coaTuslah ? {
+        id: coaTuslah.id,
+        code: coaTuslah.code,
+        name: coaTuslah.name
+      } : null,
+      stockDetails: stockDetails.sort((a, b) => b.totalValue - a.totalValue).slice(0, 15),
+      recentAdjustments: recentAdjustments.map(j => ({
+        id: j.id,
+        date: j.date,
+        referenceNo: j.referenceNo,
+        description: j.description,
+        totalAmount: j.details.reduce((sum, d) => sum + d.debit, 0),
+        details: j.details.map(d => ({
+          coaCode: d.coa.code,
+          coaName: d.coa.name,
+          debit: d.debit,
+          credit: d.credit,
+          description: d.description
+        }))
+      }))
+    })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+/**
+ * Create Reconciliation Journal Adjustment
+ */
+export const postReconciliation = async (req: Request, res: Response) => {
+  try {
+    const currentClinicId = (req as any).clinicId
+    const isAdminView = (req as any).isAdminView
+    const { clinicId, amount, description, debitCoaId, creditCoaId } = req.body
+    const targetClinicId = clinicId ? String(clinicId) : (isAdminView ? undefined : currentClinicId)
+
+    if (!targetClinicId) {
+      return res.status(400).json({ message: 'Clinic ID wajib disertakan.' })
+    }
+
+    const valueAmount = Number(amount)
+    if (!valueAmount || valueAmount <= 0) {
+      return res.status(400).json({ message: 'Jumlah nominal rekonsiliasi harus lebih besar dari 0.' })
+    }
+
+    if (!debitCoaId || !creditCoaId) {
+      return res.status(400).json({ message: 'Akun Debet & Kredit harus ditentukan.' })
+    }
+
+    // Generate referenceNo
+    const count = await prisma.journalEntry.count({
+      where: { clinicId: targetClinicId, referenceNo: { startsWith: 'ADJ-' } }
+    })
+    const referenceNo = `ADJ-202605-${String(count + 1).padStart(4, '0')}`
+
+    const journal = await prisma.journalEntry.create({
+      data: {
+        clinicId: targetClinicId,
+        date: new Date(),
+        description: description || 'Jurnal Penyesuaian Rekonsiliasi Persediaan',
+        referenceNo,
+        entryType: 'MANUAL',
+        details: {
+          create: [
+            {
+              coaId: debitCoaId,
+              debit: valueAmount,
+              credit: 0,
+              description: 'Penyesuaian Debet Rekonsiliasi'
+            },
+            {
+              coaId: creditCoaId,
+              debit: 0,
+              credit: valueAmount,
+              description: 'Penyesuaian Kredit Rekonsiliasi'
+            }
+          ]
+        }
+      },
+      include: {
+        details: {
+          include: { coa: true }
+        }
+      }
+    })
+
+    res.status(201).json({
+      message: 'Jurnal Penyesuaian Rekonsiliasi berhasil dibuat.',
+      data: journal
+    })
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}

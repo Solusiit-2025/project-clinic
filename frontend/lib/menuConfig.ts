@@ -4,7 +4,7 @@ import {
   FiBriefcase, FiUserCheck, FiClock, FiActivity,
   FiPackage, FiShoppingBag, FiList, FiMenu, FiX, FiBox,
   FiChevronLeft, FiFolder, FiCpu, FiPlus, FiDollarSign, FiFileText, FiTrendingUp, FiLayers, FiBookOpen, FiLock, FiCreditCard,
-  FiTool, FiRepeat, FiShield, FiBarChart2, FiAlertCircle, FiArchive
+  FiTool, FiRepeat, FiShield, FiBarChart2, FiAlertCircle, FiArchive, FiRefreshCw
 } from 'react-icons/fi'
 import { HiOutlineBeaker } from 'react-icons/hi'
 
@@ -79,6 +79,7 @@ export const FINANCE_GROUPS = [
       { icon: FiActivity, label: 'Neraca Saldo (Trial Balance)', href: '/admin/finance/reports/trial-balance' },
       { icon: FiTrendingUp, label: 'Laba Rugi (P&L)', href: '/admin/finance/reports/profit-loss' },
       { icon: FiDatabase, label: 'Neraca (Balance Sheet)', href: '/admin/finance/reports/balance-sheet' },
+      { icon: FiRefreshCw, label: 'Rekonsiliasi GL & Stok', href: '/admin/finance/reconciliation', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTING'] },
     ]
   },
   {

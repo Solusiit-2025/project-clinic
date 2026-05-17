@@ -220,10 +220,34 @@ export const assembleCompoundFormula = async (req: Request, res: Response) => {
         })
       }
 
-      // 3b. Tambah stok produk racikan
+      // 3b. Hitung Cost & Harga Beli Produk Terlebih Dahulu
+      let totalRawMaterialCost = 0
+      for (const component of componentDetails) {
+        const componentProduct = await tx.product.findUnique({
+          where: { id: component.productId },
+          select: { purchasePrice: true },
+        })
+        if (componentProduct) {
+          totalRawMaterialCost += (componentProduct.purchasePrice || 0) * component.requiredQty
+        }
+      }
+
+      const totalProductionCost = totalRawMaterialCost + (formula.tuslahPrice || 0)
+      const costPerUnit = totalProductionCost / quantity
+
+      // 3c. Tambah stok produk racikan & update purchasePrice dengan COGS yang akurat
       const updatedProduct = await tx.product.update({
         where: { id: targetProduct.id },
-        data: { quantity: { increment: quantity } },
+        data: { 
+          quantity: { increment: quantity },
+          purchasePrice: costPerUnit
+        },
+      })
+
+      // Update ProductMaster agar purchasePrice master sinkron dengan HPP aktual
+      await tx.productMaster.update({
+        where: { id: targetProduct.masterProductId },
+        data: { purchasePrice: costPerUnit }
       })
 
       const inMutation = await tx.inventoryMutation.create({
@@ -244,20 +268,6 @@ export const assembleCompoundFormula = async (req: Request, res: Response) => {
         quantity,
         mutationId: inMutation.id,
       })
-
-      // 3c. Buat Journal Entry
-      let totalRawMaterialCost = 0
-      for (const component of componentDetails) {
-        const componentProduct = await tx.product.findUnique({
-          where: { id: component.productId },
-          select: { purchasePrice: true },
-        })
-        if (componentProduct) {
-          totalRawMaterialCost += (componentProduct.purchasePrice || 0) * component.requiredQty
-        }
-      }
-
-      const totalProductionCost = totalRawMaterialCost + (formula.tuslahPrice || 0)
 
       // --- RESOLVE COA (System Driven Mapping) ---
       

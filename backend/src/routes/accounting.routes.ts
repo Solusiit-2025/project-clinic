@@ -2,7 +2,8 @@ import { Router } from 'express'
 import { authMiddleware } from '../middleware/auth.middleware'
 import { 
   getTrialBalance, getProfitLoss, createJournalEntry, 
-  getBalanceSheet, getGeneralLedger, postYearEndClosing 
+  getBalanceSheet, getGeneralLedger, postYearEndClosing,
+  getReconciliationData, postReconciliation
 } from '../controllers/accounting.controller'
 
 const accountingRoutes = Router()
@@ -15,5 +16,7 @@ accountingRoutes.get('/balance-sheet', getBalanceSheet)
 accountingRoutes.get('/general-ledger', getGeneralLedger)
 accountingRoutes.post('/journals', createJournalEntry)
 accountingRoutes.post('/close-year', postYearEndClosing)
+accountingRoutes.get('/reconciliation', getReconciliationData)
+accountingRoutes.post('/reconciliation', postReconciliation)
 
 export default accountingRoutes
