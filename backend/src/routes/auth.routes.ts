@@ -16,5 +16,6 @@ authRoutes.post('/logout', AuthController.logout)
 
 // Protected — verify session
 authRoutes.get('/me', authMiddleware, AuthController.me)
+authRoutes.post('/change-password', authMiddleware, AuthController.changePassword)
 
 export default authRoutes

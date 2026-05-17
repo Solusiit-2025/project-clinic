@@ -360,7 +360,7 @@ function DisplayQueueContent() {
   )
 
   return (
-    <div className={`h-screen font-sans overflow-hidden flex flex-col relative public-display transition-colors duration-700 ${theme === 'dark' ? 'bg-[#020617] text-white' : 'bg-slate-50 text-slate-900'}`}>
+    <div className={`min-h-screen lg:h-screen font-sans overflow-y-auto lg:overflow-hidden flex flex-col relative public-display transition-colors duration-700 ${theme === 'dark' ? 'bg-[#020617] text-white' : 'bg-slate-50 text-slate-900'}`}>
       
       {/* START OVERLAY (Audio/Video Activation) */}
       <AnimatePresence>
@@ -395,25 +395,29 @@ function DisplayQueueContent() {
       </AnimatePresence>
 
       {/* CONTENT LAYER */}
-      <div className="relative z-10 flex flex-col h-full p-6 space-y-6">
+      <div className="relative z-10 flex flex-col flex-1 lg:h-full p-4 sm:p-6 space-y-6">
         
         {/* HEADER BAR */}
-        <div className={`flex items-center justify-between backdrop-blur-md border rounded-full px-12 py-5 shadow-2xl transition-all duration-500 ${theme === 'dark' ? 'bg-black/40 border-white/10' : 'bg-white/80 border-slate-200'}`}>
-          <div className="flex items-center gap-8">
-             <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20">
-                <FiPackage className="w-7 h-7 text-white" />
+        <div className={`flex flex-col sm:flex-row items-center justify-between backdrop-blur-md border rounded-[2rem] sm:rounded-full px-6 sm:px-12 py-4 sm:py-5 shadow-2xl transition-all duration-500 gap-4 sm:gap-0 ${theme === 'dark' ? 'bg-black/40 border-white/10' : 'bg-white/80 border-slate-200'}`}>
+          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8 text-center sm:text-left">
+             <div className="w-14 h-14 rounded-2xl overflow-hidden flex items-center justify-center shadow-lg bg-white p-1 shrink-0">
+                <img 
+                  src="/logo-yasfina_web.png" 
+                  alt="Yasfina Logo" 
+                  className="w-full h-full object-contain scale-[1.8]"
+                />
              </div>
              <div>
                 <h1 className={`text-2xl md:text-3xl font-black tracking-tighter uppercase leading-none transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                  YASFINA <span className="text-primary italic">CLINIC</span>
+                   YASFINA <span className="text-primary italic">CLINIC</span>
                 </h1>
                 <p className="text-slate-400 dark:text-slate-500 text-[10px] font-black tracking-[0.5em] uppercase mt-1">Smarter Healthcare Solution</p>
              </div>
              {/* Branch Info */}
              {clinicName && (
                <>
-                 <div className="w-px h-10 bg-white/10 hidden md:block" />
-                 <div className="hidden lg:block">
+                 <div className="hidden sm:block w-px h-10 bg-white/10" />
+                 <div className="text-center sm:text-left">
                    <p className={`text-[13px] font-black uppercase tracking-tight leading-tight transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{clinicName}</p>
                    {clinicAddress && (
                      <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-0.5 max-w-[180px] truncate">{clinicAddress}</p>
@@ -422,7 +426,7 @@ function DisplayQueueContent() {
                  {/* Doctor/Department Filter Indicator */}
                  {filterLabel && (
                    <>
-                     <div className="w-px h-10 bg-white/10" />
+                     <div className="hidden sm:block w-px h-10 bg-white/10" />
                      <div className="bg-primary/20 border border-primary/30 px-4 py-2 rounded-2xl max-w-[250px]">
                        <p className="text-[8px] font-black text-primary uppercase tracking-[0.3em] mb-0.5">Monitor Ruangan</p>
                        <p className={`text-[12px] font-black uppercase tracking-tight leading-tight truncate transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{filterLabel}</p>
@@ -433,15 +437,15 @@ function DisplayQueueContent() {
              )}
           </div>
 
-          <div className="flex items-center gap-10">
+          <div className="flex items-center justify-center sm:justify-end gap-6 sm:gap-10 w-full sm:w-auto">
              <div className="text-right">
-                <div className={`text-5xl font-black tabular-nums tracking-tighter flex items-center gap-3 transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                <div className={`text-3xl sm:text-5xl font-black tabular-nums tracking-tighter flex items-center gap-2 sm:gap-3 transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                    {isMounted ? time.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                   <span className="text-2xl opacity-30 animate-pulse text-primary">:</span>
-                   <span className="text-3xl opacity-60 font-medium">{isMounted ? time.toLocaleTimeString('id-ID', { second: '2-digit' }) : '--'}</span>
+                   <span className="text-xl sm:text-2xl opacity-30 animate-pulse text-primary">:</span>
+                   <span className="text-2xl sm:text-3xl opacity-60 font-medium">{isMounted ? time.toLocaleTimeString('id-ID', { second: '2-digit' }) : '--'}</span>
                 </div>
              </div>
-             <ThemeToggle className="scale-125 border-none bg-transparent hover:bg-primary/10" />
+             <ThemeToggle className="scale-110 sm:scale-125 border-none bg-transparent hover:bg-primary/10" />
              <div className="text-right hidden sm:block">
                 <div className="flex items-center gap-3 text-emerald-400 font-black text-[12px] uppercase tracking-[0.3em] bg-emerald-500/10 px-6 py-3 rounded-full border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
                    <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse ring-4 ring-emerald-400/20" />

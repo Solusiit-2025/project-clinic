@@ -16,11 +16,17 @@ export default function Footer() {
     <footer className="bg-gray-900 text-gray-300">
       <div className="container-custom section-padding pb-8">
         {/* Footer Content */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
           {/* About */}
           <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-xl shadow-lg shadow-primary/20"></div>
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shadow-lg bg-white p-0.5">
+                <img 
+                  src="/logo-yasfina_web.png" 
+                  alt="Yasfina Logo" 
+                  className="w-full h-full object-contain scale-[1.8]"
+                />
+              </div>
               <h3 className="font-bold text-white text-xl tracking-tight">{brandName}</h3>
             </div>
             <p className="text-sm text-gray-400 leading-relaxed">

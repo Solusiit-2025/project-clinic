@@ -353,6 +353,7 @@ const SidebarContent = ({
     { icon: FiShoppingBag, label: 'Pembelian Karyawan', href: '/admin/farmasi/pembelian-karyawan' },
     { icon: FiPackage, label: 'Stok Obat',              href: '/admin/inventory' },
     { icon: FiRepeat,  label: 'Mutasi Stok',            href: '/admin/inventory/mutations' },
+    { icon: FiAlertCircle, label: 'Stok Kadaluarsa (Expired)', href: '/admin/inventory/expired' },
     { icon: FiMenu,    label: 'Data Obat & Alkes',      href: '/admin/master/medicines' },
   ]
 

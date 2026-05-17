@@ -176,20 +176,6 @@ export default function AdminNavbar({ onMobileMenuOpen }: AdminNavbarProps) {
                     Profil Saya
                   </Link>
 
-                  <Link
-                    href="/admin/profile?tab=security"
-                    className="flex items-center gap-2.5 px-3 py-2.5 text-sm font-semibold rounded-xl transition-all"
-                    style={{ color: 'var(--text-secondary)' }}
-                    onClick={() => setIsDropdownOpen(false)}
-                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-surface-2)')}
-                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-                  >
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--bg-surface-2)' }}>
-                      <FiLock className="w-3.5 h-3.5" />
-                    </div>
-                    Ganti Password
-                  </Link>
-
                   <div className="h-px my-1.5 mx-2" style={{ backgroundColor: 'var(--border)' }} />
 
                   <button

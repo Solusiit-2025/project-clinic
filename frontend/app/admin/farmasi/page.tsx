@@ -380,6 +380,7 @@ export default function FarmasiDashboard() {
               {[
                 { icon: ClipboardList, label: 'Antrian Farmasi',    sub: 'Kelola resep masuk',       href: '/admin/transactions/pharmacy', color: 'text-amber-600', bg: 'bg-amber-50' },
                 { icon: Package,       label: 'Stok Obat',          sub: 'Cek ketersediaan stok',    href: '/admin/inventory',             color: 'text-blue-600',  bg: 'bg-blue-50' },
+                { icon: AlertTriangle, label: 'Stok Kadaluarsa',    sub: 'Lot obat expired',         href: '/admin/inventory/expired',     color: 'text-rose-600',  bg: 'bg-rose-50' },
                 { icon: Activity,      label: 'Mutasi Stok',        sub: 'Riwayat keluar masuk',     href: '/admin/inventory/mutations',   color: 'text-indigo-600',bg: 'bg-indigo-50' },
                 { icon: CalendarClock, label: 'Data Obat & Alkes',  sub: 'Master data produk',       href: '/admin/master/medicines',      color: 'text-emerald-600',bg: 'bg-emerald-50' },
               ].map((item) => (
@@ -526,10 +527,10 @@ export default function FarmasiDashboard() {
 
           <div className="px-5 py-3 border-t border-gray-50">
             <Link
-              href="/admin/inventory"
-              className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline flex items-center gap-1"
+              href="/admin/inventory/expired"
+              className="text-[10px] font-black text-rose-500 uppercase tracking-widest hover:underline flex items-center gap-1"
             >
-              Lihat Detail Stok <ArrowRight className="w-3 h-3" />
+              Kontrol Stok Kadaluarsa <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
         </motion.div>

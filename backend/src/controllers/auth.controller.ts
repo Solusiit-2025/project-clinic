@@ -1,5 +1,7 @@
 import { Request, Response } from 'express'
 import { AuthService } from '../services/auth.service'
+import bcrypt from 'bcrypt'
+import { prisma } from '../lib/prisma'
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production'
 
@@ -73,6 +75,41 @@ export class AuthController {
       res.status(200).json(req.user)
     } catch (error) {
       res.status(401).json({ message: (error as Error).message })
+    }
+  }
+
+  static async changePassword(req: any, res: Response) {
+    try {
+      const { currentPassword, newPassword } = req.body
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: 'Password saat ini dan password baru harus diisi' })
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: 'Password baru minimal harus terdiri dari 6 karakter' })
+      }
+
+      const userId = req.user.id
+      const user = await prisma.user.findUnique({ where: { id: userId } })
+
+      if (!user) {
+        return res.status(404).json({ message: 'Pengguna tidak ditemukan' })
+      }
+
+      const isPasswordValid = await bcrypt.compare(currentPassword, user.password)
+      if (!isPasswordValid) {
+        return res.status(400).json({ message: 'Password saat ini yang Anda masukkan salah' })
+      }
+
+      const hashedNewPassword = await bcrypt.hash(newPassword, 10)
+      await prisma.user.update({
+        where: { id: userId },
+        data: { password: hashedNewPassword }
+      })
+
+      res.status(200).json({ message: 'Password berhasil diperbarui' })
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message })
     }
   }
 }

@@ -53,10 +53,14 @@ export default function Header() {
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
-          className="flex items-center space-x-2"
+          className="flex items-center space-x-3"
         >
-          <div className="w-10 h-10 bg-gradient-to-r from-primary to-secondary rounded-lg flex items-center justify-center shadow-lg">
-            <span className="text-white font-bold text-lg">{brandShort?.charAt(0)}</span>
+          <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shadow-lg bg-white p-0.5 border border-gray-100 dark:border-slate-800">
+            <img 
+              src="/logo-yasfina_web.png" 
+              alt="Yasfina Logo" 
+              className="w-full h-full object-contain scale-[1.8]"
+            />
           </div>
           <span className={`font-bold text-xl transition-colors duration-300 ${isScrolled ? 'text-gray-900 dark:text-white' : 'text-gray-900 dark:text-white lg:text-primary'}`}>
             {brandShort}
@@ -64,7 +68,7 @@ export default function Header() {
         </motion.div>
 
         {/* Desktop Menu */}
-        <div className="hidden md:flex items-center space-x-8">
+        <div className="hidden lg:flex items-center space-x-8">
           {navItems.map((item: any, index: number) => (
             <motion.div
               key={item.href}
@@ -83,7 +87,7 @@ export default function Header() {
         </div>
 
         {/* Action Buttons */}
-        <div className="hidden md:flex items-center space-x-4">
+        <div className="hidden lg:flex items-center space-x-4">
           <ThemeToggle />
           <Link
             href="/login"
@@ -100,7 +104,7 @@ export default function Header() {
         </div>
 
         {/* Mobile Menu Button + Toggle */}
-        <div className="md:hidden flex items-center gap-2">
+        <div className="lg:hidden flex items-center gap-2">
           <ThemeToggle />
           <button
             className="p-2 rounded-lg bg-gray-100 dark:bg-slate-800"
@@ -122,7 +126,7 @@ export default function Header() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 shadow-xl overflow-hidden"
+            className="lg:hidden bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 shadow-xl overflow-hidden"
           >
             <div className="container-custom py-6 space-y-4">
               {navItems.map((item: any) => (

@@ -42,6 +42,7 @@ export const LAYANAN_UTAMA_GROUPS = [
       { icon: FiBox,      label: 'Antrian Farmasi',       href: '/admin/transactions/pharmacy' },
       { icon: FiLayers,   label: 'Master Formula Racikan', href: '/admin/farmasi/formula-racikan' },
       { icon: FiShoppingBag, label: 'Pembelian Obat (Karyawan)', href: '/admin/farmasi/pembelian-karyawan' },
+      { icon: FiAlertCircle, label: 'Stok Kadaluarsa (Expired)', href: '/admin/inventory/expired' },
       { icon: FiMenu,     label: 'Data Obat & Alkes',      href: '/admin/master/medicines' },
     ]
   },
@@ -102,6 +103,7 @@ export const LOGISTIK_GROUPS = [
       { icon: FiHome, label: 'Dashboard Stok', href: '/admin/inventory' },
       { icon: FiList, label: 'Kartu Stok', href: '/admin/inventory/mutations' },
       { icon: FiPlus, label: 'Update Stok Opname', href: '/admin/inventory/stock-opname', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { icon: FiAlertCircle, label: 'Stok Kadaluarsa (Expired)', href: '/admin/inventory/expired', roles: ['SUPER_ADMIN', 'ADMIN', 'FARMASI', 'STAFF'] },
     ]
   },
   {

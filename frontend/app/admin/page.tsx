@@ -635,7 +635,7 @@ export default function AdminDashboard() {
       </div>
       
       {/* ── QUICK SHORTCUTS ── */}
-      <QuickShortcuts user={user} />
+      {user?.role !== 'ADMIN' && <QuickShortcuts user={user} />}
 
       {/* ── SUMMARY CARDS (all-time) ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

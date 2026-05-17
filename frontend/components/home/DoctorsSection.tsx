@@ -18,6 +18,62 @@ export default function DoctorsSection() {
   const [loading, setLoading] = useState(true)
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004'
 
+  const isFemaleDoctor = (name: string): boolean => {
+    const lowerName = name.toLowerCase();
+    
+    // Honorific/Title prefixes
+    if (lowerName.includes('hj.') || lowerName.includes('hajah') || lowerName.includes('ibu') || lowerName.includes('ny.')) {
+      return true;
+    }
+    if (lowerName.includes('h.') || lowerName.includes('haji') || lowerName.includes('bapak') || lowerName.includes('bpk.')) {
+      return false;
+    }
+    
+    // Female keywords
+    const femaleKeywords = [
+      'siti', 'sri', 'dewi', 'sintia', 'balqish', 'putri', 'diah', 'fitri', 'indah', 'rina', 
+      'ani', 'ria', 'kartika', 'aisyah', 'fatimah', 'nurmala', 'lilis', 'yanti', 'wulan', 
+      'lestari', 'rahayu', 'ningsih', 'amalia', 'lidya', 'ayu', 'sari', 'widya', 'agustina', 
+      'maria', 'theresia', 'sarah', 'diana', 'indri', 'desi', 'ratna', 'novita', 'dhyandra', 
+      'lia', 'anisa', 'annisa', 'mutia', 'ulia', 'mega', 'ita', 'ratu'
+    ];
+    
+    // Male keywords
+    const maleKeywords = [
+      'prasetyo', 'bambang', 'agus', 'budi', 'hadi', 'hendra', 'ahmad', 'muhammad', 'rudi', 
+      'eko', 'joko', 'dedi', 'dedy', 'toni', 'tony', 'rian', 'ryan', 'aris', 'andi', 'aditya', 
+      'yanto', 'wawan', 'teguh', 'sigit', 'fajar', 'surya', 'rizal', 'gunawan', 'agung', 
+      'deny', 'deni', 'roni', 'rony', 'hasan', 'husain', 'ridwan', 'taufik', 'yusuf', 
+      'arief', 'arif', 'imran', 'zulkifli', 'setiawan', 'kurniawan', 'sugeng', 'slamet', 'mulyono',
+      'susilo', 'heru', 'triyono', 'supriadi', 'anwar', 'wibowo', 'saputra', 'wahyudi'
+    ];
+
+    for (const kw of femaleKeywords) {
+      if (lowerName.includes(kw)) return true;
+    }
+    for (const kw of maleKeywords) {
+      if (lowerName.includes(kw)) return false;
+    }
+    
+    if (lowerName.endsWith('o') || lowerName.endsWith('us') || lowerName.endsWith('an') || lowerName.endsWith('am') || lowerName.endsWith('ad') || lowerName.endsWith('in') || lowerName.endsWith('ar')) {
+      return false;
+    }
+    
+    return true; // Default fallback to female
+  };
+
+  const getDefaultDoctorPhoto = (name: string): string => {
+    return isFemaleDoctor(name) ? '/default-doctor-female.png' : '/default-doctor-male.png';
+  };
+
+  const getDoctorPhoto = (pic: string | undefined, name: string) => {
+    if (!pic) return getDefaultDoctorPhoto(name);
+    const cleanPic = pic.replace(/\\/g, '/');
+    if (cleanPic.startsWith('http')) return cleanPic;
+    const slash = cleanPic.startsWith('/') ? '' : '/';
+    return `${API_URL}${slash}${cleanPic}`;
+  };
+
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
@@ -57,7 +113,7 @@ export default function DoctorsSection() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {[1, 2, 3].map((i) => (
               <div key={i} className="bg-gray-50 dark:bg-slate-900 rounded-2xl overflow-hidden h-[500px] animate-pulse">
                 <div className="h-80 bg-gray-200 dark:bg-slate-800"></div>
@@ -70,7 +126,7 @@ export default function DoctorsSection() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {doctors.length > 0 ? (
               doctors.map((doctor, index) => (
                 <motion.div
@@ -83,8 +139,11 @@ export default function DoctorsSection() {
                 >
                   <div className="h-80 overflow-hidden bg-gray-200 dark:bg-slate-800">
                     <img 
-                      src={doctor.profilePicture ? (doctor.profilePicture.startsWith('http') ? doctor.profilePicture : `${API_URL}${doctor.profilePicture}`) : 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&q=80&w=400'} 
+                      src={getDoctorPhoto(doctor.profilePicture, doctor.name)} 
                       alt={doctor.name} 
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = getDefaultDoctorPhoto(doctor.name);
+                      }}
                       className="w-full h-full object-cover group-hover:scale-110 transition-all duration-700" 
                     />
                   </div>
