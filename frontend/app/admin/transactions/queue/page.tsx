@@ -296,13 +296,19 @@ export default function QueueDashboard() {
                      <span className="text-[9px] font-black bg-white/20 px-2.5 py-1 rounded-full uppercase">
                        {q.isDirectLab ? 'Pemeriksaan Laboratorium' : 'Pemeriksaan Dokter'}
                      </span>
-                     <button 
-                        onClick={() => updateStatus(q.id, 'completed')}
-                        className="p-2 bg-white text-emerald-600 rounded-xl hover:scale-110 active:scale-90 transition-all shadow-lg"
-                        title="Selesaikan Pemeriksaan"
-                     >
-                        <FiCheckCircle className="w-5 h-5" />
-                     </button>
+                     {q.isDirectLab && (
+                       <button 
+                          onClick={() => {
+                            if (window.confirm('Apakah Anda yakin ingin menyelesaikan pemeriksaan laboratorium ini?')) {
+                              updateStatus(q.id, 'completed')
+                            }
+                          }}
+                          className="p-2 bg-white text-emerald-600 rounded-xl hover:scale-110 active:scale-90 transition-all shadow-lg"
+                          title="Selesaikan Pemeriksaan Lab"
+                       >
+                          <FiCheckCircle className="w-5 h-5" />
+                       </button>
+                     )}
                   </div>
                 </motion.div>
               ))}

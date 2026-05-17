@@ -124,6 +124,8 @@ export default function FinanceDashboard() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [summary, setSummary] = useState({ todayRevenue: 0, pendingRevenue: 0, unpostedPaidCount: 0 })
   
   const cashBanks = useMemo(() => banks.filter(b => 
@@ -164,6 +166,21 @@ export default function FinanceDashboard() {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [invoiceToPost, setInvoiceToPost] = useState<Invoice | null>(null)
 
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setPage(1)
+  }, [search, statusFilter, startDate, endDate])
+
+  const pageNumbers = useMemo(() => {
+    const range = []
+    const start = Math.max(1, page - 2)
+    const end = Math.min(totalPages, page + 2)
+    for (let i = start; i <= end; i++) {
+      range.push(i)
+    }
+    return range
+  }, [page, totalPages])
+
   const fetchData = useCallback(async () => {
     if (!activeClinicId) return
     try {
@@ -173,6 +190,8 @@ export default function FinanceDashboard() {
           params: { 
             search: search || undefined,
             status: statusFilter === 'all' ? undefined : statusFilter,
+            startDate: startDate || undefined,
+            endDate: endDate || undefined,
             page: page,
             limit: 10
           }
@@ -202,7 +221,7 @@ export default function FinanceDashboard() {
     } finally {
       setLoading(false)
     }
-  }, [search, statusFilter, page, activeClinicId])
+  }, [search, statusFilter, page, startDate, endDate, activeClinicId])
 
   useEffect(() => {
     fetchData()
@@ -505,15 +524,73 @@ export default function FinanceDashboard() {
           </div>
       </div>
 
-      <div className="bg-white p-2 rounded-[2.5rem] border border-gray-100 shadow-sm mb-8 flex flex-col md:flex-row gap-2">
-          <div className="flex items-center gap-3 bg-gray-50 px-5 py-3 rounded-2xl flex-1 min-w-0">
-              <FiSearch className="text-gray-400 shrink-0" />
-              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="NO INVOICE / NAMA PASIEN..." className="bg-transparent border-none focus:outline-none text-[10px] font-black text-gray-700 w-full uppercase tracking-widest" />
+      <div className="bg-white p-4 rounded-[2.5rem] border border-gray-100 shadow-sm mb-8 space-y-4">
+          <div className="flex flex-col md:flex-row gap-3">
+              <div className="flex items-center gap-3 bg-gray-50 px-5 py-3.5 rounded-2xl flex-1 min-w-0">
+                  <FiSearch className="text-gray-400 shrink-0" />
+                  <input 
+                     type="text" 
+                     value={search} 
+                     onChange={(e) => setSearch(e.target.value)} 
+                     placeholder="CARI NO INVOICE / NAMA PASIEN..." 
+                     className="bg-transparent border-none focus:outline-none text-[10px] font-black text-gray-700 w-full uppercase tracking-widest outline-none" 
+                  />
+              </div>
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-1">
+                 {['all', 'paid', 'unpaid', 'partial'].map((s) => (
+                    <button 
+                       key={s} 
+                       onClick={() => setStatusFilter(s)} 
+                       className={`px-5 py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${
+                          statusFilter === s 
+                          ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-105' 
+                          : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                       }`}
+                    >
+                       {s}
+                    </button>
+                 ))}
+              </div>
           </div>
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-1">
-             {['all', 'paid', 'unpaid', 'partial'].map((s) => (
-                <button key={s} onClick={() => setStatusFilter(s)} className={`px-5 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${statusFilter === s ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-105' : 'text-gray-400 hover:text-gray-600'}`}>{s}</button>
-             ))}
+
+          <div className="border-t border-dashed border-gray-100 pt-3 flex flex-col md:flex-row md:items-center justify-between gap-4">
+             <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100">
+                   <FiCalendar className="text-gray-400 w-3.5 h-3.5 shrink-0" />
+                   <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Dari</span>
+                   <input 
+                      type="date" 
+                      value={startDate} 
+                      onChange={(e) => setStartDate(e.target.value)} 
+                      className="bg-transparent border-none outline-none text-[10px] font-black text-gray-700 uppercase"
+                   />
+                </div>
+
+                <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100">
+                   <FiCalendar className="text-gray-400 w-3.5 h-3.5 shrink-0" />
+                   <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Sampai</span>
+                   <input 
+                      type="date" 
+                      value={endDate} 
+                      onChange={(e) => setEndDate(e.target.value)} 
+                      className="bg-transparent border-none outline-none text-[10px] font-black text-gray-700 uppercase"
+                   />
+                </div>
+
+                {(startDate || endDate) && (
+                   <button 
+                      onClick={() => { setStartDate(''); setEndDate(''); }}
+                      className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-1.5 border border-rose-100"
+                   >
+                      <FiX className="w-3.5 h-3.5" />
+                      <span>Hapus Filter Tanggal</span>
+                   </button>
+                )}
+             </div>
+
+             <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                Ditemukan {totalItems} Transaksi
+             </div>
           </div>
       </div>
 
@@ -643,6 +720,78 @@ export default function FinanceDashboard() {
              </div>
            )}
         </AnimatePresence>
+
+        {/* Pagination Control */}
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 px-8 py-5 bg-white border border-gray-100 rounded-[2.2rem] shadow-sm animate-in fade-in duration-300">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+              Menampilkan {Math.min((page - 1) * 10 + 1, totalItems)} - {Math.min(page * 10, totalItems)} dari {totalItems} Transaksi
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+                className={`px-4 py-2.5 bg-gray-50 text-[10px] font-black rounded-xl uppercase tracking-widest transition-all ${
+                  page === 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-primary/5 hover:text-primary active:scale-95'
+                }`}
+              >
+                Sebelumnya
+              </button>
+              
+              <div className="flex items-center gap-1">
+                {pageNumbers[0] > 1 && (
+                  <>
+                    <button
+                      onClick={() => setPage(1)}
+                      className={`w-8 h-8 rounded-xl text-[10px] font-black transition-all ${
+                        page === 1 ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-400 hover:bg-gray-50'
+                      }`}
+                    >
+                      1
+                    </button>
+                    {pageNumbers[0] > 2 && <span className="text-[10px] font-black text-gray-300 px-1">...</span>}
+                  </>
+                )}
+
+                {pageNumbers.map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`w-8 h-8 rounded-xl text-[10px] font-black transition-all ${
+                      page === p ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-105' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+
+                {pageNumbers[pageNumbers.length - 1] < totalPages && (
+                  <>
+                    {pageNumbers[pageNumbers.length - 1] < totalPages - 1 && <span className="text-[10px] font-black text-gray-300 px-1">...</span>}
+                    <button
+                      onClick={() => setPage(totalPages)}
+                      className={`w-8 h-8 rounded-xl text-[10px] font-black transition-all ${
+                        page === totalPages ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-400 hover:bg-gray-50'
+                      }`}
+                    >
+                      {totalPages}
+                    </button>
+                  </>
+                )}
+              </div>
+
+              <button
+                disabled={page === totalPages}
+                onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
+                className={`px-4 py-2.5 bg-gray-50 text-[10px] font-black rounded-xl uppercase tracking-widest transition-all ${
+                  page === totalPages ? 'opacity-40 cursor-not-allowed' : 'hover:bg-primary/5 hover:text-primary active:scale-95'
+                }`}
+              >
+                Selanjutnya
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <AnimatePresence>

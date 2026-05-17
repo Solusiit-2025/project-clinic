@@ -399,7 +399,19 @@ export default function RegistrationPage() {
                     <select 
                       disabled={isDirectLab}
                       value={selectedDoctorId || ''}
-                      onChange={(e) => setSelectedDoctorId(e.target.value)}
+                      onChange={(e) => {
+                        const docId = e.target.value
+                        setSelectedDoctorId(docId)
+                        if (docId) {
+                          const doc = doctors.find(d => d.id === docId)
+                          if (doc && doc.departments && doc.departments.length > 0) {
+                            const hasCurrentDept = doc.departments.some(dept => dept.id === selectedDeptId)
+                            if (!hasCurrentDept) {
+                              setSelectedDeptId(doc.departments[0].id)
+                            }
+                          }
+                        }
+                      }}
                       className={`w-full px-3 md:px-4 py-2 md:py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-xs md:text-sm font-bold focus:outline-none focus:bg-white focus:border-primary transition-all ${isDirectLab ? 'opacity-50' : ''}`}
                     >
                       <option value="">Pilih Dokter</option>

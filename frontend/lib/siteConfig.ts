@@ -1,9 +1,9 @@
 export const siteConfig = {
-  brandName: 'Klinik Yasfina',
+  brandName: 'Klinik Yasfina Pusat',
   brandShort: 'Klinik Yasfina',
   slogan: 'Pelayanan Kesehatan Profesional & Terpercaya',
   description:
-    'Klinik Yasfina menyediakan layanan kesehatan berkualitas dengan dokter berpengalaman, teknologi medis terkini, dan pelayanan sepenuh hati.',
+    'Klinik Yasfina Pusat menyediakan layanan kesehatan berkualitas dengan dokter berpengalaman, teknologi medis terkini, dan pelayanan sepenuh hati.',
   navItems: [
     { label: 'Beranda', href: '#home' },
     { label: 'Tentang Kami', href: '#about' },
@@ -118,9 +118,9 @@ export const siteConfig = {
     ]
   },
   contact: {
-    phone: '+62 812-3456-7890',
-    email: 'kontak@sehatselalu.com',
-    address: 'Jl. Merdeka No. 45, Jakarta Selatan',
+    phone: '251-866-616-9',
+    email: 'info@yasfina.com',
+    address: 'Blok EE1, Jl. Villa Bogor Indah, RT.01/RW.14, Kedunghalang, Kec. Bogor Utara, Kota Bogor, Jawa Barat 16157',
     hours: 'Senin - Sabtu: 08:00 - 21:00',
   },
   footerLinks: [
