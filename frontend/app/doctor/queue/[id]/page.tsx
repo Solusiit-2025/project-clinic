@@ -208,6 +208,7 @@ export default function DoctorConsultationPage() {
   const [searchComponentMed, setSearchComponentMed] = useState('')
   const [searchComponentResults, setSearchComponentResults] = useState<any[]>([])
   const [isSearchingComponentMed, setIsSearchingComponentMed] = useState(false)
+  const [showAllComponentsDropdown, setShowAllComponentsDropdown] = useState(false)
   const [isEditingRacikanIdx, setIsEditingRacikanIdx] = useState<number | null>(null)
 
   // Fetch Compound Formulas on load
@@ -229,7 +230,7 @@ export default function DoctorConsultationPage() {
 
   // Search Raw Components for Custom Racikan
   useEffect(() => {
-    if (!searchComponentMed) {
+    if (!searchComponentMed && !showAllComponentsDropdown) {
       setSearchComponentResults([])
       return
     }
@@ -242,7 +243,7 @@ export default function DoctorConsultationPage() {
           params: {
             isActive: true,
             search: searchComponentMed,
-            limit: 50,
+            limit: 100,
             clinicId: queue?.clinicId || activeClinicId
           },
           signal: controller.signal
@@ -260,7 +261,7 @@ export default function DoctorConsultationPage() {
       clearTimeout(delayDebounceFn)
       controller.abort()
     }
-  }, [searchComponentMed, queue?.clinicId, activeClinicId])
+  }, [searchComponentMed, showAllComponentsDropdown, queue?.clinicId, activeClinicId])
 
   // Handle Formula Selection and apply from server
   const handleSelectFormula = async (formulaId: string) => {
@@ -3122,18 +3123,39 @@ export default function DoctorConsultationPage() {
                       <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-violet-500 transition-colors" />
                       <input 
                         value={searchComponentMed} 
-                        onChange={(e) => setSearchComponentMed(e.target.value)} 
+                        onChange={(e) => {
+                          setSearchComponentMed(e.target.value)
+                          if (!showAllComponentsDropdown) {
+                            setShowAllComponentsDropdown(true)
+                          }
+                        }} 
+                        onFocus={() => setShowAllComponentsDropdown(true)}
                         placeholder="Cari obat bahan baku..." 
-                        className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:bg-white focus:border-violet-500 shadow-sm transition-all" 
+                        className="w-full pl-12 pr-12 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:bg-white focus:border-violet-500 shadow-sm transition-all" 
                       />
                       
+                      <button
+                        type="button"
+                        onClick={() => setShowAllComponentsDropdown(!showAllComponentsDropdown)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-violet-500 transition-colors p-1"
+                      >
+                        <FiChevronDown className={`w-4 h-4 transition-transform duration-200 ${showAllComponentsDropdown ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {showAllComponentsDropdown && (
+                        <div 
+                          className="fixed inset-0 z-40 bg-transparent" 
+                          onClick={() => setShowAllComponentsDropdown(false)} 
+                        />
+                      )}
+                      
                       <AnimatePresence>
-                        {searchComponentMed && searchComponentResults.length > 0 && (
+                        {(searchComponentMed || showAllComponentsDropdown) && searchComponentResults.length > 0 && (
                           <motion.div 
-                            initial={{ opacity: 0, y: 5 }} 
+                            initial={{ opacity: 0, y: -5 }} 
                             animate={{ opacity: 1, y: 0 }} 
                             exit={{ opacity: 0 }} 
-                            className="absolute top-full left-0 right-0 z-50 mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-[200px] overflow-y-auto p-2"
+                            className="absolute bottom-full left-0 right-0 z-50 mb-2 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-[220px] overflow-y-auto p-2"
                           >
                             {searchComponentResults.map(m => {
                               const stock = m.availableStock ?? m.stock ?? 0
@@ -3151,6 +3173,7 @@ export default function DoctorConsultationPage() {
                                       availableStock: stock
                                     }])
                                     setSearchComponentMed('')
+                                    setShowAllComponentsDropdown(false)
                                   }}
                                   className="w-full p-2.5 text-left rounded-lg hover:bg-slate-50 flex items-center justify-between transition-colors disabled:opacity-50"
                                 >
