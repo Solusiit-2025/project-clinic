@@ -429,7 +429,7 @@ export default function QueueDashboard() {
                     
                     <div className="mb-5">
                        <h4 className="text-lg font-black text-gray-900 uppercase tracking-tight">{q.patient.name}</h4>
-                       <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-tighter">Diperiksa oleh: Dr. {q.doctor?.name || 'Jaga'}</p>
+                       <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-tighter">Diperiksa oleh: {q.doctor?.name ? (q.doctor.name.toLowerCase().startsWith('dr') ? q.doctor.name : `Dr. ${q.doctor.name}`) : 'Dokter Jaga'}</p>
                     </div>
 
                     <div className="flex gap-2">

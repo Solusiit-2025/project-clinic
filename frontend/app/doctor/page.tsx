@@ -135,6 +135,16 @@ export default function DoctorDashboard() {
     router.push(`/doctor/queue/${q.id}`)
   }
 
+  // Format Doctor Name to prevent double "Dr. dr." prefix
+  const formattedDoctorName = useMemo(() => {
+    if (!user?.name) return ''
+    const cleanName = user.name.trim()
+    if (/^(dr|dr\.|Dr|Dr\.|DR|DR\.)/i.test(cleanName)) {
+      return cleanName
+    }
+    return `Dr. ${cleanName}`
+  }, [user])
+
   // Memoized Queue Statistics
   const stats = useMemo(() => {
     return {
@@ -240,7 +250,7 @@ export default function DoctorDashboard() {
               Doctor Station
             </div>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight leading-none">
-              {greeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 to-white">Dr. {user?.name?.split(' ')[0]}</span>
+              {greeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 to-white">{formattedDoctorName}</span>
             </h1>
             <p className="text-indigo-100/70 font-medium max-w-md text-sm">
               Anda memiliki {stats.ready} pasien siap diperiksa.
