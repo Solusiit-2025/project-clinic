@@ -13,6 +13,7 @@ import {
 } from 'react-icons/fi'
 import { HiOutlineBeaker } from 'react-icons/hi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
+import { useUIStore } from '@/lib/store/useUIStore'
 import { toast } from 'react-hot-toast'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -86,7 +87,14 @@ export default function DoctorConsultationPage() {
   const { id } = useParams()
   const router = useRouter()
   const { user, activeClinicId } = useAuthStore()
+  const { isDoctorSidebarCollapsed } = useUIStore()
   
+  const patientHeaderRef = useRef<HTMLDivElement>(null)
+  const [headerHeight, setHeaderHeight] = useState(80)
+  const [isRxPreviewOpen, setIsRxPreviewOpen] = useState(false)
+  const [rxPrintMode, setRxPrintMode] = useState<'internal' | 'external' | null>(null)
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+
   const [queue, setQueue] = useState<Queue | null>(null)
   const [loading, setLoading] = useState(true)
   const [searchMedicines, setSearchMedicines] = useState<Medicine[]>([])
@@ -238,7 +246,11 @@ export default function DoctorConsultationPage() {
                 instructions: item.instructions || '',
                 unit: item.unit || item.medicine?.unit || 'unit',
                 availableStock: item.medicine?.stock ?? 0,
-                alreadySavedInDB: true // Flag: already persisted, skip frontend stock check
+                alreadySavedInDB: true, // Flag: already persisted, skip frontend stock check
+                isExternal: item.instructions?.includes('(Apotek Luar)') || 
+                            item.instructions?.includes('[Eksternal]') ||
+                            item.instructions?.includes('Apotek Luar') ||
+                            item.instructions?.includes('Eksternal')
               }))
             )
             setPrescriptionItems(savedItems)
@@ -253,7 +265,12 @@ export default function DoctorConsultationPage() {
                  ...dp,
                  // Keep availableStock if it exists in draft, else mark as unknown (server will validate)
                  availableStock: dp.availableStock ?? undefined,
-                 alreadySavedInDB: false
+                 alreadySavedInDB: false,
+                 isExternal: dp.isExternal || 
+                             dp.instructions?.includes('(Apotek Luar)') || 
+                             dp.instructions?.includes('[Eksternal]') ||
+                             dp.instructions?.includes('Apotek Luar') ||
+                             dp.instructions?.includes('Eksternal')
                })));
              }
              if (draft.services) {
@@ -325,6 +342,18 @@ export default function DoctorConsultationPage() {
     fetchData()
   }, [fetchData])
 
+  // Measure patient header height for content offset
+  useEffect(() => {
+    const updateHeaderHeight = () => {
+      if (patientHeaderRef.current) {
+        setHeaderHeight(patientHeaderRef.current.offsetHeight)
+      }
+    }
+    updateHeaderHeight()
+    window.addEventListener('resize', updateHeaderHeight)
+    return () => window.removeEventListener('resize', updateHeaderHeight)
+  }, [queue])
+
   
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -356,7 +385,7 @@ export default function DoctorConsultationPage() {
           params: { 
             isActive: true, 
             search: searchMed || undefined, 
-            limit: 100,
+            limit: 1000,
             clinicId: queue?.clinicId || activeClinicId // Gunakan activeClinicId sebagai fallback
           },
           signal: controller.signal
@@ -367,14 +396,14 @@ export default function DoctorConsultationPage() {
         
         const processedList = Array.isArray(list) 
           ? list
-              .filter((m: any) => {
-                const stock = m.availableStock ?? m.stock ?? 0
-                return stock > 0
-              })
               .sort((a: any, b: any) => {
                 const stockA = a.availableStock ?? a.stock ?? 0
                 const stockB = b.availableStock ?? b.stock ?? 0
-                return stockB - stockA
+                if (stockB !== stockA) {
+                  return stockB - stockA
+                }
+                // Jika stok sama, urutkan secara alfabetis berdasarkan nama master
+                return a.masterName.localeCompare(b.masterName)
               })
           : []
         
@@ -471,16 +500,18 @@ export default function DoctorConsultationPage() {
   const addPrescription = (m: Medicine) => {
     // Allow both medicine products (medicineId) and compound formula products (compoundFormulaId)
     if ((!m.medicineId && !(m as any).compoundFormulaId) || isReadOnly) return
+    const stock = m.availableStock ?? m.stock ?? 0;
     setPrescriptionItems([...prescriptionItems, {
       medicineId: m.medicineId || m.id, // Use product id if medicineId is null (for compound formulas)
       name: m.masterName,
       quantity: 1,
-      availableStock: m.availableStock ?? m.stock,
+      availableStock: stock,
       dosage: m.medicine?.strength || '',
       frequency: '3x1',
       duration: '5 hari',
       instructions: 'Sesudah makan',
-      unit: m.unit || 'unit' // Tambahkan satuan
+      unit: m.unit || 'unit', // Tambahkan satuan
+      isExternal: stock <= 0 // Default to external if out of stock!
     }])
     setSearchMed('')
   }
@@ -534,6 +565,7 @@ export default function DoctorConsultationPage() {
       // Server will perform authoritative real-time stock check
       for (const p of prescriptionItems) {
         if (p.alreadySavedInDB) continue // Already in DB, server validates against real-time stock
+        if (p.isExternal) continue // Skip stock validation for external medicines!
         if (p.availableStock !== undefined && p.availableStock !== null && (parseInt(p.quantity) || 0) > p.availableStock) {
           toast.error(`Stok tidak mencukupi untuk ${p.name} (Tersedia: ${p.availableStock})`, { id: toastId })
           setSaving(false)
@@ -572,7 +604,11 @@ export default function DoctorConsultationPage() {
         ],
         prescriptions: prescriptionItems.map(p => ({
           ...p,
-          quantity: parseInt(p.quantity) || 0
+          quantity: parseInt(p.quantity) || 0,
+          instructions: p.isExternal && !p.instructions?.includes('(Apotek Luar)')
+            ? `${p.instructions || ''} (Apotek Luar)`.trim()
+            : p.instructions,
+          isExternal: !!p.isExternal
         })),
         isFinal
       })
@@ -580,7 +616,7 @@ export default function DoctorConsultationPage() {
       toast.success(isFinal ? 'Pemeriksaan selesai!' : 'Draft disimpan!', { id: toastId })
       
       if (goToPrescription) {
-        router.push(`/doctor/patients/${queue!.patientId}?tab=prescriptions`)
+        setIsRxPreviewOpen(true)
       } else if (isFinal) {
         router.push('/doctor/queue')
       }
@@ -589,6 +625,243 @@ export default function DoctorConsultationPage() {
     } finally {
       setSaving(false)
       setShowFinalConfirm(false)
+    }
+  }
+
+  const handlePrintPrescription = async (mode: 'internal' | 'external') => {
+    if (!queue || !medicalRecord || isReadOnly) return
+    if (prescriptionItems.length === 0) {
+      toast.error('Belum ada obat yang ditambahkan ke resep')
+      return
+    }
+    // Simpan draft dulu, lalu buka modal
+    const toastId = toast.loading('Menyimpan draft resep...')
+    setSaving(true)
+    try {
+      await api.post('transactions/medical-records/doctor', {
+        queueId: queue.id,
+        medicalRecordId: medicalRecord.id,
+        subjective,
+        objective,
+        diagnosis,
+        icd10Id,
+        treatmentPlan,
+        labNotes,
+        labResults,
+        notes,
+        hasInformedConsent,
+        services: [
+          ...serviceItems.map(s => ({
+            serviceId: s.serviceId,
+            name: s.name,
+            code: s.code,
+            quantity: parseInt(s.quantity as any) || 0,
+            price: parseFloat(s.price as any) || 0
+          })),
+          ...labItems.map(l => ({
+            serviceId: l.id,
+            name: l.serviceName,
+            code: l.serviceCode,
+            quantity: 1,
+            price: l.price || 0,
+            isLab: true
+          }))
+        ],
+        prescriptions: prescriptionItems.map(p => ({
+          ...p,
+          quantity: parseInt(p.quantity) || 0,
+          instructions: p.isExternal && !p.instructions?.includes('(Apotek Luar)')
+            ? `${p.instructions || ''} (Apotek Luar)`.trim()
+            : p.instructions,
+          isExternal: !!p.isExternal
+        })),
+        isFinal: false
+      })
+      toast.success('Draft tersimpan', { id: toastId })
+      setRxPrintMode(mode)
+      const url = generateRxPDF(mode, 'bloburl') as string
+      setPdfUrl(url)
+      setIsRxPreviewOpen(true)
+    } catch (e) {
+      toast.error('Gagal menyimpan draft', { id: toastId })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const generateRxPDF = (mode: 'internal' | 'external', action: 'save' | 'bloburl' | 'print' = 'save') => {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const clinicName = queue?.clinicId
+      ? clinicsList.find(c => c.id === queue.clinicId)?.name || 'KLINIK'
+      : 'KLINIK PUSAT'
+    const doctorName = queue?.doctor?.name || user?.name || 'Dokter'
+    const patientName = queue?.patient.name || ''
+    const patientRm = queue?.patient.medicalRecordNo || ''
+    const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+
+    // Header bar
+    doc.setFillColor(79, 70, 229)
+    doc.rect(0, 0, 210, 22, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'bold')
+    doc.text(clinicName.toUpperCase(), 15, 9)
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    doc.text('Layanan Kesehatan Terintegrasi', 15, 15)
+    doc.setFontSize(18)
+    doc.setFont('helvetica', 'bold')
+    doc.text(mode === 'external' ? 'RESEP EKSTERNAL' : 'RESEP', 210 - 15, 11, { align: 'right' })
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.text(today, 210 - 15, 17, { align: 'right' })
+
+    // Patient info box
+    doc.setTextColor(30, 30, 30)
+    doc.setFillColor(248, 250, 252)
+    doc.roundedRect(15, 28, 180, 24, 2, 2, 'F')
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(100, 116, 139)
+    doc.text('PASIEN', 22, 35)
+    doc.text('NO. RM', 85, 35)
+    doc.text('DOKTER', 145, 35)
+    doc.setTextColor(15, 23, 42)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.text(patientName, 22, 42)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.text(patientRm, 85, 42)
+    doc.text(doctorName, 145, 42)
+
+    // Diagnosis
+    let y = 60
+    if (diagnosis || selectedIcd10) {
+      doc.setFillColor(237, 233, 254)
+      doc.roundedRect(15, y, 180, 12, 2, 2, 'F')
+      doc.setTextColor(109, 40, 217)
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'bold')
+      doc.text('DIAGNOSA:', 22, y + 7)
+      doc.setFont('helvetica', 'normal')
+      const dxText = selectedIcd10
+        ? `[${selectedIcd10.code}] ${selectedIcd10.nameId || selectedIcd10.nameEn}${diagnosis ? ' — ' + diagnosis : ''}`
+        : diagnosis
+      doc.text(dxText.substring(0, 95), 50, y + 7)
+      y += 18
+    } else {
+      y += 8
+    }
+
+    // Medicine list header
+    doc.setTextColor(100, 116, 139)
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'bold')
+    doc.text('DAFTAR OBAT', 15, y)
+    y += 5
+
+    // Medicine items
+    const itemsToPrint = prescriptionItems.filter(p => mode === 'external' ? p.isExternal : !p.isExternal)
+    itemsToPrint.forEach((p, idx) => {
+      if (y > 240) { doc.addPage(); y = 25 }
+      doc.setFillColor(idx % 2 === 0 ? 248 : 255, idx % 2 === 0 ? 250 : 255, idx % 2 === 0 ? 252 : 255)
+      doc.roundedRect(15, y, 180, 18, 2, 2, 'F')
+      
+      // Number badge
+      doc.setFillColor(79, 70, 229)
+      doc.circle(23, y + 9, 5, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'bold')
+      doc.text(String(idx + 1), 23, y + 11.5, { align: 'center' })
+      
+      // Medicine name
+      doc.setTextColor(15, 23, 42)
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.text(p.name.toUpperCase().substring(0, 65), 32, y + 7)
+      
+      // Details
+      doc.setFontSize(7.5)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(100, 116, 139)
+      const details = [p.dosage, p.frequency, p.duration ? `selama ${p.duration}` : '', p.instructions].filter(Boolean).join('  ·  ')
+      doc.text(details.substring(0, 95), 32, y + 13)
+      
+      // Quantity
+      doc.setTextColor(79, 70, 229)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(10)
+      doc.text(`${p.quantity}`, 180, y + 8, { align: 'right' })
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(100, 116, 139)
+      doc.text(p.unit || 'unit', 180, y + 14, { align: 'right' })
+      y += 21
+    })
+
+    // External note
+    if (mode === 'external') {
+      y += 5
+      doc.setFillColor(255, 251, 235)
+      doc.roundedRect(15, y, 180, 14, 2, 2, 'F')
+      doc.setTextColor(180, 83, 9)
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'bold')
+      doc.text('⚠ RESEP UNTUK APOTEK LUAR', 22, y + 5)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7.5)
+      doc.text('Obat tidak tersedia di apotek klinik. Harap tebus di apotek terdekat.', 22, y + 10)
+      y += 18
+    }
+
+    // Notes
+    if (notes) {
+      doc.setFillColor(255, 251, 235)
+      doc.roundedRect(15, y, 180, 12, 2, 2, 'F')
+      doc.setTextColor(180, 83, 9)
+      doc.setFontSize(7.5)
+      doc.setFont('helvetica', 'bold')
+      doc.text('CATATAN:', 22, y + 5)
+      doc.setFont('helvetica', 'normal')
+      doc.text(notes.substring(0, 110), 45, y + 5)
+      y += 16
+    }
+
+    // Signature
+    const sigY = Math.max(y + 12, 245)
+    doc.setTextColor(100, 116, 139)
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    doc.text(today, 195, sigY, { align: 'right' })
+    doc.line(145, sigY + 22, 195, sigY + 22)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(15, 23, 42)
+    doc.text(doctorName.toUpperCase(), 170, sigY + 27, { align: 'center' })
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(100, 116, 139)
+    doc.setFontSize(7)
+    doc.text(queue?.doctor?.specialization || 'Dokter Umum', 170, sigY + 31, { align: 'center' })
+
+    // Footer
+    doc.setFillColor(248, 250, 252)
+    doc.rect(0, 285, 210, 12, 'F')
+    doc.setTextColor(148, 163, 184)
+    doc.setFontSize(6.5)
+    doc.text(`Dicetak: ${new Date().toLocaleString('id-ID')} · Sistem Klinik Yasfina`, 105, 292, { align: 'center' })
+
+    const filename = `Resep-${mode === 'external' ? 'Eksternal-' : ''}${patientName.replace(/\s+/g, '-')}-${Date.now()}.pdf`
+    if (action === 'save') {
+      doc.save(filename)
+    } else if (action === 'bloburl') {
+      const blob = doc.output('blob')
+      return URL.createObjectURL(blob)
+    } else if (action === 'print') {
+      const blob = doc.output('blob')
+      const url = URL.createObjectURL(blob)
+      const w = window.open(url)
+      if (w) w.focus()
     }
   }
 
@@ -973,8 +1246,11 @@ export default function DoctorConsultationPage() {
 
   return (
     <div className="-mt-[20px] lg:-mt-[30px] flex flex-col font-sans selection:bg-indigo-100 selection:text-indigo-900 pt-0">
-      {/* Top Professional Header (Snug below Navbar) */}
-      <div className="backdrop-blur-xl bg-white/95 border-b border-slate-200/80 shadow-sm p-3 md:py-3.5 md:px-6 mb-6 -mx-3 md:-mx-4 transition-all duration-300">
+      {/* Top Professional Header - Fixed below Navbar, respects sidebar */}
+      <div 
+        ref={patientHeaderRef}
+        className={`fixed top-[72px] right-0 z-30 backdrop-blur-xl bg-white/95 border-b border-slate-200/80 shadow-sm p-3 md:py-3.5 md:px-6 transition-all duration-300 ${isDoctorSidebarCollapsed ? 'left-0 lg:left-20' : 'left-0 lg:left-64'}`}
+      >
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-4">
           <div className="flex items-center gap-4">
             <button onClick={() => router.back()} className="p-2.5 hover:bg-slate-50 rounded-xl transition-all border border-transparent hover:border-slate-200">
@@ -1044,9 +1320,9 @@ export default function DoctorConsultationPage() {
         </div>
       </div>
 
-      <div className="flex-1 p-3 md:p-4 grid grid-cols-12 gap-4 items-start pb-6">
+      <div className="flex-1 p-3 md:p-4 grid grid-cols-12 gap-4 items-start pb-6" style={{ paddingTop: `${headerHeight + 16}px` }}>
         {/* Navigation Segments */}
-        <div className="col-span-12 lg:col-span-3 space-y-3 lg:sticky lg:top-[180px]">
+        <div className="col-span-12 lg:col-span-3 space-y-3 lg:sticky lg:top-[160px]">
           <div className="bg-white/60 backdrop-blur-xl p-1.5 rounded-2xl border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] overflow-hidden flex lg:flex-col overflow-x-auto lg:overflow-visible snap-x hidden-scrollbar">
             {[
               { id: 'nurse', label: 'Nurse Handover', icon: <FiClipboard /> },
@@ -1337,10 +1613,18 @@ export default function DoctorConsultationPage() {
                            <FiPlus className="w-4 h-4" /> PILIH OBAT
                          </button>
                          <button 
-                           onClick={() => handleSaveConsultation(false, true)} 
-                           className="px-6 py-4 bg-indigo-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-500/20 hover:bg-indigo-600 transition-all flex items-center gap-2"
+                           onClick={() => handlePrintPrescription('internal')}
+                           disabled={saving || prescriptionItems.filter(p => !p.isExternal).length === 0}
+                           className="px-5 py-4 bg-indigo-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-500/20 hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2"
                          >
-                           <FiSave className="w-4 h-4" /> SIMPAN & BUKA RESEP
+                           <FiPrinter className="w-4 h-4 text-emerald-300 animate-pulse" /> CETAK RESEP INTERNAL ({prescriptionItems.filter(p => !p.isExternal).length})
+                         </button>
+                         <button 
+                           onClick={() => handlePrintPrescription('external')}
+                           disabled={saving || prescriptionItems.filter(p => p.isExternal).length === 0}
+                           className="px-5 py-4 bg-rose-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                         >
+                           <FiPrinter className="w-4 h-4 text-rose-200" /> CETAK RESEP EKSTERNAL ({prescriptionItems.filter(p => p.isExternal).length})
                          </button>
                       </div>
                     )}
@@ -1351,24 +1635,32 @@ export default function DoctorConsultationPage() {
                       <motion.div 
                         initial={{ opacity: 0, x: -10 }} 
                         animate={{ opacity: 1, x: 0 }} 
-                        key={idx} 
-                        className="bg-slate-50/50 p-4 lg:p-6 rounded-2xl lg:rounded-3xl border border-slate-100 hover:border-slate-300 transition-all"
+                        key={idx}
+                        className="bg-slate-50/30 p-3 lg:p-4 rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.01)]"
                       >
-                        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 xl:gap-6">
-                          <div className="flex-1 min-w-[300px]">
-                            <div className="flex items-center gap-3">
-                               <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-primary shadow-sm border border-slate-100">
+                        <div className="grid grid-cols-1 lg:grid-cols-[180px_110px_90px_1fr_70px_35px] gap-3 lg:gap-4 items-start">
+                          {/* Col 1: Info Obat */}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                               <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-primary shadow-sm border border-slate-100 shrink-0">
                                   <FiPackage />
                                </div>
-                               <div>
-                                  <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{p.name}</p>
-                                  <div className="flex items-center gap-2 mt-0.5">
-                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{p.dosage}</p>
+                               <div className="min-w-0">
+                                  <p className="text-xs font-black text-slate-800 uppercase tracking-tight flex items-center gap-1.5 truncate">
+                                    {p.name}
+                                    {p.isExternal && (
+                                      <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-rose-600 text-white uppercase tracking-widest shrink-0 shadow-sm shadow-rose-500/10">
+                                        Luar
+                                      </span>
+                                    )}
+                                  </p>
+                                  <div className="flex items-center gap-1 mt-0.5">
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate">{p.dosage}</p>
                                     {p.unit && (
                                       <>
                                         <span className="text-slate-300">•</span>
-                                        <span className="text-[9px] font-black text-primary uppercase tracking-widest bg-primary/5 px-2 py-0.5 rounded">
-                                          Satuan: {p.unit}
+                                        <span className="text-[8px] font-black text-primary uppercase tracking-widest bg-primary/5 px-2 py-0.5 rounded truncate">
+                                          {p.unit}
                                         </span>
                                       </>
                                     )}
@@ -1377,81 +1669,129 @@ export default function DoctorConsultationPage() {
                             </div>
                           </div>
                           
-                          <div className="flex flex-wrap items-center gap-4 flex-1">
-                            <div className="flex-1 min-w-[120px]">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block flex items-center justify-between">
-                                <span>Frekuensi</span>
-                                {p.availableStock !== undefined && (
-                                  <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black border ${p.availableStock > 10 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
-                                    STOK: {p.availableStock}
-                                  </span>
-                                )}
-                              </label>
-                              <input disabled={isReadOnly} value={p.frequency} onChange={(e) => { const n = [...prescriptionItems]; n[idx].frequency = e.target.value; setPrescriptionItems(n); }} placeholder="e.g. 3x1" className={`w-full px-4 py-2 text-xs font-black border border-slate-200 rounded-xl focus:border-primary outline-none ${isReadOnly ? 'bg-slate-50' : 'bg-white'}`} />
-                            </div>
-                            <div className="flex-1 min-w-[200px]">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Instruksi Khusus</label>
-                              <select 
-                                disabled={isReadOnly} 
-                                value={['Sesudah makan', 'Sebelum makan'].includes(p.instructions) ? p.instructions : 'Lainnya'} 
-                                onChange={(e) => { 
-                                  const val = e.target.value;
-                                  const n = [...prescriptionItems]; 
-                                  if (val !== 'Lainnya') {
-                                    n[idx].instructions = val; 
-                                  } else {
-                                    n[idx].instructions = '';
-                                  }
-                                  setPrescriptionItems(n); 
-                                }} 
-                                className={`w-full px-4 py-2 text-xs font-black border border-slate-200 rounded-xl focus:border-primary outline-none mb-2 ${isReadOnly ? 'bg-slate-50' : 'bg-white'}`}
+                          {/* Col 2: Sumber Obat */}
+                          <div className="w-full">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Sumber Obat</label>
+                            <div className="flex bg-slate-200/50 p-0.5 rounded-xl border border-slate-200">
+                              <button
+                                type="button"
+                                disabled={isReadOnly}
+                                onClick={() => {
+                                  const n = [...prescriptionItems];
+                                  n[idx].isExternal = false;
+                                  setPrescriptionItems(n);
+                                }}
+                                className={`flex-1 text-[9px] font-black py-1.5 px-2 rounded-lg transition-all uppercase tracking-wider ${
+                                  !p.isExternal
+                                    ? 'bg-indigo-600 text-white shadow-sm'
+                                    : 'text-slate-400 hover:text-slate-700'
+                                }`}
                               >
-                                <option value="Sesudah makan">Sesudah makan</option>
-                                <option value="Sebelum makan">Sebelum makan</option>
-                                <option value="Lainnya">Lainnya / Manual...</option>
-                              </select>
-                              {(!['Sesudah makan', 'Sebelum makan'].includes(p.instructions) || p.instructions === '') && (
-                                <input 
-                                  disabled={isReadOnly} 
-                                  value={p.instructions} 
-                                  onChange={(e) => { const n = [...prescriptionItems]; n[idx].instructions = e.target.value; setPrescriptionItems(n); }} 
-                                  placeholder="Ketik instruksi manual..." 
-                                  className={`w-full px-4 py-2 text-xs font-black border border-slate-200 rounded-xl focus:border-primary outline-none ${isReadOnly ? 'bg-slate-50' : 'bg-white'}`} 
-                                />
-                              )}
+                                Internal
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isReadOnly}
+                                onClick={() => {
+                                  const n = [...prescriptionItems];
+                                  n[idx].isExternal = true;
+                                  setPrescriptionItems(n);
+                                }}
+                                className={`flex-1 text-[9px] font-black py-1.5 px-2 rounded-lg transition-all uppercase tracking-wider ${
+                                  p.isExternal
+                                    ? 'bg-rose-600 text-white shadow-sm'
+                                    : 'text-slate-400 hover:text-slate-700'
+                                }`}
+                              >
+                                Luar
+                              </button>
                             </div>
-                            <div className="w-32">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
-                                Qty {p.unit && <span className="text-primary">({p.unit})</span>}
-                              </label>
-                              <div className={`flex flex-col border border-slate-200 rounded-xl overflow-hidden ${isReadOnly ? 'bg-slate-50' : 'bg-white'} ${(p.availableStock !== undefined && (parseInt(p.quantity) || 0) > p.availableStock) ? 'border-rose-500 bg-rose-50' : ''}`}>
-                                 <input 
-                                    disabled={isReadOnly} 
-                                    type="number" 
-                                    value={p.quantity} 
-                                    onChange={(e) => { 
-                                      const val = parseInt(e.target.value) || 0;
-                                      if (p.availableStock !== undefined && val > p.availableStock) {
-                                        toast.error(`Stok tidak mencukupi (Tersedia: ${p.availableStock})`);
-                                      }
-                                      const n = [...prescriptionItems]; 
-                                      n[idx].quantity = e.target.value; 
-                                      setPrescriptionItems(n); 
-                                    }} 
-                                    className="w-full text-center py-2 text-xs font-black outline-none bg-transparent" 
-                                 />
-                              </div>
-                              {p.availableStock !== undefined && (parseInt(p.quantity) || 0) > p.availableStock && (
-                                <p className="text-[8px] font-black text-rose-500 uppercase mt-1 text-center animate-pulse">Melebihi Stok!</p>
+                          </div>
+                          
+                          {/* Col 3: Frekuensi */}
+                          <div className="w-full">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block flex items-center justify-between">
+                              <span>Frekuensi</span>
+                              {p.availableStock !== undefined && (
+                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-black border ${p.isExternal ? 'bg-amber-50 text-amber-600 border-amber-100' : p.availableStock > 10 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                                  {p.availableStock}
+                                </span>
                               )}
-                            </div>
-                            {!isReadOnly && (
-                              <div className="flex items-end">
-                                 <button onClick={() => setPrescriptionItems(prescriptionItems.filter((_, i) => i !== idx))} className="p-3 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
-                                    <FiTrash2 className="w-5 h-5" />
-                                 </button>
-                              </div>
+                            </label>
+                            <input disabled={isReadOnly} value={p.frequency} onChange={(e) => { const n = [...prescriptionItems]; n[idx].frequency = e.target.value; setPrescriptionItems(n); }} placeholder="e.g. 3x1" className={`w-full px-3 py-2 text-xs font-black border border-slate-200 rounded-xl focus:border-primary outline-none ${isReadOnly ? 'bg-slate-50' : 'bg-white'}`} />
+                          </div>
+                          
+                          {/* Col 4: Instruksi Khusus */}
+                          <div className="w-full">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Instruksi Khusus</label>
+                            <select 
+                              disabled={isReadOnly} 
+                              value={['Sesudah makan', 'Sebelum makan'].includes(p.instructions) ? p.instructions : 'Lainnya'} 
+                              onChange={(e) => { 
+                                const val = e.target.value;
+                                const n = [...prescriptionItems]; 
+                                if (val !== 'Lainnya') {
+                                  n[idx].instructions = val; 
+                                } else {
+                                  n[idx].instructions = '';
+                                }
+                                setPrescriptionItems(n); 
+                              }} 
+                              className={`w-full px-3 py-2 text-xs font-black border border-slate-200 rounded-xl focus:border-primary outline-none ${(!['Sesudah makan', 'Sebelum makan'].includes(p.instructions) || p.instructions === '') ? 'mb-2' : ''} ${isReadOnly ? 'bg-slate-50' : 'bg-white'}`}
+                            >
+                              <option value="Sesudah makan">Sesudah makan</option>
+                              <option value="Sebelum makan">Sebelum makan</option>
+                              <option value="Lainnya">Lainnya / Manual...</option>
+                            </select>
+                            {(!['Sesudah makan', 'Sebelum makan'].includes(p.instructions) || p.instructions === '') && (
+                              <input 
+                                disabled={isReadOnly} 
+                                value={p.instructions} 
+                                onChange={(e) => { const n = [...prescriptionItems]; n[idx].instructions = e.target.value; setPrescriptionItems(n); }} 
+                                placeholder="Ketik instruksi manual..." 
+                                className={`w-full px-3 py-2 text-xs font-black border border-slate-200 rounded-xl focus:border-primary outline-none ${isReadOnly ? 'bg-slate-50' : 'bg-white'}`} 
+                              />
                             )}
+                          </div>
+                          
+                          {/* Col 5: Qty */}
+                          <div className="w-full">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">
+                              Qty
+                            </label>
+                            <div className={`flex flex-col border border-slate-200 rounded-xl overflow-hidden ${isReadOnly ? 'bg-slate-50' : 'bg-white'} ${(p.availableStock !== undefined && !p.isExternal && (parseInt(p.quantity) || 0) > p.availableStock) ? 'border-rose-500 bg-rose-50' : ''}`}>
+                               <input 
+                                  disabled={isReadOnly} 
+                                  type="number" 
+                                  value={p.quantity} 
+                                  onChange={(e) => { 
+                                    const val = parseInt(e.target.value) || 0;
+                                    if (!p.isExternal && p.availableStock !== undefined && val > p.availableStock) {
+                                      toast.error(`Stok tidak mencukupi (Tersedia: ${p.availableStock})`);
+                                    }
+                                    const n = [...prescriptionItems]; 
+                                    n[idx].quantity = e.target.value; 
+                                    setPrescriptionItems(n); 
+                                  }} 
+                                  className="w-full text-center py-2 text-xs font-black outline-none bg-transparent" 
+                               />
+                            </div>
+                            {p.availableStock !== undefined && !p.isExternal && (parseInt(p.quantity) || 0) > p.availableStock && (
+                              <p className="text-[8px] font-black text-rose-500 uppercase mt-1 text-center animate-pulse">Melebihi Stok!</p>
+                            )}
+                          </div>
+                          
+                          {/* Col 6: Aksi */}
+                          <div className="w-full flex flex-col items-center">
+                             <label className="text-[9px] font-black text-transparent select-none mb-1.5 block">Aksi</label>
+                             {!isReadOnly && (
+                               <button 
+                                 onClick={() => setPrescriptionItems(prescriptionItems.filter((_, i) => i !== idx))} 
+                                 className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-100 hover:border-rose-100 rounded-xl transition-all flex items-center justify-center animate-none"
+                               >
+                                  <FiTrash2 className="w-4 h-4" />
+                               </button>
+                             )}
                           </div>
                         </div>
                       </motion.div>
@@ -2248,7 +2588,7 @@ export default function DoctorConsultationPage() {
                       <input 
                         value={searchMed} 
                         onChange={(e) => setSearchMed(e.target.value)} 
-                        placeholder="Cari nama obat (Hanya menampilkan yang ada stok)..." 
+                        placeholder="Cari nama obat..." 
                         className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black outline-none focus:bg-white focus:border-primary shadow-sm transition-all" 
                       />
                     </div>
@@ -2277,21 +2617,21 @@ export default function DoctorConsultationPage() {
                             <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase italic">{m.medicine?.genericName} • {m.medicine?.strength}</p>
                           </div>
                           <div className="text-right">
-                            <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${stock > 10 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                              Stok: {stock} {m.unit}
+                            <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${stock > 10 ? 'bg-emerald-50 text-emerald-600' : stock > 0 ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600 border border-amber-100'}`}>
+                              {stock > 0 ? `Stok: ${stock} ${m.unit}` : 'Habis (Apotek Luar)'}
                             </span>
                           </div>
                         </button>
                       )
                     })}
                     {searchMedicines.length === 0 && searchMed && !isSearchingMed && (
-                      <div className="text-center py-10 text-slate-400 text-xs font-bold">Obat tidak ditemukan (atau stok kosong)</div>
+                      <div className="text-center py-10 text-slate-400 text-xs font-bold">Obat tidak ditemukan</div>
                     )}
                     {isSearchingMed && (
-                      <div className="text-center py-10 text-slate-400 text-xs font-bold animate-pulse">Mencari obat tersedia...</div>
+                      <div className="text-center py-10 text-slate-400 text-xs font-bold animate-pulse">Mencari obat...</div>
                     )}
                     {searchMedicines.length === 0 && !searchMed && !isSearchingMed && (
-                      <div className="text-center py-10 text-slate-400 text-xs font-bold">Tidak ada daftar obat dengan stok tersedia.</div>
+                      <div className="text-center py-10 text-slate-400 text-xs font-bold">Tidak ada daftar obat ditemukan.</div>
                     )}
                   </div>
                 </div>
@@ -3107,6 +3447,161 @@ export default function DoctorConsultationPage() {
                    <FiLock /> PERMANENT LOCKING SYSTEM
                 </p>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Prescription Preview Modal */}
+      <AnimatePresence>
+        {isRxPreviewOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden border border-slate-100"
+            >
+              {/* Modal Header */}
+              <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500 border border-indigo-100">
+                    <FiPackage className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest leading-none">Pratinjau Resep Obat</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Draft tersimpan · Review sebelum dicetak</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {rxPrintMode && (
+                    <button
+                      onClick={() => {
+                        generateRxPDF(rxPrintMode, 'print')
+                      }}
+                      className="px-5 py-2.5 bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2"
+                    >
+                      <FiPrinter className="w-3.5 h-3.5" /> CETAK RESEP
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setIsRxPreviewOpen(false);
+                      setRxPrintMode(null);
+                      if (pdfUrl) {
+                        URL.revokeObjectURL(pdfUrl);
+                        setPdfUrl(null);
+                      }
+                    }}
+                    className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                  >
+                    <FiMinus className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Pilihan Tujuan Resep */}
+              {!rxPrintMode && (
+                <div className="flex-1 flex flex-col items-center justify-center p-8 gap-6">
+                  <div className="text-center mb-2">
+                    <p className="text-sm font-black text-slate-800 uppercase tracking-widest">Resep ini untuk?</p>
+                    <p className="text-[10px] font-bold text-slate-400 mt-1">Pilih tujuan pengambilan obat</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-lg">
+                    <button 
+                      onClick={() => {
+                        setRxPrintMode('internal');
+                        const url = generateRxPDF('internal', 'bloburl') as string;
+                        setPdfUrl(url);
+                      }} 
+                      className="group p-6 rounded-2xl border-2 border-indigo-100 bg-indigo-50/50 hover:border-indigo-400 hover:bg-indigo-50 transition-all text-left"
+                    >
+                      <div className="w-12 h-12 bg-indigo-500 rounded-xl flex items-center justify-center text-white mb-4 group-hover:scale-110 transition-transform shadow-lg shadow-indigo-500/20">
+                        <FiHome className="w-6 h-6" />
+                      </div>
+                      <p className="text-sm font-black text-slate-900 uppercase tracking-tight">Farmasi Klinik</p>
+                      <p className="text-[10px] font-bold text-slate-500 mt-1 leading-relaxed">Obat tersedia di apotek klinik. Resep dicetak untuk diserahkan ke farmasi internal.</p>
+                      <div className="mt-3 flex items-center gap-1.5 text-indigo-600">
+                        <FiCheckCircle className="w-3.5 h-3.5" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Stok Klinik</span>
+                      </div>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setRxPrintMode('external');
+                        const url = generateRxPDF('external', 'bloburl') as string;
+                        setPdfUrl(url);
+                      }} 
+                      className="group p-6 rounded-2xl border-2 border-amber-100 bg-amber-50/50 hover:border-amber-400 hover:bg-amber-50 transition-all text-left"
+                    >
+                      <div className="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center text-white mb-4 group-hover:scale-110 transition-transform shadow-lg shadow-amber-500/20">
+                        <FiPackage className="w-6 h-6" />
+                      </div>
+                      <p className="text-sm font-black text-slate-900 uppercase tracking-tight">Apotek Luar</p>
+                      <p className="text-[10px] font-bold text-slate-500 mt-1 leading-relaxed">Obat tidak tersedia di klinik. Pasien membeli sendiri di apotek luar dengan resep ini.</p>
+                      <div className="mt-3 flex items-center gap-1.5 text-amber-600">
+                        <FiAlertCircle className="w-3.5 h-3.5" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Stok Tidak Dikurangi</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Preview Dokumen setelah mode dipilih */}
+              {rxPrintMode && (
+                <>
+                  <div className={`px-5 py-2.5 border-b flex items-center justify-between shrink-0 ${rxPrintMode === 'external' ? 'bg-amber-50 border-amber-100' : 'bg-indigo-50 border-indigo-100'}`}>
+                    <div className="flex items-center gap-2">
+                      {rxPrintMode === 'external'
+                        ? <><FiAlertCircle className="w-3.5 h-3.5 text-amber-500" /><span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Resep Eksternal · Stok tidak dikurangi</span></>
+                        : <><FiCheckCircle className="w-3.5 h-3.5 text-indigo-500" /><span className="text-[10px] font-black text-indigo-700 uppercase tracking-widest">Farmasi Klinik · Obat diambil dari stok</span></>
+                      }
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setRxPrintMode(null);
+                        if (pdfUrl) {
+                          URL.revokeObjectURL(pdfUrl);
+                          setPdfUrl(null);
+                        }
+                      }} 
+                      className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest underline"
+                    >
+                      Ganti
+                    </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-4 bg-slate-100/50 flex flex-col justify-stretch items-stretch min-h-[50vh]">
+                    {pdfUrl ? (
+                      <iframe 
+                        src={pdfUrl} 
+                        className="w-full flex-1 rounded-2xl border border-slate-200 shadow-inner bg-white" 
+                        title="Pratinjau PDF Resep"
+                      />
+                    ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
+                        <FiPackage className="w-10 h-10 animate-bounce text-indigo-400" />
+                        <p className="text-xs font-black uppercase tracking-wider">Membuat pratinjau resep...</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer actions */}
+                  <div className="p-4 border-t border-slate-100 bg-slate-50/50 shrink-0 flex items-center justify-between gap-3">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <FiLock className="w-3 h-3" /> Draft · Nomor RX dibuat saat Selesai Pemeriksaan
+                    </p>
+                    <button
+                      onClick={() => generateRxPDF(rxPrintMode, 'save')}
+                      className={`px-5 py-2.5 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-2 ${rxPrintMode === 'external' ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20' : 'bg-indigo-500 hover:bg-indigo-600 shadow-indigo-500/20'}`}
+                    >
+                      <FiPrinter className="w-3.5 h-3.5" />
+                      {rxPrintMode === 'external' ? 'Unduh Resep Eksternal' : 'Unduh Resep Farmasi'}
+                    </button>
+                  </div>
+                </>
+              )}
             </motion.div>
           </div>
         )}

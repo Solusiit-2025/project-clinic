@@ -125,7 +125,27 @@ export default function PharmacyQueuePage() {
                   </div>
                   <div className="text-xs text-gray-600 mb-3">
                     <p className="font-bold">{p.patient.name} <span className="text-gray-400 font-normal">({p.patient.medicalRecordNo})</span></p>
-                    <p className="text-[10px] text-gray-400 mt-1 flex items-center uppercase font-bold tracking-tighter"><Pill className="w-2.5 h-2.5 mr-1" /> {p.items.length} Macam Obat</p>
+                    <p className="text-[10px] mt-1 flex items-center uppercase font-bold tracking-tighter">
+                      <Pill className="w-2.5 h-2.5 mr-1 text-slate-400" />
+                      {(() => {
+                        const internalCount = p.items.filter(i => {
+                          return !(i.isExternal || 
+                                   i.instructions?.includes('(Apotek Luar)') || 
+                                   i.instructions?.includes('[Eksternal]') ||
+                                   i.instructions?.includes('Apotek Luar') ||
+                                   i.instructions?.includes('Eksternal'));
+                        }).length;
+                        const externalCount = p.items.length - internalCount;
+                        if (internalCount === 0) {
+                          return <span className="text-rose-500 font-black bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">100% APOTEK LUAR ({externalCount} Obat)</span>;
+                        }
+                        return (
+                          <span className="text-gray-500">
+                            {internalCount} Obat Klinik {externalCount > 0 && <span className="text-amber-600 font-black"> + {externalCount} Obat Luar</span>}
+                          </span>
+                        );
+                      })()}
+                    </p>
                   </div>
                   <div className="text-[10px] text-gray-400 flex items-center justify-between font-bold">
                     <span>DR. {p.doctor.name.toUpperCase()}</span>
@@ -164,7 +184,22 @@ export default function PharmacyQueuePage() {
                   </div>
                   <div className="text-sm text-gray-600 mb-2">
                     <p className="font-semibold">{p.patient.name}</p>
-                    <p className="text-xs mt-1">{p.items.length} macam obat</p>
+                    <p className="text-xs mt-1 text-gray-500 font-bold">
+                      {(() => {
+                        const internalCount = p.items.filter(i => {
+                          return !(i.isExternal || 
+                                   i.instructions?.includes('(Apotek Luar)') || 
+                                   i.instructions?.includes('[Eksternal]') ||
+                                   i.instructions?.includes('Apotek Luar') ||
+                                   i.instructions?.includes('Eksternal'));
+                        }).length;
+                        const externalCount = p.items.length - internalCount;
+                        if (internalCount === 0) {
+                          return <span className="text-rose-500 font-black">100% Apotek Luar ({externalCount} Obat)</span>;
+                        }
+                        return `${internalCount} obat klinik ${externalCount > 0 ? `+ ${externalCount} obat luar` : ''}`;
+                      })()}
+                    </p>
                   </div>
                   <div className="text-xs text-gray-400 flex items-center justify-between">
                     <span>{new Date(p.prescriptionDate).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>

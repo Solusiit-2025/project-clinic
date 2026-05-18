@@ -54,6 +54,7 @@ export const getBranchStocks = async (req: Request, res: Response) => {
         },
         include: {
           masterProduct: { select: { productCategory: { select: { categoryName: true } } } },
+          clinic: { select: { name: true } },
           _count: {
             select: { inventoryStocks: { where: { onHandQty: { gt: 0 } } } }
           },
@@ -81,6 +82,7 @@ export const getBranchStocks = async (req: Request, res: Response) => {
         onHandQty: p.quantity,
         reservedQty: reservedQty,
         branchId: p.clinicId,
+        branchName: p.clinic?.name || 'N/A',
         minStockAlert: p.minimumStock,
         batchCount: p._count?.inventoryStocks || 0,
         // Compatibility structure for existing UI

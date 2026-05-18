@@ -217,3 +217,142 @@ export const payCommissions = async (req: Request, res: Response) => {
     res.status(500).json({ message: e.message })
   }
 }
+
+/**
+ * Update Doctor Commission / Fee
+ */
+export const updateDoctorCommission = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { doctorId, amount, description, date } = req.body
+    const clinicId = (req as any).clinicId
+
+    const commission = await (prisma as any).doctorCommission.findUnique({
+      where: { id },
+      include: { doctor: true }
+    })
+
+    if (!commission) {
+      return res.status(404).json({ message: 'Komisi dokter tidak ditemukan' })
+    }
+
+    if (commission.status === 'paid') {
+      return res.status(400).json({ message: 'Komisi yang sudah dibayar tidak dapat diubah' })
+    }
+
+    const updatedAmount = amount !== undefined ? parseFloat(amount) : commission.amount
+    const updatedDesc = description !== undefined ? description : commission.description
+    const updatedDate = date ? parseLocalDate(String(date)) : commission.date
+    const updatedDoctorId = doctorId || commission.doctorId
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Update Commission Record
+      const updated = await (tx as any).doctorCommission.update({
+        where: { id },
+        data: {
+          doctorId: updatedDoctorId,
+          amount: updatedAmount,
+          description: updatedDesc,
+          date: updatedDate
+        },
+        include: { doctor: true }
+      })
+
+      // 2. If MANUAL, also update the Journal Entry
+      if (commission.type === 'MANUAL') {
+        const refNo = `ADJ-${commission.id.slice(0, 8).toUpperCase()}`
+        const journal = await tx.journalEntry.findFirst({
+          where: { referenceNo: refNo, clinicId }
+        })
+
+        if (journal) {
+          const sysAccountKeys = ['DOCTOR_FEE_PAYABLE', 'DOCTOR_FEE_EXPENSE']
+          const sysAccounts = await tx.systemAccount.findMany({
+            where: { key: { in: sysAccountKeys }, OR: [{ clinicId }, { clinicId: null }] },
+            include: { coa: true }
+          })
+
+          const getSysAcc = (key: string) => sysAccounts.find(a => a.key === key)
+          const payableAcc = getSysAcc('DOCTOR_FEE_PAYABLE')?.coa || await tx.chartOfAccount.findFirst({ where: { code: '2-1102' } })
+          const expenseAcc = getSysAcc('DOCTOR_FEE_EXPENSE')?.coa || await tx.chartOfAccount.findFirst({ where: { code: '6-1102' } })
+
+          if (payableAcc && expenseAcc) {
+            await tx.journalDetail.deleteMany({
+              where: { journalEntryId: journal.id }
+            })
+
+            await tx.journalEntry.update({
+              where: { id: journal.id },
+              data: {
+                date: updatedDate,
+                description: `Penyesuaian Jasa Medik Manual: ${updatedDesc} - ${updated.doctor.name}`,
+                details: {
+                  create: [
+                    { coaId: expenseAcc.id, debit: updatedAmount, credit: 0, description: `Beban Jasa Manual: ${updatedDesc}` },
+                    { coaId: payableAcc.id, debit: 0, credit: updatedAmount, description: `Hutang Jasa Manual: ${updated.doctor.name}` }
+                  ]
+                }
+              }
+            })
+          }
+        }
+      }
+
+      return updated
+    })
+
+    res.json({ message: 'Komisi dokter berhasil diperbarui', data: result })
+  } catch (e: any) {
+    res.status(500).json({ message: e.message })
+  }
+}
+
+/**
+ * Delete Doctor Commission / Fee
+ */
+export const deleteDoctorCommission = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const clinicId = (req as any).clinicId
+
+    const commission = await (prisma as any).doctorCommission.findUnique({
+      where: { id }
+    })
+
+    if (!commission) {
+      return res.status(404).json({ message: 'Komisi dokter tidak ditemukan' })
+    }
+
+    if (commission.status === 'paid') {
+      return res.status(400).json({ message: 'Komisi yang sudah dibayar tidak dapat dihapus' })
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // 1. If MANUAL, also delete the Journal Entry
+      if (commission.type === 'MANUAL') {
+        const refNo = `ADJ-${commission.id.slice(0, 8).toUpperCase()}`
+        const journal = await tx.journalEntry.findFirst({
+          where: { referenceNo: refNo, clinicId }
+        })
+
+        if (journal) {
+          await tx.journalDetail.deleteMany({
+            where: { journalEntryId: journal.id }
+          })
+          await tx.journalEntry.delete({
+            where: { id: journal.id }
+          })
+        }
+      }
+
+      // 2. Delete the commission
+      await (tx as any).doctorCommission.delete({
+        where: { id }
+      })
+    })
+
+    res.json({ message: 'Komisi dokter berhasil dihapus' })
+  } catch (e: any) {
+    res.status(500).json({ message: e.message })
+  }
+}

@@ -301,9 +301,15 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
           const safePrescriptions = validPrescriptions.filter((item: any) => validMedicineIds.has(item.medicineId))
 
           // SERVER-SIDE STOCK VALIDATION: Read real-time stock from DB to prevent race conditions
-          // This is the authoritative check — frontend check is only UX hint
           // Check current stock against prescriptions from the PRODUCT table (the actual stock)
           for (const item of safePrescriptions) {
+            const isExternal = item.isExternal || 
+                               item.instructions?.includes('(Apotek Luar)') || 
+                               item.instructions?.includes('[Eksternal]') ||
+                               item.instructions?.includes('Apotek Luar') ||
+                               item.instructions?.includes('Eksternal');
+            if (isExternal) continue;
+
             const product = await tx.product.findFirst({
               where: {
                 clinicId: mr.clinicId,
@@ -623,6 +629,13 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
         // Add Medicines
         if (prescriptions && Array.isArray(prescriptions)) {
           for (const p of prescriptions) {
+            const isExternal = p.isExternal || 
+                               p.instructions?.includes('(Apotek Luar)') || 
+                               p.instructions?.includes('[Eksternal]') ||
+                               p.instructions?.includes('Apotek Luar') ||
+                               p.instructions?.includes('Eksternal');
+            if (isExternal) continue;
+
             const product = await tx.product.findFirst({
               where: {
                 clinicId: mr.clinicId,

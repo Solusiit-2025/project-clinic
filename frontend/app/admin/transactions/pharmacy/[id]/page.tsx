@@ -230,11 +230,16 @@ export default function PharmacyDetailPage({ params }: { params: Promise<{ id: s
                        <tbody className="divide-y divide-gray-50">
                           {(isEditing ? editedItems : prescription.items).map((item: any, idx: number) => {
                              const isRacikan = item.isRacikan
-                             const isShort = !isRacikan && (item.availableStock || 0) < (item.quantity || 0)
-                             const subtotal = (item.quantity || 0) * (item.sellingPrice || 0)
+                             const isExternal = item.isExternal || 
+                                                item.instructions?.includes('(Apotek Luar)') || 
+                                                item.instructions?.includes('[Eksternal]') ||
+                                                item.instructions?.includes('Apotek Luar') ||
+                                                item.instructions?.includes('Eksternal');
+                             const isShort = !isRacikan && !isExternal && (item.availableStock || 0) < (item.quantity || 0)
+                             const subtotal = isExternal ? 0 : (item.quantity || 0) * (item.sellingPrice || 0)
 
                              return (
-                                <tr key={item.id || idx} className="hover:bg-gray-50/30 transition-colors group">
+                                <tr key={item.id || idx} className={`hover:bg-gray-50/30 transition-colors group ${isExternal ? 'bg-rose-50/20' : ''}`}>
                                    <td className="px-8 py-6">
                                       {isEditing ? (
                                         <div className="max-w-xs space-y-2">
@@ -254,6 +259,7 @@ export default function PharmacyDetailPage({ params }: { params: Promise<{ id: s
                                            <div>
                                               <div className="flex items-center gap-2">
                                                  <span className="font-black text-gray-900 group-hover:text-primary transition-colors text-sm">{isRacikan ? item.racikanName : (item.medicine?.medicineName || 'Unknown')}</span>
+                                                 {isExternal && <span className="text-[8px] font-black bg-rose-500 text-white px-1.5 py-0.5 rounded uppercase tracking-tighter">Apotek Luar</span>}
                                                  {isRacikan && <span className="text-[8px] font-black bg-indigo-600 text-white px-1.5 py-0.5 rounded uppercase tracking-tighter">Racikan</span>}
                                               </div>
                                               <p className="text-[10px] font-bold text-gray-400 uppercase mt-0.5">{item.medicine?.dosageForm || item.unit || '-'} &bull; {item.medicine?.strength || '-'}</p>
@@ -275,7 +281,9 @@ export default function PharmacyDetailPage({ params }: { params: Promise<{ id: s
                                       )}
                                    </td>
                                    <td className="px-8 py-6 text-center">
-                                      {isRacikan ? (
+                                      {isExternal ? (
+                                        <span className="text-[9px] font-black text-rose-600 bg-rose-50 border border-rose-100 px-2.5 py-1 rounded-xl uppercase tracking-widest">Apotek Luar</span>
+                                      ) : isRacikan ? (
                                         <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Multi-Batch</span>
                                       ) : (
                                         <div className={`inline-flex flex-col items-center p-2 rounded-2xl min-w-[80px] border ${isShort ? 'bg-rose-50 border-rose-100 animate-pulse' : 'bg-emerald-50/50 border-emerald-100'}`}>
@@ -305,7 +313,12 @@ export default function PharmacyDetailPage({ params }: { params: Promise<{ id: s
                                       </div>
                                    </td>
                                    <td className="px-8 py-6 text-right">
-                                      {isPrivileged ? (
+                                      {isExternal ? (
+                                        <div className="flex flex-col items-end">
+                                           <span className="text-[10px] font-black text-rose-500 bg-rose-50 px-2 py-0.5 rounded border border-rose-100 uppercase tracking-widest leading-none">Rp 0 (Luar)</span>
+                                           <span className="text-[7px] font-bold text-gray-400 uppercase mt-1">Tidak Ditagih</span>
+                                        </div>
+                                      ) : isPrivileged ? (
                                         <div className="flex flex-col items-end">
                                            <span className="text-[10px] font-black text-gray-900 group-hover:text-primary transition-colors leading-none">Rp {subtotal.toLocaleString('id-ID')}</span>
                                            <span className="text-[8px] font-bold text-gray-400 uppercase mt-1">@ Rp {(item.sellingPrice || 0).toLocaleString('id-ID')}</span>
@@ -462,14 +475,24 @@ export default function PharmacyDetailPage({ params }: { params: Promise<{ id: s
                  <div className="flex items-baseline justify-between">
                     <span className="text-xs font-bold text-gray-500 uppercase">Grand Total</span>
                     {isPrivileged ? (
-                      <span className="text-2xl font-black text-gray-900">Rp {prescription.items.reduce((sum: number, i: any) => sum + ((i.quantity || 0) * (i.sellingPrice || 0)), 0).toLocaleString('id-ID')}</span>
+                      <span className="text-2xl font-black text-gray-900">
+                        Rp {prescription.items.reduce((sum: number, i: any) => {
+                          const isExt = i.isExternal || 
+                                        i.instructions?.includes('(Apotek Luar)') || 
+                                        i.instructions?.includes('[Eksternal]') ||
+                                        i.instructions?.includes('Apotek Luar') ||
+                                        i.instructions?.includes('Eksternal');
+                          if (isExt) return sum;
+                          return sum + ((i.quantity || 0) * (i.sellingPrice || 0));
+                        }, 0).toLocaleString('id-ID')}
+                      </span>
                     ) : (
                       <span className="text-xl font-black text-gray-300 tracking-[0.2em] bg-gray-100/50 px-3 py-1 rounded-lg">••••••</span>
                     )}
                  </div>
                  <div className="mt-4 p-3 bg-gray-50 rounded-xl flex items-center gap-3">
                     <Info className="w-3 h-3 text-gray-400" />
-                    <p className="text-[9px] font-bold text-gray-400 leading-tight">Harga dapat berubah jika terjadi penyesuaian item atau diskon khusus di kasir.</p>
+                    <p className="text-[9px] font-bold text-gray-400 leading-tight">Harga obat luar dikecualikan dari tagihan dan tidak ditagih ke pasien.</p>
                  </div>
               </div>
            </div>

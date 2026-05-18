@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import api from '@/lib/api'
 import { 
   FiActivity, FiSearch, FiCalendar, FiFilter, FiDownload, FiCheckCircle, 
-  FiAlertCircle, FiUser, FiFileText, FiDollarSign, FiPrinter, FiClock, FiPlus, FiX, FiLayers, FiCreditCard
+  FiAlertCircle, FiUser, FiFileText, FiDollarSign, FiPrinter, FiClock, FiPlus, FiX, FiLayers, FiCreditCard,
+  FiEdit, FiTrash2
 } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -72,6 +73,16 @@ export default function DoctorFeeReportPage() {
     coaId: '',
     date: getLocalDateString(),
     notes: ''
+  })
+
+  // Edit Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState<DoctorFeeReportItem | null>(null)
+  const [editForm, setEditForm] = useState({
+    doctorId: '',
+    amount: '',
+    description: '',
+    date: ''
   })
 
   const fetchDoctors = useCallback(async () => {
@@ -161,6 +172,46 @@ export default function DoctorFeeReportPage() {
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Gagal memproses pembayaran')
     } finally { setSubmitting(false) }
+  }
+
+  const handleOpenEdit = (item: DoctorFeeReportItem) => {
+    const doc = doctors.find(d => d.name === item.doctorName)
+    setEditingItem(item)
+    setEditForm({
+      doctorId: doc?.id || '',
+      amount: item.doctorFee.toString(),
+      description: item.serviceName,
+      date: item.date ? item.date.slice(0, 10) : getLocalDateString()
+    })
+    setIsEditModalOpen(true)
+  }
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingItem) return
+    setSubmitting(true)
+    try {
+      await api.put(`/reports/doctor-fees/${editingItem.id}`, editForm)
+      toast.success('Jasa medik berhasil diperbarui')
+      setIsEditModalOpen(false)
+      setEditingItem(null)
+      fetchData()
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Gagal memperbarui data')
+    } finally { setSubmitting(false) }
+  }
+
+  const handleDeleteItem = async (item: DoctorFeeReportItem) => {
+    const confirmDelete = window.confirm(`Apakah Anda yakin ingin menghapus jasa medik "${item.serviceName}" untuk ${item.doctorName}?`)
+    if (!confirmDelete) return
+    
+    try {
+      await api.delete(`/reports/doctor-fees/${item.id}`)
+      toast.success('Jasa medik berhasil dihapus')
+      fetchData()
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Gagal menghapus data')
+    }
   }
 
   const toggleSelect = (id: string) => {
@@ -263,6 +314,20 @@ export default function DoctorFeeReportPage() {
         )}
       </AnimatePresence>
 
+      {/* Live Search Input Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 no-print">
+        <div className="relative flex-1 max-w-md">
+          <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+          <input 
+            type="text" 
+            placeholder="Cari nama pasien, nomor invoice, dokter, atau layanan..." 
+            value={search} 
+            onChange={(e) => setSearch(e.target.value)} 
+            className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/10 text-slate-800 shadow-sm"
+          />
+        </div>
+      </div>
+
       {/* MAIN TABLE */}
       <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden overflow-x-auto">
         <table className="w-full text-left border-collapse">
@@ -276,11 +341,12 @@ export default function DoctorFeeReportPage() {
               <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Dokter</th>
               <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
               <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Nominal</th>
+              <th className="px-8 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest no-print">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
             {loading ? (
-              [...Array(5)].map((_, i) => <tr key={i} className="animate-pulse"><td colSpan={6} className="px-8 py-6"><div className="h-12 bg-slate-50 rounded-2xl w-full" /></td></tr>)
+              [...Array(5)].map((_, i) => <tr key={i} className="animate-pulse"><td colSpan={7} className="px-8 py-6"><div className="h-12 bg-slate-50 rounded-2xl w-full" /></td></tr>)
             ) : filteredData.map((row) => (
               <tr key={row.id} className={`hover:bg-slate-50/50 transition-all ${selectedIds.includes(row.id) ? 'bg-indigo-50/30' : ''}`}>
                 <td className="px-8 py-5">
@@ -309,6 +375,26 @@ export default function DoctorFeeReportPage() {
                   </span>
                 </td>
                 <td className="px-8 py-5 text-right font-black text-slate-900">{formatCurrency(row.doctorFee)}</td>
+                <td className="px-8 py-5 text-center no-print">
+                  <div className="flex items-center justify-center gap-1">
+                    <button
+                      onClick={() => handleOpenEdit(row)}
+                      disabled={row.status === 'paid'}
+                      title={row.status === 'paid' ? 'Komisi Lunas tidak dapat diubah' : 'Edit Jasa Medik'}
+                      className="p-2 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <FiEdit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteItem(row)}
+                      disabled={row.status === 'paid'}
+                      title={row.status === 'paid' ? 'Komisi Lunas tidak dapat dihapus' : 'Hapus Jasa Medik'}
+                      className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <FiTrash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -443,6 +529,91 @@ export default function DoctorFeeReportPage() {
                 <button type="submit" disabled={submitting} className="w-full py-5 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all active:scale-95 shadow-xl shadow-indigo-100 mt-4">
                   {submitting ? 'Menyimpan...' : 'Tambahkan Jasa'}
                 </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* EDIT MODAL */}
+      <AnimatePresence>
+        {isEditModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setIsEditModalOpen(false); setEditingItem(null); }} className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" />
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden p-8">
+              <div className="flex flex-col items-center text-center mb-8">
+                <div className="w-16 h-16 rounded-3xl bg-indigo-600 text-white flex items-center justify-center shadow-2xl shadow-indigo-200 mb-4">
+                  <FiEdit className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-black text-slate-900 tracking-tight">Edit Jasa Medik</h3>
+                <p className="text-sm font-bold text-slate-400 mt-1">Ubah rincian jasa medik dokter</p>
+              </div>
+
+              <form onSubmit={handleEditSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pilih Dokter</label>
+                  <select 
+                    required 
+                    value={editForm.doctorId} 
+                    onChange={(e) => setEditForm({...editForm, doctorId: e.target.value})} 
+                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-black text-slate-800"
+                  >
+                    <option value="">-- Pilih Dokter --</option>
+                    {doctors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Deskripsi / Keterangan</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={editForm.description} 
+                    onChange={(e) => setEditForm({...editForm, description: e.target.value})} 
+                    placeholder="Deskripsi jasa medik"
+                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-black"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nominal (Rp)</label>
+                    <input 
+                      type="number" 
+                      required 
+                      value={editForm.amount} 
+                      onChange={(e) => setEditForm({...editForm, amount: e.target.value})} 
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-black"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tanggal</label>
+                    <input 
+                      type="date" 
+                      required 
+                      value={editForm.date} 
+                      onChange={(e) => setEditForm({...editForm, date: e.target.value})} 
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-black"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button 
+                    type="button" 
+                    onClick={() => { setIsEditModalOpen(false); setEditingItem(null); }} 
+                    className="flex-1 py-4 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={submitting} 
+                    className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all active:scale-95 shadow-xl shadow-indigo-100"
+                  >
+                    {submitting ? 'Menyimpan...' : 'Simpan'}
+                  </button>
+                </div>
               </form>
             </motion.div>
           </div>

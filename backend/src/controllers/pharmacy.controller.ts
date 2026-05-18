@@ -229,6 +229,12 @@ export const updateDispenseStatus = async (req: Request, res: Response) => {
          // BULK FETCH ALL RELATED PRODUCTS
          const requiredMedicineIds: string[] = [];
          for (const item of prescription.items) {
+           const isExternal = item.instructions?.includes('(Apotek Luar)') || 
+                              item.instructions?.includes('[Eksternal]') ||
+                              item.instructions?.includes('Apotek Luar') ||
+                              item.instructions?.includes('Eksternal');
+           if (isExternal) continue;
+
            if (item.isRacikan) {
              (item as any).components?.forEach((comp: any) => {
                 if (comp.medicine) requiredMedicineIds.push(comp.medicine.id);
@@ -258,6 +264,11 @@ export const updateDispenseStatus = async (req: Request, res: Response) => {
 
          // Deduct Stock
          for (const item of prescription.items) {
+             const isExternal = item.instructions?.includes('(Apotek Luar)') || 
+                                item.instructions?.includes('[Eksternal]') ||
+                                item.instructions?.includes('Apotek Luar') ||
+                                item.instructions?.includes('Eksternal');
+             if (isExternal) continue;
              
              // Core deduction handler using FIFO
              const deductItem = async (medicineId: string, medicineName: string, reqQty: number) => {
@@ -299,11 +310,11 @@ export const updateDispenseStatus = async (req: Request, res: Response) => {
                    }
                 }
              } else {
-                 const medicine = item.medicine
-                 if (medicine && clinicId) {
-                    await deductItem(medicine.id, medicine.medicineName, item.quantity as number)
-                 }
-             }
+                  const medicine = item.medicine
+                  if (medicine && clinicId) {
+                     await deductItem(medicine.id, medicine.medicineName, item.quantity as number)
+                  }
+              }
          }
 
          // BULK SYNC ALL DEDUCTED PRODUCTS
@@ -324,13 +335,13 @@ export const updateDispenseStatus = async (req: Request, res: Response) => {
 
          // Mark prescription as dispensed
          await tx.prescription.update({
-           where: { id },
-           data: {
-             dispenseStatus: 'dispensed',
-             pharmacistId: pharmacistId,
-             counselingGiven: !!counselingGiven,
-             dispenseDate: new Date()
-           }
+            where: { id },
+            data: {
+              dispenseStatus: 'dispensed',
+              pharmacistId: pharmacistId,
+              counselingGiven: !!counselingGiven,
+              dispenseDate: new Date()
+            }
          })
       }, { maxWait: 60000, timeout: 60000 })
       return res.json({ message: 'Resep berhasil di-dispense dan stok obat telah dikurangi.' })
@@ -343,6 +354,12 @@ export const updateDispenseStatus = async (req: Request, res: Response) => {
       if (status === 'preparing' && prescription.dispenseStatus === 'pending') {
          await prisma.$transaction(async (tx) => {
             for (const item of prescription.items) {
+               const isExternal = item.instructions?.includes('(Apotek Luar)') || 
+                                  item.instructions?.includes('[Eksternal]') ||
+                                  item.instructions?.includes('Apotek Luar') ||
+                                  item.instructions?.includes('Eksternal');
+               if (isExternal) continue;
+
                if (item.isRacikan) {
                   for (const comp of (item as any).components) {
                      if (comp.medicine) {
@@ -362,6 +379,12 @@ export const updateDispenseStatus = async (req: Request, res: Response) => {
       if (status === 'pending' && ['preparing', 'ready'].includes(prescription.dispenseStatus)) {
           await prisma.$transaction(async (tx) => {
             for (const item of prescription.items) {
+               const isExternal = item.instructions?.includes('(Apotek Luar)') || 
+                                  item.instructions?.includes('[Eksternal]') ||
+                                  item.instructions?.includes('Apotek Luar') ||
+                                  item.instructions?.includes('Eksternal');
+               if (isExternal) continue;
+
                if (item.isRacikan) {
                   for (const comp of (item as any).components) {
                      if (comp.medicine) {
@@ -436,6 +459,12 @@ export const updatePrescriptionItems = async (req: Request, res: Response) => {
       // 1. If currently reserved (preparing/ready), unreserve OLD items first
       if (['preparing', 'ready'].includes(prescription.dispenseStatus) && clinicId) {
         for (const item of prescription.items) {
+           const isExternal = item.instructions?.includes('(Apotek Luar)') || 
+                              item.instructions?.includes('[Eksternal]') ||
+                              item.instructions?.includes('Apotek Luar') ||
+                              item.instructions?.includes('Eksternal');
+           if (isExternal) continue;
+
            if (item.isRacikan) {
               for (const comp of item.components) {
                  const product = await tx.product.findFirst({ 
@@ -482,6 +511,14 @@ export const updatePrescriptionItems = async (req: Request, res: Response) => {
 
         // 4. If currently reserved, reserve NEW items
         if (['preparing', 'ready'].includes(prescription.dispenseStatus) && clinicId) {
+           const isExternal = createdItem.instructions?.includes('(Apotek Luar)') || 
+                              createdItem.instructions?.includes('[Eksternal]') ||
+                              createdItem.instructions?.includes('Apotek Luar') ||
+                              createdItem.instructions?.includes('Eksternal');
+           if (isExternal) {
+             continue;
+           }
+
            if (createdItem.isRacikan) {
               for (const comp of createdItem.components) {
                  const product = await tx.product.findFirst({ 
@@ -529,6 +566,13 @@ export const updatePrescriptionItems = async (req: Request, res: Response) => {
             // 5.3 Add newly adjusted medicines
             let additionalTotal = 0;
             for (const newItem of items) {
+                const isExternal = newItem.isExternal || 
+                                   newItem.instructions?.includes('(Apotek Luar)') || 
+                                   newItem.instructions?.includes('[Eksternal]') ||
+                                   newItem.instructions?.includes('Apotek Luar') ||
+                                   newItem.instructions?.includes('Eksternal');
+                if (isExternal) continue;
+
                 let itemName = newItem.isRacikan ? newItem.racikanName : 'Obat';
                 let itemPrice = 0;
 

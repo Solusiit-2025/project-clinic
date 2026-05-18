@@ -16,6 +16,8 @@ interface Stock {
   id: string
   productId: string
   branchId: string
+  branchName?: string
+  unit?: string
   batchId: string | null
   onHandQty: number
   reservedQty: number
@@ -216,11 +218,12 @@ export default function InventoryDashboard() {
         <div className="hidden lg:grid grid-cols-12 gap-4 px-6 py-4 bg-gray-50/50 rounded-2xl border border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-widest">
           <div className="col-span-3">Informasi Produk</div>
           <div className="col-span-1 text-center">Tipe</div>
+          <div className="col-span-1 text-center">Satuan</div>
           <div className="col-span-1 text-center">Fisik</div>
           <div className="col-span-1 text-center">Proses</div>
           <div className="col-span-1 text-center text-primary">Avail</div>
           <div className="col-span-1 text-right">{hidePrices ? <EyeOff className="w-3.5 h-3.5 ml-auto text-gray-300" /> : 'Harga Beli'}</div>
-          <div className="col-span-2 text-right">{hidePrices ? <EyeOff className="w-3.5 h-3.5 ml-auto text-gray-300" /> : 'Harga Jual'}</div>
+          <div className="col-span-1 text-right">{hidePrices ? <EyeOff className="w-3.5 h-3.5 ml-auto text-gray-300" /> : 'Harga Jual'}</div>
           <div className="col-span-2 text-right">{hidePrices ? <EyeOff className="w-3.5 h-3.5 ml-auto text-gray-300" /> : 'Total Nilai'}</div>
         </div>
 
@@ -263,8 +266,13 @@ export default function InventoryDashboard() {
                         </div>
                         <div className="min-w-0">
                           <p className="font-black text-gray-900 truncate uppercase text-sm">{stock.product?.productName}</p>
-                          <div className="flex gap-2 items-center mt-0.5">
+                          <div className="flex flex-wrap gap-2 items-center mt-0.5">
                             <span className="text-[9px] font-black bg-gray-100 px-1.5 py-0.5 rounded text-gray-400 uppercase tracking-tighter">{stock.product?.productCode}</span>
+                            {stock.branchName && (
+                              <span className="text-[9px] font-black bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded text-indigo-600 uppercase tracking-tighter">
+                                {stock.branchName}
+                              </span>
+                            )}
                             {stock.batch && <span className="text-[9px] font-black text-primary uppercase tracking-tighter">Batch: {stock.batch.batchNumber}</span>}
                           </div>
                         </div>
@@ -274,6 +282,9 @@ export default function InventoryDashboard() {
                           {stock.product?.isMedicine ? 'Obat' : 'Aset'}
                         </span>
                       </div>
+                      <div className="col-span-1 text-center font-black text-gray-600 uppercase text-xs">
+                        {stock.unit || 'pcs'}
+                      </div>
                       <div className="col-span-1 text-center font-black text-gray-900 text-sm">{onHand}</div>
                       <div className="col-span-1 text-center font-black text-orange-400 text-sm">{reserved}</div>
                       <div className="col-span-1 text-center font-black text-primary text-sm">{available}</div>
@@ -282,7 +293,7 @@ export default function InventoryDashboard() {
                           ? <span className="tracking-[0.25em] text-gray-300 font-black">••••••</span>
                           : `Rp ${price.toLocaleString('id-ID')}`}
                       </div>
-                      <div className="col-span-2 text-right font-bold text-emerald-600">
+                      <div className="col-span-1 text-right font-bold text-emerald-600">
                         {hidePrices
                           ? <span className="tracking-[0.25em] text-gray-300 font-black">••••••</span>
                           : `Rp ${(stock.product?.sellingPrice || 0).toLocaleString('id-ID')}`}
@@ -303,7 +314,17 @@ export default function InventoryDashboard() {
                           </div>
                           <div>
                             <h3 className="font-black text-gray-900 text-sm leading-tight uppercase mb-0.5 truncate max-w-[180px]">{stock.product?.productName}</h3>
-                            <span className="text-[8px] font-black bg-gray-100 px-2 py-0.5 rounded-full text-gray-400 uppercase">{stock.product?.productCode}</span>
+                            <div className="flex flex-wrap gap-1 items-center mt-1">
+                              <span className="text-[8px] font-black bg-gray-100 px-2 py-0.5 rounded-full text-gray-400 uppercase">{stock.product?.productCode}</span>
+                              {stock.branchName && (
+                                <span className="text-[8px] font-black bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full text-indigo-600 uppercase">
+                                  {stock.branchName}
+                                </span>
+                              )}
+                              <span className="text-[8px] font-black bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full text-emerald-600 uppercase">
+                                Satuan: {stock.unit || 'pcs'}
+                              </span>
+                            </div>
                           </div>
                         </div>
                         {isLow && (
