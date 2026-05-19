@@ -2383,7 +2383,7 @@ export default function DoctorConsultationPage() {
 
                           {/* Col 3: Frekuensi */}
                           <div className="w-full">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block flex items-center justify-between">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center justify-between">
                               <span>Frekuensi</span>
                               {p.availableStock !== undefined && (
                                 <span className={`px-1.5 py-0.5 rounded text-[8px] font-black border ${p.isExternal ? 'bg-amber-50 text-amber-600 border-amber-100' : p.availableStock > 10 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>

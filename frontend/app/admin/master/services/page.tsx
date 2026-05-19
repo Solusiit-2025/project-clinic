@@ -1,22 +1,22 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import api from '@/lib/api'
-import { FiActivity, FiAlertCircle, FiRefreshCw, FiBookOpen } from 'react-icons/fi'
+import { FiActivity, FiAlertCircle, FiRefreshCw, FiBookOpen, FiGrid } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
 import PageHeader from '@/components/admin/master/PageHeader'
 import MasterModal from '@/components/admin/master/MasterModal'
 import { StatusBadge, CategoryBadge } from '@/components/admin/master/StatusBadge'
 
-const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
-const EMPTY = { serviceCode: '', serviceName: '', description: '', categoryId: '', unit: 'session', price: '', doctorFee: '', coaId: '', isActive: true }
+const EMPTY = { serviceCode: '', serviceName: '', description: '', categoryId: '', unit: 'session', price: '', doctorFee: '', coaId: '', departmentId: '', isActive: true }
 
 type ServiceCategory = { id: string; categoryName: string }
 type Service = {
   id: string; serviceCode: string; serviceName: string; description?: string
   categoryId?: string; serviceCategory?: ServiceCategory; unit?: string; price: number; doctorFee: number; isActive: boolean;
   coaId?: string; coa?: { name: string; code: string }
+  departmentId?: string; department?: { id: string; name: string }
 }
 
 const formatRupiah = (v: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(v)
@@ -26,6 +26,7 @@ export default function ServicesPage() {
   const [data, setData] = useState<Service[]>([])
   const [categories, setCategories] = useState<ServiceCategory[]>([])
   const [coas, setCoas] = useState<{id: string, name: string, code: string}[]>([])
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState('')
@@ -34,7 +35,6 @@ export default function ServicesPage() {
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -62,11 +62,19 @@ export default function ServicesPage() {
     } catch (e) { }
   }, [])
 
+  const fetchDepartments = useCallback(async () => {
+    try {
+      const { data } = await api.get('/master/departments', { params: { minimal: true } })
+      setDepartments(data)
+    } catch (e) { }
+  }, [])
+
   useEffect(() => { 
     fetchData()
     fetchCategories()
     fetchCOAs()
-  }, [fetchData, fetchCategories, fetchCOAs])
+    fetchDepartments()
+  }, [fetchData, fetchCategories, fetchCOAs, fetchDepartments])
 
   const fetchNextCode = useCallback(async () => {
     try {
@@ -93,6 +101,7 @@ export default function ServicesPage() {
       price: String(r.price), 
       doctorFee: String(r.doctorFee || 0),
       coaId: r.coaId || '',
+      departmentId: r.departmentId || '',
       isActive: r.isActive 
     })
     setError(''); setModalOpen(true)
@@ -105,7 +114,12 @@ export default function ServicesPage() {
     }
     setSaving(true); setError('')
     try {
-      const payload = { ...form, price: Number(form.price), doctorFee: Number(form.doctorFee || 0) }
+      const payload = { 
+        ...form, 
+        price: Number(form.price), 
+        doctorFee: Number(form.doctorFee || 0),
+        departmentId: form.departmentId || null
+      }
       if (editing) await api.put(`/master/services/${editing.id}`, payload)
       else await api.post('/master/services', payload)
       setModalOpen(false); fetchData()
@@ -122,6 +136,19 @@ export default function ServicesPage() {
     { key: 'serviceCode', label: 'Kode', render: (r) => <span className="text-xs font-bold font-mono text-gray-500 bg-gray-50 px-2 py-1 rounded-lg">{r.serviceCode}</span> },
     { key: 'serviceName', label: 'Nama Layanan', render: (r) => <span className="text-sm font-semibold text-gray-800">{r.serviceName}</span> },
     { key: 'categoryId', label: 'Kategori', render: (r) => <CategoryBadge category={r.serviceCategory?.categoryName || 'Uncategorized'} /> },
+    { 
+      key: 'departmentId', 
+      label: 'Divisi / Departemen', 
+      render: (r) => (
+        <span className={`text-[10px] font-black uppercase px-2 py-1 rounded border tracking-wider ${
+          r.department?.name.toLowerCase().includes('gigi')
+            ? 'bg-teal-50 text-teal-700 border-teal-100'
+            : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+        }`}>
+          {r.department?.name || 'DIVISI MEDIS UMUM'}
+        </span>
+      )
+    },
     { key: 'price', label: 'Harga (Pasien)', render: (r) => <span className="text-sm font-bold text-emerald-700">{formatRupiah(r.price)}</span> },
     { key: 'doctorFee', label: 'Jasa Medis (Dokter)', render: (r) => <span className="text-sm font-bold text-indigo-600">{formatRupiah(r.doctorFee || 0)}</span> },
     { key: 'coaId', label: 'Pemetaan Akun', render: (r) => r.coa ? (
@@ -188,6 +215,17 @@ export default function ServicesPage() {
               <input type="number" value={form.doctorFee} onChange={(e) => setForm(p => ({...p, doctorFee: e.target.value}))}
                 placeholder="10000" className="w-full px-4 py-2.5 text-sm border border-indigo-100 bg-indigo-50/30 rounded-xl focus:outline-none focus:border-indigo-500 font-medium text-indigo-700" />
             </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center gap-1.5">
+                <FiGrid className="w-3.5 h-3.5 text-primary" />
+                <span>Divisi / Departemen *</span>
+              </label>
+              <select value={form.departmentId} onChange={(e) => setForm(p => ({...p, departmentId: e.target.value}))}
+                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary bg-white font-medium">
+                <option value="">Default: DIVISI MEDIS UMUM</option>
+                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </div>
             <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-gray-700 mb-1.5">Nama Layanan *</label>
               <input value={form.serviceName} onChange={(e) => setForm(p => ({...p, serviceName: e.target.value}))} placeholder="cth: Konsultasi Dokter Umum"
@@ -224,18 +262,18 @@ export default function ServicesPage() {
                 className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary font-medium resize-none" placeholder="Keterangan layanan..." />
             </div>
           </div>
-            <div className="flex items-center gap-3">
-              <button type="button" onClick={() => setForm(p => ({ ...p, isActive: !p.isActive }))} className={`relative w-12 h-6 rounded-full transition-colors ${form.isActive ? 'bg-primary' : 'bg-gray-300'}`}>
-                <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.isActive ? 'translate-x-6' : ''}`} />
-              </button>
-              <span className="text-sm font-semibold text-gray-700">{form.isActive ? 'Aktif' : 'Nonaktif'}</span>
-            </div>
-            <div className="flex gap-3 pt-2 border-t border-gray-100">
-              <button onClick={() => setModalOpen(false)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
-              <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-sm disabled:opacity-60">{saving ? 'Menyimpan...' : (editing ? 'Simpan' : 'Tambah')}</button>
-            </div>
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={() => setForm(p => ({ ...p, isActive: !p.isActive }))} className={`relative w-12 h-6 rounded-full transition-colors ${form.isActive ? 'bg-primary' : 'bg-gray-300'}`}>
+              <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.isActive ? 'translate-x-6' : ''}`} />
+            </button>
+            <span className="text-sm font-semibold text-gray-700">{form.isActive ? 'Aktif' : 'Nonaktif'}</span>
           </div>
-        </MasterModal>
-      </div>
+          <div className="flex gap-3 pt-2 border-t border-gray-100">
+            <button onClick={() => setModalOpen(false)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50">Batal</button>
+            <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-sm disabled:opacity-60">{saving ? 'Menyimpan...' : (editing ? 'Simpan' : 'Tambah')}</button>
+          </div>
+        </div>
+      </MasterModal>
+    </div>
   )
 }

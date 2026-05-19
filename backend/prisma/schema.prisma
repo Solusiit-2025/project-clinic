@@ -241,6 +241,7 @@ model Department {
   referrals      Referral[]
   registrations  Registration[]
   doctors        Doctor[]       @relation("DoctorAllDepts")
+  services       Service[]
 
   @@index([parentId])
   @@map("departments")
@@ -578,16 +579,19 @@ model Service {
   categoryId            String?
   coaId                 String?
   doctorFee             Float                  @default(0)
+  departmentId          String?
   appointmentServices   AppointmentService[]
   invoiceItems          InvoiceItem[]
   medicalRecordServices MedicalRecordService[]
   serviceCategory       ServiceCategory?       @relation(fields: [categoryId], references: [id])
   clinic                Clinic?                @relation(fields: [clinicId], references: [id])
   coa                   ChartOfAccount?        @relation(fields: [coaId], references: [id])
+  department            Department?            @relation(fields: [departmentId], references: [id])
 
   @@index([serviceCode])
   @@index([categoryId])
   @@index([coaId])
+  @@index([departmentId])
   @@map("services")
 }
 

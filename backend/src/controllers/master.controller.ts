@@ -577,6 +577,23 @@ export const getServices = async (req: Request, res: Response) => {
     const targetClinicId = clinicId ? String(clinicId) : currentClinicId
     const shouldShowAllClinics = allClinics === 'true'
 
+    // Automatically backfill any service that has departmentId = null to the default department (e.g. general medicine/umum)
+    const defaultDept = await prisma.department.findFirst({
+      where: {
+        OR: [
+          { name: { contains: 'UMUM', mode: 'insensitive' } },
+          { name: { contains: 'General', mode: 'insensitive' } }
+        ]
+      }
+    })
+
+    if (defaultDept) {
+      await prisma.service.updateMany({
+        where: { departmentId: null },
+        data: { departmentId: defaultDept.id }
+      })
+    }
+
     const services = await prisma.service.findMany({
       where: {
         ...(!isAdminView && !shouldShowAllClinics ? {
@@ -595,7 +612,7 @@ export const getServices = async (req: Request, res: Response) => {
         ...(categoryId ? { categoryId: String(categoryId) } : {}),
         ...(isActive !== undefined ? { isActive: isActive === 'true' } : {}),
       },
-      include: { serviceCategory: true, coa: true },
+      include: { serviceCategory: true, coa: true, department: true },
       orderBy: { serviceName: 'asc' },
     })
     res.json(services)
@@ -606,12 +623,29 @@ export const getServices = async (req: Request, res: Response) => {
 
 export const createService = async (req: Request, res: Response) => {
   try {
-    const { coaId, categoryId, ...rest } = req.body
+    const { coaId, categoryId, departmentId, ...rest } = req.body
+
+    let finalDeptId = departmentId || null
+    if (!finalDeptId) {
+      const defaultDept = await prisma.department.findFirst({
+        where: {
+          OR: [
+            { name: { contains: 'UMUM', mode: 'insensitive' } },
+            { name: { contains: 'General', mode: 'insensitive' } }
+          ]
+        }
+      })
+      if (defaultDept) {
+        finalDeptId = defaultDept.id
+      }
+    }
+
     const service = await prisma.service.create({ 
       data: { 
         ...rest,
         coaId: coaId || null,
         categoryId: categoryId || null,
+        departmentId: finalDeptId,
         clinicId: (req as any).clinicId
       } 
     })
@@ -625,13 +659,14 @@ export const createService = async (req: Request, res: Response) => {
 export const updateService = async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { coaId, categoryId, ...rest } = req.body
+    const { coaId, categoryId, departmentId, ...rest } = req.body
     const service = await prisma.service.update({ 
       where: { id }, 
       data: {
         ...rest,
         coaId: coaId || null,
-        categoryId: categoryId || null
+        categoryId: categoryId || null,
+        departmentId: departmentId || null
       } 
     })
     res.json(service)
