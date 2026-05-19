@@ -536,22 +536,37 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
 
         let additionalTotal = 0
 
-        // 3.0 Automatically record Doctor Commission & Add to Invoice
-        
-        // 3.1 Record Internal Commission for Doctor
-        await tx.doctorCommission.create({
-          data: {
-            doctorId: (mr.doctorId || (req as any).user.doctor?.id)!,
-            clinicId: mr.clinicId!,
-            date: new Date(),
-            description: `Jasa Konsultasi Dokter - Pasien: ${mr.patient.name} (${visitType})`,
-            amount: consultPrice,
-            type: 'AUTO_CONSULTATION',
-            status: 'unpaid',
-            invoiceId: invoice.id,
-            sourceId: mr.id
-          }
-        })
+        // 3.0 Resolve doctorId and clinicId safely to prevent Prisma validation or constraint errors
+        let commissionDoctorId = mr.doctorId || (req as any).user?.doctor?.id
+        if (!commissionDoctorId && queueId) {
+          const q = await tx.queueNumber.findUnique({ where: { id: queueId } })
+          commissionDoctorId = q?.doctorId || null
+        }
+
+        let finalClinicId = mr.clinicId || (req as any).clinicId
+        if (!finalClinicId && queueId) {
+          const q = await tx.queueNumber.findUnique({ where: { id: queueId } })
+          finalClinicId = q?.clinicId || null
+        }
+
+        // 3.1 Record Internal Commission for Doctor (only if doctor and clinic are resolved)
+        if (commissionDoctorId && finalClinicId) {
+          await tx.doctorCommission.create({
+            data: {
+              doctorId: commissionDoctorId,
+              clinicId: finalClinicId,
+              date: new Date(),
+              description: `Jasa Konsultasi Dokter - Pasien: ${mr.patient.name} (${visitType})`,
+              amount: consultPrice,
+              type: 'AUTO_CONSULTATION',
+              status: 'unpaid',
+              invoiceId: invoice.id,
+              sourceId: mr.id
+            }
+          })
+        } else {
+          console.warn(`[Warning] Skipping auto-commission creation because doctorId (${commissionDoctorId}) or clinicId (${finalClinicId}) could not be resolved for MedicalRecord ${mr.id}`)
+        }
 
         // 3.2 Add to Invoice as "Jasa Pemeriksaan"
         let consultService = await tx.service.findFirst({
