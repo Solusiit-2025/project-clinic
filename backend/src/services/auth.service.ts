@@ -18,7 +18,7 @@ const ACCESS_TOKEN_EXPIRY  = '15m'   // Short-lived — rotated via refresh
 const REFRESH_TOKEN_EXPIRY = '7d'    // Long-lived — stored in separate HttpOnly cookie
 
 export class AuthService {
-  static generateTokens(payload: { id: string; email: string; role: string; clinics: string[] }) {
+  static generateTokens(payload: { id: string; email: string | null; role: string; clinics: string[] }) {
     const accessToken = jwt.sign(payload, jwtSecret, { expiresIn: ACCESS_TOKEN_EXPIRY })
     const refreshToken = jwt.sign({ id: payload.id }, jwtSecret, { expiresIn: REFRESH_TOKEN_EXPIRY })
     return { accessToken, refreshToken }
