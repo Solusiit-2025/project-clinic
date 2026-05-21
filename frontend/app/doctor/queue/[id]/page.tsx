@@ -165,7 +165,7 @@ export default function DoctorConsultationPage() {
   const [selectedMedicines, setSelectedMedicines] = useState<Medicine[]>([])
 
   const [isServiceDialogOpen, setIsServiceDialogOpen] = useState(false)
-  const [selectedServices, setSelectedServices] = useState<Service[]>([])
+  const [selectedServices, setSelectedServices] = useState<{ service: Service; quantity: number }[]>([])
   const [searchServiceDialog, setSearchServiceDialog] = useState('')
 
   // Referral State
@@ -2558,7 +2558,12 @@ export default function DoctorConsultationPage() {
                     {!isReadOnly && (
                       <button
                         onClick={() => {
-                          const initialSelected = allServices.filter(s => serviceItems.some(item => item.serviceId === s.id))
+                          const initialSelected = allServices
+                            .filter(s => serviceItems.some(item => item.serviceId === s.id))
+                            .map(s => ({
+                              service: s,
+                              quantity: serviceItems.find(item => item.serviceId === s.id)?.quantity || 1
+                            }))
                           setSelectedServices(initialSelected)
                           setSearchServiceDialog('')
                           setIsServiceDialogOpen(true)
@@ -2582,10 +2587,57 @@ export default function DoctorConsultationPage() {
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{s.code}</p>
                           </div>
                         </div>
-                        <div className="flex items-center justify-between sm:justify-end gap-4 lg:gap-8 w-full sm:w-auto mt-2 sm:mt-0 pl-14 sm:pl-0">
+                        <div className="flex items-center justify-between sm:justify-end gap-4 lg:gap-6 w-full sm:w-auto mt-2 sm:mt-0 pl-14 sm:pl-0">
+                          {/* Qty Controls */}
+                          {!isReadOnly && (
+                            <div className="flex items-center gap-2">
+                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Qty</p>
+                              <div className="flex items-center border border-emerald-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                                <button
+                                  onClick={() => {
+                                    const n = [...serviceItems]
+                                    const newQty = Math.max(1, (n[idx].quantity || 1) - 1)
+                                    n[idx] = { ...n[idx], quantity: newQty }
+                                    setServiceItems(n)
+                                  }}
+                                  className="px-2 py-1.5 text-emerald-600 hover:bg-emerald-50 transition-colors font-black text-sm"
+                                >
+                                  <FiMinus className="w-3 h-3" />
+                                </button>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={s.quantity || 1}
+                                  onChange={(e) => {
+                                    const val = Math.max(1, parseInt(e.target.value) || 1)
+                                    const n = [...serviceItems]
+                                    n[idx] = { ...n[idx], quantity: val }
+                                    setServiceItems(n)
+                                  }}
+                                  className="w-10 text-center py-1 text-xs font-black outline-none bg-transparent border-x border-emerald-200"
+                                />
+                                <button
+                                  onClick={() => {
+                                    const n = [...serviceItems]
+                                    n[idx] = { ...n[idx], quantity: (n[idx].quantity || 1) + 1 }
+                                    setServiceItems(n)
+                                  }}
+                                  className="px-2 py-1.5 text-emerald-600 hover:bg-emerald-50 transition-colors font-black text-sm"
+                                >
+                                  <FiPlus className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          {isReadOnly && (
+                            <div className="text-center">
+                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Qty</p>
+                              <p className="text-sm font-black text-slate-800">{s.quantity || 1}x</p>
+                            </div>
+                          )}
                           <div className="text-right">
                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Biaya</p>
-                            <p className="text-sm font-black text-slate-800 tracking-tight">Rp {new Intl.NumberFormat('id-ID').format(s.price * s.quantity)}</p>
+                            <p className="text-sm font-black text-slate-800 tracking-tight">Rp {new Intl.NumberFormat('id-ID').format(s.price * (s.quantity || 1))}</p>
                           </div>
                           {!isReadOnly && (
                             <button onClick={() => setServiceItems(serviceItems.filter((_, i) => i !== idx))} className="p-3 text-emerald-300 hover:text-rose-500 hover:bg-white rounded-xl transition-all">
@@ -3432,15 +3484,16 @@ export default function DoctorConsultationPage() {
                               {/* Actions Table (1-Column List) */}
                               <div className="divide-y divide-slate-100">
                                 {items.map(s => {
-                                  const isSelected = selectedServices.some(item => item.id === s.id);
+                                  const selectedEntry = selectedServices.find(item => item.service.id === s.id);
+                                  const isSelected = !!selectedEntry;
                                   return (
                                     <div
                                       key={s.id}
                                       onClick={() => {
                                         if (isSelected) {
-                                          setSelectedServices(selectedServices.filter(item => item.id !== s.id))
+                                          setSelectedServices(selectedServices.filter(item => item.service.id !== s.id))
                                         } else {
-                                          setSelectedServices([...selectedServices, s])
+                                          setSelectedServices([...selectedServices, { service: s, quantity: 1 }])
                                         }
                                       }}
                                       className={`px-4 py-3 flex items-center justify-between gap-4 cursor-pointer hover:bg-slate-50/80 transition-all ${
@@ -3461,14 +3514,56 @@ export default function DoctorConsultationPage() {
                                         </p>
                                       </div>
 
-                                      {/* Right side: Price and Checkbox */}
-                                      <div className="flex items-center gap-4 shrink-0">
+                                      {/* Right side: Price, Qty (if selected), and Checkbox */}
+                                      <div className="flex items-center gap-3 shrink-0" onClick={e => e.stopPropagation()}>
                                         <p className={`text-[10px] font-black tracking-tight ${
                                           isSelected ? 'text-emerald-700' : 'text-slate-900'
                                         }`}>
                                           Rp {new Intl.NumberFormat('id-ID').format(s.price)}
                                         </p>
-                                        <div className={`w-4.5 h-4.5 rounded border flex items-center justify-center shrink-0 transition-all ${
+                                        {isSelected && (
+                                          <div className="flex items-center border border-emerald-300 rounded-lg overflow-hidden bg-white shadow-sm">
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                setSelectedServices(selectedServices.map(item =>
+                                                  item.service.id === s.id
+                                                    ? { ...item, quantity: Math.max(1, item.quantity - 1) }
+                                                    : item
+                                                ))
+                                              }}
+                                              className="px-1.5 py-1 text-emerald-600 hover:bg-emerald-50 transition-colors"
+                                            >
+                                              <FiMinus className="w-3 h-3" />
+                                            </button>
+                                            <span className="w-7 text-center text-[11px] font-black text-emerald-800 border-x border-emerald-200">
+                                              {selectedEntry.quantity}
+                                            </span>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                setSelectedServices(selectedServices.map(item =>
+                                                  item.service.id === s.id
+                                                    ? { ...item, quantity: item.quantity + 1 }
+                                                    : item
+                                                ))
+                                              }}
+                                              className="px-1.5 py-1 text-emerald-600 hover:bg-emerald-50 transition-colors"
+                                            >
+                                              <FiPlus className="w-3 h-3" />
+                                            </button>
+                                          </div>
+                                        )}
+                                        <div
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            if (isSelected) {
+                                              setSelectedServices(selectedServices.filter(item => item.service.id !== s.id))
+                                            } else {
+                                              setSelectedServices([...selectedServices, { service: s, quantity: 1 }])
+                                            }
+                                          }}
+                                          className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-all cursor-pointer ${
                                           isSelected ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 bg-white'
                                         }`}>
                                           {isSelected && <FiCheckCircle className="w-3 h-3" />}
@@ -3500,21 +3595,62 @@ export default function DoctorConsultationPage() {
                     )}
                   </div>
                   <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                    {selectedServices.map(s => (
-                      <div key={s.id} className="bg-white p-3 rounded-xl border border-slate-200 flex items-center justify-between gap-3 shadow-sm">
-                        <div className="overflow-hidden">
-                          <p className="text-[10px] font-black text-slate-800 uppercase truncate">{s.serviceName}</p>
-                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{s.serviceCode}</p>
+                    {selectedServices.map(({ service: s, quantity }) => (
+                      <div key={s.id} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="overflow-hidden flex-1">
+                            <p className="text-[10px] font-black text-slate-800 uppercase truncate">{s.serviceName}</p>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{s.serviceCode}</p>
+                          </div>
+                          <button onClick={() => setSelectedServices(selectedServices.filter(item => item.service.id !== s.id))} className="text-rose-400 hover:text-rose-600 shrink-0 p-1">
+                            <FiMinus className="w-4 h-4" />
+                          </button>
                         </div>
-                        <button onClick={() => setSelectedServices(selectedServices.filter(item => item.id !== s.id))} className="text-rose-400 hover:text-rose-600 shrink-0 p-1">
-                          <FiMinus className="w-4 h-4" />
-                        </button>
+                        {/* Qty stepper in sidebar */}
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Qty</span>
+                          <div className="flex items-center border border-emerald-200 rounded-lg overflow-hidden bg-slate-50">
+                            <button
+                              onClick={() => setSelectedServices(selectedServices.map(item =>
+                                item.service.id === s.id ? { ...item, quantity: Math.max(1, item.quantity - 1) } : item
+                              ))}
+                              className="px-2 py-1 text-emerald-600 hover:bg-emerald-50 transition-colors"
+                            >
+                              <FiMinus className="w-3 h-3" />
+                            </button>
+                            <span className="w-8 text-center text-[11px] font-black text-slate-800 border-x border-emerald-200 py-0.5">{quantity}</span>
+                            <button
+                              onClick={() => setSelectedServices(selectedServices.map(item =>
+                                item.service.id === s.id ? { ...item, quantity: item.quantity + 1 } : item
+                              ))}
+                              className="px-2 py-1 text-emerald-600 hover:bg-emerald-50 transition-colors"
+                            >
+                              <FiPlus className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <span className="text-[9px] font-black text-emerald-700">
+                            Rp {new Intl.NumberFormat('id-ID').format(s.price * quantity)}
+                          </span>
+                        </div>
                       </div>
                     ))}
                     {selectedServices.length === 0 && (
                       <div className="text-center py-20 text-slate-400 text-[10px] font-bold uppercase tracking-widest">Belum ada tindakan dipilih</div>
                     )}
                   </div>
+                  {/* Total Summary */}
+                  {selectedServices.length > 0 && (
+                    <div className="p-4 border-t border-slate-200 bg-slate-100/50">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Total Estimasi</span>
+                        <span className="text-sm font-black text-emerald-700">
+                          Rp {new Intl.NumberFormat('id-ID').format(
+                            selectedServices.reduce((sum, { service: s, quantity }) => sum + s.price * quantity, 0)
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -3525,16 +3661,13 @@ export default function DoctorConsultationPage() {
                 </button>
                 <button
                   onClick={() => {
-                    const newServiceItems = selectedServices.map(s => {
-                      const existing = serviceItems.find(item => item.serviceId === s.id)
-                      return {
-                        serviceId: s.id,
-                        name: s.serviceName,
-                        code: s.serviceCode,
-                        price: s.price,
-                        quantity: existing ? existing.quantity : 1
-                      }
-                    })
+                    const newServiceItems = selectedServices.map(({ service: s, quantity }) => ({
+                      serviceId: s.id,
+                      name: s.serviceName,
+                      code: s.serviceCode,
+                      price: s.price,
+                      quantity: quantity
+                    }))
                     setServiceItems(newServiceItems)
                     setIsServiceDialogOpen(false)
                   }}
@@ -4722,7 +4855,9 @@ export default function DoctorConsultationPage() {
                             )}
                           </div>
                           <p className="text-[8px] font-bold uppercase tracking-widest opacity-70">
-                            {item.isFilled ? '✓ Data Sudah Lengkap' : item.action ? 'KLIK UNTUK VERIFIKASI LANGSUNG' : '! Data Belum Diisi'}
+                            {item.isFilled
+                              ? (item.id === 'services' ? `${serviceItems.length} Tindakan · Rp ${new Intl.NumberFormat('id-ID').format(serviceItems.reduce((sum, s) => sum + s.price * (s.quantity || 1), 0))}` : '✓ Data Sudah Lengkap')
+                              : item.action ? 'KLIK UNTUK VERIFIKASI LANGSUNG' : '! Data Belum Diisi'}
                           </p>
                         </div>
                       </div>
@@ -4752,15 +4887,47 @@ export default function DoctorConsultationPage() {
                     }
 
                     return (
-                      <div
-                        key={item.id}
-                        className={`w-full p-4 rounded-2xl border flex items-center justify-between transition-all ${item.isFilled
-                            ? 'bg-emerald-50/50 border-emerald-100 text-emerald-700'
-                            : 'bg-amber-50/50 border-amber-100 text-amber-700'
-                          }`}
-                      >
-                        {Content}
-                        {StatusIcon}
+                      <div key={item.id} className="flex flex-col gap-0">
+                        <div
+                          className={`w-full p-4 border flex items-center justify-between transition-all ${item.isFilled
+                              ? 'bg-emerald-50/50 border-emerald-100 text-emerald-700'
+                              : 'bg-amber-50/50 border-amber-100 text-amber-700'
+                            } ${item.id === 'services' && serviceItems.length > 0 ? 'rounded-t-2xl rounded-b-none border-b-0' : 'rounded-2xl'}`}
+                        >
+                          {Content}
+                          {StatusIcon}
+                        </div>
+                        {/* Invoice breakdown for Tindakan Medis */}
+                        {item.id === 'services' && serviceItems.length > 0 && (
+                          <div className="border border-emerald-100 border-t-0 rounded-b-2xl overflow-hidden bg-white">
+                            <div className="divide-y divide-slate-50">
+                              {serviceItems.map((s, sidx) => (
+                                <div key={sidx} className="flex items-center justify-between px-4 py-2 text-[9px] hover:bg-emerald-50/30 transition-colors">
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <span className="font-black text-slate-500 shrink-0">{sidx + 1}.</span>
+                                    <span className="font-bold text-slate-700 truncate">{s.name}</span>
+                                  </div>
+                                  <div className="flex items-center gap-3 shrink-0 ml-2">
+                                    <span className="font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">
+                                      {s.quantity || 1}x
+                                    </span>
+                                    <span className="font-black text-slate-800 w-24 text-right">
+                                      Rp {new Intl.NumberFormat('id-ID').format(s.price * (s.quantity || 1))}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="flex items-center justify-between px-4 py-2.5 bg-emerald-50 border-t border-emerald-100">
+                              <span className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Total Tindakan</span>
+                              <span className="text-xs font-black text-emerald-800">
+                                Rp {new Intl.NumberFormat('id-ID').format(
+                                  serviceItems.reduce((sum, s) => sum + s.price * (s.quantity || 1), 0)
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

@@ -702,8 +702,8 @@ export const updateInvoiceBank = async (req: Request, res: Response) => {
     const updated = await prisma.invoice.update({
       where: { id: invoiceId },
       data: { bankId: bankId || null },
-      include: { 
-        bank: true, 
+      include: {
+        bank: true,
         patient: true,
         items: { include: { service: true } }
       }
