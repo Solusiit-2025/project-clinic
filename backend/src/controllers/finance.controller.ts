@@ -429,7 +429,27 @@ export const postInvoice = async (req: Request, res: Response) => {
 
         const doctorPayableAccount = await getSysAcc('DOCTOR_FEE_PAYABLE') || await getCoaByCode('2-1102')
 
-        const doctorExpenseAccount = await getSysAcc('DOCTOR_FEE_EXPENSE') || await getCoaByCode('6-1102')
+        // OPSI C: Resolusi Akun Bagian Jasa Dokter (Contra-Revenue)
+        // Prioritas:
+        //   1. System Account 'DOCTOR_FEE_EXPENSE' → sudah diupdate ke 4-0101-KXxx
+        //   2. Auto: cari 4-0101-KXxx via clinic code
+        //   3. Fallback: 4-0101 global
+        //   4. Legacy fallback: 6-1102 (jika belum ada akun 4-0xxx)
+        let doctorShareAccount = await getSysAcc('DOCTOR_FEE_EXPENSE')
+        if (!doctorShareAccount) {
+          // Try direct 4-0101-KXXX (using clinic code pattern from resolveSpecificCoa)
+          doctorShareAccount = await getCoaByCode('4-0101') // resolveSpecificCoa will handle K001 suffix
+        }
+        // Legacy fallback: 6-1102
+        if (!doctorShareAccount) {
+          doctorShareAccount = await getCoaByCode('6-1102')
+        }
+        
+        // Determine if using contra-revenue (4-0xxx) vs legacy expense (6-1102)
+        const isContraRevenue = doctorShareAccount?.code?.startsWith('4-0') || false
+        const doctorFeeDesc = isContraRevenue
+          ? 'Bagian Jasa Dokter (Profit Sharing)'
+          : 'Beban Jasa Medik Dokter'
 
         await tx.journalEntry.create({
           data: {
@@ -449,10 +469,10 @@ export const postInvoice = async (req: Request, res: Response) => {
                 })),
                 ...(totalDoctorFees > 0 ? [
                   {
-                    coaId: doctorExpenseAccount?.id || '',
+                    coaId: doctorShareAccount?.id || '',
                     debit: totalDoctorFees,
                     credit: 0,
-                    description: `Beban Jasa Medik Dokter - Inv ${invoice.invoiceNo}`
+                    description: `${doctorFeeDesc} - Inv ${invoice.invoiceNo}`
                   }
                 ] : []),
                 ...(totalDoctorFees > 0 ? [

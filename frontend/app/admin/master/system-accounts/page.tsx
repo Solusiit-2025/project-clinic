@@ -33,7 +33,7 @@ const SYSTEM_KEYS = [
   { key: 'COMPOUND_SERVICE_REVENUE', name: 'Pendapatan Jasa Racik / Tuslah', desc: 'Akun pendapatan untuk jasa peracikan obat puyer/kapsul.', category: 'REVENUE' },
   { key: 'LAB_REVENUE', name: 'Pendapatan Laboratorium', desc: 'Akun pendapatan untuk layanan laboratorium dan pemeriksaan penunjang.', category: 'REVENUE' },
   { key: 'DOCTOR_FEE_PAYABLE', name: 'Hutang Jasa Medik / Doctor Fee', desc: 'Kewajiban pembayaran jasa kepada dokter (titipan).', category: 'LIABILITY' },
-  { key: 'DOCTOR_FEE_EXPENSE', name: 'Beban Jasa Medik / Doctor Fee Expense', desc: 'Beban biaya jasa dokter yang ditanggung klinik.', category: 'EXPENSE' },
+  { key: 'DOCTOR_FEE_EXPENSE', name: 'Bagian Jasa Dokter (Profit Sharing)', desc: 'Pengurang pendapatan (contra-revenue) untuk bagi hasil jasa dokter.', category: 'REVENUE' },
 ]
 
 export default function SystemAccountsPage() {

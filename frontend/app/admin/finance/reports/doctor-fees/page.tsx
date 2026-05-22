@@ -244,8 +244,13 @@ export default function DoctorFeeReportPage() {
             <FiDollarSign className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Laporan Jasa Medik</h1>
-            <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Kelola Hutang & Pembayaran Jasa Dokter.</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Laporan Jasa Medik</h1>
+              <span className="px-3 py-1 bg-amber-100 text-amber-700 border border-amber-200 rounded-full text-[9px] font-black uppercase tracking-widest">
+                ⚖️ Bagi Hasil
+              </span>
+            </div>
+            <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Profit Sharing Dokter &middot; Pengurang Pendapatan Klinik</p>
           </div>
         </div>
 
@@ -256,6 +261,29 @@ export default function DoctorFeeReportPage() {
           <button onClick={() => window.print()} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-slate-200 hover:bg-black transition-all">
             <FiPrinter className="w-4 h-4" /> <span>Cetak</span>
           </button>
+        </div>
+      </div>
+
+      {/* PROFIT SHARING INFO BANNER */}
+      <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl px-6 py-4 no-print">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="flex-shrink-0 w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600">
+            <FiLayers className="w-5 h-5" />
+          </div>
+          <div className="flex-1">
+            <p className="text-[11px] font-black text-amber-800 uppercase tracking-widest mb-1">Model Bisnis: Bagi Hasil (Profit Sharing)</p>
+            <p className="text-[10px] font-bold text-amber-700/70 leading-relaxed">
+              Klinik dan Dokter <strong>tidak memiliki ikatan kerja/gaji</strong>. Jasa Medik Dokter diperlakukan sebagai
+              <strong> Pengurang Pendapatan (Contra-Revenue)</strong> menggunakan akun <span className="font-black">4-0101</span>,
+              bukan sebagai Beban Operasional. Laporan L/R akan menampilkan:
+              Pendapatan Bruto &minus; Bagian Dokter = Pendapatan Neto Klinik.
+            </p>
+          </div>
+          <div className="flex-shrink-0 px-3 py-1.5 bg-amber-200 rounded-xl">
+            <p className="text-[9px] font-black text-amber-800 uppercase tracking-widest text-center">
+              COA<br/>4-0101
+            </p>
+          </div>
         </div>
       </div>
 

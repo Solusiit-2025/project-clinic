@@ -95,6 +95,15 @@ export const getTrialBalance = async (req: Request, res: Response) => {
 
 /**
  * Get Profit & Loss Report
+ * 
+ * Implementasi Opsi C: Contra-Revenue untuk Sharing Profit Dokter
+ * 
+ * Struktur Laporan:
+ *   Pendapatan Bruto               ← akun REVENUE dengan balance POSITIF
+ *   (-) Pengurang Pendapatan       ← akun 4-0xxx (contra-revenue) + legacy 6-1102*
+ *   = Pendapatan Neto Klinik
+ *   (-) Beban Operasional          ← akun EXPENSE (bukan 6-1102*)
+ *   = Laba Bersih
  */
 export const getProfitLoss = async (req: Request, res: Response) => {
   try {
@@ -108,7 +117,7 @@ export const getProfitLoss = async (req: Request, res: Response) => {
 
     console.log('[ProfitLoss] WIB-corrected UTC Range:', { start: start.toISOString(), end: end.toISOString(), targetClinicId })
 
-    // 1. Get all revenue and expense accounts
+    // 1. Get all REVENUE and EXPENSE accounts
     const accounts = await prisma.chartOfAccount.findMany({
       where: {
         accountType: 'DETAIL',
@@ -124,7 +133,7 @@ export const getProfitLoss = async (req: Request, res: Response) => {
 
     console.log(`[ProfitLoss] Found ${accounts.length} accounts to check.`)
 
-    // 2. Aggregate in ONE query using groupBy
+    // 2. Aggregate GL in ONE query using groupBy
     const aggregates = await prisma.journalDetail.groupBy({
       by: ['coaId'],
       where: {
@@ -138,13 +147,18 @@ export const getProfitLoss = async (req: Request, res: Response) => {
 
     const aggregateMap = new Map(aggregates.map(a => [a.coaId, a._sum]))
 
+    // 3. Compute balances for all accounts
     const reportData = accounts.map((acc) => {
       const sums = aggregateMap.get(acc.id) || { debit: 0, credit: 0 }
       const totalDebit = sums.debit || 0
       const totalCredit = sums.credit || 0
-      
-      // Profit/Loss ignore opening balance for the period
-      const balance = acc.category === 'REVENUE' ? (totalCredit - totalDebit) : (totalDebit - totalCredit)
+
+      // P&L ignores opening balance (periodic basis)
+      // REVENUE: normal balance = Credit → positive means revenue
+      // EXPENSE: normal balance = Debit  → positive means cost
+      const balance = acc.category === 'REVENUE'
+        ? (totalCredit - totalDebit)
+        : (totalDebit - totalCredit)
 
       return {
         code: acc.code,
@@ -154,19 +168,79 @@ export const getProfitLoss = async (req: Request, res: Response) => {
       }
     })
 
-    const revenueItems = reportData.filter(d => d.category === 'REVENUE' && d.balance !== 0)
-    const expenseItems = reportData.filter(d => d.category === 'EXPENSE' && d.balance !== 0)
+    // 4. ── CONTRA-REVENUE CLASSIFICATION ──────────────────────────────────────
+    //    Akun Pengurang Pendapatan diklasifikasikan sebagai:
+    //    a) Akun REVENUE dengan kode prefix '4-0' (Opsi C: 4-0101, 4-0101-K001, dst)
+    //    b) Akun REVENUE dengan balance NEGATIF (model debit contra)
+    //    c) Legacy: Akun EXPENSE dengan kode prefix '6-1102' (Beban Jasa Medik lama)
+    //       → dipindahkan ke section pengurang agar tidak merusak laporan
+    // ─────────────────────────────────────────────────────────────────────────
 
-    const totalRevenue = revenueItems.reduce((sum, i) => sum + i.balance, 0)
+    // Helper: apakah akun ini merupakan pengurang pendapatan (doctor share)?
+    const isContraRevenue = (item: { code: string; category: string; balance: number }): boolean => {
+      // Opsi C: akun 4-0xxx (contra-revenue group)
+      if (item.category === 'REVENUE' && item.code.startsWith('4-0')) return true
+      // Opsi C: akun revenue dengan saldo negatif (contra posting)
+      if (item.category === 'REVENUE' && item.balance < 0) return true
+      // Legacy: akun 6-1102 (Beban Jasa Medik) diperlakukan sebagai pengurang
+      if (item.category === 'EXPENSE' && item.code.startsWith('6-1102')) return true
+      return false
+    }
+
+    // 5. Separate into buckets
+    const revenueItems: typeof reportData = []
+    const doctorShareItems: typeof reportData = []
+    const expenseItems: typeof reportData = []
+
+    for (const item of reportData) {
+      if (item.balance === 0) continue // Skip zero-balance accounts
+
+      if (isContraRevenue(item)) {
+        // Convert to absolute positive value for display purposes
+        // 4-0101 gets DEBIT → balance will be negative for REVENUE → show as positive deduction
+        // 6-1102 (legacy) gets DEBIT → balance positive for EXPENSE → already positive
+        doctorShareItems.push({
+          ...item,
+          balance: Math.abs(item.balance)
+        })
+      } else if (item.category === 'REVENUE' && item.balance > 0) {
+        revenueItems.push(item)
+      } else if (item.category === 'EXPENSE' && item.balance > 0) {
+        expenseItems.push(item)
+      }
+    }
+
+    // 6. Calculate totals
+    const totalGrossRevenue = revenueItems.reduce((sum, i) => sum + i.balance, 0)
+    const totalDoctorShare = doctorShareItems.reduce((sum, i) => sum + i.balance, 0)
+    const netClinicRevenue = totalGrossRevenue - totalDoctorShare
     const totalExpense = expenseItems.reduce((sum, i) => sum + i.balance, 0)
+    const netProfit = netClinicRevenue - totalExpense
+
+    console.log('[ProfitLoss] Summary:', {
+      totalGrossRevenue,
+      totalDoctorShare,
+      netClinicRevenue,
+      totalExpense,
+      netProfit,
+      contraRevenueAccounts: doctorShareItems.map(i => i.code)
+    })
 
     res.json({
       period: { start, end },
+      // Pendapatan Bruto (sebelum pengurang dokter)
       revenue: revenueItems,
-      totalRevenue,
+      totalRevenue: totalGrossRevenue,
+      // Pengurang Pendapatan: Bagian Dokter (Profit Sharing)
+      doctorShareDeductions: doctorShareItems,
+      totalDoctorShare,
+      // Pendapatan Neto Klinik (setelah dikurangi bagian dokter)
+      netClinicRevenue,
+      // Beban Operasional (murni, tanpa doctor fee)
       expenses: expenseItems,
       totalExpense,
-      netProfit: totalRevenue - totalExpense
+      // Laba Bersih = Pendapatan Neto - Beban Operasional
+      netProfit
     })
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })
