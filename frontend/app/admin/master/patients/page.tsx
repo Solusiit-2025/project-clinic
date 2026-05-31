@@ -343,6 +343,18 @@ export default function PatientsPage() {
                     />
                   </div>
 
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-[11px] font-medium text-slate-500">NIK / No. KTP</label>
+                    <input 
+                      type="text" 
+                      value={form.identityNumber || ''} 
+                      onChange={(e) => setForm(p => ({...p, identityNumber: e.target.value, identityType: 'KTP'}))} 
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all font-mono" 
+                      placeholder="Masukkan 16 digit NIK..."
+                    />
+                  </div>
+
+
                   <div className="space-y-2">
                     <label className="text-[11px] font-medium text-slate-500">Jenis Kelamin</label>
                     <div className="flex gap-1 p-1 bg-slate-50 rounded-md border border-slate-200">
