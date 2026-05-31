@@ -38,8 +38,7 @@ export const createRegistration = async (req: Request, res: Response) => {
     const { getJakartaDateString } = require('../utils/date')
     const jakartaTodayStr = getJakartaDateString()
     const today = new Date(`${jakartaTodayStr}T00:00:00+07:00`)
-    const nextDay = new Date(today)
-    nextDay.setDate(today.getDate() + 1)
+    const nextDay = new Date(today.getTime() + 24 * 60 * 60 * 1000)
 
     // 4. Create Transaction
     const result = await prisma.$transaction(async (tx) => {
@@ -355,8 +354,7 @@ export const getQueues = async (req: Request, res: Response) => {
 
     const { getJakartaDateString, parseLocalDate } = require('../utils/date')
     const targetDate = date ? parseLocalDate(date as string) : new Date(`${getJakartaDateString()}T00:00:00+07:00`)
-    const nextDay = new Date(targetDate)
-    nextDay.setDate(targetDate.getDate() + 1)
+    const nextDay = new Date(targetDate.getTime() + 24 * 60 * 60 * 1000)
 
     const finalClinicId = isAdminView 
        ? (clinicId ? String(clinicId) : undefined)
