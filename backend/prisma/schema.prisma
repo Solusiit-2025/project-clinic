@@ -1454,6 +1454,7 @@ model StockOpnameItem {
   subtotal    Float
   notes       String?
   status      String             @default("DRAFT")
+  expiryDate  DateTime?          // Tanggal kadaluarsa yang diverifikasi saat opname fisik
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
   batch       InventoryBatch?    @relation(fields: [batchId], references: [id])

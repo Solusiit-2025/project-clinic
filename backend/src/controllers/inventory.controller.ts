@@ -363,6 +363,7 @@ export const getOpnameProducts = async (req: Request, res: Response) => {
             sku: branchProduct.sku || master.masterCode,
             batchId: stock.batchId,
             batchNumber: stock.batch?.batchNumber || null,
+            expiryDate: stock.batch?.expiryDate || null,
             onHandQty: stock.onHandQty,
             purchasePrice: stock.batch?.purchasePrice || branchProduct.purchasePrice || master.purchasePrice || 0,
             status: 'IN_STOCK'
@@ -379,6 +380,7 @@ export const getOpnameProducts = async (req: Request, res: Response) => {
           sku: branchProduct?.sku || master.masterCode,
           batchId: null,
           batchNumber: null,
+          expiryDate: null,
           onHandQty: 0,
           purchasePrice: branchProduct?.purchasePrice || master.purchasePrice || 0,
           status: branchProduct ? 'IN_CATALOG' : 'GLOBAL_MASTER'
@@ -409,7 +411,7 @@ export const getOrCreateOpnameSession = async (req: Request, res: Response) => {
         items: {
           include: {
             product: { select: { productName: true, productCode: true, purchasePrice: true } },
-            batch: { select: { batchNumber: true, purchasePrice: true } }
+            batch: { select: { batchNumber: true, purchasePrice: true, expiryDate: true } }
           }
         }
       }
@@ -426,7 +428,7 @@ export const getOrCreateOpnameSession = async (req: Request, res: Response) => {
           items: {
             include: {
               product: { select: { productName: true, productCode: true, purchasePrice: true } },
-              batch: { select: { batchNumber: true, purchasePrice: true } }
+              batch: { select: { batchNumber: true, purchasePrice: true, expiryDate: true } }
             }
           }
         }
@@ -445,7 +447,7 @@ export const getOrCreateOpnameSession = async (req: Request, res: Response) => {
  */
 export const addOrUpdateOpnameItem = async (req: Request, res: Response) => {
   try {
-    const { sessionId, productId, batchId, physicalQty, notes, branchId } = req.body;
+    const { sessionId, productId, batchId, physicalQty, notes, branchId, expiryDate } = req.body;
 
     if (!sessionId || physicalQty === undefined) {
       return res.status(400).json({ message: 'Missing required fields' });
@@ -537,6 +539,7 @@ export const addOrUpdateOpnameItem = async (req: Request, res: Response) => {
           unitPrice,
           subtotal,
           notes,
+          expiryDate: expiryDate ? new Date(expiryDate) : undefined,
           status: 'DRAFT'
         }
       });
@@ -552,6 +555,7 @@ export const addOrUpdateOpnameItem = async (req: Request, res: Response) => {
           unitPrice,
           subtotal,
           notes,
+          expiryDate: expiryDate ? new Date(expiryDate) : null,
           status: 'DRAFT'
         }
       });
@@ -656,7 +660,9 @@ export const finalizeOpname = async (req: Request, res: Response) => {
             where: { id: item.batchId },
             data: {
               currentQty: item.physicalQty,
-              purchasePrice: item.unitPrice
+              purchasePrice: item.unitPrice,
+              // Update expired date jika diverifikasi ulang saat opname
+              ...(item.expiryDate ? { expiryDate: item.expiryDate } : {})
             }
           });
         } else {
@@ -788,6 +794,7 @@ export const bulkLoadInventory = async (req: Request, res: Response) => {
               diffQty: 0,
               unitPrice,
               subtotal: s.onHandQty * unitPrice,
+              expiryDate: s.batch?.expiryDate || null, // Auto-fill dari batch
               status: 'DRAFT'
             });
           }
@@ -827,7 +834,7 @@ export const bulkLoadInventory = async (req: Request, res: Response) => {
         items: {
           include: {
             product: { select: { productName: true, productCode: true, purchasePrice: true } },
-            batch: { select: { batchNumber: true, purchasePrice: true } }
+            batch: { select: { batchNumber: true, purchasePrice: true, expiryDate: true } }
           }
         }
       }

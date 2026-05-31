@@ -28,12 +28,14 @@ interface OpnameItem {
   unitPrice: number
   subtotal: number
   notes: string | null
+  expiryDate: string | null
   product: {
     productName: string
     productCode: string
   }
   batch?: {
     batchNumber: string
+    expiryDate?: string | null
   } | null
 }
 
@@ -64,11 +66,31 @@ export default function StockOpnamePage() {
   const [physicalQty, setPhysicalQty] = useState<number>(0)
   const [unitPrice, setUnitPrice] = useState<number>(0)
   const [notes, setNotes] = useState('')
+  const [expiryDate, setExpiryDate] = useState('')
   const [showCancelDialog, setShowCancelDialog] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [pdfUrl, setPdfUrl] = useState('')
   const [printMode, setPrintMode] = useState<'full' | 'blank'>('full')
+
+  // Helper: expiry color coding
+  const getExpiryStatus = (dateStr: string | null | undefined) => {
+    if (!dateStr) return null
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diffDays = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    if (diffDays < 0) return 'expired'        // sudah lewat
+    if (diffDays <= 30) return 'critical'     // < 30 hari
+    if (diffDays <= 90) return 'warning'      // < 90 hari
+    return 'ok'
+  }
+
+  const expiryColorClass = (status: string | null) => {
+    if (status === 'expired') return 'text-red-600 bg-red-50 border border-red-200'
+    if (status === 'critical') return 'text-orange-600 bg-orange-50 border border-orange-200'
+    if (status === 'warning') return 'text-yellow-600 bg-yellow-50 border border-yellow-200'
+    return 'text-emerald-600 bg-emerald-50 border border-emerald-200'
+  }
   const router = useRouter()
 
   useEffect(() => {
@@ -120,6 +142,12 @@ export default function StockOpnamePage() {
     setSelectedProduct(stock)
     setPhysicalQty(stock.onHandQty) // Default to current system qty
     setUnitPrice(stock.purchasePrice || 0) // Default to current system price
+    // Auto-fill expiry date dari batch jika ada
+    if (stock.expiryDate) {
+      setExpiryDate(new Date(stock.expiryDate).toISOString().split('T')[0])
+    } else {
+      setExpiryDate('')
+    }
     setSearchTerm('')
     setSearchProducts([])
   }
@@ -136,6 +164,7 @@ export default function StockOpnamePage() {
         physicalQty,
         unitPrice,
         notes,
+        expiryDate: expiryDate || null,
         branchId: activeClinicId
       })
       toast.success('Item berhasil ditambahkan ke draft')
@@ -143,6 +172,7 @@ export default function StockOpnamePage() {
       setPhysicalQty(0)
       setUnitPrice(0)
       setNotes('')
+      setExpiryDate('')
       fetchSession()
     } catch (error) {
       toast.error('Gagal menambahkan item')
@@ -363,17 +393,20 @@ export default function StockOpnamePage() {
 
     // --- Table Configuration ---
     let head = mode === 'blank' 
-      ? [['NO', 'DESKRIPSI BARANG / BATCH', 'STOK SISTEM', 'STOK FISIK (ISI DI SINI)', 'CATATAN / KONDISI']]
-      : [['NO', 'DESKRIPSI BARANG', 'SISTEM', 'FISIK', 'HARGA SATUAN BELI TERBARU', 'SUBTOTAL']]
+      ? [['NO', 'DESKRIPSI BARANG / BATCH', 'STOK SISTEM', 'EXPIRED (VERIF)', 'STOK FISIK (ISI DI SINI)', 'CATATAN / KONDISI']]
+      : [['NO', 'DESKRIPSI BARANG', 'SISTEM', 'FISIK', 'EXPIRED DATE', 'HARGA BELI', 'SUBTOTAL']]
 
     const tableData = [...session.items]
       .sort((a, b) => a.product.productName.localeCompare(b.product.productName, undefined, { sensitivity: 'base' }))
       .map((item, idx) => {
+        const expDate = item.expiryDate || item.batch?.expiryDate
+        const expStr = expDate ? format(new Date(expDate), 'dd-MMM-yy') : '-'
         if (mode === 'blank') {
           return [
             idx + 1,
             `${item.product.productName.toUpperCase()}\nKODE: ${item.product.productCode}${item.batch ? ' • BN: ' + item.batch.batchNumber : ''}`,
             item.systemQty,
+            expStr, // Expiry date for verification
             '', // Blank for physical
             ''  // Blank for notes
           ]
@@ -383,6 +416,7 @@ export default function StockOpnamePage() {
           { content: `${item.product.productName.toUpperCase()}\nKODE: ${item.product.productCode}${item.batch ? ' • BN: ' + item.batch.batchNumber : ''}`, styles: { fontStyle: 'bold' as const } },
           item.systemQty,
           item.physicalQty,
+          { content: expStr, styles: { halign: 'center' as const } },
           `Rp ${item.unitPrice.toLocaleString('id-ID')}`,
           { content: `Rp ${item.subtotal.toLocaleString('id-ID')}`, styles: { fontStyle: 'bold' as const, halign: 'right' as const } }
         ]
@@ -402,20 +436,22 @@ export default function StockOpnamePage() {
       },
       styles: { 
         fontSize: mode === 'blank' ? 7 : 8,
-        cellPadding: mode === 'blank' ? 2 : 4,
+        cellPadding: mode === 'blank' ? 2 : 3,
         valign: 'middle' as const
       },
       columnStyles: mode === 'blank' ? {
-        0: { halign: 'center' as const, cellWidth: 10 },
-        2: { halign: 'center' as const, cellWidth: 25 },
-        3: { halign: 'center' as const, cellWidth: 40 },
-        4: { halign: 'left' as const, cellWidth: 40 }
-      } : {
-        0: { halign: 'center' as const, cellWidth: 10 },
+        0: { halign: 'center' as const, cellWidth: 8 },
         2: { halign: 'center' as const, cellWidth: 20 },
-        3: { halign: 'center' as const, cellWidth: 20 },
-        4: { halign: 'center' as const, cellWidth: 35 },
-        5: { halign: 'right' as const, cellWidth: 35 }
+        3: { halign: 'center' as const, cellWidth: 25 },
+        4: { halign: 'center' as const, cellWidth: 30 },
+        5: { halign: 'left' as const, cellWidth: 35 }
+      } : {
+        0: { halign: 'center' as const, cellWidth: 8 },
+        2: { halign: 'center' as const, cellWidth: 16 },
+        3: { halign: 'center' as const, cellWidth: 16 },
+        4: { halign: 'center' as const, cellWidth: 24 },
+        5: { halign: 'center' as const, cellWidth: 28 },
+        6: { halign: 'right' as const, cellWidth: 28 }
       }
     })
 
@@ -584,6 +620,11 @@ export default function StockOpnamePage() {
                             <div className="flex items-center gap-2 mt-1">
                                <span className="text-[9px] font-bold text-gray-400 uppercase">{stock.productCode}</span>
                                {stock.batchNumber && <span className="text-[9px] font-black text-indigo-400 italic">BN: {stock.batchNumber}</span>}
+                               {stock.expiryDate && (
+                                 <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full ${expiryColorClass(getExpiryStatus(stock.expiryDate))}`}>
+                                   ED: {format(new Date(stock.expiryDate), 'dd-MMM-yy')}
+                                 </span>
+                               )}
                             </div>
                           </div>
                           <div className="text-right shrink-0">
@@ -648,6 +689,26 @@ export default function StockOpnamePage() {
                           </div>
                        </div>
                        
+                       <div>
+                          <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Expired Date</label>
+                          <input 
+                            type="date"
+                            className={`w-full px-4 py-3 rounded-2xl border-2 font-bold text-sm outline-none focus:ring-4 focus:ring-primary/5 transition-all ${
+                              expiryDate
+                                ? expiryColorClass(getExpiryStatus(expiryDate)) + ' border-current'
+                                : 'bg-white border-gray-100 text-gray-600'
+                            }`}
+                            value={expiryDate}
+                            onChange={(e) => setExpiryDate(e.target.value)}
+                          />
+                          {expiryDate && getExpiryStatus(expiryDate) === 'expired' && (
+                            <p className="text-[9px] font-black text-red-500 mt-1 px-1">⚠ Produk sudah expired!</p>
+                          )}
+                          {expiryDate && getExpiryStatus(expiryDate) === 'critical' && (
+                            <p className="text-[9px] font-black text-orange-500 mt-1 px-1">⚠ Segera expired dalam 30 hari!</p>
+                          )}
+                       </div>
+
                        <textarea 
                           rows={2}
                           placeholder="Catatan penyesuaian..."
@@ -751,12 +812,13 @@ export default function StockOpnamePage() {
 
               <div className="flex-1 overflow-x-auto min-h-0">
                  {/* Desktop Only Table Header */}
-                 <div className="hidden lg:grid grid-cols-12 gap-4 px-8 py-4 bg-gray-50/50 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">
+                 <div className="hidden lg:grid grid-cols-13 gap-2 px-6 py-4 bg-gray-50/50 text-[9px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">
                     <div className="col-span-3">Informasi Produk</div>
                     <div className="col-span-1 text-center">Sistem</div>
-                    <div className="col-span-1 text-center">Fisik</div>
+                    <div className="col-span-2 text-center">Fisik</div>
                     <div className="col-span-1 text-center">Selisih</div>
-                    <div className="col-span-4 text-center whitespace-normal break-words">Harga Satuan Beli Terbaru</div>
+                    <div className="col-span-2 text-center">Expired Date</div>
+                    <div className="col-span-2 text-center whitespace-normal">Harga Beli</div>
                     <div className="col-span-2 text-right">Total Fisik</div>
                  </div>
 
@@ -777,48 +839,62 @@ export default function StockOpnamePage() {
                           <div key={item.id}>
                             {/* Desktop Row View */}
                             <div className="hidden lg:block hover:bg-gray-50/30 transition-colors">
-                               <div className="grid grid-cols-12 gap-4 items-center px-8 py-5">
-                                 <div className="col-span-3 flex items-center gap-4">
-                                    <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center font-black text-gray-400">
-                                       {item.product.productName[0]}
+                                 <div className="grid grid-cols-13 gap-2 items-center px-6 py-4">
+                                   <div className="col-span-3 flex items-center gap-3">
+                                      <div className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center font-black text-gray-400 shrink-0">
+                                         {item.product.productName[0]}
+                                      </div>
+                                      <div className="min-w-0">
+                                         <p className="font-black text-gray-900 leading-none truncate uppercase text-sm">{item.product.productName}</p>
+                                         <p className="text-[9px] font-bold text-gray-400 mt-1 uppercase truncate">{item.product.productCode} {item.batch && `• BN: ${item.batch.batchNumber}`}</p>
+                                      </div>
+                                   </div>
+                                   <div className="col-span-1 text-center font-black text-gray-400 text-sm">{item.systemQty}</div>
+                                   <div className="col-span-2 flex justify-center">
+                                      <input type="number" className="w-full px-2 py-1.5 bg-gray-50 rounded-lg text-center font-black text-gray-900 outline-none text-sm border border-transparent focus:border-primary/30" value={item.physicalQty} onChange={(e) => handleUpdateQty(item, Number(e.target.value))} />
                                     </div>
-                                    <div className="min-w-0">
-                                       <p className="font-black text-gray-900 leading-none truncate uppercase text-sm">{item.product.productName}</p>
-                                       <p className="text-[9px] font-bold text-gray-400 mt-1 uppercase truncate">{item.product.productCode} {item.batch && `• BN: ${item.batch.batchNumber}`}</p>
-                                    </div>
+                                   <div className="col-span-1 flex flex-col items-center">
+                                      <div className={`flex items-center gap-1 font-black leading-none text-sm ${isLoss ? 'text-red-600' : isGain ? 'text-green-600' : 'text-gray-300'}`}>
+                                         {isGain ? '+' : ''}{item.diffQty}
+                                      </div>
+                                   </div>
+                                   {/* Expired Date Column */}
+                                   <div className="col-span-2 flex justify-center">
+                                     {(() => {
+                                       const expDate = item.expiryDate || item.batch?.expiryDate
+                                       const status = getExpiryStatus(expDate)
+                                       return expDate ? (
+                                         <span className={`text-[9px] font-black px-2 py-1 rounded-lg whitespace-nowrap ${expiryColorClass(status)}`}>
+                                           {format(new Date(expDate), 'dd-MMM-yy')}
+                                         </span>
+                                       ) : (
+                                         <span className="text-[9px] font-bold text-gray-200">—</span>
+                                       )
+                                     })()}
+                                   </div>
+                                   <div className="col-span-2 flex justify-center">
+                                      <div className="relative w-full">
+                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-300">Rp</span>
+                                        <input type="number" className="w-full pl-7 pr-1 py-1.5 bg-gray-50 rounded-xl text-right font-black text-gray-900 outline-none text-sm border border-transparent focus:border-primary/20 transition-all" value={item.unitPrice} onChange={(e) => handleUpdatePrice(item, Number(e.target.value))} />
+                                      </div>
+                                   </div>
+                                   <div className="col-span-2 flex items-center justify-end gap-1">
+                                      <span className="font-black text-primary text-sm whitespace-nowrap">Rp {item.subtotal.toLocaleString('id-ID')}</span>
+                                      <button onClick={() => deleteItem(item.id)} className="p-1.5 text-gray-200 hover:text-red-500 transition-colors shrink-0"><Trash2 className="w-4 h-4" /></button>
+                                   </div>
                                  </div>
-                                 <div className="col-span-1 text-center font-black text-gray-400">{item.systemQty}</div>
-                                 <div className="col-span-1 flex justify-center">
-                                    <input type="number" className="w-16 px-2 py-1 bg-gray-50 rounded-lg text-center font-black text-gray-900 outline-none" value={item.physicalQty} onChange={(e) => handleUpdateQty(item, Number(e.target.value))} />
-                                  </div>
-                                 <div className="col-span-1 flex flex-col items-center">
-                                    <div className={`flex items-center gap-1 font-black leading-none ${isLoss ? 'text-red-600' : isGain ? 'text-green-600' : 'text-gray-300'}`}>
-                                       {isGain ? '+' : ''}{item.diffQty}
-                                    </div>
-                                 </div>
-                                 <div className="col-span-4 flex justify-center">
-                                    <div className="relative w-full max-w-[180px]">
-                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-300">Rp</span>
-                                      <input type="number" className="w-full pl-10 pr-4 py-2 bg-gray-50 rounded-xl text-right font-black text-gray-900 outline-none text-sm border border-transparent focus:border-primary/20 transition-all" value={item.unitPrice} onChange={(e) => handleUpdatePrice(item, Number(e.target.value))} />
-                                    </div>
-                                 </div>
-                                 <div className="col-span-2 flex items-center justify-end gap-3">
-                                    <span className="font-black text-primary text-sm whitespace-nowrap">Rp {item.subtotal.toLocaleString('id-ID')}</span>
-                                    <button onClick={() => deleteItem(item.id)} className="p-2 text-gray-200 hover:text-red-500 transition-colors shrink-0"><Trash2 className="w-4 h-4" /></button>
-                                 </div>
-                               </div>
-                               {/* Row Note Edit */}
-                               <div className="px-8 pb-4 flex items-center gap-3">
-                                  <div className="w-6 h-px bg-gray-100"></div>
-                                  <FileText className="w-3 h-3 text-gray-300" />
-                                  <input 
-                                    type="text" 
-                                    placeholder="Tambahkan catatan untuk item ini..." 
-                                    className="flex-1 bg-transparent border-none outline-none text-[10px] font-bold text-gray-400 placeholder:text-gray-200 italic" 
-                                    value={item.notes || ''} 
-                                    onChange={(e) => handleUpdateNotes(item, e.target.value)} 
-                                  />
-                               </div>
+                                {/* Row Note Edit */}
+                                <div className="px-6 pb-3 flex items-center gap-3">
+                                   <div className="w-6 h-px bg-gray-100"></div>
+                                   <FileText className="w-3 h-3 text-gray-300" />
+                                   <input 
+                                     type="text" 
+                                     placeholder="Tambahkan catatan untuk item ini..." 
+                                     className="flex-1 bg-transparent border-none outline-none text-[10px] font-bold text-gray-400 placeholder:text-gray-200 italic" 
+                                     value={item.notes || ''} 
+                                     onChange={(e) => handleUpdateNotes(item, e.target.value)} 
+                                   />
+                                </div>
                             </div>
 
                             {/* Mobile Card View */}
@@ -829,6 +905,16 @@ export default function StockOpnamePage() {
                                      <div className="min-w-0">
                                         <h4 className="text-sm font-black text-gray-900 uppercase truncate leading-tight w-40">{item.product.productName}</h4>
                                         <p className="text-[9px] font-bold text-gray-400 uppercase mt-0.5">{item.product.productCode}</p>
+                                        {/* Expired Date Badge Mobile */}
+                                        {(() => {
+                                          const expDate = item.expiryDate || item.batch?.expiryDate
+                                          const status = getExpiryStatus(expDate)
+                                          return expDate ? (
+                                            <span className={`inline-block text-[8px] font-black px-1.5 py-0.5 rounded-full mt-1 ${expiryColorClass(status)}`}>
+                                              ED: {format(new Date(expDate), 'dd-MMM-yy')}
+                                            </span>
+                                          ) : null
+                                        })()}
                                      </div>
                                   </div>
                                   <div className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase ${isLoss ? 'bg-red-50 text-red-600' : isGain ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-400'}`}>
@@ -1019,28 +1105,35 @@ export default function StockOpnamePage() {
             <th className="text-left">Deskripsi Barang</th>
             <th className="text-center">Sistem</th>
             <th className="text-center">Fisik</th>
-            <th className="text-center whitespace-normal break-words">Harga Satuan Beli Terbaru</th>
+            <th className="text-center">Expired Date</th>
+            <th className="text-center whitespace-normal break-words">Harga Beli</th>
             <th className="text-right">Subtotal</th>
           </tr>
         </thead>
         <tbody>
           {[...(session?.items || [])]
             .sort((a, b) => a.product.productName.localeCompare(b.product.productName, undefined, { sensitivity: 'base' }))
-            .map((item, idx) => (
-            <tr key={item.id} className={idx % 2 === 0 ? '' : 'bg-slate-50/30'}>
-              <td className="text-center font-bold text-slate-400">{idx + 1}</td>
-              <td>
-                <div className="font-black text-slate-900 uppercase text-xs">{item.product.productName}</div>
-                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter italic">
-                  {item.product.productCode} {item.batch && `• BATCH: ${item.batch.batchNumber}`}
-                </div>
-              </td>
-              <td className="text-center font-bold text-slate-300">{item.systemQty}</td>
-              <td className="text-center font-black text-slate-900">{item.physicalQty}</td>
-              <td className="text-center font-bold text-slate-500">Rp {item.unitPrice.toLocaleString('id-ID')}</td>
-              <td className="text-right font-black text-slate-900">Rp {item.subtotal.toLocaleString('id-ID')}</td>
-            </tr>
-          ))}
+            .map((item, idx) => {
+              const expDate = item.expiryDate || item.batch?.expiryDate
+              const expStatus = getExpiryStatus(expDate)
+              return (
+              <tr key={item.id} className={idx % 2 === 0 ? '' : 'bg-slate-50/30'}>
+                <td className="text-center font-bold text-slate-400">{idx + 1}</td>
+                <td>
+                  <div className="font-black text-slate-900 uppercase text-xs">{item.product.productName}</div>
+                  <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter italic">
+                    {item.product.productCode} {item.batch && `• BATCH: ${item.batch.batchNumber}`}
+                  </div>
+                </td>
+                <td className="text-center font-bold text-slate-300">{item.systemQty}</td>
+                <td className="text-center font-black text-slate-900">{item.physicalQty}</td>
+                <td className="text-center font-bold" style={{ color: expStatus === 'expired' ? '#dc2626' : expStatus === 'critical' ? '#ea580c' : expStatus === 'warning' ? '#ca8a04' : '#16a34a' }}>
+                  {expDate ? format(new Date(expDate), 'dd-MMM-yy') : '-'}
+                </td>
+                <td className="text-center font-bold text-slate-500">Rp {item.unitPrice.toLocaleString('id-ID')}</td>
+                <td className="text-right font-black text-slate-900">Rp {item.subtotal.toLocaleString('id-ID')}</td>
+              </tr>
+            )})}
         </tbody>
       </table>
 
