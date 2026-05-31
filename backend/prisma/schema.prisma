@@ -404,6 +404,9 @@ model MedicalRecord {
   radiologyOrders    RadiologyOrder[]
   referrals          Referral[]
   vitals             VitalSign[]
+  treatmentPlanId    String?
+  treatmentPlanRef   TreatmentPlan?            @relation(fields: [treatmentPlanId], references: [id])
+
 
   @@index([patientId])
   @@index([doctorId])
@@ -1759,6 +1762,7 @@ model TreatmentPlan {
   visits  Visit[]
   invoices Invoice[]
   items   TreatmentPlanItem[]
+  medicalRecords MedicalRecord[]
 
   @@index([patientId])
   @@index([status])
