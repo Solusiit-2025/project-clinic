@@ -5,7 +5,8 @@ import {
   getQueues, 
   getQueueById,
   updateQueueStatus,
-  reopenQueue
+  reopenQueue,
+  deleteQueue
 } from '../controllers/transaction.controller'
 import { 
   saveNurseVitals, 
@@ -33,6 +34,7 @@ router.get('/queues', getQueues)
 router.get('/queues/:id', getQueueById)
 router.patch('/queues/:id/status', updateQueueStatus)
 router.post('/queues/:id/reopen', reopenQueue)
+router.delete('/queues/:id', deleteQueue)
 
 // Appointments
 router.get('/appointments', getAppointments)

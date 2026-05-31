@@ -7,7 +7,7 @@ import {
   FiActivity, FiUsers, FiClock, FiCheckCircle, 
   FiVolume2, FiArrowRight, FiSkipForward, FiMoreHorizontal,
   FiRefreshCw, FiExternalLink, FiUser, FiHome, FiAlertCircle, FiRotateCcw,
-  FiMonitor
+  FiMonitor, FiTrash2
 } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import Link from 'next/link'
@@ -93,6 +93,20 @@ export default function QueueDashboard() {
       alert('Gagal memperbarui antrian')
     }
   }
+
+  const deleteQueue = async (id: string) => {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus antrian ini? Data pendaftaran dan tagihan akan ikut terhapus. (Tindakan ini tidak dapat dibatalkan)')) {
+      return;
+    }
+    try {
+      await api.delete(`${TX_API}/queues/${id}`);
+      setQueues(prev => prev.filter(q => q.id !== id));
+    } catch (e: any) {
+      alert(e?.response?.data?.message || 'Gagal menghapus antrian');
+      console.error(e);
+    }
+  }
+
 
   // Stats
   const waiting = queues.filter(q => q.status === 'waiting').length
@@ -342,10 +356,19 @@ export default function QueueDashboard() {
                     }`}
                   >
                     <div className="flex items-center justify-between mb-4">
-                      <div className={`px-3 py-1.5 rounded-xl font-black text-xs ${
-                        q.status === 'triage' ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-500'
-                      }`}>
-                        {q.queueNo}
+                      <div className="flex items-center gap-2">
+                        <div className={`px-3 py-1.5 rounded-xl font-black text-xs ${
+                          q.status === 'triage' ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {q.queueNo}
+                        </div>
+                        <button 
+                          onClick={() => deleteQueue(q.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                          title="Hapus Antrian (Kesalahan Input)"
+                        >
+                          <FiTrash2 className="w-4 h-4" />
+                        </button>
                       </div>
                       <StatusPill status={q.status} isDirectLab={q.isDirectLab} />
                     </div>
@@ -418,8 +441,17 @@ export default function QueueDashboard() {
                     className="p-6 rounded-3xl border border-emerald-100 bg-white shadow-xl shadow-emerald-500/5 group hover:border-emerald-500 transition-all"
                   >
                     <div className="flex items-center justify-between mb-4">
-                      <div className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl font-black text-xs border border-emerald-100">
-                        {q.queueNo}
+                      <div className="flex items-center gap-2">
+                        <div className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl font-black text-xs border border-emerald-100">
+                          {q.queueNo}
+                        </div>
+                        <button 
+                          onClick={() => deleteQueue(q.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                          title="Hapus Antrian (Kesalahan Input)"
+                        >
+                          <FiTrash2 className="w-4 h-4" />
+                        </button>
                       </div>
                       <div className="flex items-center gap-1">
                          <div className="w-2 h-2 rounded-full bg-emerald-500" />

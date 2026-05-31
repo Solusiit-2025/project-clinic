@@ -663,3 +663,57 @@ export const reopenQueue = async (req: Request, res: Response) => {
     res.status(500).json({ message: (e as Error).message })
   }
 }
+
+/**
+ * Delete a queue/registration (for fixing input errors)
+ */
+export const deleteQueue = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    const queue = await prisma.queueNumber.findUnique({
+      where: { id },
+      include: { registration: true }
+    });
+
+    if (!queue) {
+      return res.status(404).json({ message: 'Antrian tidak ditemukan' });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete associated Invoice if exists
+      if (queue.registrationId) {
+        const invoices = await tx.invoice.findMany({
+          where: { registrationId: queue.registrationId }
+        });
+        for (const invoice of invoices) {
+          // delete invoice items first
+          await tx.invoiceItem.deleteMany({ where: { invoiceId: invoice.id } });
+          // delete invoice
+          await tx.invoice.delete({ where: { id: invoice.id } });
+        }
+      }
+
+      // 2. Delete QueueNumber
+      await tx.queueNumber.delete({ where: { id } });
+
+      // 3. Delete Registration
+      if (queue.registrationId) {
+        // Also delete LabOrders
+        await tx.labOrder.deleteMany({ where: { registrationId: queue.registrationId } });
+        
+        await tx.registration.delete({ where: { id: queue.registrationId } });
+      }
+    });
+
+    // REAL-TIME: Notify clinic listeners
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`clinic:${queue.clinicId}`).emit('queue-updated', { type: 'DELETED', queueId: id });
+    }
+
+    res.json({ message: 'Antrian berhasil dihapus' });
+  } catch (error) {
+    console.error('[deleteQueue] Error:', error);
+    res.status(500).json({ message: 'Gagal menghapus antrian: ' + (error as Error).message });
+  }
+};

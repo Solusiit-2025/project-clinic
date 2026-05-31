@@ -21,9 +21,8 @@ export const getDashboardStats = async (req: Request, res: Response) => {
     const todayEnd = new Date(`${jakartaTodayStr}T23:59:59+07:00`)
     
     // Calculate Yesterday based on Jakarta Date
-    const yesterdayDate = new Date(todayStart)
-    yesterdayDate.setDate(yesterdayDate.getDate() - 1)
-    const yesterdayStr = yesterdayDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
+    const yesterdayDate = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000)
+    const yesterdayStr = getJakartaDateString(yesterdayDate)
     
     const yesterdayStart = new Date(`${yesterdayStr}T00:00:00+07:00`)
     const yesterdayEnd = new Date(`${yesterdayStr}T23:59:59+07:00`)
@@ -279,9 +278,8 @@ export const getDashboardStats = async (req: Request, res: Response) => {
     let financialTrend: any[] = []
     if (range === 'month') {
       for (let i = 29; i >= 0; i--) {
-        const d = new Date(todayStart)
-        d.setDate(d.getDate() - i)
-        const dStr = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
+        const d = new Date(todayStart.getTime() - i * 24 * 60 * 60 * 1000)
+        const dStr = getJakartaDateString(d)
         const s = new Date(`${dStr}T00:00:00+07:00`)
         const e = new Date(`${dStr}T23:59:59+07:00`)
         
@@ -312,9 +310,11 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         const monthStart = new Date(currentYear, m, 1)
         const monthEnd = new Date(currentYear, m + 1, 0)
         
-        // Convert to Jakarta ISO string for query
-        const s = new Date(monthStart.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }))
-        const e = new Date(monthEnd.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }))
+        // Safe Jakarta conversion
+        const sStr = getJakartaDateString(monthStart)
+        const eStr = getJakartaDateString(monthEnd)
+        const s = new Date(`${sStr}T00:00:00+07:00`)
+        const e = new Date(`${eStr}T00:00:00+07:00`)
         e.setHours(23, 59, 59, 999)
 
         const [revAgg, expAgg] = await Promise.all([
@@ -341,9 +341,8 @@ export const getDashboardStats = async (req: Request, res: Response) => {
     } else {
       // week (default)
       for (let i = 6; i >= 0; i--) {
-        const d = new Date(todayStart)
-        d.setDate(d.getDate() - i)
-        const dStr = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
+        const d = new Date(todayStart.getTime() - i * 24 * 60 * 60 * 1000)
+        const dStr = getJakartaDateString(d)
         const s = new Date(`${dStr}T00:00:00+07:00`)
         const e = new Date(`${dStr}T23:59:59+07:00`)
 
