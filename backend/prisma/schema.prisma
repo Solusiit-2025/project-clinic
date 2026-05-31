@@ -405,7 +405,9 @@ model MedicalRecord {
   referrals          Referral[]
   vitals             VitalSign[]
   treatmentPlanId    String?
+  visitId            String?
   treatmentPlanRef   TreatmentPlan?            @relation(fields: [treatmentPlanId], references: [id])
+
 
 
   @@index([patientId])

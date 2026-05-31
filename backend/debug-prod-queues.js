@@ -50,7 +50,7 @@ async function main() {
     console.error('❌ Login gagal:', loginRes.body);
     return;
   }
-  
+
   // Extract cookie
   const setCookie = loginRes.headers['set-cookie'] || [];
   const authCookie = setCookie.find(c => c.includes('auth_token')) || '';
@@ -86,9 +86,9 @@ async function main() {
     console.log(`✅ Berhasil! Jumlah antrian hari ini: ${count}`);
     if (count > 0) {
       const sample = Array.isArray(queues) ? queues[0] : queues.data[0];
-      console.log('Contoh data:', JSON.stringify({ 
-        queueNo: sample.queueNo, 
-        queueDate: sample.queueDate, 
+      console.log('Contoh data:', JSON.stringify({
+        queueNo: sample.queueNo,
+        queueDate: sample.queueDate,
         patientName: sample.patient?.name,
         status: sample.status
       }, null, 2));
