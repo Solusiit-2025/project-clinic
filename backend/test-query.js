@@ -1,39 +1,22 @@
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-
+const prisma = new PrismaClient({ datasources: { db: { url: 'postgresql://clinic:Amigos2010@77.37.44.232:5432/clinic_db' } } });
 async function check() {
-  const targetClinicId = 'dddbdf2f-1afa-45a2-b0f3-07a0dff4ac9c';
-  
-  try {
-      let departments = await prisma.department.findMany({
-          where: {
-            OR: [
-              { clinicId: targetClinicId },
-              { clinicId: null }
-            ] 
-          },
-          include: { parent: true }
-      });
-      console.log('Departments query result size:', departments.length);
-      console.log('First 2 departments:', departments.slice(0,2).map(d => `${d.name} (clinicId: ${d.clinicId}, parentId: ${d.parentId})`));
-      
-      const doctors = await prisma.doctor.findMany({
-          where: {
-              OR: [
-                { departments: { some: { clinicId: targetClinicId } } },
-                { user: { clinics: { some: { clinicId: targetClinicId } } } }
-              ]
-          },
-          include: { user: { include: { clinics: true } } }
-      });
-      console.log('Doctors query result size:', doctors.length);
-      console.log('Doctors Details:', JSON.stringify(doctors.map(d=>({name: d.name, userClinics: d.user?.clinics})), null, 2));
+  const d = new Date();
+  const utcDate = new Date(d.getTime() + 7 * 60 * 60 * 1000);
+  const yyyy = utcDate.getUTCFullYear();
+  const mm = String(utcDate.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(utcDate.getUTCDate()).padStart(2, '0');
+  const jakartaTodayStr = yyyy + '-' + mm + '-' + dd;
+  const targetDate = new Date(jakartaTodayStr + 'T00:00:00+07:00');
+  const nextDay = new Date(targetDate.getTime() + 24 * 60 * 60 * 1000);
+  console.log('Querying from', targetDate.toISOString(), 'to', nextDay.toISOString());
 
-  } catch(e) {
-      console.error(e);
-  } finally {
-      process.exit(0);
-  }
+  const queues = await prisma.queueNumber.findMany({ 
+    where: { 
+      clinicId: '46176c91-1355-4fb9-acfe-1a753e296fd5',
+      queueDate: { gte: targetDate, lt: nextDay }
+    }
+  });
+  console.log('Found:', queues.length);
 }
-
-check();
+check().catch(console.error).finally(() => prisma.$disconnect());
