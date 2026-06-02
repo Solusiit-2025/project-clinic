@@ -26,6 +26,7 @@ router.delete('/opname/item/:id', InventoryController.deleteOpnameItem);
 router.post('/opname/finalize', InventoryController.finalizeOpname);
 router.post('/opname/cancel', InventoryController.cancelOpname);
 router.post('/opname/bulk-load', InventoryController.bulkLoadInventory);
+router.post('/opname/import', InventoryController.importOpnameExcel);
 
 // --- Procurement (PR/PO/GRN) ---
 router.get('/procurement/outstanding-payables', getOutstandingPayables);

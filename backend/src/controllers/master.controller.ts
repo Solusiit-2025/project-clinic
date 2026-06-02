@@ -2085,7 +2085,8 @@ export const getPatients = async (req: Request, res: Response) => {
           where,
           skip,
           take: limit,
-          orderBy: { name: 'asc' }
+          orderBy: { name: 'asc' },
+          include: { corporatePartner: { select: { id: true, name: true } } }
         })
       ])
 
@@ -2103,6 +2104,7 @@ export const getPatients = async (req: Request, res: Response) => {
     const patients = await prisma.patient.findMany({
       where,
       orderBy: { name: 'asc' },
+      include: { corporatePartner: { select: { id: true, name: true } } }
     })
     
     res.json(patients)

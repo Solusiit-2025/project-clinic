@@ -28,6 +28,8 @@ interface Patient {
   identityNumber: string
   address: string
   patientType?: string
+  corporatePartnerId?: string
+  corporatePartner?: { id: string; name: string }
 }
 
 interface Doctor {
@@ -62,6 +64,7 @@ const EMPTY_PATIENT = {
   bpjsNumber: '',
   insuranceName: '',
   patientType: 'Poli Umum',
+  corporatePartnerId: '',
   isActive: true 
 }
 
@@ -89,6 +92,8 @@ export default function RegistrationPage() {
   const [visitType, setVisitType] = useState('outpatient')
   const [referralFrom, setReferralFrom] = useState('')
   const [isDirectLab, setIsDirectLab] = useState(false)
+  const [coverageType, setCoverageType] = useState('PERSONAL')
+  const [corporatePartners, setCorporatePartners] = useState<{id: string, name: string, isActive: boolean}[]>([])
   const [labTests, setLabTests] = useState<any[]>([])
   const [selectedLabTestIds, setSelectedLabTestIds] = useState<string[]>([])
   const [labSearchQuery, setLabSearchQuery] = useState('')
@@ -103,14 +108,16 @@ export default function RegistrationPage() {
   useEffect(() => {
     const fetchSelectables = async () => {
       try {
-        const [docsRes, deptsRes, labRes] = await Promise.all([
+        const [docsRes, deptsRes, labRes, corpRes] = await Promise.all([
           api.get('/master/doctors', { params: { clinicId: activeClinicId, minimal: true } }),
           api.get('/master/departments', { params: { clinicId: activeClinicId, minimal: true } }),
-          api.get('/lab/test-masters', { params: { isActive: 'true' } })
+          api.get('/lab/test-masters', { params: { isActive: 'true' } }),
+          api.get('/master/corporate-partners', { params: { clinicId: activeClinicId } })
         ])
         setDoctors(docsRes.data)
         setDepartments(deptsRes.data)
         setLabTests(labRes.data)
+        setCorporatePartners(corpRes.data.filter((c: any) => c.isActive))
       } catch (e) { console.error(e) }
     }
     if (activeClinicId) {
@@ -174,6 +181,7 @@ export default function RegistrationPage() {
         visitType: isDirectLab ? 'lab' : visitType,
         referralFrom,
         isDirectLab,
+        coverageType,
         labTestIds: isDirectLab ? selectedLabTestIds : []
       })
       
@@ -329,6 +337,11 @@ export default function RegistrationPage() {
                             {p.patientType}
                           </span>
                         )}
+                        {p.corporatePartnerId && (
+                          <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded border bg-emerald-50 text-emerald-600 border-emerald-200 shadow-sm">
+                            B2B: {p.corporatePartner?.name || 'Perusahaan'}
+                          </span>
+                        )}
                         <div className="flex items-center gap-1.5">
                           <span className="text-[9px] md:text-[10px] font-black text-primary bg-primary/5 px-2 py-0.5 rounded border border-primary/20">{p.medicalRecordNo}</span>
                           {p.oldMedicalRecordNo && (
@@ -345,6 +358,11 @@ export default function RegistrationPage() {
                           {p.familyHeadName && (
                             <span className="text-[9px] font-black text-slate-500 bg-slate-100 px-2 py-0.5 rounded flex items-center gap-1">
                               KK: {p.familyHeadName}
+                            </span>
+                          )}
+                          {p.identityNumber && (
+                            <span className="text-[9px] font-black text-slate-500 bg-slate-100 px-2 py-0.5 rounded flex items-center gap-1">
+                              NIK: {p.identityNumber}
                             </span>
                           )}
                         </div>
@@ -534,6 +552,40 @@ export default function RegistrationPage() {
                       placeholder="Contoh: Puskesmas, Mandiri, dll."
                       className="w-full px-3 md:px-4 py-2 md:py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-xs md:text-sm font-bold focus:outline-none focus:bg-white focus:border-primary transition-all"
                     />
+                </div>
+
+                <div className="space-y-1.5 pt-2">
+                  <label className="text-[10px] md:text-xs font-bold text-gray-500">Jenis Penjamin / Tagihan</label>
+                  <div className="flex gap-2 md:gap-4">
+                    {['PERSONAL', 'CORPORATE'].map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => setCoverageType(type)}
+                        className={`flex-1 py-2 md:py-3 px-3 md:px-4 rounded-xl border-2 font-bold text-[10px] md:text-xs transition-all ${
+                          coverageType === type ? 'border-primary bg-primary/5 text-primary' : 'border-gray-100 text-gray-400'
+                        }`}
+                      >
+                        {type === 'PERSONAL' ? 'PRIBADI (TUNAI/TRANSFER)' : 'PERUSAHAAN (KARYAWAN)'}
+                      </button>
+                    ))}
+                  </div>
+                  {coverageType === 'CORPORATE' && (
+                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-700 animate-in fade-in slide-in-from-top-1">
+                      {selectedPatient?.corporatePartnerId ? (
+                        <>
+                          <p className="text-[10px] font-black uppercase tracking-widest">Penjamin:</p>
+                          <p className="text-xs font-bold">
+                            {corporatePartners.find(c => c.id === selectedPatient.corporatePartnerId)?.name || 'Perusahaan Tidak Ditemukan'}
+                          </p>
+                        </>
+                      ) : (
+                        <div className="flex items-start gap-2">
+                          <FiAlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-600" />
+                          <p className="text-xs font-bold text-amber-700">Pasien ini belum terhubung dengan relasi perusahaan mana pun. Silakan update data pasien terlebih dahulu di Master Pasien.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -920,6 +972,19 @@ export default function RegistrationPage() {
                       className="w-full px-3 py-2 text-xs border border-slate-200 rounded-md bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all" 
                       placeholder="Nama Asuransi..."
                     />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-medium text-slate-500 block">Penjamin Perusahaan (Corporate)</label>
+                    <select 
+                      value={patientForm.corporatePartnerId || ''} 
+                      onChange={(e) => setPatientForm(p => ({...p, corporatePartnerId: e.target.value}))} 
+                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-md bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all" 
+                    >
+                      <option value="">-- Bukan Karyawan --</option>
+                      {corporatePartners.map(cp => (
+                        <option key={cp.id} value={cp.id}>{cp.name}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>

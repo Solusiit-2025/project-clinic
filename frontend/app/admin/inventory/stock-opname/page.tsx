@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import * as XLSX from 'xlsx'
 import { 
   Package, Search, Plus, Trash2, Save, CheckCircle, 
   Printer, History, AlertTriangle, ArrowRight, Loader2,
   FileText, TrendingUp, TrendingDown, DollarSign, ChevronDown,
-  XCircle, Boxes, Phone, Mail, MapPin, Download, X
+  XCircle, Boxes, Phone, Mail, MapPin, Download, X, Upload
 } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -73,6 +74,12 @@ export default function StockOpnamePage() {
   const [pdfUrl, setPdfUrl] = useState('')
   const [printMode, setPrintMode] = useState<'full' | 'blank'>('full')
 
+  // Excel Import State
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importData, setImportData] = useState<any[]>([])
+  const [isImporting, setIsImporting] = useState(false)
+
   // Helper: expiry color coding
   const getExpiryStatus = (dateStr: string | null | undefined) => {
     if (!dateStr) return null
@@ -135,6 +142,115 @@ export default function StockOpnamePage() {
       setSearchProducts([])
     } else {
       handleSearch('', true)
+    }
+  }
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result
+        const wb = XLSX.read(bstr, { type: 'binary' })
+        const wsname = wb.SheetNames[0]
+        const ws = wb.Sheets[wsname]
+        const data = XLSX.utils.sheet_to_json(ws)
+        
+        // Map columns
+        const mappedData = data.map((row: any) => {
+          // find keys ignoring case
+          const keys = Object.keys(row)
+          const findKey = (search: string) => keys.find(k => k.toLowerCase().includes(search.toLowerCase()))
+          
+          const codeKey = findKey('kode') || findKey('code') || findKey('sku') || findKey('barcode') || findKey('id') || findKey('no urut logistik')
+          const nameKey = findKey('nama') || findKey('deskripsi') || findKey('name') || findKey('product')
+          const qtyKey = findKey('qty') || findKey('fisik') || findKey('stok') || findKey('jumlah') || findKey('quantity')
+          const priceKey = findKey('harga') || findKey('price') || findKey('beli') || findKey('batch')
+          const notesKey = findKey('catatan') || findKey('keterangan') || findKey('note')
+          const expiryKey = findKey('expired') || findKey('ed') || findKey('kadaluarsa') || findKey('exp')
+
+          // Convert Excel date to standard YYYY-MM-DD if numeric
+          let formattedExpiry: string | undefined = undefined
+          if (expiryKey && row[expiryKey]) {
+            const val = row[expiryKey]
+            if (typeof val === 'number') {
+              // Excel date serial
+              const date = new Date(Math.round((val - 25569) * 86400 * 1000))
+              formattedExpiry = date.toISOString().split('T')[0]
+            } else {
+              // Try to parse string
+              const date = new Date(val)
+              if (!isNaN(date.getTime())) formattedExpiry = date.toISOString().split('T')[0]
+            }
+          }
+
+          // Check if exists in current session (branch catalog)
+          const codeStr = codeKey ? String(row[codeKey]).trim().toLowerCase() : ''
+          const nameStr = nameKey ? String(row[nameKey]).trim().toLowerCase() : ''
+          
+          let isKnown = false
+          if (session?.items) {
+             isKnown = session.items.some(si => {
+                const sCode = (si.product.productCode || '').toLowerCase().trim()
+                const sName = (si.product.productName || '').toLowerCase().trim()
+                
+                const matchCode = codeStr && sCode === codeStr
+                const matchName = nameStr && (sName === nameStr || sName.includes(nameStr) || nameStr.includes(sName))
+                
+                return matchCode || matchName
+             })
+          }
+
+          return {
+            productCode: codeKey ? String(row[codeKey]) : '',
+            productName: nameKey ? String(row[nameKey]) : '',
+            physicalQty: qtyKey ? Number(row[qtyKey]) : 0,
+            unitPrice: priceKey ? Number(row[priceKey]) : undefined,
+            notes: notesKey ? String(row[notesKey]) : '',
+            expiryDate: formattedExpiry,
+            isKnown
+          }
+        }).filter(item => item.productCode || item.productName) // must have code OR name
+
+        if (mappedData.length === 0) {
+          const detectedColumns = data.length > 0 ? Object.keys(data[0] as object).join(', ') : 'Tidak ada kolom terdeteksi'
+          toast.error(`Gagal. Pastikan file memiliki baris judul (header). Kolom terdeteksi: ${detectedColumns}`, { duration: 6000 })
+          return
+        }
+
+        setImportData(mappedData)
+        setShowImportModal(true)
+      } catch (error) {
+        console.error(error)
+        toast.error('Gagal membaca file Excel')
+      }
+      // reset input
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+    reader.readAsBinaryString(file)
+  }
+
+  const handleImportSubmit = async () => {
+    if (!session || importData.length === 0) return
+    setIsImporting(true)
+    try {
+      const res = await api.post('inventory/opname/import', {
+        sessionId: session.id,
+        branchId: activeClinicId,
+        items: importData
+      })
+      toast.success(res.data.message || 'Import berhasil')
+      if (res.data.failedItems?.length > 0) {
+        toast.error(`${res.data.failedItems.length} barang gagal diimpor (Kode tidak ditemukan)`)
+      }
+      setShowImportModal(false)
+      setImportData([])
+      fetchSession()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Gagal mengimpor data')
+    } finally {
+      setIsImporting(false)
     }
   }
 
@@ -549,6 +665,22 @@ export default function StockOpnamePage() {
           >
             <Boxes className="w-4 h-4" />
             Muat Semua Stok
+          </button>
+          
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileUpload}
+            accept=".xlsx, .xls, .csv" 
+            className="hidden" 
+          />
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isSubmitting || !session}
+            className="flex-1 sm:flex-none px-5 py-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-100 transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+          >
+            <Upload className="w-4 h-4" />
+            Import Excel
           </button>
           <button 
             onClick={() => handleCetak('blank')}
@@ -1174,6 +1306,88 @@ export default function StockOpnamePage() {
             Segala bentuk perbedaan stok telah dilakukan rekonsiliasi sesuai prosedur.
          </p>
       </div>
+
+      {/* Import Preview Modal */}
+      <AnimatePresence>
+        {showImportModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm print:hidden">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-3xl shadow-2xl overflow-hidden w-full max-w-4xl max-h-[90vh] flex flex-col"
+            >
+              <div className="px-6 py-4 bg-primary text-white flex justify-between items-center">
+                <div>
+                  <h3 className="font-black text-lg uppercase tracking-tight">Preview Data Import</h3>
+                  <p className="text-xs text-primary-50">Menemukan {importData.length} baris data valid</p>
+                </div>
+                <button 
+                  onClick={() => { setShowImportModal(false); setImportData([]); }}
+                  className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto flex-1 bg-gray-50/50">
+                <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-400 uppercase text-[10px] tracking-widest">
+                        <th className="px-4 py-3 font-black">Kode Barang</th>
+                        <th className="px-4 py-3 font-black">Nama Barang</th>
+                        <th className="px-4 py-3 font-black text-right">Qty Fisik</th>
+                        <th className="px-4 py-3 font-black text-right">Harga Baru</th>
+                        <th className="px-4 py-3 font-black">Expired Date</th>
+                        <th className="px-4 py-3 font-black">Catatan</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {importData.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-primary/5 transition-colors group">
+                          <td className="px-4 py-3 font-black text-gray-900">{item.productCode}</td>
+                          <td className="px-4 py-3 font-bold text-gray-600 truncate max-w-[200px]">
+                            {item.productName || '-'}
+                            {!item.isKnown && (
+                              <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black bg-red-100 text-red-600 uppercase">
+                                Belum Terdaftar
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 font-black text-primary text-right">{item.physicalQty}</td>
+                          <td className="px-4 py-3 font-bold text-gray-600 text-right">{item.unitPrice ? `Rp ${item.unitPrice.toLocaleString('id-ID')}` : '-'}</td>
+                          <td className="px-4 py-3 font-bold text-gray-600">
+                            {item.expiryDate ? format(new Date(item.expiryDate), 'dd-MMM-yyyy') : '-'}
+                          </td>
+                          <td className="px-4 py-3 font-medium text-xs text-gray-500 italic truncate max-w-[150px]">{item.notes || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="p-6 bg-white border-t border-gray-100 flex justify-end gap-3">
+                <button 
+                  onClick={() => { setShowImportModal(false); setImportData([]); }}
+                  className="px-6 py-3 font-black text-xs uppercase tracking-widest text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  Batal
+                </button>
+                <button 
+                  onClick={handleImportSubmit}
+                  disabled={isImporting}
+                  className="px-8 py-3 bg-primary text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2"
+                >
+                  {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Proses Import
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

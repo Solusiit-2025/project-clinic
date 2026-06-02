@@ -64,11 +64,12 @@ interface Invoice {
   discount: number
   total: number
   amountPaid: number
-  status: 'paid' | 'unpaid' | 'partial' | 'cancelled'
+  status: 'paid' | 'unpaid' | 'partial' | 'cancelled' | 'pending_corporate'
   patient: {
     name: string
     medicalRecordNo: string
     phone: string
+    corporatePartnerId?: string | null
   }
   items: InvoiceItem[]
   payments: Payment[]
@@ -77,11 +78,14 @@ interface Invoice {
   isPosted: boolean
   postedAt?: string
   registration?: {
+    coverageType?: string
     queueNumbers: Array<{
       status: string
       queueDate: string
     }>
   }
+  corporateCoverageAmount?: number
+  personalAmount?: number
 }
 
 const getExamStatusBadge = (status?: string) => {
@@ -151,7 +155,8 @@ export default function FinanceDashboard() {
       notes: '',
       discount: 0,
       discountType: 'amount' as 'amount' | 'percent',
-      discountInput: 0
+      discountInput: 0,
+      corporateCoverageAmount: 0
    })
   const [processing, setProcessing] = useState(false)
   const [receivedAmount, setReceivedAmount] = useState<number>(0)
@@ -274,7 +279,8 @@ export default function FinanceDashboard() {
           bankId: paymentData.bankId || null,
           notes: paymentData.notes,
           discount: paymentData.discount,
-          discountType: paymentData.discountType
+          discountType: paymentData.discountType,
+          corporateCoverageAmount: paymentData.corporateCoverageAmount
         })
         toast.success('Pembayaran berhasil diproses')
         setShowPaymentModal(false)
@@ -283,13 +289,14 @@ export default function FinanceDashboard() {
            method: 'cash',
            amount: 0,
            transactionRef: '',
-           bankId: '',
+           bankId: paymentData.bankId || '',
            insuranceNo: '',
            insuranceProvider: '',
            notes: '',
            discount: 0,
            discountType: 'amount',
-           discountInput: 0
+           discountInput: 0,
+           corporateCoverageAmount: 0
         })
         fetchData()
     } catch (error: any) {
@@ -668,7 +675,7 @@ export default function FinanceDashboard() {
                                 <FiEye className="w-4 h-4" />
                              </button>
 
-                             {!inv.isPosted && inv.status === 'paid' && (
+                             {!inv.isPosted && ['paid', 'pending_corporate'].includes(inv.status) && (
                                 <button 
                                    onClick={() => { setInvoiceToPost(inv); setShowPostConfirmModal(true); }}
                                    className="p-3 bg-gray-50 text-emerald-500 rounded-xl hover:bg-emerald-50 transition-colors tooltip"
@@ -678,12 +685,12 @@ export default function FinanceDashboard() {
                                 </button>
                              )}
 
-                             {inv.status !== 'paid' ? (
+                             {['unpaid', 'partial'].includes(inv.status) ? (
                                 <button 
                                    disabled={['waiting', 'ongoing', 'triage', 'ready', 'called'].includes(inv.registration?.queueNumbers?.[0]?.status || '')}
                                    onClick={() => { 
                                      setSelectedInvoice(inv); 
-                                     const remaining = inv.total - (inv.amountPaid || 0);
+                                     const remaining = inv.total - (inv.amountPaid || 0) - (inv.corporateCoverageAmount || 0);
                                      setReceivedAmount(remaining); 
                                      setPaymentData({ 
                                        ...paymentData, 
@@ -691,7 +698,8 @@ export default function FinanceDashboard() {
                                        method: 'cash',
                                        discount: 0,
                                        discountInput: 0,
-                                       discountType: 'amount'
+                                       discountType: 'amount',
+                                       corporateCoverageAmount: inv.registration?.coverageType === 'CORPORATE' ? remaining : 0
                                      }); 
                                      setShowPaymentModal(true); 
                                    }} 
@@ -841,12 +849,54 @@ export default function FinanceDashboard() {
                                  <span>-{formatCurrency(selectedInvoice.amountPaid)}</span>
                               </div>
                            )}
-                           <div className="flex justify-between pt-2">
-                               <span className="text-xs font-black text-gray-900 uppercase">Subtotal Sisa</span>
-                               <span className="text-sm font-black text-gray-900">{formatCurrency(selectedInvoice.total - (selectedInvoice.amountPaid || 0))}</span>
-                            </div>
+                           {(selectedInvoice.corporateCoverageAmount || 0) > 0 && (
+                                <div className="flex justify-between text-[10px] font-bold text-blue-500 uppercase">
+                                   <span>Ditanggung Perusahaan</span>
+                                   <span>-{formatCurrency(selectedInvoice.corporateCoverageAmount || 0)}</span>
+                                </div>
+                             )}
+                            <div className="flex justify-between pt-2">
+                                <span className="text-xs font-black text-gray-900 uppercase">Subtotal Sisa</span>
+                                <span className="text-sm font-black text-gray-900">{formatCurrency(selectedInvoice.total - (selectedInvoice.amountPaid || 0) - (selectedInvoice.corporateCoverageAmount || 0))}</span>
+                             </div>
 
-                            <div className="pt-4 space-y-4">
+                             { (selectedInvoice.registration?.coverageType === 'CORPORATE' || selectedInvoice.patient?.corporatePartnerId) && (
+                                <div className="pt-4 space-y-3">
+                                   <div className="flex justify-between items-center bg-blue-50 p-2 rounded">
+                                      <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest block">Split Billing Perusahaan</label>
+                                      <button
+                                         onClick={() => {
+                                            const maxCorp = selectedInvoice.total - (selectedInvoice.amountPaid || 0) - paymentData.discount;
+                                            setPaymentData({ ...paymentData, corporateCoverageAmount: maxCorp, amount: 0 });
+                                            setReceivedAmount(0);
+                                         }}
+                                         className="text-[9px] font-black bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 uppercase"
+                                      >
+                                         Tanggung Full
+                                      </button>
+                                   </div>
+                                   <div className="relative">
+                                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-gray-400">Rp</span>
+                                      <input 
+                                         type="text" 
+                                         value={paymentData.corporateCoverageAmount ? new Intl.NumberFormat('id-ID').format(paymentData.corporateCoverageAmount) : ''}
+                                         onChange={(e) => {
+                                            const val = parseInt(e.target.value.replace(/\D/g, ''), 10) || 0;
+                                            const maxCorp = selectedInvoice.total - (selectedInvoice.amountPaid || 0) - paymentData.discount;
+                                            const finalCorp = Math.min(val, maxCorp);
+                                            const remaining = maxCorp - finalCorp;
+                                            setPaymentData({ ...paymentData, corporateCoverageAmount: finalCorp, amount: remaining });
+                                            setReceivedAmount(remaining);
+                                         }}
+                                         placeholder="0"
+                                         className="w-full pl-10 pr-4 py-3 bg-white border border-blue-200 rounded-xl text-xs font-black focus:border-blue-500 outline-none transition-all"
+                                         onFocus={(e) => e.target.select()}
+                                      />
+                                   </div>
+                                </div>
+                             )}
+
+                             <div className="pt-4 space-y-4">
                                <div className="flex items-center justify-between">
                                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tipe Diskon</label>
                                   <div className="flex bg-gray-100 p-1 rounded-xl">
@@ -890,16 +940,17 @@ export default function FinanceDashboard() {
                                            val = parseInt(valStr, 10) || 0;
                                         }
                                         
-                                        const remaining = selectedInvoice.total - (selectedInvoice.amountPaid || 0);
+                                        const baseRemaining = selectedInvoice.total - (selectedInvoice.amountPaid || 0) - (selectedInvoice.corporateCoverageAmount || 0);
                                         let discAmount = 0;
                                         if (paymentData.discountType === 'percent') {
                                            val = Math.min(val, 100);
-                                           discAmount = (val / 100) * remaining;
+                                           discAmount = (val / 100) * baseRemaining;
                                         } else {
-                                           val = Math.min(val, remaining);
+                                           val = Math.min(val, baseRemaining);
                                            discAmount = val;
                                         }
-                                        const finalAmount = Math.max(0, remaining - discAmount);
+                                        const corpCov = paymentData.corporateCoverageAmount || 0;
+                                        const finalAmount = Math.max(0, baseRemaining - discAmount - corpCov);
                                         setPaymentData({ ...paymentData, discountInput: val, discount: discAmount, amount: finalAmount });
                                         setReceivedAmount(finalAmount);
                                      }}
@@ -1015,7 +1066,7 @@ export default function FinanceDashboard() {
                                        {[50000, 100000, 150000, 200000].map(val => (
                                           <button key={val} onClick={() => setReceivedAmount(val)} className="px-4 py-2 bg-white border border-gray-200 rounded-full text-[10px] font-black text-gray-500 hover:border-primary hover:text-primary transition-all uppercase">{formatCurrency(val)}</button>
                                        ))}
-                                       <button onClick={() => setReceivedAmount(selectedInvoice.total - (selectedInvoice.amountPaid || 0))} className="px-4 py-2 bg-primary/10 border border-primary/20 rounded-full text-[10px] font-black text-primary hover:bg-primary hover:text-white transition-all uppercase">Uang Pas</button>
+                                       <button onClick={() => setReceivedAmount(paymentData.amount)} className="px-4 py-2 bg-primary/10 border border-primary/20 rounded-full text-[10px] font-black text-primary hover:bg-primary hover:text-white transition-all uppercase">Uang Pas</button>
                                     </div>
                                  </div>
 

@@ -218,6 +218,21 @@ export default function DoctorFeeReportPage() {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
   }
 
+  const toggleSelectAll = () => {
+    const unpaidFiltered = filteredData.filter(item => item.status === 'unpaid')
+    if (unpaidFiltered.length === 0) return
+
+    const allSelected = unpaidFiltered.every(item => selectedIds.includes(item.id))
+    
+    if (allSelected) {
+      const idsToRemove = unpaidFiltered.map(item => item.id)
+      setSelectedIds(prev => prev.filter(id => !idsToRemove.includes(id)))
+    } else {
+      const idsToAdd = unpaidFiltered.map(item => item.id).filter(id => !selectedIds.includes(id))
+      setSelectedIds(prev => [...prev, ...idsToAdd])
+    }
+  }
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount)
   }
@@ -362,7 +377,17 @@ export default function DoctorFeeReportPage() {
           <thead>
             <tr className="bg-slate-50/50 border-b border-slate-100">
               <th className="w-16 px-8 py-5">
-                <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" disabled />
+                <input 
+                  type="checkbox" 
+                  className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" 
+                  checked={
+                    filteredData.filter(item => item.status === 'unpaid').length > 0 &&
+                    filteredData.filter(item => item.status === 'unpaid').every(item => selectedIds.includes(item.id))
+                  }
+                  onChange={toggleSelectAll}
+                  disabled={filteredData.filter(item => item.status === 'unpaid').length === 0}
+                  title="Pilih Semua (Yang Belum Dibayar)"
+                />
               </th>
               <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tanggal & Ref</th>
               <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Pasien / Layanan</th>

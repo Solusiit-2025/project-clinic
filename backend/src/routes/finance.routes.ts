@@ -8,11 +8,14 @@ import {
 import { uploadBon } from '../middleware/procurementUpload.middleware'
 
 import { OpeningBalanceController } from '../controllers/opening-balance.controller'
+import corporateBillingRoutes from './corporateBilling.routes'
 
 const financeRoutes = Router()
 
 // All finance routes require authentication
 financeRoutes.use(authMiddleware)
+
+financeRoutes.use('/corporate-billing', corporateBillingRoutes)
 
 // Opening Balance
 financeRoutes.get('/opening-balance', OpeningBalanceController.getAll)

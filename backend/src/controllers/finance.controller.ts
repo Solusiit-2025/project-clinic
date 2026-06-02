@@ -37,7 +37,7 @@ export const getInvoices = async (req: Request, res: Response) => {
       prisma.invoice.findMany({
         where,
         include: {
-          patient: { select: { id: true, name: true, medicalRecordNo: true, phone: true } },
+          patient: { select: { id: true, name: true, medicalRecordNo: true, phone: true, corporatePartnerId: true } },
           registration: {
             include: {
               queueNumbers: {
@@ -81,18 +81,19 @@ export const getInvoices = async (req: Request, res: Response) => {
  */
 export const processPayment = async (req: Request, res: Response) => {
   try {
-    const { invoiceId, amount, paymentMethod, notes, transactionRef, bankId, discount, discountType } = req.body
+    const { invoiceId, amount, paymentMethod, notes, transactionRef, bankId, discount, discountType, corporateCoverageAmount } = req.body
     const currentClinicIdContext = (req as any).clinicId
-    const amountToPay = parseFloat(amount)
+    const amountToPay = parseFloat(amount) || 0
+    const corpCoverage = corporateCoverageAmount ? parseFloat(corporateCoverageAmount) : 0
 
-    if (!invoiceId || !paymentMethod) {
+    if (!invoiceId || (!paymentMethod && corpCoverage <= 0)) {
       return res.status(400).json({ message: 'Data pembayaran tidak lengkap' })
     }
 
     const discountValue = discount ? parseFloat(discount) : 0
 
-    if (amountToPay <= 0 && discountValue <= 0) {
-      return res.status(400).json({ message: 'Jumlah pembayaran atau diskon harus lebih dari 0' })
+    if (amountToPay <= 0 && discountValue <= 0 && corpCoverage <= 0) {
+      return res.status(400).json({ message: 'Jumlah pembayaran, diskon, atau plafon perusahaan harus lebih dari 0' })
     }
 
     // --- ATOMIC TRANSACTION ---
@@ -127,13 +128,17 @@ export const processPayment = async (req: Request, res: Response) => {
         if (existingByRef) return { alreadyProcessed: true, data: existingByRef }
       }
 
-      // 3. Balance Validation — always re-read from DB to prevent race conditions
+      // 3. Balance Validation
       const freshPayments = await tx.payment.findMany({ where: { invoiceId } })
       const totalPaidSoFar = freshPayments.reduce((sum, p) => sum + p.amount, 0)
-      const remainingBalance = currentTotal - totalPaidSoFar
 
-      if (remainingBalance <= 0) {
-        throw new Error('Invoice ini sudah LUNAS berdasarkan riwayat pembayaran.')
+      // Calculate split billing values
+      const currentCorporateCoverage = (invoice.corporateCoverageAmount || 0) + corpCoverage
+      const totalCovered = totalPaidSoFar + currentCorporateCoverage
+      const remainingBalance = currentTotal - totalCovered
+
+      if (remainingBalance <= -0.01) {
+        throw new Error('Invoice ini sudah LUNAS berdasarkan riwayat pembayaran & plafon.')
       }
       if (amountToPay > remainingBalance + 0.01) {
         throw new Error(`Kelebihan Bayar: Jumlah bayar (Rp ${amountToPay.toLocaleString('id-ID')}) melebihi sisa tagihan (Rp ${remainingBalance.toFixed(0)})`)
@@ -151,35 +156,36 @@ export const processPayment = async (req: Request, res: Response) => {
       })
       const getSysAccount = (key: string) => sysAccounts.find(s => s.key === key)
 
-      // Resolve Kas/Bank COA based on payment method
       let debitCoaId: string | undefined
-      if (paymentMethod === 'cash') {
-        // Cash: check System Accounts, then fallback to automatic clinic-code mapping
-        debitCoaId = getSysAccount('CASH_ACCOUNT')?.coaId
-        if (!debitCoaId) {
-          const clinic = await tx.clinic.findUnique({ where: { id: targetClinicId } })
-          if (clinic?.code) {
-            const pettyCashCode = `1-1101-${clinic.code}`
-            const specificCoa = await tx.chartOfAccount.findFirst({ where: { code: pettyCashCode } })
-            debitCoaId = specificCoa?.id
+      if (amountToPay > 0) {
+        if (paymentMethod === 'cash') {
+          // Cash: check System Accounts, then fallback to automatic clinic-code mapping
+          debitCoaId = getSysAccount('CASH_ACCOUNT')?.coaId
+          if (!debitCoaId) {
+            const clinic = await tx.clinic.findUnique({ where: { id: targetClinicId } })
+            if (clinic?.code) {
+              const pettyCashCode = `1-1101-${clinic.code}`
+              const specificCoa = await tx.chartOfAccount.findFirst({ where: { code: pettyCashCode } })
+              debitCoaId = specificCoa?.id
+            }
           }
+          if (!debitCoaId) {
+            debitCoaId = (await tx.chartOfAccount.findFirst({ where: { code: '1-1101' } }))?.id
+          }
+          if (!debitCoaId) throw new Error('Akun Kas (Petty Cash) tidak ditemukan. Mohon petakan CASH_ACCOUNT di System Accounts atau buat akun 1-1101.')
+        } else {
+          // Transfer: prefer bank attached to invoice, fallback to BANK_ACCOUNT system account
+          const finalBankId = bankId || (invoice as any).bankId
+          if (finalBankId) {
+            const bank = await tx.bank.findUnique({ where: { id: finalBankId } })
+            debitCoaId = bank?.coaId
+          }
+          if (!debitCoaId) {
+            // Fallback: use BANK_ACCOUNT system account
+            debitCoaId = getSysAccount('BANK_ACCOUNT')?.coaId
+          }
+          if (!debitCoaId) throw new Error('Akun Bank belum dikonfigurasi. Pilih bank di invoice atau petakan BANK_ACCOUNT di System Accounts.')
         }
-        if (!debitCoaId) {
-          debitCoaId = (await tx.chartOfAccount.findFirst({ where: { code: '1-1101' } }))?.id
-        }
-        if (!debitCoaId) throw new Error('Akun Kas (Petty Cash) tidak ditemukan. Mohon petakan CASH_ACCOUNT di System Accounts atau buat akun 1-1101.')
-      } else {
-        // Transfer: prefer bank attached to invoice, fallback to BANK_ACCOUNT system account
-        const finalBankId = bankId || (invoice as any).bankId
-        if (finalBankId) {
-          const bank = await tx.bank.findUnique({ where: { id: finalBankId } })
-          debitCoaId = bank?.coaId
-        }
-        if (!debitCoaId) {
-          // Fallback: use BANK_ACCOUNT system account
-          debitCoaId = getSysAccount('BANK_ACCOUNT')?.coaId
-        }
-        if (!debitCoaId) throw new Error('Akun Bank belum dikonfigurasi. Pilih bank di invoice atau petakan BANK_ACCOUNT di System Accounts.')
       }
 
       // Resolve AR (Piutang) COA: prefer ACCOUNTS_RECEIVABLE system account, fallback to code 1-1201
@@ -214,10 +220,20 @@ export const processPayment = async (req: Request, res: Response) => {
       // 6. Create GL Journal — DEFERRED to postInvoice() per centralized posting workflow
       //    Payments no longer affect the GL immediately. Clicking 'Post' will trigger synchronization.
 
-      // 7. Update Invoice totals (re-read from DB for accuracy)
+      // 7. Update Invoice totals
       const allPaymentsAfter = await tx.payment.findMany({ where: { invoiceId } })
       const updatedTotalPaid = allPaymentsAfter.reduce((sum, p) => sum + p.amount, 0)
-      const newStatus = updatedTotalPaid >= currentTotal - 0.01 ? 'paid' : 'partial'
+      const updatedPersonalAmount = (invoice.personalAmount || 0) + amountToPay
+
+      let newStatus = 'partial'
+      const totalCoveredFinal = updatedTotalPaid + currentCorporateCoverage
+      if (totalCoveredFinal >= currentTotal - 0.01) {
+        if (currentCorporateCoverage > 0) {
+          newStatus = 'pending_corporate'
+        } else {
+          newStatus = 'paid'
+        }
+      }
 
       const updatedInvoice = await tx.invoice.update({
         where: { id: invoiceId },
@@ -225,7 +241,9 @@ export const processPayment = async (req: Request, res: Response) => {
           amountPaid: updatedTotalPaid,
           status: newStatus,
           discount: updatedDiscount,
-          total: currentTotal
+          total: currentTotal,
+          corporateCoverageAmount: currentCorporateCoverage,
+          personalAmount: updatedPersonalAmount
         },
         include: {
           items: { include: { service: true } },
@@ -286,9 +304,9 @@ export const postInvoice = async (req: Request, res: Response) => {
 
       if (!invoice) throw new Error('Invoice tidak ditemukan')
 
-      // 2. VALIDATION: Check if at least one payment exists (User requirement: Pay then Post)
-      if (invoice.amountPaid <= 0 && invoice.total > 0) {
-        throw new Error('Invoice belum dibayar. Mohon lakukan pembayaran terlebih dahulu sebelum posting ke Buku Besar.')
+      // 2. VALIDATION: Check if at least one payment exists or it is fully covered by corporate
+      if (invoice.amountPaid <= 0 && (invoice.corporateCoverageAmount || 0) <= 0 && invoice.total > 0) {
+        throw new Error('Invoice belum dibayar. Mohon lakukan pembayaran atau tentukan plafon perusahaan terlebih dahulu sebelum posting ke Buku Besar.')
       }
 
       const commissionRecords: any[] = []
@@ -341,7 +359,14 @@ export const postInvoice = async (req: Request, res: Response) => {
 
       if (!existingMainJournal) {
         const revenueMap = new Map<string, { amount: number; coaName: string }>()
-        let totalDoctorFees = 0
+
+        // Pre-calculate fees from already generated commissions (e.g. AUTO_CONSULTATION)
+        const existingCommissions = await (tx as any).doctorCommission.findMany({
+          where: { invoiceId: invoice.id }
+        })
+        const preCalculatedFees = existingCommissions.reduce((sum: number, c: any) => sum + Number(c.amount || 0), 0)
+
+        let totalDoctorFees = preCalculatedFees
         let totalDoctorSubsidies = 0
 
         for (const item of invoice.items) {
@@ -423,6 +448,7 @@ export const postInvoice = async (req: Request, res: Response) => {
         }
 
         const arAccount = await getSysAcc('ACCOUNTS_RECEIVABLE') || await getCoaByCode('1-1201')
+        const arB2bAccount = await getSysAcc('ACCOUNTS_RECEIVABLE_B2B') || await getCoaByCode('1-1202')
         if (!arAccount) throw new Error('Akun Piutang (ACCOUNTS_RECEIVABLE) tidak tersedia.')
 
         const discountAccount = await getSysAcc('SALES_DISCOUNT') || await getCoaByCode('4-1199')
@@ -430,26 +456,21 @@ export const postInvoice = async (req: Request, res: Response) => {
         const doctorPayableAccount = await getSysAcc('DOCTOR_FEE_PAYABLE') || await getCoaByCode('2-1102')
 
         // OPSI C: Resolusi Akun Bagian Jasa Dokter (Contra-Revenue)
-        // Prioritas:
-        //   1. System Account 'DOCTOR_FEE_EXPENSE' → sudah diupdate ke 4-0101-KXxx
-        //   2. Auto: cari 4-0101-KXxx via clinic code
-        //   3. Fallback: 4-0101 global
-        //   4. Legacy fallback: 6-1102 (jika belum ada akun 4-0xxx)
         let doctorShareAccount = await getSysAcc('DOCTOR_FEE_EXPENSE')
         if (!doctorShareAccount) {
-          // Try direct 4-0101-KXXX (using clinic code pattern from resolveSpecificCoa)
-          doctorShareAccount = await getCoaByCode('4-0101') // resolveSpecificCoa will handle K001 suffix
+          doctorShareAccount = await getCoaByCode('4-0101')
         }
-        // Legacy fallback: 6-1102
         if (!doctorShareAccount) {
           doctorShareAccount = await getCoaByCode('6-1102')
         }
-        
-        // Determine if using contra-revenue (4-0xxx) vs legacy expense (6-1102)
+
         const isContraRevenue = doctorShareAccount?.code?.startsWith('4-0') || false
         const doctorFeeDesc = isContraRevenue
           ? 'Bagian Jasa Dokter (Profit Sharing)'
           : 'Beban Jasa Medik Dokter'
+
+        const b2bAmount = invoice.corporateCoverageAmount || 0
+        const personalAmount = invoice.personalAmount ?? (invoice.total - b2bAmount)
 
         await tx.journalEntry.create({
           data: {
@@ -460,7 +481,12 @@ export const postInvoice = async (req: Request, res: Response) => {
             clinicId: targetClinicId,
             details: {
               create: [
-                { coaId: arAccount.id, debit: invoice.total, credit: 0, description: `Piutang Pelanggan - Invoice ${invoice.invoiceNo}` },
+                ...(b2bAmount > 0 ? [
+                  { coaId: arB2bAccount?.id || arAccount.id, debit: b2bAmount, credit: 0, description: `Piutang Corporate B2B - Inv ${invoice.invoiceNo}` }
+                ] : []),
+                ...(personalAmount > 0 ? [
+                  { coaId: arAccount.id, debit: personalAmount, credit: 0, description: `Piutang Pasien Umum - Inv ${invoice.invoiceNo}` }
+                ] : []),
                 ...(invoice.discount > 0 ? [
                   { coaId: discountAccount?.id || arAccount.id, debit: invoice.discount, credit: 0, description: `Potongan Harga - Inv ${invoice.invoiceNo}` }
                 ] : []),

@@ -872,3 +872,176 @@ export const cancelOpname = async (req: Request, res: Response) => {
     res.status(500).json({ message: (error as Error).message });
   }
 };
+
+/**
+ * Import Opname from Excel
+ */
+export const importOpnameExcel = async (req: Request, res: Response) => {
+  try {
+    const { branchId, items } = req.body;
+    if (!branchId || !items || !Array.isArray(items)) {
+      return res.status(400).json({ message: 'Invalid payload' });
+    }
+
+    // 1. Get or create active session
+    let session = await prisma.stockOpnameSession.findFirst({
+      where: { branchId: branchId as string, status: 'DRAFT' }
+    });
+
+    if (!session) {
+      const userId = (req as any).user?.id || 'SYSTEM';
+      session = await prisma.stockOpnameSession.create({
+        data: {
+          branchId: branchId as string,
+          createdBy: userId,
+          status: 'DRAFT',
+          totalValue: 0
+        }
+      });
+    }
+
+    // 2. Map branch products
+    const branchProducts = await prisma.product.findMany({
+      where: { clinicId: branchId }
+    });
+    const productMap = new Map(branchProducts.map(p => [p.productCode?.toUpperCase(), p]));
+    const productSkuMap = new Map(branchProducts.map(p => [p.sku?.toUpperCase(), p]));
+    const productNameMap = new Map(branchProducts.map(p => [p.productName?.toUpperCase(), p]));
+
+    // 3. Pre-fetch master products to fallback
+    const masterProducts = await prisma.productMaster.findMany();
+    const masterMap = new Map(masterProducts.map(p => [p.masterCode?.toUpperCase(), p]));
+    const masterNameMap = new Map(masterProducts.map(p => [p.masterName?.toUpperCase(), p]));
+
+    const failedItems: string[] = [];
+
+    // Clean up string comparison helper (removes spaces and symbols)
+    const sanitize = (str: string) => String(str || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
+    for (const item of items) {
+      const code = String(item.productCode || '').trim().toUpperCase();
+      const name = String(item.productName || '').trim().toUpperCase();
+      if (!code && !name) continue;
+
+      let branchProduct = code ? (productMap.get(code) || productSkuMap.get(code)) : undefined;
+      
+      if (!branchProduct && name) {
+         branchProduct = productNameMap.get(name);
+         if (!branchProduct) {
+            // Fuzzy match name
+            const sanitizedName = sanitize(name);
+            branchProduct = branchProducts.find(p => p.productName && sanitize(p.productName).includes(sanitizedName));
+         }
+      }
+      
+      let targetProductId = branchProduct?.id;
+      let targetUnitPrice = item.unitPrice !== undefined ? Number(item.unitPrice) : branchProduct?.purchasePrice || 0;
+
+      if (!branchProduct) {
+        let master = code ? masterMap.get(code) : undefined;
+        if (!master && name) {
+           master = masterNameMap.get(name);
+           if (!master) {
+              const sanitizedName = sanitize(name);
+              master = masterProducts.find(p => p.masterName && sanitize(p.masterName).includes(sanitizedName));
+           }
+        }
+
+        if (master) {
+          // Auto-register to branch
+          branchProduct = await prisma.product.create({
+            data: {
+              masterProductId: master.id,
+              productCode: master.masterCode,
+              sku: master.masterCode,
+              productName: master.masterName,
+              unit: master.defaultUnit || 'pcs',
+              purchaseUnit: master.purchaseUnit || 'box',
+              storageUnit: master.storageUnit || 'pcs',
+              usedUnit: master.usedUnit || 'pcs',
+              quantity: 0,
+              minimumStock: master.minStock || 0,
+              reorderQuantity: master.reorderPoint || 0,
+              purchasePrice: master.purchasePrice || 0,
+              sellingPrice: master.sellingPrice || 0,
+              clinicId: branchId
+            },
+            include: { inventoryStocks: true }
+          });
+          targetProductId = branchProduct.id;
+          targetUnitPrice = item.unitPrice !== undefined ? Number(item.unitPrice) : master.purchasePrice || 0;
+          
+          if (code) productMap.set(code, branchProduct);
+          if (name) productNameMap.set(name, branchProduct);
+        }
+      }
+
+      if (!targetProductId) {
+        failedItems.push(code || name);
+        continue;
+      }
+
+      // Check if already in session
+      const existingItem = await prisma.stockOpnameItem.findFirst({
+        where: { sessionId: session.id, productId: targetProductId }
+      });
+
+      if (existingItem) {
+        // Update physical qty
+        await prisma.stockOpnameItem.update({
+          where: { id: existingItem.id },
+          data: {
+            physicalQty: Number(item.physicalQty || 0),
+            unitPrice: targetUnitPrice,
+            subtotal: Number(item.physicalQty || 0) * targetUnitPrice,
+            diffQty: Number(item.physicalQty || 0) - existingItem.systemQty,
+            notes: item.notes ? String(item.notes) : existingItem.notes,
+            expiryDate: item.expiryDate ? new Date(item.expiryDate) : existingItem.expiryDate
+          }
+        });
+      } else {
+        // Create new item in session
+        await prisma.stockOpnameItem.create({
+          data: {
+            sessionId: session.id,
+            productId: targetProductId,
+            systemQty: 0,
+            physicalQty: Number(item.physicalQty || 0),
+            diffQty: Number(item.physicalQty || 0),
+            unitPrice: targetUnitPrice,
+            subtotal: Number(item.physicalQty || 0) * targetUnitPrice,
+            notes: item.notes ? String(item.notes) : null,
+            expiryDate: item.expiryDate ? new Date(item.expiryDate) : null,
+            status: 'DRAFT'
+          }
+        });
+      }
+    }
+
+    // Recalculate session total
+    const allItems = await prisma.stockOpnameItem.findMany({ where: { sessionId: session.id } });
+    const totalValue = allItems.reduce((sum, i) => sum + i.subtotal, 0);
+    await prisma.stockOpnameSession.update({
+      where: { id: session.id },
+      data: { totalValue }
+    });
+
+    if (failedItems.length > 0) {
+      console.log(`[Import Excel] Failed to match ${failedItems.length} items. Samples:`, failedItems.slice(0, 20));
+      return res.status(200).json({
+        message: 'Partial success',
+        added: items.length - failedItems.length,
+        failed: failedItems
+      });
+    }
+
+    res.json({ message: 'Success', added: items.length });
+
+  } catch (error) {
+    console.error('[InventoryController] importOpnameExcel Error:', error);
+    res.status(500).json({
+      message: 'Internal server error during import',
+      details: (error as Error).message
+    });
+  }
+};

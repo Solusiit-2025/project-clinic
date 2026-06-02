@@ -34,13 +34,14 @@ const EMPTY = {
   bpjsNumber: '',
   insuranceName: '',
   patientType: 'Poli Umum',
+  corporatePartnerId: '',
   isActive: true 
 }
 
 type Patient = typeof EMPTY & { id: string; createdAt: string; updatedAt: string; age?: number }
 
 export default function PatientsPage() {
-  const { user } = useAuthStore()
+  const { user, activeClinicId } = useAuthStore()
   const isAllowed = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'DOCTOR' || user?.role === 'NURSE' || user?.role === 'STAFF'
   const [data, setData] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
@@ -55,6 +56,19 @@ export default function PatientsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [updatedId, setUpdatedId] = useState<string | null>(null)
+  const [corporatePartners, setCorporatePartners] = useState<{id: string, name: string}[]>([])
+
+  const fetchCorporatePartners = useCallback(async () => {
+    if (!activeClinicId) return
+    try {
+      const res = await api.get('/master/corporate-partners', { params: { clinicId: activeClinicId } })
+      setCorporatePartners(res.data.filter((c: any) => c.isActive))
+    } catch (e) { console.error('Failed to fetch corporate partners', e) }
+  }, [activeClinicId])
+
+  useEffect(() => {
+    fetchCorporatePartners()
+  }, [fetchCorporatePartners])
 
   // Debounce logic
   useEffect(() => {
@@ -118,7 +132,8 @@ export default function PatientsPage() {
       province: r.province || '',
       address: r.address || '',
       email: r.email || '',
-      patientType: r.patientType || 'Poli Umum'
+      patientType: r.patientType || 'Poli Umum',
+      corporatePartnerId: r.corporatePartnerId || ''
     })
     setError(''); setModalOpen(true)
   }
@@ -398,6 +413,20 @@ export default function PatientsPage() {
                         </button>
                       ))}
                     </div>
+                  </div>
+                  
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-[11px] font-medium text-slate-500">Karyawan Perusahaan (Corporate Partner)</label>
+                    <select 
+                      value={form.corporatePartnerId || ''} 
+                      onChange={(e) => setForm(p => ({...p, corporatePartnerId: e.target.value}))}
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all"
+                    >
+                      <option value="">-- Bukan Pasien Perusahaan --</option>
+                      {corporatePartners.map(cp => (
+                        <option key={cp.id} value={cp.id}>{cp.name}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>

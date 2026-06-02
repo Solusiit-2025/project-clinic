@@ -24,6 +24,13 @@ export const resetTransactions = async (req: Request, res: Response) => {
       const branchFilter = clinicId ? { branchId: clinicId } : {};
 
       // 1. Finance & Billing
+      await tx.payment.deleteMany({ where: clinicId ? { invoice: { clinicId } } : {} });
+      await tx.corporatePayment.deleteMany({ where: clinicId ? { corporateInvoice: { clinicId } } : {} });
+      await tx.corporateInvoice.deleteMany({ where: clinicFilter });
+      await tx.doctorCommission.deleteMany({ where: clinicFilter });
+      await tx.cashTransfer.deleteMany({ where: clinicFilter });
+      await tx.openingBalanceItem.deleteMany({ where: clinicId ? { openingBalance: { clinicId } } : {} });
+      await tx.openingBalance.deleteMany({ where: clinicFilter });
       await tx.invoiceItem.deleteMany({ where: clinicId ? { invoice: { clinicId } } : {} });
       await tx.invoice.deleteMany({ where: clinicFilter });
       await tx.journalDetail.deleteMany({ where: clinicId ? { journalEntry: { clinicId } } : {} });
@@ -32,6 +39,8 @@ export const resetTransactions = async (req: Request, res: Response) => {
       await tx.financialReport.deleteMany({ where: clinicFilter });
 
       // 2. Inventory & Stock
+      await tx.directMedicinePurchaseItem.deleteMany({ where: clinicId ? { directMedicinePurchase: { clinicId } } : {} });
+      await tx.directMedicinePurchase.deleteMany({ where: clinicFilter });
       await tx.inventoryMutation.deleteMany({ where: branchFilter });
       await tx.inventoryReturn.deleteMany({ where: branchFilter });
       await tx.inventoryAuditLog.deleteMany({ where: branchFilter });
@@ -53,8 +62,19 @@ export const resetTransactions = async (req: Request, res: Response) => {
       await tx.prescription.deleteMany({ where: clinicId ? { medicalRecord: { clinicId } } : {} });
       await tx.medicalRecordAttachment.deleteMany({ where: clinicId ? { medicalRecord: { clinicId } } : {} });
       await tx.medicalRecordService.deleteMany({ where: clinicId ? { medicalRecord: { clinicId } } : {} });
+      await tx.referral.deleteMany({ where: clinicId ? { medicalRecord: { clinicId } } : {} });
       await tx.radiologyOrder.deleteMany({ where: clinicId ? { medicalRecord: { clinicId } } : {} });
+      await tx.labResultDetail.deleteMany({ where: clinicId ? { order: { medicalRecord: { clinicId } } } : {} });
+      await tx.labOrderAttachment.deleteMany({ where: clinicId ? { labOrder: { medicalRecord: { clinicId } } } : {} });
       await tx.labOrder.deleteMany({ where: clinicId ? { medicalRecord: { clinicId } } : {} });
+      
+      // If Reset ALL, also clear Treatment Plans
+      if (!clinicId) {
+        await tx.visit.deleteMany();
+        await tx.treatmentPlanItem.deleteMany();
+        await tx.treatmentPlan.deleteMany();
+      }
+
       await tx.medicalRecord.deleteMany({ where: clinicFilter });
 
       // 4. Registration & Operational

@@ -65,6 +65,7 @@ export const FINANCE_GROUPS = [
     moduleId: 'BILLING_PAYMENT',
     items: [
       { icon: FiFileText, label: 'Invoice & Bayar', href: '/admin/finance' },
+      { icon: FiBriefcase, label: 'Tagihan Perusahaan (B2B)', href: '/admin/finance/corporate-billing' },
       { icon: FiDollarSign, label: 'Pengeluaran Operasional', href: '/admin/finance/expenses' },
       { icon: FiRepeat, label: 'Transfer Antar Kas', href: '/admin/finance/cash-transfer' },
       { icon: FiDollarSign, label: 'Laporan Jasa Medik', href: '/admin/finance/reports/doctor-fees', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTING', 'STAFF', 'RECEPTIONIST'] },
@@ -165,6 +166,7 @@ export const MASTER_GROUPS = [
       { icon: FiClock, label: 'Jadwal Praktek', href: '/admin/master/schedules' },
       { icon: FiBriefcase, label: 'Departemen & Poli', href: '/admin/master/departments' },
       { icon: FiActivity, label: 'Daftar Layanan/Tindakan', href: '/admin/master/services' },
+      { icon: FiBriefcase, label: 'Perusahaan Relasi (B2B)', href: '/admin/master/corporate-partners' },
     ]
   },
   {

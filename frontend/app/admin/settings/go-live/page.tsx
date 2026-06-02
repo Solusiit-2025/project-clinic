@@ -91,20 +91,22 @@ export default function GoLiveSetupPage() {
                 <div className="grid grid-cols-2 gap-4 mt-4">
                   <div className="bg-white/50 p-4 rounded-xl space-y-1">
                     <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest">Data yang Dihapus:</p>
-                    <ul className="text-[11px] font-bold text-rose-800 list-disc list-inside">
-                      <li>Semua Invoice & Jurnal</li>
-                      <li>Semua Antrean & Registrasi</li>
-                      <li>Semua Rekam Medis & Resep</li>
-                      <li>Semua Stok & Riwayat Mutasi</li>
+                    <ul className="text-[11px] font-bold text-rose-800 list-disc list-inside space-y-1">
+                      <li><strong>Keuangan:</strong> Invoice, Corporate Billing, Cash Transfer, Expenses, Saldo Awal & Jurnal</li>
+                      <li><strong>Operasional:</strong> Antrean, Registrasi & Rujukan</li>
+                      <li><strong>Medis & Farmasi:</strong> Rekam Medis, Lab, Resep & Pembelian Karyawan</li>
+                      <li><strong>Inventori:</strong> Mutasi Stok, PO & Pembelian</li>
+                      <li><strong>HR:</strong> Komisi Dokter (Doctor Fees)</li>
                     </ul>
                   </div>
                   <div className="bg-white/50 p-4 rounded-xl space-y-1">
                     <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Data yang Aman:</p>
                     <ul className="text-[11px] font-bold text-emerald-800 list-disc list-inside">
-                      <li>Master Obat & Produk</li>
-                      <li>Master Dokter & User</li>
-                      <li>Master Cabang & Poli</li>
-                      <li>Struktur Chart of Account</li>
+                      <li>Master Pasien, Dokter & User</li>
+                      <li>Master Obat, Produk & Harga</li>
+                      <li>Master Perusahaan & Aset</li>
+                      <li>Rekening Bank & COA</li>
+                      <li>Master Poli & ICD-10</li>
                     </ul>
                   </div>
                 </div>

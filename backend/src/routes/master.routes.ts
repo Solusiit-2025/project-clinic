@@ -30,6 +30,10 @@ import {
   depreciateAsset, depreciateAllAssets, disposeAsset, getAssetRegister, syncAssetOpeningBalance
 } from '../controllers/assetFinance.controller'
 
+import {
+  getCorporatePartners, createCorporatePartner, updateCorporatePartner, deleteCorporatePartner
+} from '../controllers/corporatePartner.controller'
+
 import { upload, uploadDocument } from '../middleware/upload.middleware'
 
 const masterRoutes = Router()
@@ -184,5 +188,11 @@ masterRoutes.delete('/banks/:id', deleteBank)
 masterRoutes.get('/system-accounts', getSystemAccounts)
 masterRoutes.post('/system-accounts', updateSystemAccount)
 masterRoutes.post('/system-accounts/seed', seedSystemAccounts)
+
+// Corporate Partners
+masterRoutes.get('/corporate-partners', getCorporatePartners)
+masterRoutes.post('/corporate-partners', createCorporatePartner)
+masterRoutes.put('/corporate-partners/:id', updateCorporatePartner)
+masterRoutes.delete('/corporate-partners/:id', deleteCorporatePartner)
 
 export default masterRoutes
