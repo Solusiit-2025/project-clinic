@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { getDoctorFeeReport, createManualCommission, payCommissions, updateDoctorCommission, deleteDoctorCommission } from '../controllers/report.controller'
+import { getDoctorFeeReport, createManualCommission, payCommissions, updateDoctorCommission, deleteDoctorCommission, getDiagnosisReport } from '../controllers/report.controller'
 import { authMiddleware, roleMiddleware } from '../middleware/auth.middleware'
 
 const router = Router()
@@ -12,5 +12,7 @@ router.post('/manual-commission', roleMiddleware(['SUPER_ADMIN', 'ADMIN', 'STAFF
 router.post('/pay-commissions', roleMiddleware(['SUPER_ADMIN', 'ADMIN', 'STAFF', 'ACCOUNTING']), payCommissions)
 router.put('/doctor-fees/:id', roleMiddleware(['SUPER_ADMIN', 'ADMIN', 'STAFF', 'ACCOUNTING']), updateDoctorCommission)
 router.delete('/doctor-fees/:id', roleMiddleware(['SUPER_ADMIN', 'ADMIN', 'STAFF', 'ACCOUNTING']), deleteDoctorCommission)
+
+router.get('/diagnosis', roleMiddleware(['SUPER_ADMIN', 'ADMIN', 'STAFF', 'NURSE', 'DOCTOR']), getDiagnosisReport)
 
 export default router

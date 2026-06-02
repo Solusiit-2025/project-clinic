@@ -351,3 +351,89 @@ export const deleteDoctorCommission = async (req: Request, res: Response) => {
     res.status(500).json({ message: e.message })
   }
 }
+
+/**
+ * Get Patient Diagnosis Report
+ */
+export const getDiagnosisReport = async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate, clinicId, page: pageParam, search } = req.query
+    const currentClinicId = (req as any).clinicId
+    const isAdminView = (req as any).isAdminView
+
+    const { skip, take, page, limit } = getPaginationOptions(req.query)
+
+    const dateWhere: any = {}
+    if (startDate) {
+      dateWhere.gte = parseLocalDate(String(startDate))
+    }
+    if (endDate) {
+      dateWhere.lte = parseLocalDate(String(endDate), true)
+    }
+
+    const finalClinicId = isAdminView 
+      ? (clinicId ? String(clinicId) : undefined)
+      : (currentClinicId || (clinicId ? String(clinicId) : undefined))
+
+    const where: any = {
+      ...(finalClinicId ? { clinicId: finalClinicId } : {}),
+      ...(Object.keys(dateWhere).length > 0 ? { recordDate: dateWhere } : {}),
+      OR: [
+        { diagnosis: { not: null } },
+        { icd10Id: { not: null } }
+      ],
+      ...(search ? {
+        OR: [
+          { patient: { name: { contains: String(search), mode: 'insensitive' } } },
+          { patient: { medicalRecordNo: { contains: String(search), mode: 'insensitive' } } },
+          { diagnosis: { contains: String(search), mode: 'insensitive' } },
+          { icd10: { code: { contains: String(search), mode: 'insensitive' } } },
+          { icd10: { nameId: { contains: String(search), mode: 'insensitive' } } }
+        ]
+      } : {})
+    }
+
+    const [total, results] = await Promise.all([
+      prisma.medicalRecord.count({ where }),
+      prisma.medicalRecord.findMany({
+        where,
+        include: {
+          patient: { select: { name: true, medicalRecordNo: true, gender: true, dateOfBirth: true } },
+          doctor: { select: { name: true } },
+          icd10: { select: { code: true, nameId: true } }
+        },
+        orderBy: { recordDate: 'desc' },
+        skip: pageParam ? skip : undefined,
+        take: pageParam ? take : undefined,
+      })
+    ])
+
+    const reportData = results.map((item: any) => ({
+      id: item.id,
+      recordNo: item.recordNo,
+      recordDate: item.recordDate,
+      patientName: item.patient?.name || 'N/A',
+      patientMRN: item.patient?.medicalRecordNo || 'N/A',
+      patientGender: item.patient?.gender || '-',
+      patientAge: item.patient?.dateOfBirth 
+        ? Math.floor((new Date().getTime() - new Date(item.patient.dateOfBirth).getTime()) / 31557600000) 
+        : null,
+      doctorName: item.doctor?.name || '-',
+      diagnosis: item.diagnosis || '-',
+      icd10Code: item.icd10?.code || null,
+      icd10Name: item.icd10?.nameId || null
+    }))
+
+    if (pageParam) {
+      const result: PaginatedResult<any> = {
+        data: reportData,
+        meta: { total, page, limit, totalPages: Math.ceil(total / limit) }
+      }
+      return res.json(result)
+    }
+
+    res.json(reportData)
+  } catch (e: any) {
+    res.status(500).json({ message: e.message })
+  }
+}

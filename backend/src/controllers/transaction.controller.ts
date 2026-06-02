@@ -18,12 +18,12 @@ export const createRegistration = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Patient ID dan Clinic ID wajib diisi' })
     }
 
-    // 0. Validation: Check if patient has already registered in the last 2 hours
-    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000)
+    // 0. Validation: Check if patient has already registered in the last 5 minutes
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
     const existingRegistration = await prisma.registration.findFirst({
       where: {
         patientId,
-        createdAt: { gte: twoHoursAgo },
+        createdAt: { gte: fiveMinutesAgo },
         status: 'completed'
       },
       orderBy: { createdAt: 'desc' }
@@ -31,7 +31,7 @@ export const createRegistration = async (req: Request, res: Response) => {
 
     if (existingRegistration) {
       return res.status(400).json({ 
-        message: 'Pasien sudah terdaftar dalam 2 jam terakhir. Mohon tunggu sebelum melakukan pendaftaran kembali.' 
+        message: 'Pasien sudah terdaftar dalam 5 menit terakhir. Mohon tunggu sebelum melakukan pendaftaran kembali.' 
       })
     }
 
