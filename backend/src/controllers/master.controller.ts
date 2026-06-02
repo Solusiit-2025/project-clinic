@@ -2131,7 +2131,7 @@ export const getNextMRNo = async (req: Request, res: Response) => {
 
 export const createPatient = async (req: Request, res: Response) => {
   try {
-    const { dateOfBirth, ...rest } = req.body
+    const { dateOfBirth, corporatePartnerId, ...rest } = req.body
     
     // Safer date parsing to prevent Prisma errors
     let dob = null
@@ -2142,11 +2142,18 @@ export const createPatient = async (req: Request, res: Response) => {
       }
     }
 
+    const dataPayload: any = {
+      ...rest,
+      dateOfBirth: dob
+    }
+    if (corporatePartnerId && corporatePartnerId !== '') {
+      dataPayload.corporatePartnerId = corporatePartnerId
+    } else {
+      dataPayload.corporatePartnerId = null
+    }
+
     const patient = await prisma.patient.create({
-      data: {
-        ...rest,
-        dateOfBirth: dob
-      }
+      data: dataPayload
     })
     res.status(201).json(patient)
   } catch (e: any) {
@@ -2158,7 +2165,7 @@ export const createPatient = async (req: Request, res: Response) => {
 export const updatePatient = async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { dateOfBirth, ...rest } = req.body
+    const { dateOfBirth, corporatePartnerId, ...rest } = req.body
 
     // Safer date parsing
     let dob = null
@@ -2169,12 +2176,19 @@ export const updatePatient = async (req: Request, res: Response) => {
       }
     }
 
+    const dataPayload: any = {
+      ...rest,
+      dateOfBirth: dob
+    }
+    if (corporatePartnerId && corporatePartnerId !== '') {
+      dataPayload.corporatePartnerId = corporatePartnerId
+    } else {
+      dataPayload.corporatePartnerId = null
+    }
+
     const patient = await prisma.patient.update({
       where: { id },
-      data: {
-        ...rest,
-        dateOfBirth: dob
-      }
+      data: dataPayload
     })
     res.json(patient)
   } catch (e) {
