@@ -4,7 +4,7 @@ import {
   FiBriefcase, FiUserCheck, FiClock, FiActivity,
   FiPackage, FiShoppingBag, FiList, FiMenu, FiX, FiBox,
   FiChevronLeft, FiFolder, FiCpu, FiPlus, FiDollarSign, FiFileText, FiTrendingUp, FiLayers, FiBookOpen, FiLock, FiCreditCard,
-  FiTool, FiRepeat, FiShield, FiBarChart2, FiAlertCircle, FiArchive, FiRefreshCw, FiUser
+  FiTool, FiRepeat, FiShield, FiBarChart2, FiAlertCircle, FiArchive, FiRefreshCw, FiUser, FiHeart, FiXCircle
 } from 'react-icons/fi'
 import { HiOutlineBeaker } from 'react-icons/hi'
 
@@ -32,8 +32,11 @@ export const LAYANAN_UTAMA_GROUPS = [
       { icon: FiActivity, label: 'Nurse Station (Triage)', href: '/admin/transactions/nurse', roles: ['SUPER_ADMIN', 'ADMIN', 'NURSE'] },
       { icon: FiUserCheck, label: 'Doctor Station', href: '/admin/transactions/doctor', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR'] },
       { icon: FiLayers, label: 'Rangkaian Perawatan', href: '/admin/transactions/treatment-plans', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'STAFF'] },
+      { icon: FiHeart, label: 'Persalinan / Kelahiran', href: '/admin/transactions/births', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'STAFF'] },
+      { icon: FiXCircle, label: 'Pencatatan Kematian', href: '/admin/transactions/deaths', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'STAFF'] },
       { icon: FiUsers, label: 'Database Pasien', href: '/admin/master/patients', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'STAFF'] },
       { icon: FiFileText, label: 'Laporan Diagnosa', href: '/admin/reports/diagnosis', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'STAFF'] },
+      { icon: FiFileText, label: 'Laporan Bulanan Dinkes', href: '/admin/reports/lbk', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'STAFF'] },
     ]
   },
   {

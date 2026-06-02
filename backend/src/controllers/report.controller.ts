@@ -437,3 +437,193 @@ export const getDiagnosisReport = async (req: Request, res: Response) => {
     res.status(500).json({ message: e.message })
   }
 }
+
+/**
+ * Get Laporan Bulanan Klinik (LBK)
+ */
+export const getLbkReport = async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate, clinicId } = req.query;
+    const currentClinicId = (req as any).clinicId;
+    const isAdminView = (req as any).isAdminView;
+
+    const dateWhere: any = {};
+    if (startDate) {
+      dateWhere.gte = parseLocalDate(String(startDate));
+    }
+    if (endDate) {
+      dateWhere.lte = parseLocalDate(String(endDate), true);
+    }
+
+    const finalClinicId = isAdminView 
+      ? (clinicId ? String(clinicId) : undefined)
+      : (currentClinicId || (clinicId ? String(clinicId) : undefined));
+
+    const where: any = {
+      ...(finalClinicId ? { clinicId: finalClinicId } : {}),
+      ...(Object.keys(dateWhere).length > 0 ? { recordDate: dateWhere } : {}),
+      icd10Id: { not: null }
+    };
+
+    const records = await prisma.medicalRecord.findMany({
+      where,
+      include: {
+        patient: { select: { id: true, gender: true, dateOfBirth: true } },
+        icd10: { select: { id: true, code: true, nameId: true, nameEn: true } }
+      }
+    });
+
+    const referralsCount = await prisma.referral.count({
+      where: {
+        medicalRecord: {
+          ...(finalClinicId ? { clinicId: finalClinicId } : {}),
+          ...(Object.keys(dateWhere).length > 0 ? { recordDate: dateWhere } : {})
+        }
+      }
+    });
+
+    const births = await prisma.birthRecord.findMany({
+      where: {
+        ...(Object.keys(dateWhere).length > 0 ? { birthDate: dateWhere } : {})
+      },
+      include: {
+        patient: { select: { name: true, address: true } }
+      }
+    });
+
+    const deaths = await prisma.patient.findMany({
+      where: {
+        isDeceased: true,
+        ...(Object.keys(dateWhere).length > 0 ? { dateOfDeath: dateWhere } : {})
+      },
+      include: {
+        deathIcd10: { select: { code: true, nameId: true, nameEn: true } }
+      }
+    });
+
+    const registrations = await prisma.registration.findMany({
+      where: {
+        ...(finalClinicId ? { clinicId: finalClinicId } : {}),
+        ...(Object.keys(dateWhere).length > 0 ? { registrationDate: dateWhere } : {})
+      },
+      include: { patient: { select: { createdAt: true } } }
+    });
+
+    const totalVisits = registrations.length;
+    // Anggap kunjungan baru jika pasien dibuat pada bulan yang sama dengan pendaftaran
+    // Cara ideal: cek apakah ini registrasi pertama pasien tersebut.
+    // Sebagai aproksimasi cepat, kita cek rentang waktunya.
+    const newVisits = registrations.filter(r => {
+      if (startDate) {
+        return new Date(r.patient.createdAt) >= parseLocalDate(String(startDate));
+      }
+      return false; // Jika tidak ada startDate, kita anggap semua lama
+    }).length;
+    const oldVisits = totalVisits - newVisits;
+
+    // Hitung Umur dalam hari/bulan/tahun
+    const getAgeGroup = (dob: Date | null | undefined, recordDate: Date) => {
+      if (!dob) return 'unknown';
+      const diffTime = Math.abs(recordDate.getTime() - new Date(dob).getTime());
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays <= 7) return '0-7h';
+      if (diffDays <= 28) return '8-28h';
+      if (diffDays <= 335) return '1-11b'; // approx 11 months
+      
+      const ageYrs = Math.floor(diffDays / 365.25);
+      if (ageYrs >= 1 && ageYrs <= 4) return '1-4t';
+      if (ageYrs >= 5 && ageYrs <= 9) return '5-9t';
+      if (ageYrs >= 10 && ageYrs <= 14) return '10-14t';
+      if (ageYrs >= 15 && ageYrs <= 19) return '15-19t';
+      if (ageYrs >= 20 && ageYrs <= 44) return '20-44t';
+      if (ageYrs >= 45 && ageYrs <= 59) return '45-59t';
+      if (ageYrs > 59) return '>59t';
+      return 'unknown';
+    };
+
+    // Cari kasus lama vs baru per penyakit per pasien
+    // Untuk ini, ambil record pertama pasien untuk tiap icd10 sebelum endDate
+    const patientIcdKeys = Array.from(new Set(records.map(r => `${r.patientId}_${r.icd10Id}`)));
+    
+    // Karena kita tidak ingin loop satu-satu (lama), kita group by patientId & icd10Id
+    const firstRecords = await prisma.medicalRecord.groupBy({
+      by: ['patientId', 'icd10Id'],
+      where: {
+        icd10Id: { not: null },
+        ...(finalClinicId ? { clinicId: finalClinicId } : {}),
+        ...(dateWhere.lte ? { recordDate: { lte: dateWhere.lte } } : {})
+      },
+      _min: {
+        recordDate: true
+      }
+    });
+
+    const firstRecordMap = new Map();
+    firstRecords.forEach(r => {
+      firstRecordMap.set(`${r.patientId}_${r.icd10Id}`, r._min.recordDate);
+    });
+
+    const morbidityMap = new Map<string, any>();
+
+    records.forEach(r => {
+      const icdCode = r.icd10?.code || 'Unknown';
+      const icdName = r.icd10?.nameId || r.icd10?.nameEn || 'Unknown';
+      const gender = (r.patient?.gender === 'L' || r.patient?.gender === 'Laki-laki') ? 'L' : 'P';
+      const ageGroup = getAgeGroup(r.patient?.dateOfBirth, r.recordDate);
+      
+      const pKey = `${r.patientId}_${r.icd10Id}`;
+      const firstDate = firstRecordMap.get(pKey);
+      
+      // Jika firstDate ada di range ini (>= startDate), maka Kasus Baru.
+      // Jika firstDate < startDate, maka Kasus Lama.
+      let isBaru = true;
+      if (firstDate && startDate) {
+        if (new Date(firstDate) < parseLocalDate(String(startDate))) {
+          isBaru = false;
+        }
+      } else if (firstDate && !startDate) {
+        isBaru = false; // Jika ga ada start date, semua dari awal dianggap lama kecuali dirinya sendiri (agak bias, kita anggap baru)
+      }
+
+      if (!morbidityMap.has(icdCode)) {
+        morbidityMap.set(icdCode, {
+          icdCode,
+          icdName,
+          kasusBaru: 0,
+          kasusLama: 0,
+          demografi: {
+            '0-7h': { L: 0, P: 0 }, '8-28h': { L: 0, P: 0 }, '1-11b': { L: 0, P: 0 },
+            '1-4t': { L: 0, P: 0 }, '5-9t': { L: 0, P: 0 }, '10-14t': { L: 0, P: 0 },
+            '15-19t': { L: 0, P: 0 }, '20-44t': { L: 0, P: 0 }, '45-59t': { L: 0, P: 0 },
+            '>59t': { L: 0, P: 0 }, 'unknown': { L: 0, P: 0 }
+          }
+        });
+      }
+
+      const item = morbidityMap.get(icdCode);
+      if (isBaru) item.kasusBaru++; else item.kasusLama++;
+      if (item.demografi[ageGroup]) {
+        item.demografi[ageGroup][gender]++;
+      }
+    });
+
+    const morbidityList = Array.from(morbidityMap.values());
+    const topDiseases = [...morbidityList].sort((a, b) => (b.kasusBaru + b.kasusLama) - (a.kasusBaru + a.kasusLama)).slice(0, 10);
+
+    res.json({
+      visits: {
+        total: totalVisits,
+        baru: newVisits,
+        lama: oldVisits,
+        rujukan: referralsCount
+      },
+      morbidity: morbidityList,
+      topDiseases,
+      births,
+      deaths
+    });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
+  }
+}

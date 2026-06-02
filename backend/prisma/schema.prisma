@@ -130,10 +130,19 @@ model Patient {
   oldMedicalRecordNo String?           @unique
   patientType        String?           @default("Poli Umum")
   corporatePartnerId String?
+  
+  isDeceased         Boolean           @default(false)
+  dateOfDeath        DateTime?
+  deathPlace         String?
+  deathCause         String?
+  deathIcd10Id       String?
+  deathIcd10         Icd10?            @relation("DeathIcd", fields: [deathIcd10Id], references: [id])
+  
   appointments       Appointment[]
   invoices           Invoice[]
   labOrders          LabOrder[]
   medicalRecords     MedicalRecord[]
+  birthRecords       BirthRecord[]
   corporatePartner   CorporatePartner? @relation(fields: [corporatePartnerId], references: [id])
   prescriptions      Prescription[]
   queueNumbers       QueueNumber[]
@@ -404,6 +413,7 @@ model MedicalRecord {
   radiologyOrders    RadiologyOrder[]
   referrals          Referral[]
   vitals             VitalSign[]
+  birthRecord        BirthRecord?
 
   @@index([patientId])
   @@index([doctorId])
@@ -1663,6 +1673,7 @@ model Icd10 {
   description    String?
   version        String?
   medicalRecords MedicalRecord[]
+  deathPatients  Patient[]       @relation("DeathIcd")
 
   @@index([code])
   @@index([nameEn])
@@ -1862,4 +1873,27 @@ enum AccountType {
 enum TreatmentPlanStatus {
   ACTIVE
   COMPLETED
+}
+
+model BirthRecord {
+  id              String        @id @default(uuid())
+  medicalRecordId String?       @unique
+  patientId       String
+  babyName        String?
+  gender          String?
+  birthDate       DateTime
+  gestationalAge  Int?
+  weight          Float?
+  length          Float?
+  isNormalBirth   Boolean       @default(true)
+  imd             Boolean       @default(false)
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  patient         Patient       @relation(fields: [patientId], references: [id])
+  medicalRecord   MedicalRecord? @relation(fields: [medicalRecordId], references: [id])
+
+  @@index([patientId])
+  @@map("birth_records")
 }
