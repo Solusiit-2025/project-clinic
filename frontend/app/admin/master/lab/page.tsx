@@ -35,6 +35,7 @@ export default function LabMasterPage() {
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [showInactive, setShowInactive] = useState(false)
 
   const isAdmin = useMemo(() => user && ['SUPER_ADMIN', 'ADMIN'].includes(user.role), [user])
 
@@ -142,19 +143,52 @@ export default function LabMasterPage() {
 
   // Hierarchical Sorting Logic
   const hierarchicalData = useMemo(() => {
-    // 1. Filter by search
-    const filtered = data.filter(r => 
-      r.name.toLowerCase().includes(search.toLowerCase()) || 
-      r.code.toLowerCase().includes(search.toLowerCase()) ||
-      r.category.toLowerCase().includes(search.toLowerCase())
-    );
+    let itemsToProcess = showInactive ? data : data.filter(r => r.isActive);
 
-    // If searching, just show flat list to avoid confusion
-    if (search) return filtered;
+    if (search) {
+      const lowerSearch = search.toLowerCase();
+      const matchedIds = new Set<string>();
+
+      itemsToProcess.forEach(r => {
+        if (
+          r.name.toLowerCase().includes(lowerSearch) || 
+          r.code.toLowerCase().includes(lowerSearch) ||
+          r.category.toLowerCase().includes(lowerSearch)
+        ) {
+          matchedIds.add(r.id);
+        }
+      });
+
+      let addedMore = true;
+      while (addedMore) {
+        addedMore = false;
+        itemsToProcess.forEach(r => {
+          if (matchedIds.has(r.id)) {
+            if (r.parents) {
+              r.parents.forEach(p => {
+                if (!matchedIds.has(p.id)) {
+                  matchedIds.add(p.id);
+                  addedMore = true;
+                }
+              });
+            }
+            if (r.children) {
+              r.children.forEach(c => {
+                if (!matchedIds.has(c.id)) {
+                  matchedIds.add(c.id);
+                  addedMore = true;
+                }
+              });
+            }
+          }
+        });
+      }
+      itemsToProcess = itemsToProcess.filter(r => matchedIds.has(r.id));
+    }
 
     // 2. Build Hierarchy recursively
-    const parents = filtered.filter(r => !r.parents || r.parents.length === 0);
-    const children = filtered.filter(r => r.parents && r.parents.length > 0);
+    const parents = itemsToProcess.filter(r => !r.parents || r.parents.length === 0);
+    const children = itemsToProcess.filter(r => r.parents && r.parents.length > 0);
 
     const result: LabTest[] = [];
 
@@ -185,7 +219,7 @@ export default function LabMasterPage() {
     orphans.forEach(orphan => addNode(orphan, 0, ''));
 
     return result;
-  }, [data, search])
+  }, [data, search, showInactive])
 
   return (
     <div>
@@ -211,6 +245,19 @@ export default function LabMasterPage() {
         onEdit={isAdmin ? openEdit : undefined} onDelete={isAdmin ? handleDelete : undefined}
         emptyText="Belum ada data parameter laboratorium."
         keyField="_renderKey"
+        extraFilters={
+          <div className="flex items-center space-x-2 ml-4">
+            <button 
+              role="switch"
+              aria-checked={showInactive}
+              onClick={() => setShowInactive(!showInactive)} 
+              className={`peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 ${showInactive ? 'bg-primary' : 'bg-slate-200'}`}
+            >
+              <span className={`pointer-events-none block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform ${showInactive ? 'translate-x-4' : 'translate-x-0'}`} />
+            </button>
+            <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wide cursor-pointer" onClick={() => setShowInactive(!showInactive)}>Tampilkan Nonaktif</span>
+          </div>
+        }
       />
 
       <MasterModal isOpen={modalOpen} onClose={() => setModalOpen(false)}
