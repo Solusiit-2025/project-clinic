@@ -28,6 +28,7 @@ interface Queue {
   department: { name: string } | null
   hasMedicalRecord: boolean
   createdAt: string
+  updatedAt: string
   medicalRecord?: {
     id: string
     vitals?: {
