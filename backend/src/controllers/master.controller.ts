@@ -2162,6 +2162,10 @@ export const createPatient = async (req: Request, res: Response) => {
       ...rest,
       dateOfBirth: dob
     }
+
+    if (dataPayload.oldMedicalRecordNo === '') {
+      dataPayload.oldMedicalRecordNo = null;
+    }
     if (corporatePartnerId && corporatePartnerId !== '') {
       dataPayload.corporatePartnerId = corporatePartnerId
     } else {
@@ -2202,6 +2206,10 @@ export const updatePatient = async (req: Request, res: Response) => {
     const dataPayload: any = {
       ...rest,
       dateOfBirth: dob
+    }
+
+    if (dataPayload.oldMedicalRecordNo === '') {
+      dataPayload.oldMedicalRecordNo = null;
     }
     if (corporatePartnerId && corporatePartnerId !== '') {
       dataPayload.corporatePartnerId = corporatePartnerId
