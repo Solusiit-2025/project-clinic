@@ -534,6 +534,20 @@ export default function ProductsPage() {
                         className="flex w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-sm font-medium text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary outline-none" 
                      />
                   </div>
+
+                  <div className="space-y-2 pt-2 border-t border-gray-100">
+                     <Label className="text-gray-500 uppercase tracking-wider text-[10px] font-black">Status Produk</Label>
+                     <div className="flex gap-4">
+                       <label className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border cursor-pointer transition-all ${form.isActive ? 'border-primary bg-primary/5 text-primary' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>
+                         <input type="radio" checked={form.isActive} onChange={() => setForm(p => ({...p, isActive: true}))} className="hidden" />
+                         <span className="text-xs font-black uppercase tracking-widest">Aktif</span>
+                       </label>
+                       <label className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border cursor-pointer transition-all ${!form.isActive ? 'border-red-500 bg-red-50 text-red-600' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>
+                         <input type="radio" checked={!form.isActive} onChange={() => setForm(p => ({...p, isActive: false}))} className="hidden" />
+                         <span className="text-xs font-black uppercase tracking-widest">Tidak Aktif</span>
+                       </label>
+                     </div>
+                  </div>
                 </motion.div>
               )}
 

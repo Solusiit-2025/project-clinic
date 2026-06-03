@@ -1088,8 +1088,12 @@ export const deleteMedicine = async (req: Request, res: Response) => {
   try {
     await prisma.medicine.delete({ where: { id: req.params.id } })
     res.json({ message: 'Obat berhasil dihapus' })
-  } catch (e) {
-    res.status(500).json({ message: (e as Error).message })
+  } catch (e: any) {
+    if (e?.code === 'P2003' || (e?.message && e.message.includes('Foreign key constraint violated'))) {
+      return res.status(400).json({ message: 'Tidak dapat menghapus obat karena sudah memiliki data transaksi atau master terkait. Silakan nonaktifkan (set tidak aktif) obat ini sebagai gantinya.' })
+    }
+    console.error('Delete Medicine Error:', e)
+    res.status(500).json({ message: e?.message || 'Terjadi kesalahan' })
   }
 }
 
@@ -1350,8 +1354,12 @@ export const deleteProductMaster = async (req: Request, res: Response) => {
   try {
     await prisma.productMaster.delete({ where: { id: req.params.id } })
     res.json({ message: 'Master produk berhasil dihapus' })
-  } catch (e) {
-    res.status(500).json({ message: (e as Error).message })
+  } catch (e: any) {
+    if (e?.code === 'P2003' || (e?.message && e.message.includes('Foreign key constraint violated'))) {
+      return res.status(400).json({ message: 'Tidak dapat menghapus master produk karena sudah memiliki transaksi, stok, atau data terkait. Silakan nonaktifkan (set tidak aktif) produk ini sebagai gantinya.' })
+    }
+    console.error('Delete ProductMaster Error:', e)
+    res.status(500).json({ message: e?.message || 'Terjadi kesalahan' })
   }
 }
 
