@@ -958,8 +958,9 @@ export const getMedicalRecordByRegistration = async (req: Request, res: Response
                                 select: { quantity: true, sellingPrice: true }
                             })
                             if (item.medicine) {
-                                (item.medicine as any).stock = product ? product.quantity : 0
-                                (item.medicine as any).sellingPrice = product ? product.sellingPrice : 0
+                                const med: any = item.medicine;
+                                med.stock = product ? product.quantity : 0;
+                                med.sellingPrice = product ? product.sellingPrice : 0;
                             }
                         }
 
@@ -974,8 +975,9 @@ export const getMedicalRecordByRegistration = async (req: Request, res: Response
                                         select: { quantity: true, sellingPrice: true }
                                     })
                                     if (comp.medicine) {
-                                        (comp.medicine as any).stock = product ? product.quantity : 0
-                                        (comp.medicine as any).sellingPrice = product ? product.sellingPrice : 0
+                                        const med: any = comp.medicine;
+                                        med.stock = product ? product.quantity : 0;
+                                        med.sellingPrice = product ? product.sellingPrice : 0;
                                     }
                                 }
                             }
