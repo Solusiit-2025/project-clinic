@@ -275,15 +275,16 @@ export default function LabInputPage() {
       ])
       // Add items
       items.forEach(r => {
+        const indent = '  '.repeat((r._depth || 0) * 2)
         if (r.isParent) {
           tableData.push([
-            { content: r.testName, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [248, 250, 252], textColor: [51, 65, 85] } }
+            { content: indent + r.testName, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [248, 250, 252], textColor: [51, 65, 85] } }
           ])
         } else {
           tableData.push([
-            r.parentId ? `   ${r.testName}` : r.testName,
+            indent + r.testName,
             r.resultValue,
-            r.unit,
+            r.unit ? r.unit.replace(/\u03BC/g, '\u00B5') : '',
             r.normalRange,
             r.isCritical ? '*' : ''
           ])
@@ -427,15 +428,16 @@ export default function LabInputPage() {
       ])
       // Add items
       items.forEach(r => {
+        const indent = '  '.repeat((r._depth || 0) * 2)
         if (r.isParent) {
           tableData.push([
-            { content: r.testName, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [248, 250, 252], textColor: [51, 65, 85] } }
+            { content: indent + r.testName, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [248, 250, 252], textColor: [51, 65, 85] } }
           ])
         } else {
           tableData.push([
-            r.parentId ? `   ${r.testName}` : r.testName,
+            indent + r.testName,
             r.resultValue,
-            r.unit,
+            r.unit ? r.unit.replace(/\u03BC/g, '\u00B5') : '',
             r.normalRange,
             r.isCritical ? '*' : ''
           ])
