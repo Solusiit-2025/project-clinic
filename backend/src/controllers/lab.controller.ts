@@ -16,7 +16,10 @@ export const getLabTestMasters = async (req: Request, res: Response) => {
     const tests = await prisma.labTestMaster.findMany({
       where,
       include: { children: true, parents: true },
-      orderBy: { category: 'asc' }
+      orderBy: [
+        { category: 'asc' },
+        { code: 'asc' }
+      ]
     })
     res.json(tests)
   } catch (e) {

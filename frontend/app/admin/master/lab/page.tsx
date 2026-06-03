@@ -21,6 +21,7 @@ type LabTest = {
   normalRangeText?: string; minNormal?: number; maxNormal?: number; price: number; isActive: boolean;
   parents: { id: string, name: string }[];
   children: { id: string, name: string }[];
+  _depth?: number;
 }
 
 export default function LabMasterPage() {
@@ -99,11 +100,12 @@ export default function LabMasterPage() {
     const cols: Column<LabTest>[] = [
       { key: 'code', label: 'Kode', render: (r) => <span className="text-xs font-bold font-mono text-gray-500 bg-gray-50 px-2 py-1 rounded-lg">{r.code}</span> },
       { key: 'name', label: 'Nama Parameter', render: (r) => {
-        const isChild = r.parents && r.parents.length > 0;
+        const isChild = r._depth ? r._depth > 0 : (r.parents && r.parents.length > 0);
         const hasChildren = r.children && r.children.length > 0;
+        const depth = r._depth || (isChild ? 1 : 0);
 
         return (
-          <div className={`flex items-center gap-2 ${isChild ? 'pl-6' : ''}`}>
+          <div className="flex items-center gap-2" style={{ paddingLeft: depth > 0 ? `${depth * 1.5}rem` : '0' }}>
             {isChild && <span className="text-gray-300">↳</span>}
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
@@ -149,26 +151,36 @@ export default function LabMasterPage() {
     // If searching, just show flat list to avoid confusion
     if (search) return filtered;
 
-    // 2. Build Hierarchy
+    // 2. Build Hierarchy recursively
     const parents = filtered.filter(r => !r.parents || r.parents.length === 0);
     const children = filtered.filter(r => r.parents && r.parents.length > 0);
 
     const result: LabTest[] = [];
+    const addedIds = new Set<string>();
 
-    // Group parents by category to maintain DataTable's grouping expectation
-    const sortedParents = [...parents].sort((a, b) => a.category.localeCompare(b.category));
-
-    sortedParents.forEach(parent => {
-      result.push(parent);
-      // Find and add its children immediately after
-      const itsChildren = children.filter(c => c.parents.some(p => p.id === parent.id));
-      result.push(...itsChildren);
+    const sortedParents = [...parents].sort((a, b) => {
+      if (a.category !== b.category) return a.category.localeCompare(b.category);
+      return (a.code || '').localeCompare(b.code || '');
     });
 
+    const addNode = (node: LabTest, depth: number = 0) => {
+      if (addedIds.has(node.id)) return;
+      
+      const nodeWithDepth = { ...node, _depth: depth };
+      result.push(nodeWithDepth);
+      addedIds.add(node.id);
+
+      // Add its children
+      const itsChildren = children.filter(c => c.parents.some(p => p.id === node.id));
+      itsChildren.sort((a, b) => (a.code || '').localeCompare(b.code || ''));
+      itsChildren.forEach(child => addNode(child, depth + 1));
+    };
+
+    sortedParents.forEach(parent => addNode(parent, 0));
+
     // Add orphaned children (if any)
-    const addedIds = new Set(result.map(r => r.id));
     const orphans = children.filter(c => !addedIds.has(c.id));
-    result.push(...orphans);
+    orphans.forEach(orphan => addNode(orphan, 0));
 
     return result;
   }, [data, search])
