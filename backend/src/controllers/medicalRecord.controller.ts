@@ -861,6 +861,41 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
       console.log(`[Socket] Emit queue-updated (draft/save) to clinic:${result.clinicId}`)
     }
 
+    if (isFinal) {
+      if (prescriptions && Array.isArray(prescriptions) && prescriptions.length > 0) {
+        const notif = await prisma.notification.create({
+          data: {
+            clinicId: result.clinicId!,
+            targetRole: 'FARMASI',
+            title: 'Resep Baru Masuk',
+            message: `Terdapat resep baru untuk pasien ${(result as any).patient?.name || 'Pasien'}.`,
+            type: 'NEW_PRESCRIPTION',
+            referenceId: result.id
+          }
+        })
+        if (io) io.to(`clinic:${result.clinicId}`).emit('new-notification', notif)
+      }
+
+      const hasLab = services && Array.isArray(services) && services.some((s: any) => 
+        s.isLab || 
+        (s.name && s.name.toUpperCase().includes('LAB')) ||
+        (s.serviceName && s.serviceName.toUpperCase().includes('LAB'))
+      )
+      if (hasLab) {
+        const notif = await prisma.notification.create({
+          data: {
+            clinicId: result.clinicId!,
+            targetRole: 'LAB',
+            title: 'Permintaan Lab Baru',
+            message: `Terdapat pesanan laboratorium baru untuk pasien ${(result as any).patient?.name || 'Pasien'}.`,
+            type: 'NEW_LAB_ORDER',
+            referenceId: result.id
+          }
+        })
+        if (io) io.to(`clinic:${result.clinicId}`).emit('new-notification', notif)
+      }
+    }
+
     res.status(200).json(result)
   } catch (e) {
     const error = e as Error

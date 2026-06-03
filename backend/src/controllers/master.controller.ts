@@ -2142,6 +2142,13 @@ export const createPatient = async (req: Request, res: Response) => {
       }
     }
 
+    // Strip out relational objects and non-updateable fields sent by frontend
+    delete rest.id;
+    delete rest.createdAt;
+    delete rest.updatedAt;
+    delete rest.corporatePartner;
+    delete rest.deathIcd10;
+
     const dataPayload: any = {
       ...rest,
       dateOfBirth: dob
@@ -2175,6 +2182,13 @@ export const updatePatient = async (req: Request, res: Response) => {
         dob = parsedDate
       }
     }
+
+    // Strip out relational objects and non-updateable fields sent by frontend
+    delete rest.id;
+    delete rest.createdAt;
+    delete rest.updatedAt;
+    delete rest.corporatePartner;
+    delete rest.deathIcd10;
 
     const dataPayload: any = {
       ...rest,

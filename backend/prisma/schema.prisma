@@ -62,6 +62,7 @@ model Clinic {
   stockOpnames            StockOpnameSession[]
   systemAccounts          SystemAccount[]
   users                   UserClinic[]
+  notifications           Notification[]
 
   @@map("clinics")
 }
@@ -1896,4 +1897,20 @@ model BirthRecord {
 
   @@index([patientId])
   @@map("birth_records")
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  clinicId    String
+  targetRole  String?  // e.g., "FARMASI", "LAB"
+  title       String
+  message     String
+  isRead      Boolean  @default(false)
+  type        String   // e.g., "NEW_PRESCRIPTION", "NEW_LAB_ORDER"
+  referenceId String?  
+  createdAt   DateTime @default(now())
+  clinic      Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  
+  @@index([clinicId, targetRole, isRead])
+  @@map("notifications")
 }

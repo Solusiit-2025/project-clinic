@@ -12,6 +12,16 @@ import 'jspdf-autotable'
 // Utilities
 const formatCurrency = (val: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val || 0)
 
+const formatYMD = (date: Date) => {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+const today = new Date()
+const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+
 export default function DiagnosisReportPage() {
   const { user, activeClinicId } = useAuthStore()
 
@@ -20,17 +30,22 @@ export default function DiagnosisReportPage() {
   const [loading, setLoading] = useState(true)
 
   // Filters
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0])
+  const [startDate, setStartDate] = useState(formatYMD(firstDay))
+  const [endDate, setEndDate] = useState(formatYMD(today))
   const [search, setSearch] = useState('')
+
+  // Pagination
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const limit = 20
 
   useEffect(() => {
     if (activeClinicId) {
-      fetchData()
+      fetchData(1)
     }
   }, [activeClinicId])
 
-  const fetchData = async () => {
+  const fetchData = async (currentPage = page) => {
     if (!activeClinicId) return
     setLoading(true)
     try {
@@ -39,16 +54,26 @@ export default function DiagnosisReportPage() {
           startDate,
           endDate,
           clinicId: activeClinicId,
-          search: search || undefined
+          search: search || undefined,
+          page: currentPage,
+          limit
         }
       })
-      setData(res.data)
+      setData(res.data.data || res.data)
+      if (res.data.meta) {
+        setTotalPages(res.data.meta.totalPages)
+      }
     } catch (error: any) {
       console.error(error)
       toast.error('Gagal mengambil data laporan diagnosa')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleFilter = () => {
+    setPage(1)
+    fetchData(1)
   }
 
   const handlePrint = () => {
@@ -91,7 +116,7 @@ export default function DiagnosisReportPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 animate-fade-in print:p-0 print:m-0 print:block">
+    <div className="w-full space-y-6 animate-fade-in print:p-0 print:m-0 print:block">
       {/* HEADER - Hidden on Print */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 print:hidden">
         <div className="flex items-center gap-4">
@@ -155,14 +180,14 @@ export default function DiagnosisReportPage() {
                 placeholder="Ketik kata kunci..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && fetchData()}
+                onKeyDown={e => e.key === 'Enter' && handleFilter()}
                 className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-bold text-gray-900 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
               />
             </div>
           </div>
           <div className="flex items-end">
             <button
-              onClick={fetchData}
+              onClick={handleFilter}
               disabled={loading}
               className="w-full py-3 bg-gray-900 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-gray-800 transition-colors shadow-lg shadow-gray-900/20 disabled:opacity-50"
             >
@@ -260,6 +285,37 @@ export default function DiagnosisReportPage() {
           </table>
         </div>
       </div>
+
+      {/* PAGINATION */}
+      {totalPages > 1 && (
+        <div className="flex justify-between items-center bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100 print:hidden mt-4">
+          <button
+            onClick={() => {
+              const p = page - 1;
+              setPage(p);
+              fetchData(p);
+            }}
+            disabled={page === 1}
+            className="px-4 py-2 bg-gray-50 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition-colors flex items-center gap-2 text-sm shadow-sm border border-gray-200 disabled:opacity-50"
+          >
+            Sebelumnya
+          </button>
+          <span className="text-sm font-bold text-gray-600">
+            Halaman {page} dari {totalPages}
+          </span>
+          <button
+            onClick={() => {
+              const p = page + 1;
+              setPage(p);
+              fetchData(p);
+            }}
+            disabled={page === totalPages}
+            className="px-4 py-2 bg-gray-50 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition-colors flex items-center gap-2 text-sm shadow-sm border border-gray-200 disabled:opacity-50"
+          >
+            Selanjutnya
+          </button>
+        </div>
+      )}
     </div>
   )
 }

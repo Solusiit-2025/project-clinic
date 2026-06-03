@@ -6,8 +6,10 @@ import { useAuthStore } from '@/lib/store/useAuthStore'
 import { useThemeStore } from '@/lib/store/useThemeStore'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import ClinicSwitcher from './ClinicSwitcher'
 import api from '@/lib/api'
+import { socket } from '@/lib/socket'
 
 interface AdminNavbarProps {
   onMobileMenuOpen?: () => void
@@ -19,7 +21,11 @@ export default function AdminNavbar({ onMobileMenuOpen }: AdminNavbarProps) {
   const logout = useAuthStore(state => state.logout)
   const { theme, toggleTheme } = useThemeStore()
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [isNotifOpen, setIsNotifOpen] = useState(false)
+  const [notifications, setNotifications] = useState<any[]>([])
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const notifRef = useRef<HTMLDivElement>(null)
+  const router = useRouter()
 
   const clinics = user?.clinics || []
   const activeClinic = clinics.find(c => c.id === activeClinicId) || clinics[0]
@@ -29,9 +35,46 @@ export default function AdminNavbar({ onMobileMenuOpen }: AdminNavbarProps) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false)
       }
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setIsNotifOpen(false)
+      }
     }
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+
+    // Fetch initial notifications
+    const fetchNotifications = async () => {
+      try {
+        const res = await api.get('notifications', {
+          headers: { 'x-clinic-id': activeClinicId }
+        })
+        setNotifications(res.data)
+      } catch (error) {
+        console.error('Failed to fetch notifications', error)
+      }
+    }
+    if (activeClinicId && user) {
+      fetchNotifications()
+    }
+
+    // Socket listener
+    const handleNewNotification = (notif: any) => {
+      // Check if it's meant for us
+      if (!notif.targetRole || notif.targetRole === user?.role) {
+        setNotifications(prev => [notif, ...prev].slice(0, 50)) // keep 50 latest
+        // Play sound
+        try {
+          const audio = new Audio('/sounds/ting.mp3') // assuming we have a sound file, or just fallback
+          audio.play().catch(e => {})
+        } catch(e) {}
+      }
+    }
+
+    socket.on('new-notification', handleNewNotification)
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      socket.off('new-notification', handleNewNotification)
+    }
   }, [])
 
   return (
@@ -93,13 +136,78 @@ export default function AdminNavbar({ onMobileMenuOpen }: AdminNavbarProps) {
         </button>
 
         {/* Notification bell */}
-        <button
-          className="relative p-2 rounded-xl transition-all"
-          style={{ backgroundColor: 'var(--bg-surface-2)', color: 'var(--text-muted)' }}
-        >
-          <FiBell className="w-4 h-4" />
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-white" />
-        </button>
+        <div className="relative" ref={notifRef}>
+          <button
+            onClick={() => setIsNotifOpen(!isNotifOpen)}
+            className="relative p-2 rounded-xl transition-all"
+            style={{ backgroundColor: 'var(--bg-surface-2)', color: 'var(--text-muted)' }}
+          >
+            <FiBell className="w-4 h-4" />
+            {notifications.filter(n => !n.isRead).length > 0 && (
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-white" />
+            )}
+          </button>
+
+          <AnimatePresence>
+            {isNotifOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 6, scale: 0.96 }}
+                transition={{ duration: 0.15 }}
+                className="absolute right-0 mt-2 w-72 rounded-2xl shadow-2xl border z-50 overflow-hidden flex flex-col"
+                style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)', maxHeight: '400px' }}
+              >
+                <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border)' }}>
+                  <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>Notifikasi</span>
+                  {notifications.filter(n => !n.isRead).length > 0 && (
+                    <button 
+                      onClick={async () => {
+                        await api.put('notifications/read-all', {}, { headers: { 'x-clinic-id': activeClinicId } })
+                        setNotifications(notifications.map(n => ({...n, isRead: true})))
+                      }}
+                      className="text-[10px] text-primary hover:underline font-semibold"
+                    >
+                      Tandai semua dibaca
+                    </button>
+                  )}
+                </div>
+                
+                <div className="overflow-y-auto flex-1 p-2 space-y-1">
+                  {notifications.length === 0 ? (
+                    <p className="text-center text-xs p-4" style={{ color: 'var(--text-faint)' }}>Belum ada notifikasi.</p>
+                  ) : (
+                    notifications.map(n => (
+                      <div 
+                        key={n.id} 
+                        onClick={async () => {
+                          if (!n.isRead) {
+                            await api.put(`notifications/${n.id}/read`)
+                            setNotifications(notifications.map(x => x.id === n.id ? {...x, isRead: true} : x))
+                          }
+                          setIsNotifOpen(false)
+                          if (n.type === 'NEW_PRESCRIPTION') router.push('/admin/pharmacy')
+                          if (n.type === 'NEW_LAB_ORDER') router.push('/admin/lab')
+                        }}
+                        className={`p-3 rounded-xl cursor-pointer transition-all border ${!n.isRead ? 'bg-primary/5 border-primary/20' : 'hover:bg-gray-50 dark:hover:bg-white/5 border-transparent'}`}
+                      >
+                        <p className={`text-xs font-bold ${!n.isRead ? 'text-primary' : ''}`} style={{ color: n.isRead ? 'var(--text-primary)' : undefined }}>
+                          {n.title}
+                        </p>
+                        <p className="text-[10px] mt-0.5 leading-tight" style={{ color: 'var(--text-secondary)' }}>
+                          {n.message}
+                        </p>
+                        <p className="text-[9px] mt-1.5 font-medium opacity-50" style={{ color: 'var(--text-faint)' }}>
+                          {new Date(n.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         <div className="h-5 w-px hidden sm:block" style={{ backgroundColor: 'var(--border)' }} />
 

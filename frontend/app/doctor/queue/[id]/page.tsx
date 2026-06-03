@@ -463,40 +463,8 @@ export default function DoctorConsultationPage() {
             setPrescriptionItems(savedItems)
           }
 
-          if (data.consultationDraft) {
-            const draft = data.consultationDraft;
-            if (draft.prescriptions) {
-              // Merge draft prescriptions with availableStock from previously loaded DB prescriptions
-              // to avoid losing stock info when draft overrides
-              setPrescriptionItems(draft.prescriptions.map((dp: any) => ({
-                ...dp,
-                // Keep availableStock if it exists in draft, else mark as unknown (server will validate)
-                availableStock: dp.availableStock ?? undefined,
-                alreadySavedInDB: false,
-                isExternal: dp.isExternal ||
-                  dp.instructions?.includes('(Apotek Luar)') ||
-                  dp.instructions?.includes('[Eksternal]') ||
-                  dp.instructions?.includes('Apotek Luar') ||
-                  dp.instructions?.includes('Eksternal')
-              })));
-            }
-            if (draft.services) {
-              // Separate general services and lab services
-              const generalServices = draft.services.filter((s: any) => !s.isLab);
-              const labServices = draft.services.filter((s: any) => s.isLab);
-
-              setServiceItems(generalServices);
-              // Map labServices back to the format expected by labItems state if needed
-              setLabItems(labServices.map((s: any) => ({
-                id: s.serviceId,
-                serviceName: s.name || s.serviceName,
-                price: s.price,
-                serviceCode: s.code || s.serviceCode
-              })));
-            }
-          }
-          // In actual completed items, they should come from actual medical record services if present
-          if (data.services && data.services.length > 0 && qData.status === 'completed') {
+          // Load saved actual services from DB if present
+          if (data.services && data.services.length > 0) {
             const allSavedServices = data.services.map((s: any) => ({
               serviceId: s.serviceId,
               name: s.service?.serviceName || 'Layanan',
@@ -515,6 +483,39 @@ export default function DoctorConsultationPage() {
               price: s.price,
               serviceCode: s.code
             })));
+          }
+
+          if (data.consultationDraft) {
+            const draft = data.consultationDraft;
+            if (draft.prescriptions) {
+              // Merge draft prescriptions with availableStock from previously loaded DB prescriptions
+              // to avoid losing stock info when draft overrides
+              setPrescriptionItems(draft.prescriptions.map((dp: any) => ({
+                ...dp,
+                // Keep availableStock if it exists in draft, else mark as unknown (server will validate)
+                availableStock: dp.availableStock ?? undefined,
+                alreadySavedInDB: false,
+                isExternal: dp.isExternal ||
+                  dp.instructions?.includes('(Apotek Luar)') ||
+                  dp.instructions?.includes('[Eksternal]') ||
+                  dp.instructions?.includes('Apotek Luar') ||
+                  dp.instructions?.includes('Eksternal')
+              })));
+            }
+            if (draft.services && draft.services.length > 0) {
+              // Separate general services and lab services
+              const generalServices = draft.services.filter((s: any) => !s.isLab);
+              const labServices = draft.services.filter((s: any) => s.isLab);
+
+              setServiceItems(generalServices);
+              // Map labServices back to the format expected by labItems state if needed
+              setLabItems(labServices.map((s: any) => ({
+                id: s.serviceId,
+                serviceName: s.name || s.serviceName,
+                price: s.price,
+                serviceCode: s.code || s.serviceCode
+              })));
+            }
           }
         }
 
