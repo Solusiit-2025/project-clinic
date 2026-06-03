@@ -385,6 +385,16 @@ export default function PatientDetailPage() {
                                       )}
                                    </div>
                                  )}
+                                 {record.secondaryIcd10s && record.secondaryIcd10s.length > 0 && (
+                                   <div className="flex flex-col gap-2 mt-2">
+                                     {record.secondaryIcd10s.map((sec: any) => (
+                                       <div key={sec.id} className="flex items-center gap-2">
+                                         <span className="text-[9px] font-black bg-slate-700 text-slate-300 px-2 py-0.5 rounded">{sec.code}</span>
+                                         <span className="text-[11px] font-bold text-slate-400">{sec.nameId || sec.nameEn}</span>
+                                       </div>
+                                     ))}
+                                   </div>
+                                 )}
                                  <p className="text-md font-black text-white leading-relaxed">
                                    {record.diagnosis || (record.icd10 ? '' : 'Observasi Klinis')}
                                  </p>

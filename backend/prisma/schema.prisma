@@ -406,7 +406,8 @@ model MedicalRecord {
   doctor             Doctor?                   @relation(fields: [doctorId], references: [id])
   guestAssignment    GuestDoctorAssignment?    @relation(fields: [guestAssignmentId], references: [id])
   guestDoctor        GuestDoctorProfile?       @relation(fields: [guestDoctorId], references: [id])
-  icd10              Icd10?                    @relation(fields: [icd10Id], references: [id])
+  icd10              Icd10?                    @relation("PrimaryDiagnosis", fields: [icd10Id], references: [id])
+  secondaryIcd10s    Icd10[]                   @relation("MedicalRecordSecondaryIcd10s")
   patient            Patient                   @relation(fields: [patientId], references: [id], onDelete: Cascade)
   registration       Registration?             @relation(fields: [registrationId], references: [id])
   treatmentPlanRef   TreatmentPlan?            @relation(fields: [treatmentPlanId], references: [id])
@@ -1674,7 +1675,8 @@ model Icd10 {
   updatedAt      DateTime        @updatedAt
   description    String?
   version        String?
-  medicalRecords MedicalRecord[]
+  medicalRecords MedicalRecord[] @relation("PrimaryDiagnosis")
+  secondaryInRecords MedicalRecord[] @relation("MedicalRecordSecondaryIcd10s")
   deathPatients  Patient[]       @relation("DeathIcd")
 
   @@index([code])

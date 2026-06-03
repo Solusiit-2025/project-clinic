@@ -380,7 +380,8 @@ export const getDiagnosisReport = async (req: Request, res: Response) => {
       ...(Object.keys(dateWhere).length > 0 ? { recordDate: dateWhere } : {}),
       OR: [
         { diagnosis: { not: null } },
-        { icd10Id: { not: null } }
+        { icd10Id: { not: null } },
+        { secondaryIcd10s: { some: {} } }
       ],
       ...(search ? {
         OR: [
@@ -400,7 +401,8 @@ export const getDiagnosisReport = async (req: Request, res: Response) => {
         include: {
           patient: { select: { name: true, medicalRecordNo: true, gender: true, dateOfBirth: true } },
           doctor: { select: { name: true } },
-          icd10: { select: { code: true, nameId: true } }
+          icd10: { select: { code: true, nameId: true } },
+          secondaryIcd10s: { select: { code: true, nameId: true } }
         },
         orderBy: { recordDate: 'desc' },
         skip: pageParam ? skip : undefined,
@@ -408,21 +410,31 @@ export const getDiagnosisReport = async (req: Request, res: Response) => {
       })
     ])
 
-    const reportData = results.map((item: any) => ({
-      id: item.id,
-      recordNo: item.recordNo,
-      recordDate: item.recordDate,
-      patientName: item.patient?.name || 'N/A',
-      patientMRN: item.patient?.medicalRecordNo || 'N/A',
-      patientGender: item.patient?.gender || '-',
-      patientAge: item.patient?.dateOfBirth 
-        ? Math.floor((new Date().getTime() - new Date(item.patient.dateOfBirth).getTime()) / 31557600000) 
-        : null,
-      doctorName: item.doctor?.name || '-',
-      diagnosis: item.diagnosis || '-',
-      icd10Code: item.icd10?.code || null,
-      icd10Name: item.icd10?.nameId || null
-    }))
+    const reportData = results.map((item: any) => {
+      const primaryCode = item.icd10?.code ? [item.icd10.code] : []
+      const secondaryCodes = (item.secondaryIcd10s || []).map((s: any) => s.code)
+      const allCodes = [...primaryCode, ...secondaryCodes].join(', ') || null
+
+      const primaryName = item.icd10?.nameId ? [item.icd10.nameId] : []
+      const secondaryNames = (item.secondaryIcd10s || []).map((s: any) => s.nameId)
+      const allNames = [...primaryName, ...secondaryNames].join('; ') || null
+
+      return {
+        id: item.id,
+        recordNo: item.recordNo,
+        recordDate: item.recordDate,
+        patientName: item.patient?.name || 'N/A',
+        patientMRN: item.patient?.medicalRecordNo || 'N/A',
+        patientGender: item.patient?.gender || '-',
+        patientAge: item.patient?.dateOfBirth 
+          ? Math.floor((new Date().getTime() - new Date(item.patient.dateOfBirth).getTime()) / 31557600000) 
+          : null,
+        doctorName: item.doctor?.name || '-',
+        diagnosis: item.diagnosis || '-',
+        icd10Code: allCodes,
+        icd10Name: allNames
+      }
+    })
 
     if (pageParam) {
       const result: PaginatedResult<any> = {
@@ -462,19 +474,25 @@ export const getLbkReport = async (req: Request, res: Response) => {
     const where: any = {
       ...(finalClinicId ? { clinicId: finalClinicId } : {}),
       ...(Object.keys(dateWhere).length > 0 ? { recordDate: dateWhere } : {}),
-      icd10Id: { not: null }
+      OR: [
+        { icd10Id: { not: null } },
+        { secondaryIcd10s: { some: {} } }
+      ]
     };
 
     const records = await prisma.medicalRecord.findMany({
       where,
       include: {
         patient: { select: { id: true, gender: true, dateOfBirth: true } },
-        icd10: { select: { id: true, code: true, nameId: true, nameEn: true } }
+        icd10: { select: { id: true, code: true, nameId: true, nameEn: true } },
+        secondaryIcd10s: { select: { id: true, code: true, nameId: true, nameEn: true } }
       }
     });
 
+    // FIX: Filter referral hanya yang sudah terkirim/selesai (bukan pending)
     const referralsCount = await prisma.referral.count({
       where: {
+        status: { notIn: ['pending'] },
         medicalRecord: {
           ...(finalClinicId ? { clinicId: finalClinicId } : {}),
           ...(Object.keys(dateWhere).length > 0 ? { recordDate: dateWhere } : {})
@@ -482,23 +500,53 @@ export const getLbkReport = async (req: Request, res: Response) => {
       }
     });
 
+    // FIX: BirthRecord di-filter by clinicId melalui relasi medicalRecord
     const births = await prisma.birthRecord.findMany({
       where: {
-        ...(Object.keys(dateWhere).length > 0 ? { birthDate: dateWhere } : {})
+        ...(Object.keys(dateWhere).length > 0 ? { birthDate: dateWhere } : {}),
+        ...(finalClinicId ? { medicalRecord: { clinicId: finalClinicId } } : {})
       },
       include: {
         patient: { select: { name: true, address: true } }
       }
     });
 
-    const deaths = await prisma.patient.findMany({
+    // FIX: Deaths di-filter clinicId via medicalRecords, ambil dateOfBirth untuk hitung umur
+    const deathsRaw = await prisma.patient.findMany({
       where: {
         isDeceased: true,
-        ...(Object.keys(dateWhere).length > 0 ? { dateOfDeath: dateWhere } : {})
+        ...(Object.keys(dateWhere).length > 0 ? { dateOfDeath: dateWhere } : {}),
+        ...(finalClinicId ? { medicalRecords: { some: { clinicId: finalClinicId } } } : {})
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        identityNumber: true,
+        address: true,
+        gender: true,
+        dateOfBirth: true,
+        dateOfDeath: true,
+        deathPlace: true,
+        deathCause: true,
         deathIcd10: { select: { code: true, nameId: true, nameEn: true } }
       }
+    });
+
+    // Hitung umur saat meninggal dari dateOfBirth
+    const deaths = deathsRaw.map((p: any) => {
+      let age: string | null = null;
+      if (p.dateOfBirth && p.dateOfDeath) {
+        const ageYears = Math.floor(
+          (new Date(p.dateOfDeath).getTime() - new Date(p.dateOfBirth).getTime()) / 31557600000
+        );
+        age = `${ageYears} tahun`;
+      } else if (p.dateOfBirth) {
+        const ageYears = Math.floor(
+          (new Date().getTime() - new Date(p.dateOfBirth).getTime()) / 31557600000
+        );
+        age = `${ageYears} tahun`;
+      }
+      return { ...p, age };
     });
 
     const registrations = await prisma.registration.findMany({
@@ -506,20 +554,46 @@ export const getLbkReport = async (req: Request, res: Response) => {
         ...(finalClinicId ? { clinicId: finalClinicId } : {}),
         ...(Object.keys(dateWhere).length > 0 ? { registrationDate: dateWhere } : {})
       },
-      include: { patient: { select: { createdAt: true } } }
+      select: { id: true, patientId: true, registrationDate: true }
     });
 
     const totalVisits = registrations.length;
-    // Anggap kunjungan baru jika pasien dibuat pada bulan yang sama dengan pendaftaran
-    // Cara ideal: cek apakah ini registrasi pertama pasien tersebut.
-    // Sebagai aproksimasi cepat, kita cek rentang waktunya.
-    const newVisits = registrations.filter(r => {
-      if (startDate) {
-        return new Date(r.patient.createdAt) >= parseLocalDate(String(startDate));
-      }
-      return false; // Jika tidak ada startDate, kita anggap semua lama
-    }).length;
-    const oldVisits = totalVisits - newVisits;
+    let newVisits = 0;
+    let oldVisits = 0;
+
+    if (totalVisits > 0) {
+      const visitPatientIds = Array.from(new Set(registrations.map((r: any) => r.patientId)));
+
+      // FIX: Kunjungan BARU = registrasi pertama pasien dalam periode ini
+      // Ambil tanggal registrasi pertama tiap pasien dari seluruh riwayat klinik
+      const firstVisitData = await (prisma as any).registration.groupBy({
+        by: ['patientId'],
+        _min: { registrationDate: true },
+        where: {
+          patientId: { in: visitPatientIds },
+          ...(finalClinicId ? { clinicId: finalClinicId } : {})
+        }
+      });
+      const firstVisitMap = new Map(
+        firstVisitData.map((r: any) => [r.patientId, r._min.registrationDate])
+      );
+
+      registrations.forEach((r: any) => {
+        const firstDate = firstVisitMap.get(r.patientId) as Date | undefined;
+        if (startDate && firstDate) {
+          const firstVisitInPeriod = new Date(firstDate) >= parseLocalDate(String(startDate));
+          const isThisTheFirstVisit =
+            new Date(firstDate as any).getTime() === new Date(r.registrationDate).getTime();
+          if (firstVisitInPeriod && isThisTheFirstVisit) {
+            newVisits++;
+          } else {
+            oldVisits++;
+          }
+        } else {
+          oldVisits++;
+        }
+      });
+    }
 
     // Hitung Umur dalam hari/bulan/tahun
     const getAgeGroup = (dob: Date | null | undefined, recordDate: Date) => {
@@ -543,47 +617,49 @@ export const getLbkReport = async (req: Request, res: Response) => {
     };
 
     // Cari kasus lama vs baru per penyakit per pasien
-    // Untuk ini, ambil record pertama pasien untuk tiap icd10 sebelum endDate
-    const patientIcdKeys = Array.from(new Set(records.map(r => `${r.patientId}_${r.icd10Id}`)));
-    
-    // Karena kita tidak ingin loop satu-satu (lama), kita group by patientId & icd10Id
-    const firstRecords = await prisma.medicalRecord.groupBy({
-      by: ['patientId', 'icd10Id'],
-      where: {
-        icd10Id: { not: null },
+    // Untuk ini, ambil record pertama pasien untuk tiap icd10 (termasuk sekunder) sebelum endDate
+    const patientIds = Array.from(new Set(records.map(r => r.patientId)));
+    const allPatientRecords = await prisma.medicalRecord.findMany({
+      where: { 
+        patientId: { in: patientIds }, 
         ...(finalClinicId ? { clinicId: finalClinicId } : {}),
         ...(dateWhere.lte ? { recordDate: { lte: dateWhere.lte } } : {})
       },
-      _min: {
-        recordDate: true
-      }
+      select: { patientId: true, recordDate: true, icd10Id: true, secondaryIcd10s: { select: { id: true } } }
     });
 
     const firstRecordMap = new Map();
-    firstRecords.forEach(r => {
-      firstRecordMap.set(`${r.patientId}_${r.icd10Id}`, r._min.recordDate);
+    allPatientRecords.forEach(r => {
+      // Primary
+      if (r.icd10Id) {
+        const pKey = `${r.patientId}_${r.icd10Id}`;
+        const existing = firstRecordMap.get(pKey);
+        if (!existing || r.recordDate < existing) firstRecordMap.set(pKey, r.recordDate);
+      }
+      // Secondary
+      if (r.secondaryIcd10s) {
+        r.secondaryIcd10s.forEach(sec => {
+          const pKey = `${r.patientId}_${sec.id}`;
+          const existing = firstRecordMap.get(pKey);
+          if (!existing || r.recordDate < existing) firstRecordMap.set(pKey, r.recordDate);
+        });
+      }
     });
 
     const morbidityMap = new Map<string, any>();
 
-    records.forEach(r => {
-      const icdCode = r.icd10?.code || 'Unknown';
-      const icdName = r.icd10?.nameId || r.icd10?.nameEn || 'Unknown';
+    const processIcdForRecord = (r: any, icd: any) => {
+      const icdCode = icd.code || 'Unknown';
+      const icdName = icd.nameId || icd.nameEn || 'Unknown';
       const gender = (r.patient?.gender === 'L' || r.patient?.gender === 'Laki-laki') ? 'L' : 'P';
       const ageGroup = getAgeGroup(r.patient?.dateOfBirth, r.recordDate);
       
-      const pKey = `${r.patientId}_${r.icd10Id}`;
+      const pKey = `${r.patientId}_${icd.id}`;
       const firstDate = firstRecordMap.get(pKey);
       
-      // Jika firstDate ada di range ini (>= startDate), maka Kasus Baru.
-      // Jika firstDate < startDate, maka Kasus Lama.
       let isBaru = true;
       if (firstDate && startDate) {
-        if (new Date(firstDate) < parseLocalDate(String(startDate))) {
-          isBaru = false;
-        }
-      } else if (firstDate && !startDate) {
-        isBaru = false; // Jika ga ada start date, semua dari awal dianggap lama kecuali dirinya sendiri (agak bias, kita anggap baru)
+        isBaru = new Date(firstDate) >= parseLocalDate(String(startDate));
       }
 
       if (!morbidityMap.has(icdCode)) {
@@ -606,12 +682,65 @@ export const getLbkReport = async (req: Request, res: Response) => {
       if (item.demografi[ageGroup]) {
         item.demografi[ageGroup][gender]++;
       }
+    };
+
+    records.forEach((r: any) => {
+      if (r.icd10) processIcdForRecord(r, r.icd10);
+      if (r.secondaryIcd10s) {
+        r.secondaryIcd10s.forEach((secIcd: any) => processIcdForRecord(r, secIcd));
+      }
     });
 
-    const morbidityList = Array.from(morbidityMap.values());
-    const topDiseases = [...morbidityList].sort((a, b) => (b.kasusBaru + b.kasusLama) - (a.kasusBaru + a.kasusLama)).slice(0, 10);
+    const morbidityList = Array.from(morbidityMap.values())
+      .sort((a, b) => (b.kasusBaru + b.kasusLama) - (a.kasusBaru + a.kasusLama));
+    const topDiseases = morbidityList.slice(0, 10);
+
+    // Statistik ringkasan
+    const totalPatients = patientIds.length;
+    const totalDiseases = morbidityList.length;
+    const totalKasusBaru = morbidityList.reduce((s: number, m: any) => s + m.kasusBaru, 0);
+    const totalKasusLama = morbidityList.reduce((s: number, m: any) => s + m.kasusLama, 0);
+
+    // Ambil info klinik dari database
+    const clinicInfo = finalClinicId
+      ? await prisma.clinic.findUnique({
+          where: { id: finalClinicId },
+          select: { name: true, address: true, phone: true, code: true }
+        })
+      : null;
+
+    // Ambil site settings untuk nama/kode klinik
+    const siteSettings = await prisma.siteSetting.findMany({
+      where: {
+        key: { in: ['clinic_name', 'clinic_address', 'clinic_code', 'clinic_phone'] },
+        OR: [
+          ...(finalClinicId ? [{ clinicId: finalClinicId }] : []),
+          { clinicId: null }
+        ]
+      }
+    });
+    const settingMap: Record<string, any> = {};
+    siteSettings.forEach((s: any) => { settingMap[s.key] = s.value; });
 
     res.json({
+      clinic: {
+        name: settingMap['clinic_name'] || clinicInfo?.name || 'Klinik Pratama Yasfina',
+        address: settingMap['clinic_address'] || clinicInfo?.address || 'VBI BLOK BB2 NO 1',
+        phone: settingMap['clinic_phone'] || clinicInfo?.phone || '-',
+        code: settingMap['clinic_code'] || clinicInfo?.code || '-'
+      },
+      summary: {
+        totalVisits,
+        newVisits,
+        oldVisits,
+        totalPatients,
+        totalDiseases,
+        totalKasusBaru,
+        totalKasusLama,
+        totalBirths: births.length,
+        totalDeaths: deaths.length,
+        totalReferrals: referralsCount
+      },
       visits: {
         total: totalVisits,
         baru: newVisits,

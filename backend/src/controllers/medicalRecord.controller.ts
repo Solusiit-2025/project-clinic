@@ -178,6 +178,7 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
         objective,
         diagnosis,
         icd10Id,
+        secondaryIcd10Ids,
         treatmentPlan,
         labNotes,
         labResults,
@@ -199,17 +200,26 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
           objective,
           diagnosis,
           icd10Id,
+          ...(secondaryIcd10Ids && Array.isArray(secondaryIcd10Ids) ? { secondaryIcd10s: { set: secondaryIcd10Ids.map((id: string) => ({ id })) } } : {}),
           treatmentPlan,
           labNotes,
           labResults,
           notes,
           hasInformedConsent: !!hasInformedConsent,
-          consultationDraft: !isFinal ? { subjective, objective, diagnosis, icd10Id, treatmentPlan, services, prescriptions } : Prisma.DbNull,
+          consultationDraft: !isFinal ? { subjective, objective, diagnosis, icd10Id, secondaryIcd10Ids, treatmentPlan, services, prescriptions } : Prisma.DbNull,
           // Only update doctorId if we have a valid doctor account
           ...( (req as any).user.doctor?.id ? { doctorId: (req as any).user.doctor.id } : {} )
         },
-        include: { patient: true, services: true, icd10: true }
+        include: { patient: true, services: true, icd10: true, secondaryIcd10s: true }
       })
+
+      // Update Patient's updatedAt to reflect the recent visit so it surfaces correctly in sorting
+      if (isFinal) {
+        await tx.patient.update({
+          where: { id: mr.patientId },
+          data: { updatedAt: new Date() }
+        })
+      }
 
       // 1.1 Handle Clinical Services (Tindakan)
       if (services && Array.isArray(services)) {
@@ -935,7 +945,9 @@ export const getMedicalRecordByRegistration = async (req: Request, res: Response
                 },
                 attachments: true,
                 patient: true,
-                doctor: true
+                doctor: true,
+                icd10: true,
+                secondaryIcd10s: true
             }
         })
         
@@ -1029,7 +1041,8 @@ export const getMedicalRecordsByPatient = async (req: Request, res: Response) =>
                     name: true
                   }
                 },
-                icd10: true
+                icd10: true,
+                secondaryIcd10s: true
             },
             orderBy: { recordDate: 'desc' }
         })

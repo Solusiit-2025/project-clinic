@@ -112,11 +112,20 @@ export default function DoctorConsultationPage() {
   const [diagnosis, setDiagnosis] = useState('')
   const [icd10Id, setIcd10Id] = useState<string | null>(null)
   const [selectedIcd10, setSelectedIcd10] = useState<any>(null)
+  const [secondaryIcd10Ids, setSecondaryIcd10Ids] = useState<string[]>([])
+  const [selectedSecondaryIcd10s, setSelectedSecondaryIcd10s] = useState<any[]>([])
   const [searchIcd, setSearchIcd] = useState('')
   const [icdResults, setIcdResults] = useState<any[]>([])
   const [isSearchingIcd, setIsSearchingIcd] = useState(false)
   const [isIcdDropdownOpen, setIsIcdDropdownOpen] = useState(false)
   const [highlightedIcdIndex, setHighlightedIcdIndex] = useState(-1)
+  
+  const [searchSecondaryIcd, setSearchSecondaryIcd] = useState('')
+  const [secondaryIcdResults, setSecondaryIcdResults] = useState<any[]>([])
+  const [isSearchingSecondaryIcd, setIsSearchingSecondaryIcd] = useState(false)
+  const [isSecondaryIcdDropdownOpen, setIsSecondaryIcdDropdownOpen] = useState(false)
+  const [highlightedSecondaryIcdIndex, setHighlightedSecondaryIcdIndex] = useState(-1)
+
   const [treatmentPlan, setTreatmentPlan] = useState('')
   const [labNotes, setLabNotes] = useState('')
   const [labResults, setLabResults] = useState('')
@@ -422,6 +431,8 @@ export default function DoctorConsultationPage() {
           setDiagnosis(data.diagnosis || '')
           setIcd10Id(data.icd10Id || null)
           setSelectedIcd10(data.icd10 || null)
+          setSecondaryIcd10Ids(data.secondaryIcd10s?.map((s: any) => s.id) || [])
+          setSelectedSecondaryIcd10s(data.secondaryIcd10s || [])
           setTreatmentPlan(data.treatmentPlan || '')
           setLabNotes(data.labNotes || '')
           setLabResults(data.labResults || '')
@@ -666,6 +677,34 @@ export default function DoctorConsultationPage() {
     }
   }, [highlightedIcdIndex])
 
+  // Secondary ICD-10 Search Logic
+  useEffect(() => {
+    if (isReadOnly || !isSecondaryIcdDropdownOpen) return
+    const controller = new AbortController()
+
+    const searchTimeout = setTimeout(async () => {
+      try {
+        setIsSearchingSecondaryIcd(true)
+        const res = await api.get('master/icd10', {
+          params: { search: searchSecondaryIcd, limit: 10 },
+          signal: controller.signal
+        })
+        setSecondaryIcdResults(res.data.data || [])
+        setHighlightedSecondaryIcdIndex(res.data.data?.length > 0 ? 0 : -1)
+      } catch (e: any) {
+        if (e.name === 'CanceledError' || e.name === 'AbortError') return
+        console.error('Secondary ICD10 search failed:', e)
+      } finally {
+        setIsSearchingSecondaryIcd(false)
+      }
+    }, 300)
+
+    return () => {
+      clearTimeout(searchTimeout)
+      controller.abort()
+    }
+  }, [searchSecondaryIcd, isSecondaryIcdDropdownOpen, isReadOnly])
+
   // Service Search Logic
   useEffect(() => {
     if (isReadOnly || (!searchService && !isServiceDropdownOpen)) {
@@ -814,6 +853,7 @@ export default function DoctorConsultationPage() {
         objective,
         diagnosis,
         icd10Id,
+        secondaryIcd10Ids,
         treatmentPlan,
         labNotes,
         labResults,
@@ -877,6 +917,7 @@ export default function DoctorConsultationPage() {
         objective,
         diagnosis,
         icd10Id,
+        secondaryIcd10Ids,
         treatmentPlan,
         labNotes,
         labResults,
@@ -967,19 +1008,32 @@ export default function DoctorConsultationPage() {
 
     // Diagnosis
     let y = 60
-    if (diagnosis || selectedIcd10) {
+    if (diagnosis || selectedIcd10 || selectedSecondaryIcd10s.length > 0) {
+      const dxCount = (diagnosis || selectedIcd10 ? 1 : 0) + selectedSecondaryIcd10s.length
+      const boxHeight = 6 + (dxCount * 6)
       doc.setFillColor(237, 233, 254)
-      doc.roundedRect(15, y, 180, 12, 2, 2, 'F')
+      doc.roundedRect(15, y, 180, boxHeight, 2, 2, 'F')
       doc.setTextColor(109, 40, 217)
       doc.setFontSize(8)
       doc.setFont('helvetica', 'bold')
       doc.text('DIAGNOSA:', 22, y + 7)
       doc.setFont('helvetica', 'normal')
-      const dxText = selectedIcd10
-        ? `[${selectedIcd10.code}] ${selectedIcd10.nameId || selectedIcd10.nameEn}${diagnosis ? ' — ' + diagnosis : ''}`
-        : diagnosis
-      doc.text(dxText.substring(0, 95), 50, y + 7)
-      y += 18
+      
+      let currentY = y + 7
+      if (selectedIcd10 || diagnosis) {
+        const dxText = selectedIcd10
+          ? `[${selectedIcd10.code}] ${selectedIcd10.nameId || selectedIcd10.nameEn}${diagnosis ? ' — ' + diagnosis : ''}`
+          : diagnosis
+        doc.text(dxText.substring(0, 95), 50, currentY)
+        currentY += 6
+      }
+      
+      selectedSecondaryIcd10s.forEach(sec => {
+        doc.text(`[${sec.code}] ${sec.nameId || sec.nameEn}`.substring(0, 95), 50, currentY)
+        currentY += 6
+      })
+      
+      y += boxHeight + 6
     } else {
       y += 8
     }
@@ -2133,7 +2187,7 @@ export default function DoctorConsultationPage() {
                     <div className="space-y-1.5 group">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-[10px] font-black shadow-md shadow-violet-500/20 transform group-hover:rotate-6 transition-transform">A</div>
-                        <label className="text-[9px] font-black text-violet-400 uppercase tracking-[0.2em] group-focus-within:text-violet-600 transition-colors">Assessment (Diagnosa ICD-10)</label>
+                        <label className="text-[9px] font-black text-violet-400 uppercase tracking-[0.2em] group-focus-within:text-violet-600 transition-colors">Assessment (Diagnosa Utama ICD-10)</label>
                       </div>
 
                       {/* ICD-10 Search */}
@@ -2251,7 +2305,118 @@ export default function DoctorConsultationPage() {
                         </div>
                       )}
 
-                      <textarea disabled={isReadOnly} value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} className={`w-full p-3 border-2 border-violet-50/80 rounded-xl min-h-[90px] lg:min-h-[110px] text-xs font-medium leading-relaxed focus:bg-white focus:border-violet-400 focus:ring-4 focus:ring-violet-500/10 outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60' : 'bg-violet-50/30 hover:bg-violet-50/50'}`} placeholder="Diagnosa spesifik atau catatan tambahan..." />
+                      <textarea disabled={isReadOnly} value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} className={`w-full p-3 border-2 border-violet-50/80 rounded-xl min-h-[90px] lg:min-h-[110px] text-xs font-medium leading-relaxed focus:bg-white focus:border-violet-400 focus:ring-4 focus:ring-violet-500/10 outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60' : 'bg-violet-50/30 hover:bg-violet-50/50'}`} placeholder="Catatan tambahan diagnosa utama..." />
+
+                      {/* DIAGNOSA SEKUNDER */}
+                      <div className="pt-4 mt-2 border-t border-slate-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Diagnosa Sekunder / Tambahan (ICD-10)</label>
+                        </div>
+                        
+                        {!isReadOnly && (
+                          <div className="relative mb-3" onClick={(e) => e.stopPropagation()}>
+                            <div className="relative group">
+                              <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
+                              <input
+                                value={searchSecondaryIcd}
+                                onChange={(e) => {
+                                  setSearchSecondaryIcd(e.target.value)
+                                  if (!isSecondaryIcdDropdownOpen) setIsSecondaryIcdDropdownOpen(true)
+                                }}
+                                onFocus={() => setIsSecondaryIcdDropdownOpen(true)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'ArrowDown') {
+                                    e.preventDefault()
+                                    if (!isSecondaryIcdDropdownOpen) setIsSecondaryIcdDropdownOpen(true)
+                                    setHighlightedSecondaryIcdIndex(prev => {
+                                      const next = prev + 1
+                                      return next < secondaryIcdResults.length ? next : prev
+                                    })
+                                  } else if (e.key === 'ArrowUp') {
+                                    e.preventDefault()
+                                    setHighlightedSecondaryIcdIndex(prev => (prev > -1 ? prev - 1 : -1))
+                                  } else if (e.key === 'Enter') {
+                                    e.preventDefault()
+                                    const indexToSelect = highlightedSecondaryIcdIndex >= 0 ? highlightedSecondaryIcdIndex : (secondaryIcdResults.length > 0 ? 0 : -1)
+
+                                    if (indexToSelect >= 0 && secondaryIcdResults[indexToSelect]) {
+                                      const item = secondaryIcdResults[indexToSelect]
+                                      if (!secondaryIcd10Ids.includes(item.id)) {
+                                        setSecondaryIcd10Ids([...secondaryIcd10Ids, item.id])
+                                        setSelectedSecondaryIcd10s([...selectedSecondaryIcd10s, item])
+                                      }
+                                      setIsSecondaryIcdDropdownOpen(false)
+                                      setSearchSecondaryIcd('')
+                                      setHighlightedSecondaryIcdIndex(-1)
+                                    }
+                                  } else if (e.key === 'Escape') {
+                                    setIsSecondaryIcdDropdownOpen(false)
+                                    setHighlightedSecondaryIcdIndex(-1)
+                                  }
+                                }}
+                                placeholder="Cari diagnosa sekunder..."
+                                className="w-full pl-12 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:bg-white focus:border-primary shadow-inner transition-all"
+                              />
+                              {isSearchingSecondaryIcd && <FiRefreshCw className="absolute right-4 top-1/2 -translate-y-1/2 text-primary animate-spin" />}
+                            </div>
+
+                            <AnimatePresence>
+                              {isSecondaryIcdDropdownOpen && secondaryIcdResults.length > 0 && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: 5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0 }}
+                                  className="absolute top-full left-0 right-0 z-50 mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl max-h-[250px] overflow-y-auto p-2"
+                                >
+                                  {secondaryIcdResults.map((item, idx) => (
+                                    <button
+                                      key={item.id}
+                                      onMouseEnter={() => setHighlightedSecondaryIcdIndex(idx)}
+                                      onClick={() => {
+                                        if (!secondaryIcd10Ids.includes(item.id)) {
+                                          setSecondaryIcd10Ids([...secondaryIcd10Ids, item.id])
+                                          setSelectedSecondaryIcd10s([...selectedSecondaryIcd10s, item])
+                                        }
+                                        setIsSecondaryIcdDropdownOpen(false)
+                                        setSearchSecondaryIcd('')
+                                        setHighlightedSecondaryIcdIndex(-1)
+                                      }}
+                                      className={`w-full p-3 text-left rounded-xl transition-all border-b border-slate-50 last:border-0 ${highlightedSecondaryIcdIndex === idx ? 'bg-primary/10' : 'hover:bg-slate-50'}`}
+                                    >
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-[9px] font-black bg-primary/5 text-primary px-2 py-0.5 rounded border border-primary/10">{item.code}</span>
+                                        <p className="text-xs font-bold text-slate-700">{item.nameId || item.nameEn}</p>
+                                      </div>
+                                    </button>
+                                  ))}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        )}
+
+                        {/* Selected Secondary ICD-10 List */}
+                        {selectedSecondaryIcd10s.length > 0 && (
+                          <div className="space-y-2">
+                            {selectedSecondaryIcd10s.map(item => (
+                              <div key={item.id} className="p-2 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between group">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-black bg-slate-200 text-slate-600 px-2 py-0.5 rounded">{item.code}</span>
+                                  <span className="text-xs font-bold text-slate-700">{item.nameId || item.nameEn}</span>
+                                </div>
+                                {!isReadOnly && (
+                                  <button onClick={() => {
+                                    setSecondaryIcd10Ids(secondaryIcd10Ids.filter(id => id !== item.id))
+                                    setSelectedSecondaryIcd10s(selectedSecondaryIcd10s.filter(s => s.id !== item.id))
+                                  }} className="text-rose-400 hover:text-rose-600 p-1 transition-colors">
+                                    <FiTrash2 />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* P Quadrant */}
@@ -3333,7 +3498,13 @@ export default function DoctorConsultationPage() {
                                   <span className="text-[10px] font-bold text-slate-700">{h.icd10.nameId || h.icd10.nameEn}</span>
                                 </div>
                               )}
-                              <p className="text-sm font-bold text-slate-800 leading-relaxed italic">"{h.diagnosis || '-'}"</p>
+                              {h.secondaryIcd10s && h.secondaryIcd10s.length > 0 && h.secondaryIcd10s.map((sec: any) => (
+                                <div key={sec.id} className="flex items-center gap-2">
+                                  <span className="text-[8px] font-black bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded border border-slate-300">{sec.code}</span>
+                                  <span className="text-[10px] font-bold text-slate-600">{sec.nameId || sec.nameEn}</span>
+                                </div>
+                              ))}
+                              <p className="text-sm font-bold text-slate-800 leading-relaxed italic mt-1">"{h.diagnosis || '-'}"</p>
                             </div>
                           </div>
                           <div className="space-y-2">

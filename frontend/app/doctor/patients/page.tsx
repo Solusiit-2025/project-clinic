@@ -19,6 +19,7 @@ interface Patient {
   phone: string
   isActive: boolean
   createdAt: string
+  medicalRecords?: any[]
 }
 
 interface Meta {
@@ -43,7 +44,8 @@ export default function DoctorPatients() {
         params: { 
           search: searchTerm,
           page: page,
-          limit: 10
+          limit: 10,
+          sort: 'recent'
         } 
       })
       
@@ -180,7 +182,7 @@ export default function DoctorPatients() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
                         <FiCalendar className="w-3 h-3 text-emerald-400" />
-                        {new Date(patient.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        {new Date(patient.medicalRecords?.[0]?.recordDate || patient.createdAt).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -241,7 +243,7 @@ export default function DoctorPatients() {
                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Kunjungan Terakhir</p>
                     <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
                       <FiCalendar className="w-3 h-3 text-emerald-400" />
-                      {new Date(patient.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                      {new Date(patient.medicalRecords?.[0]?.recordDate || patient.createdAt).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
                 </div>

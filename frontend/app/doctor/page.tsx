@@ -229,7 +229,7 @@ export default function DoctorDashboard() {
           badge: 'bg-emerald-100 text-emerald-800',
         },
         icon: FiCheckCircle,
-        items: getFilteredList(queues.filter(q => q.status === 'completed')),
+        items: getFilteredList(queues.filter(q => q.status === 'completed')).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
       },
     ]
   }, [queues, getFilteredList])

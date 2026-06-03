@@ -2087,6 +2087,16 @@ export const getPatients = async (req: Request, res: Response) => {
       ]
     }
 
+    const sort = req.query.sort as string
+    
+    // Determine orderBy dynamically
+    let orderBy: any = { name: 'asc' }
+    if (sort === 'recent') {
+      orderBy = { updatedAt: 'desc' }
+    } else if (sort === 'newest') {
+      orderBy = { createdAt: 'desc' }
+    }
+
     if (page) {
       const [total, patients] = await Promise.all([
         prisma.patient.count({ where }),
@@ -2094,8 +2104,15 @@ export const getPatients = async (req: Request, res: Response) => {
           where,
           skip,
           take: limit,
-          orderBy: { name: 'asc' },
-          include: { corporatePartner: { select: { id: true, name: true } } }
+          orderBy,
+          include: { 
+            corporatePartner: { select: { id: true, name: true } },
+            medicalRecords: {
+              orderBy: { recordDate: 'desc' },
+              take: 1,
+              select: { recordDate: true }
+            }
+          }
         })
       ])
 
@@ -2112,8 +2129,15 @@ export const getPatients = async (req: Request, res: Response) => {
 
     const patients = await prisma.patient.findMany({
       where,
-      orderBy: { name: 'asc' },
-      include: { corporatePartner: { select: { id: true, name: true } } }
+      orderBy,
+      include: { 
+        corporatePartner: { select: { id: true, name: true } },
+        medicalRecords: {
+          orderBy: { recordDate: 'desc' },
+          take: 1,
+          select: { recordDate: true }
+        }
+      }
     })
     
     res.json(patients)
