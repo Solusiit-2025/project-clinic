@@ -36,6 +36,7 @@ type LabResultItem = {
   category: string;
   parentId?: string;
   isParent?: boolean;
+  _depth?: number;
 }
 
 export default function LabInputPage() {
@@ -123,39 +124,63 @@ export default function LabInputPage() {
         isParent: !!(r.testMaster?.children && r.testMaster.children.length > 0)
       })) || []
 
-      // Auto-expand packages if status is not completed
-      if (data.status !== 'completed' && dbResults.length > 0) {
-        const expandedResults = [...dbResults]
-        let changed = false
+      // Reconstruct full hierarchy with depth, preserving DB values
+      const expandedResults: LabResultItem[] = []
+      const addedIds = new Set<string>()
 
-        dbResults.forEach((r: any) => {
-          // Find the master record to get children
-          const master = testMasters.find((m: any) => m.id === r.testMasterId)
-          if (master?.children && master.children.length > 0) {
-            master.children.forEach((child: any) => {
-              if (!expandedResults.find(er => er.testMasterId === child.id)) {
-                expandedResults.push({
-                  testMasterId: child.id,
-                  testName: child.name,
-                  category: child.category || r.category || 'Umum',
-                  resultValue: '',
-                  unit: child.unit || '',
-                  normalRange: child.normalRangeText || '',
-                  minNormal: child.minNormal,
-                  maxNormal: child.maxNormal,
-                  isCritical: false,
-                  notes: '',
-                  parentId: r.testMasterId
-                })
-                changed = true
-              }
-            })
-          }
+      const isChildOfSomeoneInDb = (testMasterId: string) => {
+        return dbResults.some((other: any) => {
+          const master = testMasters.find((m: any) => m.id === other.testMasterId)
+          return master?.children?.some((c: any) => c.id === testMasterId)
         })
-        setResults(expandedResults)
-      } else {
-        setResults(dbResults)
       }
+
+      const buildRecursive = (itemMasterId: string, currentDepth: number, parentId?: string, parentCategory?: string) => {
+        if (addedIds.has(itemMasterId)) return;
+        addedIds.add(itemMasterId);
+
+        const master = testMasters.find((m: any) => m.id === itemMasterId)
+        if (!master) return;
+
+        const dbItem = dbResults.find((r: any) => r.testMasterId === itemMasterId)
+
+        expandedResults.push({
+          testMasterId: master.id,
+          testName: master.name,
+          category: master.category || parentCategory || 'Umum',
+          resultValue: dbItem ? dbItem.resultValue : '',
+          unit: master.unit || '',
+          normalRange: master.normalRangeText || '',
+          minNormal: master.minNormal,
+          maxNormal: master.maxNormal,
+          isCritical: dbItem ? dbItem.isCritical : false,
+          notes: dbItem ? dbItem.notes : '',
+          parentId: parentId,
+          isParent: !!(master.children && master.children.length > 0),
+          _depth: currentDepth
+        })
+
+        if (master.children && master.children.length > 0) {
+          const sortedChildren = [...master.children].sort((a: any, b: any) => {
+            const childA = testMasters.find((m: any) => m.id === a.id) || a
+            const childB = testMasters.find((m: any) => m.id === b.id) || b
+            return (childA.code || '').localeCompare(childB.code || '')
+          })
+          sortedChildren.forEach((childRef: any) => {
+            buildRecursive(childRef.id, currentDepth + 1, master.id, master.category || parentCategory)
+          })
+        }
+      }
+
+      // Root items are those not appearing as a child of any other ordered item
+      const roots = dbResults.filter((r: any) => !isChildOfSomeoneInDb(r.testMasterId))
+      
+      // Also, if dbResults is empty but we have orderedTests from doctor, they are handled by addTest later.
+      roots.forEach((r: any) => {
+        buildRecursive(r.testMasterId, 0)
+      })
+
+      setResults(expandedResults)
     } catch (e) {
       toast.error('Gagal memuat detail order')
     }
@@ -489,44 +514,40 @@ export default function LabInputPage() {
 
   const addTest = (master: any) => {
     const toAdd: LabResultItem[] = []
-    
-    // Always add the master itself if not present
-    if (!results.find(r => r.testMasterId === master.id)) {
-      toAdd.push({
-        testMasterId: master.id,
-        testName: master.name,
-        category: master.category || 'Umum',
-        resultValue: '',
-        unit: master.unit || '',
-        normalRange: master.normalRangeText || '',
-        minNormal: master.minNormal,
-        maxNormal: master.maxNormal,
-        isCritical: false,
-        notes: '',
-        isParent: !!(master.children && master.children.length > 0)
-      })
+
+    const expandRecursive = (m: any, parentId?: string, parentCategory?: string, currentDepth: number = 0) => {
+      if (!results.find(r => r.testMasterId === m.id) && !toAdd.find(r => r.testMasterId === m.id)) {
+        toAdd.push({
+          testMasterId: m.id,
+          testName: m.name,
+          category: m.category || parentCategory || 'Umum',
+          resultValue: '',
+          unit: m.unit || '',
+          normalRange: m.normalRangeText || '',
+          minNormal: m.minNormal,
+          maxNormal: m.maxNormal,
+          isCritical: false,
+          notes: '',
+          parentId: parentId,
+          isParent: !!(m.children && m.children.length > 0),
+          _depth: currentDepth
+        })
+      }
+
+      if (m.children && m.children.length > 0) {
+        const sortedChildren = [...m.children].sort((a: any, b: any) => {
+          const childA = testMasters.find((t: any) => t.id === a.id) || a
+          const childB = testMasters.find((t: any) => t.id === b.id) || b
+          return (childA.code || '').localeCompare(childB.code || '')
+        })
+        sortedChildren.forEach((childRef: any) => {
+          const childFull = testMasters.find((t: any) => t.id === childRef.id) || childRef
+          expandRecursive(childFull, m.id, m.category || parentCategory, currentDepth + 1)
+        })
+      }
     }
 
-    // Add children if any
-    if (master.children && master.children.length > 0) {
-      master.children.forEach((m: any) => {
-        if (!results.find(r => r.testMasterId === m.id)) {
-          toAdd.push({
-            testMasterId: m.id,
-            testName: m.name,
-            category: m.category || master.category || 'Umum',
-            resultValue: '',
-            unit: m.unit || '',
-            normalRange: m.normalRangeText || '',
-            minNormal: m.minNormal,
-            maxNormal: m.maxNormal,
-            isCritical: false,
-            notes: '',
-            parentId: master.id
-          })
-        }
-      })
-    }
+    expandRecursive(master, undefined, undefined, 0)
     
     if (toAdd.length > 0) setResults([...results, ...toAdd])
   }
@@ -999,7 +1020,7 @@ export default function LabInputPage() {
                         const idx = results.findIndex(res => res.testMasterId === r.testMasterId);
                         return (
                           <tr key={idx} className="border-b border-slate-50/50 group">
-                            <td className={`py-6 px-4 ${r.parentId ? 'pl-12' : 'pl-8'}`}>
+                            <td className="py-6 px-4" style={{ paddingLeft: r._depth ? `${2 + r._depth * 2}rem` : '2rem' }}>
                               <p className={`text-sm font-black uppercase ${r.isParent ? 'text-indigo-600' : 'text-slate-800'}`}>
                                 {r.testName}
                                 {r.isParent && <span className="ml-2 text-[8px] bg-indigo-100 text-indigo-500 px-1.5 py-0.5 rounded">PAKET</span>}

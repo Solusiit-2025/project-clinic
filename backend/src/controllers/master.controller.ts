@@ -2127,11 +2127,23 @@ export const getNextMRNo = async (req: Request, res: Response) => {
     const today = new Date()
     const prefix = `RM-${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`
     
-    const count = await prisma.patient.count({
-      where: { medicalRecordNo: { startsWith: prefix } }
+    const latestPatient = await prisma.patient.findFirst({
+      where: { medicalRecordNo: { startsWith: prefix } },
+      orderBy: { medicalRecordNo: 'desc' }
     })
     
-    const nextCode = `${prefix}-${(count + 1).toString().padStart(4, '0')}`
+    let nextSeq = 1;
+    if (latestPatient && latestPatient.medicalRecordNo) {
+      const parts = latestPatient.medicalRecordNo.split('-');
+      if (parts.length === 3) {
+        const lastSeq = parseInt(parts[2], 10);
+        if (!isNaN(lastSeq)) {
+          nextSeq = lastSeq + 1;
+        }
+      }
+    }
+    
+    const nextCode = `${prefix}-${nextSeq.toString().padStart(4, '0')}`
     res.json({ nextCode })
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })

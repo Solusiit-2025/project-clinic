@@ -22,6 +22,7 @@ type LabTest = {
   parents: { id: string, name: string }[];
   children: { id: string, name: string }[];
   _depth?: number;
+  _renderKey?: string;
 }
 
 export default function LabMasterPage() {
@@ -156,31 +157,32 @@ export default function LabMasterPage() {
     const children = filtered.filter(r => r.parents && r.parents.length > 0);
 
     const result: LabTest[] = [];
-    const addedIds = new Set<string>();
 
     const sortedParents = [...parents].sort((a, b) => {
       if (a.category !== b.category) return a.category.localeCompare(b.category);
       return (a.code || '').localeCompare(b.code || '');
     });
 
-    const addNode = (node: LabTest, depth: number = 0) => {
-      if (addedIds.has(node.id)) return;
-      
-      const nodeWithDepth = { ...node, _depth: depth };
+    const addNode = (node: LabTest, depth: number = 0, path: string = '') => {
+      // Prevent infinite loops in case of circular references
+      if (path.includes(`|${node.id}|`)) return;
+
+      const currentPath = `${path}|${node.id}|`;
+      const nodeWithDepth = { ...node, _depth: depth, _renderKey: currentPath };
       result.push(nodeWithDepth);
-      addedIds.add(node.id);
 
       // Add its children
       const itsChildren = children.filter(c => c.parents.some(p => p.id === node.id));
       itsChildren.sort((a, b) => (a.code || '').localeCompare(b.code || ''));
-      itsChildren.forEach(child => addNode(child, depth + 1));
+      itsChildren.forEach(child => addNode(child, depth + 1, currentPath));
     };
 
-    sortedParents.forEach(parent => addNode(parent, 0));
+    sortedParents.forEach(parent => addNode(parent, 0, ''));
 
     // Add orphaned children (if any)
-    const orphans = children.filter(c => !addedIds.has(c.id));
-    orphans.forEach(orphan => addNode(orphan, 0));
+    const addedRealIds = new Set(result.map(r => r.id));
+    const orphans = children.filter(c => !addedRealIds.has(c.id));
+    orphans.forEach(orphan => addNode(orphan, 0, ''));
 
     return result;
   }, [data, search])
@@ -208,6 +210,7 @@ export default function LabMasterPage() {
         searchPlaceholder="Cari kode atau nama parameter..."
         onEdit={isAdmin ? openEdit : undefined} onDelete={isAdmin ? handleDelete : undefined}
         emptyText="Belum ada data parameter laboratorium."
+        keyField="_renderKey"
       />
 
       <MasterModal isOpen={modalOpen} onClose={() => setModalOpen(false)}
