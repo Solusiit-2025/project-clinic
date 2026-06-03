@@ -2393,15 +2393,12 @@ export const importPatients = async (req: Request, res: Response) => {
     const BATCH_SIZE = 500
     const prefix = `RM-${currentYear}`
     
-    // Dynamically retrieve the absolute highest existing sequence number to prevent unique constraint failures
-    const latestPatient = await prisma.patient.findFirst({
+    // Dynamically retrieve the absolute highest existing sequence number mathematically to prevent unique constraint failures
+    const existingPatients = await prisma.patient.findMany({
       where: {
         medicalRecordNo: {
           startsWith: prefix
         }
-      },
-      orderBy: {
-        medicalRecordNo: 'desc'
       },
       select: {
         medicalRecordNo: true
@@ -2409,12 +2406,14 @@ export const importPatients = async (req: Request, res: Response) => {
     })
 
     let currentSequence = 0
-    if (latestPatient?.medicalRecordNo) {
-      const parts = latestPatient.medicalRecordNo.split('-')
-      const numPart = parts[parts.length - 1]
-      const parsedNum = parseInt(numPart, 10)
-      if (!isNaN(parsedNum)) {
-        currentSequence = parsedNum
+    for (const p of existingPatients) {
+      if (p.medicalRecordNo) {
+        const parts = p.medicalRecordNo.split('-')
+        const numPart = parts[parts.length - 1]
+        const parsedNum = parseInt(numPart, 10)
+        if (!isNaN(parsedNum) && parsedNum > currentSequence) {
+          currentSequence = parsedNum
+        }
       }
     }
 
