@@ -32,6 +32,13 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
   'office equipment': { bg: 'bg-slate-50', text: 'text-slate-700' },
   security:     { bg: 'bg-zinc-50',    text: 'text-zinc-700' },
   facility:     { bg: 'bg-amber-50',   text: 'text-amber-700' },
+  // Lab Categories
+  'HEMATOLOGI': { bg: 'bg-red-50', text: 'text-red-700' },
+  'KIMIA DARAH': { bg: 'bg-rose-50', text: 'text-rose-700' },
+  'SEROLOGI': { bg: 'bg-purple-50', text: 'text-purple-700' },
+  'IMUNOSEROLOGI': { bg: 'bg-fuchsia-50', text: 'text-fuchsia-700' },
+  'URINALISA': { bg: 'bg-yellow-50', text: 'text-yellow-700' },
+  'PAKET LABORATORIUM': { bg: 'bg-indigo-50', text: 'text-indigo-700' },
 }
 
 export function StatusBadge({ active = true }: StatusBadgeProps) {

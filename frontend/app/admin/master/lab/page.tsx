@@ -237,6 +237,8 @@ export default function LabMasterPage() {
                 className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary bg-white font-medium uppercase">
                 <option value="HEMATOLOGI">HEMATOLOGI</option>
                 <option value="IMUNOSEROLOGI">IMUNOSEROLOGI</option>
+                <option value="SEROLOGI">SEROLOGI</option>
+                <option value="KIMIA DARAH">KIMIA DARAH</option>
                 <option value="KIMIA METABOLISME LEMAK">KIMIA METABOLISME LEMAK</option>
                 <option value="KIMIA - METABOLISMS GULA">KIMIA - METABOLISMS GULA</option>
                 <option value="METABOLISME FAAL HATI">METABOLISME FAAL HATI</option>
