@@ -540,6 +540,7 @@ model PrescriptionItem {
   racikanName    String?
   formulaId      String?
   tuslahPrice    Float                       @default(0)
+  isExternal     Boolean                     @default(false)
   components     PrescriptionItemComponent[]
   formula        CompoundFormula?            @relation(fields: [formulaId], references: [id])
   medicine       Medicine?                   @relation(fields: [medicineId], references: [id])

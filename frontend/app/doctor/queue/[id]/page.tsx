@@ -298,7 +298,8 @@ export default function DoctorConsultationPage() {
         medicineName: c.medicine?.medicineName || 'Bahan',
         quantity: c.quantity, // qty per 1 unit racikan
         unit: c.unit || c.medicine?.unit || 'tablet',
-        availableStock: c.availableStock ?? 0
+        availableStock: c.availableStock ?? 0,
+        sellingPrice: c.sellingPrice || c.medicine?.sellingPrice || 0
       })))
     } catch (err) {
       toast.error('Gagal memuat formula racikan')
@@ -338,7 +339,8 @@ export default function DoctorConsultationPage() {
         medicine: { medicineName: c.medicineName },
         quantity: parseFloat(c.quantity) || 0,
         unit: c.unit || 'unit',
-        availableStock: c.availableStock ?? 99999
+        availableStock: c.availableStock ?? 99999,
+        sellingPrice: c.sellingPrice || 0
       })),
       isExternal: false,
       availableStock: 99999 // skip frontend check
@@ -444,10 +446,7 @@ export default function DoctorConsultationPage() {
                 unit: item.unit || item.medicine?.unit || (item.isRacikan ? 'porsi' : 'unit'),
                 availableStock: item.isRacikan ? 99999 : (item.medicine?.stock ?? 0),
                 alreadySavedInDB: true, // Flag: already persisted, skip frontend stock check
-                isExternal: item.instructions?.includes('(Apotek Luar)') ||
-                  item.instructions?.includes('[Eksternal]') ||
-                  item.instructions?.includes('Apotek Luar') ||
-                  item.instructions?.includes('Eksternal'),
+                isExternal: !!item.isExternal,
                 isRacikan: !!item.isRacikan,
                 formulaId: item.formulaId,
                 tuslahPrice: item.tuslahPrice || 0,
@@ -456,7 +455,8 @@ export default function DoctorConsultationPage() {
                   medicineName: c.medicine?.medicineName || 'Bahan',
                   quantity: c.quantity,
                   unit: c.unit || 'unit',
-                  availableStock: c.medicine?.stock ?? 0
+                  availableStock: c.medicine?.stock ?? 0,
+                  sellingPrice: c.sellingPrice || c.medicine?.sellingPrice || 0
                 })) || []
               }))
             )
@@ -495,11 +495,7 @@ export default function DoctorConsultationPage() {
                 // Keep availableStock if it exists in draft, else mark as unknown (server will validate)
                 availableStock: dp.availableStock ?? undefined,
                 alreadySavedInDB: false,
-                isExternal: dp.isExternal ||
-                  dp.instructions?.includes('(Apotek Luar)') ||
-                  dp.instructions?.includes('[Eksternal]') ||
-                  dp.instructions?.includes('Apotek Luar') ||
-                  dp.instructions?.includes('Eksternal')
+                isExternal: !!dp.isExternal
               })));
             }
             if (draft.services && draft.services.length > 0) {
@@ -843,9 +839,7 @@ export default function DoctorConsultationPage() {
         prescriptions: prescriptionItems.map(p => ({
           ...p,
           quantity: parseInt(p.quantity) || 0,
-          instructions: p.isExternal && !p.instructions?.includes('(Apotek Luar)')
-            ? `${p.instructions || ''} (Apotek Luar)`.trim()
-            : p.instructions,
+          instructions: p.instructions ? p.instructions.replace(/\s*\(?Apotek Luar\)?/gi, '').replace(/\s*\[?Eksternal\]?/gi, '').trim() : '',
           isExternal: !!p.isExternal
         })),
         isFinal
@@ -908,9 +902,7 @@ export default function DoctorConsultationPage() {
         prescriptions: prescriptionItems.map(p => ({
           ...p,
           quantity: parseInt(p.quantity) || 0,
-          instructions: p.isExternal && !p.instructions?.includes('(Apotek Luar)')
-            ? `${p.instructions || ''} (Apotek Luar)`.trim()
-            : p.instructions,
+          instructions: p.instructions ? p.instructions.replace(/\s*\(?Apotek Luar\)?/gi, '').replace(/\s*\[?Eksternal\]?/gi, '').trim() : '',
           isExternal: !!p.isExternal
         })),
         isFinal: false
@@ -2505,13 +2497,17 @@ export default function DoctorConsultationPage() {
                                       setRacikanDuration(p.duration || '3 hari')
                                       setRacikanInstructions(p.instructions || 'Sesudah makan')
                                       setRacikanTuslah(String(p.tuslahPrice || 0))
-                                      setRacikanComponents(p.components?.map((c: any) => ({
-                                        medicineId: c.medicineId,
-                                        medicineName: c.medicineName || c.medicine?.medicineName || 'Bahan',
-                                        quantity: c.quantity,
-                                        unit: c.unit || 'unit',
-                                        availableStock: c.availableStock ?? 99999
-                                      })) || [])
+                                      setRacikanComponents(p.components?.map((c: any) => {
+                                        const med: any = searchMedicines.find((m: any) => m.medicineId === c.medicineId || m.id === c.medicineId)
+                                        return {
+                                          medicineId: c.medicineId,
+                                          medicineName: c.medicineName || c.medicine?.medicineName || med?.masterName || med?.medicine?.medicineName || 'Bahan',
+                                          quantity: c.quantity,
+                                          unit: c.unit || med?.unit || 'unit',
+                                          availableStock: c.availableStock ?? med?.stock ?? 99999,
+                                          sellingPrice: c.sellingPrice || c.medicine?.sellingPrice || med?.sellingPrice || 0
+                                        }
+                                      }) || [])
                                       if (p.formulaId) {
                                         const f = compoundFormulas.find((cf: any) => cf.id === p.formulaId)
                                         setSelectedFormula(f || null)
@@ -4021,7 +4017,8 @@ export default function DoctorConsultationPage() {
                                       medicineName: m.masterName,
                                       quantity: 1,
                                       unit: m.unit || m.medicine?.dosageForm || 'tablet',
-                                      availableStock: stock
+                                      availableStock: stock,
+                                      sellingPrice: m.sellingPrice || 0
                                     }])
                                     setSearchComponentMed('')
                                     setShowAllComponentsDropdown(false)
@@ -4134,14 +4131,14 @@ export default function DoctorConsultationPage() {
                     <div className="bg-slate-100 p-4 border-t border-slate-200 space-y-1.5">
                       <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase">
                         <span>Tuslah Racik (Jasa)</span>
-                        <span>Rp {Number(selectedFormula?.tuslahPrice || 0).toLocaleString('id-ID')}</span>
+                        <span>Rp {Number(racikanTuslah || 0).toLocaleString('id-ID')}</span>
                       </div>
                       <div className="flex justify-between text-xs font-black text-slate-800 uppercase pt-1 border-t border-slate-200">
                         <span>Estimasi Total</span>
                         <span>
                           Rp {Number(
-                            (racikanComponents.reduce((sum, c) => sum + 500 * (parseFloat(c.quantity) || 0) * (parseInt(racikanQty) || 0), 0)) +
-                            (selectedFormula?.tuslahPrice || 0)
+                            (racikanComponents.reduce((sum, c) => sum + (c.sellingPrice || 0) * (parseFloat(c.quantity) || 0) * (parseInt(racikanQty) || 0), 0)) +
+                            (parseFloat(racikanTuslah) || 0)
                           ).toLocaleString('id-ID')}
                         </span>
                       </div>

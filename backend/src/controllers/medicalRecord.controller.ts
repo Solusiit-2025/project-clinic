@@ -388,6 +388,7 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
                     frequency: item.frequency,
                     duration: item.duration,
                     instructions: item.instructions,
+                    isExternal: !!item.isExternal,
                     tuslahPrice: parseFloat(item.tuslahPrice) || 0,
                     components: item.isRacikan && Array.isArray(item.components) ? {
                       create: item.components.map((comp: any) => ({
@@ -416,6 +417,7 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
                   frequency: item.frequency,
                   duration: item.duration,
                   instructions: item.instructions,
+                  isExternal: !!item.isExternal,
                   tuslahPrice: parseFloat(item.tuslahPrice) || 0,
                   components: item.isRacikan && Array.isArray(item.components) ? {
                     create: item.components.map((comp: any) => ({
@@ -953,10 +955,11 @@ export const getMedicalRecordByRegistration = async (req: Request, res: Response
                                     clinicId: mr.clinicId,
                                     masterProduct: { medicineId: item.medicineId }
                                 },
-                                select: { quantity: true }
+                                select: { quantity: true, sellingPrice: true }
                             })
                             if (item.medicine) {
                                 (item.medicine as any).stock = product ? product.quantity : 0
+                                (item.medicine as any).sellingPrice = product ? product.sellingPrice : 0
                             }
                         }
 
@@ -968,10 +971,11 @@ export const getMedicalRecordByRegistration = async (req: Request, res: Response
                                             clinicId: mr.clinicId,
                                             masterProduct: { medicineId: comp.medicineId }
                                         },
-                                        select: { quantity: true }
+                                        select: { quantity: true, sellingPrice: true }
                                     })
                                     if (comp.medicine) {
                                         (comp.medicine as any).stock = product ? product.quantity : 0
+                                        (comp.medicine as any).sellingPrice = product ? product.sellingPrice : 0
                                     }
                                 }
                             }

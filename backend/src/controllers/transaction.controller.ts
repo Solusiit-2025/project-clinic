@@ -608,7 +608,7 @@ export const reopenQueue = async (req: Request, res: Response) => {
           if (['preparing', 'ready'].includes(rx.dispenseStatus) && queue.clinicId) {
             const { InventoryService } = require('../services/inventory.service')
             for (const item of rx.items) {
-               const isExternal = item.instructions?.includes('(Apotek Luar)') || 
+               const isExternal = item.isExternal || item.instructions?.includes('(Apotek Luar)') || 
                                   item.instructions?.includes('[Eksternal]') ||
                                   item.instructions?.includes('Apotek Luar') ||
                                   item.instructions?.includes('Eksternal');

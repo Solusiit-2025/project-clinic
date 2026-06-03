@@ -1227,7 +1227,8 @@ export const getProductMasters = async (req: Request, res: Response) => {
         totalStock: physicalStock,
         stock: stock,
         availableStock: stock, // Ensure consistency between field names
-        unit: primaryProduct?.usedUnit || primaryProduct?.unit || p.usedUnit || p.defaultUnit || 'Unit'
+        unit: primaryProduct?.usedUnit || primaryProduct?.unit || p.usedUnit || p.defaultUnit || 'Unit',
+        sellingPrice: primaryProduct?.sellingPrice || p.sellingPrice || 0
       }
     })
 

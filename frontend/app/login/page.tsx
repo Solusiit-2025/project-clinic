@@ -29,11 +29,11 @@ export default function LoginPage() {
       }
     }
   }, [])
-  
+
   // Selection states
   const [step, setStep] = useState<Step>('login')
   const [userData, setUserData] = useState<any>(null)
-  
+
   const router = useRouter()
   const { setAuth } = useAuthStore()
 
@@ -73,7 +73,7 @@ export default function LoginPage() {
 
   const handleFinalLogin = (user: any, clinicId: string) => {
     setAuth(user, clinicId)
-    
+
     // Redirect based on role
     if (user.role === 'DOCTOR') {
       router.push('/doctor')
@@ -91,7 +91,7 @@ export default function LoginPage() {
         {/* Glow Effects */}
         <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] rounded-full bg-white/10 blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-cyan-400/20 blur-[100px]" />
-        
+
         {/* Top Header */}
         <div className="flex items-center gap-3 z-10">
           <div className="w-10 h-10 rounded-xl overflow-hidden bg-white flex items-center justify-center p-0.5 border border-white/20">
@@ -172,9 +172,9 @@ export default function LoginPage() {
                 {/* Logo and Header for Mobile viewports */}
                 <div className="flex flex-col items-center mb-8">
                   <div className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center shadow-lg bg-white p-1 border border-slate-100">
-                    <img 
-                      src="/logo-yasfina_web.png" 
-                      alt="Yasfina Logo" 
+                    <img
+                      src="/logo-yasfina_web.png"
+                      alt="Yasfina Logo"
                       className="w-full h-full object-contain scale-[1.8]"
                     />
                   </div>
@@ -212,7 +212,7 @@ export default function LoginPage() {
                         type="text"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Email atau SIP dokter tamu"
+                        placeholder="Email atau STR dokter tamu"
                         required
                         className="w-full pl-12 pr-4 py-3.5 bg-slate-50/50 dark:bg-slate-900/50 dark:text-white border border-slate-200 dark:border-slate-800/80 focus:bg-white dark:focus:bg-slate-950 focus:ring-4 focus:ring-primary/10 focus:border-primary dark:focus:border-primary rounded-2xl transition-all duration-300 font-medium text-sm outline-none"
                         disabled={isLoading}
