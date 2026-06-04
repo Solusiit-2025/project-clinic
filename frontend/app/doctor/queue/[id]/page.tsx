@@ -764,6 +764,8 @@ export default function DoctorConsultationPage() {
     const handleClickOutside = () => {
       setIsMedDropdownOpen(false)
       setIsServiceDropdownOpen(false)
+      setIsIcdDropdownOpen(false)
+      setIsSecondaryIcdDropdownOpen(false)
     }
     window.addEventListener('click', handleClickOutside)
     return () => window.removeEventListener('click', handleClickOutside)
@@ -2221,7 +2223,7 @@ export default function DoctorConsultationPage() {
                                     const item = icdResults[indexToSelect]
                                     setIcd10Id(item.id)
                                     setSelectedIcd10(item)
-                                    if (!diagnosis) setDiagnosis(item.nameId || item.nameEn)
+                                    setDiagnosis(item.nameId || item.nameEn)
                                     setIsIcdDropdownOpen(false)
                                     setSearchIcd('')
                                     setHighlightedIcdIndex(-1)
@@ -2254,7 +2256,7 @@ export default function DoctorConsultationPage() {
                                     onClick={() => {
                                       setIcd10Id(item.id)
                                       setSelectedIcd10(item)
-                                      if (!diagnosis) setDiagnosis(item.nameId || item.nameEn)
+                                      setDiagnosis(item.nameId || item.nameEn)
                                       setIsIcdDropdownOpen(false)
                                       setSearchIcd('')
                                       setHighlightedIcdIndex(-1)
