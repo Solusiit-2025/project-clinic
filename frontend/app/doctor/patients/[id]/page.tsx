@@ -34,6 +34,7 @@ export default function PatientDetailPage() {
   const [patient, setPatient] = useState<Patient | null>(null)
   const [history, setHistory] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [errorStatus, setErrorStatus] = useState<number | null>(null)
 
   const fetchData = useCallback(async () => {
     if (!user || !id) return
@@ -46,8 +47,9 @@ export default function PatientDetailPage() {
       // Fetch medical history
       const hRes = await api.get(`transactions/medical-records/patient/${id}`)
       setHistory(hRes.data)
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to fetch patient data', e)
+      setErrorStatus(e.response?.status || 500)
     } finally {
       setLoading(false)
     }
@@ -85,15 +87,25 @@ export default function PatientDetailPage() {
   }
 
   if (!patient) {
+    const isForbidden = errorStatus === 403
+    const title = isForbidden ? "Akses Dibatasi" : "Data Tidak Ditemukan"
+    const message = isForbidden 
+      ? "Anda tidak memiliki akses ke data pasien ini karena belum pernah menangani pasien tersebut."
+      : "Identitas pasien tidak terdaftar di sistem atau terjadi kesalahan jaringan."
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] p-6">
         <div className="text-center">
           <div className="w-24 h-24 bg-white rounded-[2.5rem] border border-slate-100 flex items-center justify-center mx-auto mb-8 shadow-sm">
-            <FiUser className="w-10 h-10 text-slate-300" />
+            {isForbidden ? (
+              <FiAlertCircle className="w-10 h-10 text-rose-400" />
+            ) : (
+              <FiUser className="w-10 h-10 text-slate-300" />
+            )}
           </div>
-          <h2 className="text-3xl font-black text-slate-900 mb-3 tracking-tight">Data Tidak Ditemukan</h2>
+          <h2 className="text-3xl font-black text-slate-900 mb-3 tracking-tight">{title}</h2>
           <p className="text-slate-400 font-bold mb-10 max-w-xs mx-auto uppercase text-[10px] tracking-widest leading-relaxed">
-            Identitas pasien tidak terdaftar di sistem atau akses Anda telah dibatasi.
+            {message}
           </p>
           <button 
             onClick={() => router.back()} 

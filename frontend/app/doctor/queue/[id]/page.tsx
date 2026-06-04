@@ -83,6 +83,7 @@ interface Service {
   price: number
   serviceCategory?: { categoryName: string }
   departmentId?: string | null
+  department?: { name: string }
 }
 
 export default function DoctorConsultationPage() {
@@ -476,24 +477,34 @@ export default function DoctorConsultationPage() {
 
           // Load saved actual services from DB if present
           if (data.services && data.services.length > 0) {
+            const labTestIds = new Set(Array.isArray(labTestRes.data) ? labTestRes.data.map((lt: any) => lt.id) : []);
+            
             const allSavedServices = data.services.map((s: any) => ({
               serviceId: s.serviceId,
               name: s.service?.serviceName || 'Layanan',
               code: s.service?.serviceCode || '',
               price: s.price,
               quantity: s.quantity,
-              // Check if it's a lab service based on code or name
-              isLab: s.service?.serviceCode === 'LAB-GEN' ||
-                s.service?.serviceName?.toLowerCase().includes('lab')
+              // Since lab tests aren't saved in services table for final records, this will mostly catch only general services
+              isLab: false
             }));
 
             setServiceItems(allSavedServices.filter((s: any) => !s.isLab));
-            setLabItems(allSavedServices.filter((s: any) => s.isLab).map((s: any) => ({
-              id: s.serviceId,
-              serviceName: s.name,
-              price: s.price,
-              serviceCode: s.code
-            })));
+          }
+          
+          // Load requested lab tests from labOrders since they are properly persisted there
+          if (data.labOrders && data.labOrders.length > 0) {
+            const latestOrder = data.labOrders[0];
+            if (latestOrder.results && latestOrder.results.length > 0) {
+              const loadedLabItems = latestOrder.results.map((res: any) => ({
+                id: res.testMasterId,
+                serviceName: res.testMaster?.name || res.testMaster?.testName || 'Test Lab',
+                price: res.testMaster?.price || 0,
+                serviceCode: res.testMaster?.code || res.testMaster?.testCode || ''
+              }));
+              
+              setLabItems(loadedLabItems);
+            }
           }
 
           if (data.consultationDraft) {
@@ -733,10 +744,15 @@ export default function DoctorConsultationPage() {
             return false;
           }
         } else {
-          // For other/general doctors: only show general services (departmentId is null/empty) or matching their own department,
+          // For other/general doctors: only show general services (departmentId is null/empty), 
+          // matching their own department, OR services explicitly from Poli Umum (General Clinic)
           // and strictly exclude dental department services
           if (s.departmentId && s.departmentId !== queue.departmentId) {
-            return false;
+            const deptName = s.department?.name?.toLowerCase() || '';
+            const isGeneralClinic = deptName.includes('umum') || deptName.includes('general');
+            if (!isGeneralClinic) {
+              return false;
+            }
           }
           // Also exclude dental categories just in case
           const isDentalService = categoryName.includes('gigi') || 

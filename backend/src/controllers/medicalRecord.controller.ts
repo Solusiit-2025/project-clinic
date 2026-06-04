@@ -265,6 +265,8 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
             where: { medicalRecordId: mr.id }
           })
           
+          let labOrderId = existingOrder?.id;
+
           if (!existingOrder) {
             const lCount = await tx.labOrder.count()
             const orderNo = `LAB-${Date.now().toString().slice(-6)}-${(lCount + 1).toString().padStart(3, '0')}`
@@ -277,7 +279,7 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
             }
 
             if (finalDoctorId) {
-              await tx.labOrder.create({
+              const newOrder = await tx.labOrder.create({
                 data: {
                   orderNo,
                   medicalRecordId: mr.id,
@@ -287,6 +289,37 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
                   orderDate: new Date()
                 }
               })
+              labOrderId = newOrder.id;
+            }
+          }
+
+          // Insert requested tests into LabResultDetail if they don't already exist
+          if (labOrderId) {
+            const labServices = services.filter((s: any) => 
+              s.isLab || 
+              (s.name && s.name.toUpperCase().includes('LAB')) ||
+              (s.serviceName && s.serviceName.toUpperCase().includes('LAB'))
+            );
+            
+            for (const lab of labServices) {
+              const testMasterId = lab.serviceId;
+              const testMaster = await tx.labTestMaster.findUnique({ where: { id: testMasterId } });
+              
+              if (testMaster) {
+                const existingDetail = await tx.labResultDetail.findFirst({
+                  where: { labOrderId, testMasterId }
+                });
+                
+                if (!existingDetail) {
+                  await tx.labResultDetail.create({
+                    data: {
+                      labOrderId,
+                      testMasterId,
+                      resultValue: ''
+                    }
+                  });
+                }
+              }
             }
           }
         }
@@ -563,19 +596,30 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
 
         // 3.1 Record Internal Commission for Doctor (only if doctor and clinic are resolved)
         if (commissionDoctorId && finalClinicId) {
-          await tx.doctorCommission.create({
-            data: {
-              doctorId: commissionDoctorId,
-              clinicId: finalClinicId,
-              date: new Date(),
-              description: `Jasa Konsultasi Dokter - Pasien: ${mr.patient.name} (${visitType})`,
-              amount: consultPrice,
-              type: 'AUTO_CONSULTATION',
-              status: 'unpaid',
-              invoiceId: invoice.id,
-              sourceId: mr.id
-            }
+          const existingPaid = await tx.doctorCommission.findFirst({
+            where: { sourceId: mr.id, type: 'AUTO_CONSULTATION', status: 'paid' }
           })
+
+          if (!existingPaid) {
+            // Remove existing unpaid commission to prevent duplicates on reopen
+            await tx.doctorCommission.deleteMany({
+              where: { sourceId: mr.id, type: 'AUTO_CONSULTATION', status: 'unpaid' }
+            })
+
+            await tx.doctorCommission.create({
+              data: {
+                doctorId: commissionDoctorId,
+                clinicId: finalClinicId,
+                date: new Date(),
+                description: `Jasa Konsultasi Dokter - Pasien: ${mr.patient.name} (${visitType})`,
+                amount: consultPrice,
+                type: 'AUTO_CONSULTATION',
+                status: 'unpaid',
+                invoiceId: invoice.id,
+                sourceId: mr.id
+              }
+            })
+          }
         } else {
           console.warn(`[Warning] Skipping auto-commission creation because doctorId (${commissionDoctorId}) or clinicId (${finalClinicId}) could not be resolved for MedicalRecord ${mr.id}`)
         }
