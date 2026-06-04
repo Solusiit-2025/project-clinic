@@ -6,6 +6,8 @@ dist/
 .DS_Store
 .vscode/
 .idea/
-public/uploads/
+public/uploads/*
+!public/uploads/sound/
+!public/uploads/sound/**
 *.sql
 

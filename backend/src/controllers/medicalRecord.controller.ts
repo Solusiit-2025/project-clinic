@@ -874,13 +874,16 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
     }
 
     if (isFinal) {
+      const patientName = (result as any).patient?.name || 'Pasien'
+
+      // Notify FARMASI if there are prescriptions
       if (prescriptions && Array.isArray(prescriptions) && prescriptions.length > 0) {
         const notif = await prisma.notification.create({
           data: {
             clinicId: result.clinicId!,
             targetRole: 'FARMASI',
             title: 'Resep Baru Masuk',
-            message: `Terdapat resep baru untuk pasien ${(result as any).patient?.name || 'Pasien'}.`,
+            message: `Terdapat resep baru untuk pasien ${patientName}. Segera siapkan obat.`,
             type: 'NEW_PRESCRIPTION',
             referenceId: result.id
           }
@@ -888,6 +891,7 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
         if (io) io.to(`clinic:${result.clinicId}`).emit('new-notification', notif)
       }
 
+      // Notify LAB if there are lab services
       const hasLab = services && Array.isArray(services) && services.some((s: any) => 
         s.isLab || 
         (s.name && s.name.toUpperCase().includes('LAB')) ||
@@ -899,13 +903,27 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
             clinicId: result.clinicId!,
             targetRole: 'LAB',
             title: 'Permintaan Lab Baru',
-            message: `Terdapat pesanan laboratorium baru untuk pasien ${(result as any).patient?.name || 'Pasien'}.`,
+            message: `Terdapat pesanan laboratorium baru untuk pasien ${patientName}. Silakan proses segera.`,
             type: 'NEW_LAB_ORDER',
             referenceId: result.id
           }
         })
         if (io) io.to(`clinic:${result.clinicId}`).emit('new-notification', notif)
       }
+
+      // Notify Finance/Kasir — single broadcast notification (targetRole: null = visible to all admin roles)
+      const financeNotif = await prisma.notification.create({
+        data: {
+          clinicId: result.clinicId!,
+          targetRole: null, // broadcast — SUPER_ADMIN, ADMIN, ACCOUNTING, RECEPTIONIST all see this
+          title: 'Pemeriksaan Selesai',
+          message: `Pemeriksaan pasien ${patientName} telah selesai. Invoice siap untuk pembayaran.`,
+          type: 'NEW_INVOICE',
+          referenceId: result.id
+        }
+      })
+      if (io) io.to(`clinic:${result.clinicId}`).emit('new-notification', financeNotif)
+
     }
 
     res.status(200).json(result)
