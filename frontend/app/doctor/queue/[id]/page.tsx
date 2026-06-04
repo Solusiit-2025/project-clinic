@@ -4233,7 +4233,7 @@ export default function DoctorConsultationPage() {
 
                   <div className="flex-1 overflow-y-auto p-4 space-y-3">
                     {racikanComponents.map((c, cidx) => {
-                      const totalNeeded = (parseFloat(c.quantity) || 0) * (parseInt(racikanQty) || 0)
+                      const totalNeeded = parseFloat(c.quantity) || 0
                       const insufficient = totalNeeded > c.availableStock
                       return (
                         <div key={cidx} className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2.5">
@@ -4257,7 +4257,7 @@ export default function DoctorConsultationPage() {
                           <div className="flex items-center gap-3 pt-1.5 border-t border-slate-50">
                             <div className="flex-1">
                               <label className="text-[8px] font-black text-slate-400 uppercase tracking-wider block mb-1">
-                                Qty per unit
+                                Total Qty Obat ({c.unit})
                               </label>
                               <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden h-8">
                                 <input
@@ -4276,10 +4276,10 @@ export default function DoctorConsultationPage() {
                             </div>
                             <div className="text-right shrink-0">
                               <label className="text-[8px] font-black text-slate-400 uppercase tracking-wider block mb-1">
-                                Total Kebutuhan
+                                Subtotal Obat
                               </label>
                               <p className={`text-xs font-black ${insufficient ? 'text-rose-600 animate-pulse' : 'text-slate-700'}`}>
-                                {totalNeeded.toFixed(1)} {c.unit}
+                                Rp {((c.sellingPrice || 0) * totalNeeded).toLocaleString('id-ID')}
                               </p>
                             </div>
                           </div>
@@ -4310,7 +4310,7 @@ export default function DoctorConsultationPage() {
                         <span>Estimasi Total</span>
                         <span>
                           Rp {Number(
-                            (racikanComponents.reduce((sum, c) => sum + (c.sellingPrice || 0) * (parseFloat(c.quantity) || 0) * (parseInt(racikanQty) || 0), 0)) +
+                            (racikanComponents.reduce((sum, c) => sum + (c.sellingPrice || 0) * (parseFloat(c.quantity) || 0), 0)) +
                             (parseFloat(racikanTuslah) || 0)
                           ).toLocaleString('id-ID')}
                         </span>

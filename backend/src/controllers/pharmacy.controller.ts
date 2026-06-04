@@ -171,7 +171,7 @@ export const getPrescriptionById = async (req: Request, res: Response) => {
               if (formula) formulaTuslah = formula.tuslahPrice || 0;
             }
             const parentQty = item.quantity || 1;
-            (item as any).sellingPrice = totalRacikanPrice + (parentQty > 0 ? formulaTuslah / parentQty : 0);
+            (item as any).sellingPrice = parentQty > 0 ? (totalRacikanPrice + formulaTuslah) / parentQty : 0;
             (item as any).usedUnit = (item as any).unit || 'Racik';
             (item as any).storageUnit = (item as any).unit || 'Racik';
           }
@@ -325,7 +325,7 @@ export const updateDispenseStatus = async (req: Request, res: Response) => {
              if (item.isRacikan) {
                 for (const comp of (item as any).components) {
                    if (comp.medicine) {
-                        const requiredQty = comp.quantity * item.quantity;
+                        const requiredQty = comp.quantity;
                         await deductItem(comp.medicine.id, comp.medicine.medicineName, requiredQty)
                    }
                 }
@@ -384,7 +384,7 @@ export const updateDispenseStatus = async (req: Request, res: Response) => {
                   for (const comp of (item as any).components) {
                      if (comp.medicine) {
                         const product = await tx.product.findFirst({ where: { masterProduct: { medicineId: comp.medicine.id }, clinicId } });
-                        if (product) await InventoryService.reserveStock(tx, product.id, clinicId, comp.quantity * item.quantity, pharmacistId, prescription.prescriptionNo);
+                        if (product) await InventoryService.reserveStock(tx, product.id, clinicId, comp.quantity, pharmacistId, prescription.prescriptionNo);
                      }
                   }
                } else if (item.medicine) {
@@ -409,7 +409,7 @@ export const updateDispenseStatus = async (req: Request, res: Response) => {
                   for (const comp of (item as any).components) {
                      if (comp.medicine) {
                         const product = await tx.product.findFirst({ where: { masterProduct: { medicineId: comp.medicine.id }, clinicId } });
-                        if (product) await InventoryService.unreserveStock(tx, product.id, clinicId, comp.quantity * item.quantity, pharmacistId, prescription.prescriptionNo);
+                        if (product) await InventoryService.unreserveStock(tx, product.id, clinicId, comp.quantity, pharmacistId, prescription.prescriptionNo);
                      }
                   }
                } else if (item.medicine) {
@@ -490,7 +490,7 @@ export const updatePrescriptionItems = async (req: Request, res: Response) => {
                  const product = await tx.product.findFirst({ 
                    where: { masterProduct: { medicineId: comp.medicineId }, clinicId } 
                  });
-                 if (product) await InventoryService.unreserveStock(tx, product.id, clinicId, comp.quantity * item.quantity, userId, prescription.prescriptionNo);
+                 if (product) await InventoryService.unreserveStock(tx, product.id, clinicId, comp.quantity, userId, prescription.prescriptionNo);
               }
            } else if (item.medicineId) {
               const product = await tx.product.findFirst({ 
@@ -544,7 +544,7 @@ export const updatePrescriptionItems = async (req: Request, res: Response) => {
                  const product = await tx.product.findFirst({ 
                    where: { masterProduct: { medicineId: comp.medicineId }, clinicId } 
                  });
-                 if (product) await InventoryService.reserveStock(tx, product.id, clinicId, comp.quantity * createdItem.quantity, userId, prescription.prescriptionNo);
+                 if (product) await InventoryService.reserveStock(tx, product.id, clinicId, comp.quantity, userId, prescription.prescriptionNo);
               }
            } else if (createdItem.medicineId) {
               const product = await tx.product.findFirst({ 
@@ -615,14 +615,15 @@ export const updatePrescriptionItems = async (req: Request, res: Response) => {
                     }
                 }
 
-                const subtotal = itemPrice * (newItem.quantity || 1);
+                const subtotal = newItem.isRacikan ? itemPrice : itemPrice * (newItem.quantity || 1);
+                const pricePerUnit = newItem.isRacikan && newItem.quantity > 0 ? itemPrice / newItem.quantity : itemPrice;
                 await tx.invoiceItem.create({
                     data: {
                         invoiceId: invoice.id,
                         serviceId: obatService.id,
                         description: itemName,
                         quantity: newItem.quantity,
-                        price: itemPrice,
+                        price: pricePerUnit,
                         subtotal
                     }
                 });
