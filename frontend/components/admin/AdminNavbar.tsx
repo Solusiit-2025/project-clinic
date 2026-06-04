@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { FiSearch, FiBell, FiUser, FiChevronDown, FiMenu, FiLogOut, FiLock, FiUserCheck, FiSun, FiMoon } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { useThemeStore } from '@/lib/store/useThemeStore'
@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import ClinicSwitcher from './ClinicSwitcher'
 import api from '@/lib/api'
-import { socket } from '@/lib/socket'
+import { socket, connectSocket } from '@/lib/socket'
 
 interface AdminNavbarProps {
   onMobileMenuOpen?: () => void
@@ -26,9 +26,42 @@ export default function AdminNavbar({ onMobileMenuOpen }: AdminNavbarProps) {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
-
+  
   const clinics = user?.clinics || []
   const activeClinic = clinics.find(c => c.id === activeClinicId) || clinics[0]
+
+  // Preloaded audio from backend static file
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  useEffect(() => {
+    // Build the backend base URL (strip /api from API URL)
+    const backendBase = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5006')
+      .replace(/\/api\/?$/, '')
+    const soundUrl = `${backendBase}/uploads/sound/sound-notification.mp3`
+    const audio = new Audio(soundUrl)
+    audio.preload = 'auto'
+    audio.volume = 0.8
+    audioRef.current = audio
+
+    return () => {
+      audioRef.current = null
+    }
+  }, [])
+
+  // Play notification sound from MP3 file
+  const playNotificationSound = useCallback(() => {
+    try {
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0
+        audioRef.current.play().catch(() => {
+          // Browser blocked autoplay — retry after a short delay
+          // (will work after user interaction)
+        })
+      }
+    } catch (e) {
+      // Silently fail
+    }
+  }, [])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -40,42 +73,53 @@ export default function AdminNavbar({ onMobileMenuOpen }: AdminNavbarProps) {
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
-    // Fetch initial notifications
+  // Fetch notifications and connect socket when clinic/user changes
+  useEffect(() => {
+    if (!activeClinicId || !user) return
+
+    // Fetch initial notifications (role-filtered)
     const fetchNotifications = async () => {
       try {
+        // SUPER_ADMIN & ADMIN fetch ALL notifications; other roles fetch only their own
+        const isAdminRole = user.role === 'SUPER_ADMIN' || user.role === 'ADMIN'
         const res = await api.get('notifications', {
-          headers: { 'x-clinic-id': activeClinicId }
+          headers: { 'x-clinic-id': activeClinicId },
+          params: isAdminRole ? {} : { role: user.role }
         })
         setNotifications(res.data)
       } catch (error) {
         console.error('Failed to fetch notifications', error)
       }
     }
-    if (activeClinicId && user) {
-      fetchNotifications()
-    }
+    fetchNotifications()
 
-    // Socket listener
+    // Ensure socket is connected and joined to this clinic room
+    connectSocket(activeClinicId)
+
+    // Admin/SuperAdmin sees ALL notifications; other roles see only their own
+    const isAdminRole = user.role === 'SUPER_ADMIN' || user.role === 'ADMIN'
+
+    // Socket listener for real-time notifications
     const handleNewNotification = (notif: any) => {
-      // Check if it's meant for us
-      if (!notif.targetRole || notif.targetRole === user?.role) {
-        setNotifications(prev => [notif, ...prev].slice(0, 50)) // keep 50 latest
-        // Play sound
-        try {
-          const audio = new Audio('/sounds/ting.mp3') // assuming we have a sound file, or just fallback
-          audio.play().catch(e => {})
-        } catch(e) {}
+      // SUPER_ADMIN & ADMIN see everything; others only see their targetRole
+      const shouldShow = isAdminRole
+        ? true
+        : (!notif.targetRole || notif.targetRole === user?.role)
+      if (shouldShow) {
+        setNotifications(prev => [notif, ...prev].slice(0, 50))
+        playNotificationSound()
       }
     }
 
     socket.on('new-notification', handleNewNotification)
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
       socket.off('new-notification', handleNewNotification)
     }
-  }, [])
+  }, [activeClinicId, user, playNotificationSound])
 
   return (
     <header
@@ -140,11 +184,49 @@ export default function AdminNavbar({ onMobileMenuOpen }: AdminNavbarProps) {
           <button
             onClick={() => setIsNotifOpen(!isNotifOpen)}
             className="relative p-2 rounded-xl transition-all"
-            style={{ backgroundColor: 'var(--bg-surface-2)', color: 'var(--text-muted)' }}
+            style={{
+              backgroundColor: notifications.filter(n => !n.isRead).length > 0
+                ? 'rgba(239,68,68,0.08)'
+                : 'var(--bg-surface-2)',
+              color: notifications.filter(n => !n.isRead).length > 0
+                ? '#ef4444'
+                : 'var(--text-muted)',
+              boxShadow: notifications.filter(n => !n.isRead).length > 0
+                ? '0 0 0 1px rgba(239,68,68,0.25)'
+                : 'none'
+            }}
           >
             <FiBell className="w-4 h-4" />
+
+            {/* Blinking dot badge with ping + count */}
             {notifications.filter(n => !n.isRead).length > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-white" />
+              <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center">
+                {/* Ping outer ring */}
+                <span
+                  className="absolute inline-flex rounded-full opacity-75 animate-ping"
+                  style={{
+                    width: '14px',
+                    height: '14px',
+                    backgroundColor: '#ef4444',
+                  }}
+                />
+                {/* Inner solid dot with count */}
+                <span
+                  className="relative inline-flex items-center justify-center rounded-full font-black text-white"
+                  style={{
+                    minWidth: notifications.filter(n => !n.isRead).length > 9 ? '18px' : '14px',
+                    height: '14px',
+                    fontSize: '8px',
+                    backgroundColor: '#dc2626',
+                    boxShadow: '0 0 0 2px white, 0 0 8px rgba(220,38,38,0.6)',
+                    paddingInline: notifications.filter(n => !n.isRead).length > 9 ? '3px' : '0',
+                  }}
+                >
+                  {notifications.filter(n => !n.isRead).length > 99
+                    ? '99+'
+                    : notifications.filter(n => !n.isRead).length}
+                </span>
+              </span>
             )}
           </button>
 
@@ -186,8 +268,9 @@ export default function AdminNavbar({ onMobileMenuOpen }: AdminNavbarProps) {
                             setNotifications(notifications.map(x => x.id === n.id ? {...x, isRead: true} : x))
                           }
                           setIsNotifOpen(false)
-                          if (n.type === 'NEW_PRESCRIPTION') router.push('/admin/pharmacy')
-                          if (n.type === 'NEW_LAB_ORDER') router.push('/admin/lab')
+                          if (n.type === 'NEW_PRESCRIPTION') router.push('/admin/transactions/pharmacy')
+                          if (n.type === 'NEW_LAB_ORDER') router.push('/admin/lab/input')
+                          if (n.type === 'NEW_INVOICE') router.push('/admin/finance')
                         }}
                         className={`p-3 rounded-xl cursor-pointer transition-all border ${!n.isRead ? 'bg-primary/5 border-primary/20' : 'hover:bg-gray-50 dark:hover:bg-white/5 border-transparent'}`}
                       >
