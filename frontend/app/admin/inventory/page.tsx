@@ -81,7 +81,10 @@ export default function InventoryDashboard() {
       // The API returns paginated data: { data: [], meta: {} }
       if (res.data.meta) {
         setStocks(res.data.data)
-        setMeta(res.data.meta)
+        setMeta({ ...res.data.meta, totalAssetValue: res.data.meta.totalAssetValue })
+      } else if (res.data.data) {
+        setStocks(res.data.data)
+        setMeta({ totalAssetValue: res.data.totalAssetValue })
       } else {
         setStocks(res.data)
         setMeta(null)
@@ -104,7 +107,7 @@ export default function InventoryDashboard() {
   }, [debouncedSearch])
 
   const lowStockItems = stocks.filter(s => (s.onHandQty || 0) <= (s.minStockAlert || 0))
-  const totalAssetValue = stocks.reduce((sum, s) => {
+  const totalAssetValue = meta?.totalAssetValue ?? stocks.reduce((sum, s) => {
     const price = s.batch?.purchasePrice || s.product?.purchasePrice || 0;
     return sum + ((s.onHandQty || 0) * price);
   }, 0)

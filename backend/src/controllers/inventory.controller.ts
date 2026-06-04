@@ -96,20 +96,32 @@ export const getBranchStocks = async (req: Request, res: Response) => {
       };
     });
 
+    // Calculate total asset value across ALL pages for the current search
+    const allMatchingProducts = await prisma.product.findMany({
+      where: {
+        clinicId: branchId as string,
+        quantity: { gt: 0 },
+        productName: { contains: search as string, mode: 'insensitive' },
+      },
+      select: { quantity: true, purchasePrice: true }
+    });
+    const totalAssetValue = allMatchingProducts.reduce((sum, p) => sum + ((p.quantity || 0) * (p.purchasePrice || 0)), 0);
+
     if (pageParam) {
-      const result: PaginatedResult<any> = {
+      const result: PaginatedResult<any> & { meta: { totalAssetValue?: number } } = {
         data: aggregatedStocks,
         meta: {
           total,
           page,
           limit,
-          totalPages: Math.ceil(total / limit)
+          totalPages: Math.ceil(total / limit),
+          totalAssetValue
         }
       };
       return res.json(result);
     }
 
-    res.json(aggregatedStocks);
+    return res.json({ data: aggregatedStocks, totalAssetValue });
   } catch (error) {
     console.error('Error fetching stocks:', error);
     res.status(500).json({ message: (error as Error).message });
