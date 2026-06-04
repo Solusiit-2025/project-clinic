@@ -70,3 +70,28 @@ export const markAllAsRead = async (req: Request, res: Response) => {
     res.status(500).json({ message: (error as Error).message })
   }
 }
+
+export const deleteReadNotifications = async (req: Request, res: Response) => {
+  try {
+    const clinicId = req.headers['x-clinic-id'] as string
+    const userRole = (req as any).user?.role
+
+    if (!clinicId) {
+      return res.status(400).json({ message: 'Clinic ID is required' })
+    }
+
+    // SUPER_ADMIN & ADMIN delete all read notifications in the clinic
+    // Other roles only delete their own read + broadcast read ones
+    const isAdminRole = userRole === 'SUPER_ADMIN' || userRole === 'ADMIN'
+
+    const where: any = isAdminRole
+      ? { clinicId, isRead: true }
+      : { clinicId, isRead: true, OR: [{ targetRole: userRole }, { targetRole: null }] }
+
+    const { count } = await prisma.notification.deleteMany({ where })
+
+    res.json({ message: `${count} notifikasi dihapus`, count })
+  } catch (error) {
+    res.status(500).json({ message: (error as Error).message })
+  }
+}

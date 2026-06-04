@@ -240,19 +240,42 @@ export default function AdminNavbar({ onMobileMenuOpen }: AdminNavbarProps) {
                 className="absolute right-0 mt-2 w-72 rounded-2xl shadow-2xl border z-50 overflow-hidden flex flex-col"
                 style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)', maxHeight: '400px' }}
               >
-                <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border)' }}>
-                  <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>Notifikasi</span>
-                  {notifications.filter(n => !n.isRead).length > 0 && (
-                    <button 
-                      onClick={async () => {
-                        await api.put('notifications/read-all', {}, { headers: { 'x-clinic-id': activeClinicId } })
-                        setNotifications(notifications.map(n => ({...n, isRead: true})))
-                      }}
-                      className="text-[10px] text-primary hover:underline font-semibold"
-                    >
-                      Tandai semua dibaca
-                    </button>
-                  )}
+                <div className="px-4 py-2.5 border-b flex justify-between items-center gap-2" style={{ borderColor: 'var(--border)' }}>
+                  <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
+                    Notifikasi
+                    {notifications.filter(n => !n.isRead).length > 0 && (
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-black bg-red-500 text-white">
+                        {notifications.filter(n => !n.isRead).length}
+                      </span>
+                    )}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {notifications.filter(n => !n.isRead).length > 0 && (
+                      <button
+                        onClick={async () => {
+                          await api.put('notifications/read-all', {}, { headers: { 'x-clinic-id': activeClinicId } })
+                          setNotifications(notifications.map(n => ({...n, isRead: true})))
+                        }}
+                        className="text-[10px] text-primary hover:underline font-semibold whitespace-nowrap"
+                      >
+                        Tandai dibaca
+                      </button>
+                    )}
+                    {notifications.filter(n => n.isRead).length > 0 && (
+                      <button
+                        onClick={() => {
+                          setNotifications(prev => prev.filter(n => !n.isRead))
+                        }}
+                        title="Sembunyikan notifikasi yang sudah dibaca"
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 border border-red-200 dark:border-red-500/20 transition-all whitespace-nowrap"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Hapus
+                      </button>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="overflow-y-auto flex-1 p-2 space-y-1">
