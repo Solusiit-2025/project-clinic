@@ -2193,6 +2193,15 @@ export const createPatient = async (req: Request, res: Response) => {
     delete rest.updatedAt;
     delete rest.corporatePartner;
     delete rest.deathIcd10;
+    delete rest.medicalRecords;
+    delete rest.appointments;
+    delete rest.invoices;
+    delete rest.labOrders;
+    delete rest.birthRecords;
+    delete rest.prescriptions;
+    delete rest.queueNumbers;
+    delete rest.registrations;
+    delete rest.treatmentPlans;
 
     const dataPayload: any = {
       ...rest,
@@ -2238,6 +2247,15 @@ export const updatePatient = async (req: Request, res: Response) => {
     delete rest.updatedAt;
     delete rest.corporatePartner;
     delete rest.deathIcd10;
+    delete rest.medicalRecords;
+    delete rest.appointments;
+    delete rest.invoices;
+    delete rest.labOrders;
+    delete rest.birthRecords;
+    delete rest.prescriptions;
+    delete rest.queueNumbers;
+    delete rest.registrations;
+    delete rest.treatmentPlans;
 
     const dataPayload: any = {
       ...rest,
