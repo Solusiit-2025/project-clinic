@@ -1992,10 +1992,33 @@ export default function DoctorConsultationPage() {
                 <h1 className="text-lg md:text-xl font-black text-slate-900 tracking-tight">{queue.patient.name}</h1>
                 <span className="text-[9px] md:text-[10px] font-black px-2 md:px-2.5 py-0.5 md:py-1 bg-indigo-50 text-indigo-600 rounded-lg md:rounded-xl border border-indigo-100 uppercase tracking-wider">{queue.patient.medicalRecordNo}</span>
                 {queue.patient.gender && (
-                  <span className={`text-[9px] md:text-[10px] font-black px-2 md:px-2.5 py-0.5 md:py-1 rounded-lg md:rounded-xl border uppercase tracking-wider ${['L', 'M', 'Laki-laki'].includes(queue.patient.gender) ? 'bg-sky-50 text-sky-600 border-sky-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
-                    {['L', 'M', 'Laki-laki'].includes(queue.patient.gender) ? 'Laki-laki' : 'Perempuan'}
+                  <span className={`text-[9px] md:text-[10px] font-black px-2 md:px-2.5 py-0.5 md:py-1 rounded-lg md:rounded-xl border uppercase tracking-wider shadow-sm flex items-center gap-1 ${['L', 'M', 'Laki-laki'].includes(queue.patient.gender) ? 'bg-sky-500 text-white border-sky-600 shadow-sky-200' : 'bg-rose-500 text-white border-rose-600 shadow-rose-200'}`}>
+                    {['L', 'M', 'Laki-laki'].includes(queue.patient.gender) ? 'LAKI-LAKI' : 'PEREMPUAN'}
                   </span>
                 )}
+                  <span className="text-[9px] md:text-[10px] font-black px-2 md:px-2.5 py-0.5 md:py-1 rounded-lg md:rounded-xl border bg-indigo-600 text-white border-indigo-700 uppercase tracking-wider flex items-center gap-1 shadow-sm shadow-indigo-200">
+                    <FiUser className="w-3 h-3 text-white/80" />
+                    {(() => {
+                      if (!queue.patient.dateOfBirth) return '- TAHUN';
+                      const dob = new Date(queue.patient.dateOfBirth);
+                      const now = new Date();
+                      let years = now.getFullYear() - dob.getFullYear();
+                      let months = now.getMonth() - dob.getMonth();
+                      if (months < 0 || (months === 0 && now.getDate() < dob.getDate())) {
+                        years--;
+                        months += 12;
+                      }
+                      if (now.getDate() < dob.getDate()) {
+                        months--;
+                        if (months < 0) {
+                          months += 12;
+                        }
+                      }
+                      let ageStr = `${years} TAHUN`;
+                      if (months > 0) ageStr += ` ${months} BULAN`;
+                      return ageStr;
+                    })()}
+                  </span>
                 <button
                   onClick={() => setIsRMEInfoOpen(true)}
                   className="flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1 bg-amber-400 text-white rounded-lg md:rounded-xl text-[9px] font-black hover:bg-amber-500 transition-all shadow-lg shadow-amber-200 animate-pulse"
