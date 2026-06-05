@@ -12,7 +12,8 @@ import {
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import Link from 'next/link'
 import { announceQueue, resetSpeech } from '@/lib/utils/speech'
-
+import { formatDistanceToNow } from 'date-fns'
+import { id as idLocale } from 'date-fns/locale'
 // API endpoint for transactions
 const TX_API = 'transactions'
 
@@ -21,6 +22,7 @@ interface Queue {
   queueNo: string
   status: 'waiting' | 'called' | 'triage' | 'ready' | 'ongoing' | 'completed' | 'no-show'
   actualCallTime: string | null
+  createdAt: string
   doctorId: string | null
   departmentId: string | null
   patient: { name: string; medicalRecordNo: string; gender: string }
@@ -303,7 +305,12 @@ export default function QueueDashboard() {
                     <div className="flex-1 min-w-0">
                       <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1 leading-none">{q.department?.name || 'POLI UMUM'}</p>
                       <h4 className="text-base font-black uppercase truncate tracking-tight mb-0.5">{q.patient.name}</h4>
-                      <p className="text-[9px] font-bold opacity-80 flex items-center gap-1"><FiUser className="w-2.5 h-2.5" /> {q.doctor?.name ? (q.doctor.name.toLowerCase().startsWith('dr') ? q.doctor.name : `Dr. ${q.doctor.name}`) : 'Dokter Jaga'}</p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <p className="text-[9px] font-bold opacity-80 flex items-center gap-1"><FiUser className="w-2.5 h-2.5" /> {q.doctor?.name ? (q.doctor.name.toLowerCase().startsWith('dr') ? q.doctor.name : `Dr. ${q.doctor.name}`) : 'Dokter Jaga'}</p>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-800/50 border border-emerald-500/30 text-[9px] font-black text-emerald-50 shadow-inner backdrop-blur-sm" title="Waktu Registrasi">
+                          <FiClock className="w-2.5 h-2.5 text-emerald-300" /> {new Date(q.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} • {formatDistanceToNow(new Date(q.createdAt), { addSuffix: true, locale: idLocale })}
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between relative z-10">
@@ -377,9 +384,14 @@ export default function QueueDashboard() {
                        <h4 className="text-base font-black text-gray-900 uppercase truncate tracking-tight">{q.patient.name}</h4>
                        <div className="flex flex-col gap-1 mt-1">
                           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none">{q.department?.name || 'POLI UMUM'}</p>
-                          <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest flex items-center gap-1">
-                             <FiUser className="w-2.5 h-2.5" /> {q.doctor?.name ? (q.doctor.name.toLowerCase().startsWith('dr') ? q.doctor.name : `Dr. ${q.doctor.name}`) : 'DOKTER JAGA'}
-                          </p>
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
+                            <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest flex items-center gap-1">
+                               <FiUser className="w-2.5 h-2.5" /> {q.doctor?.name ? (q.doctor.name.toLowerCase().startsWith('dr') ? q.doctor.name : `Dr. ${q.doctor.name}`) : 'DOKTER JAGA'}
+                            </p>
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-100 border border-amber-200 text-[9px] font-black text-amber-700 shadow-sm" title="Waktu Registrasi">
+                               <FiClock className="w-2.5 h-2.5 text-amber-600" /> {new Date(q.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} • {formatDistanceToNow(new Date(q.createdAt), { addSuffix: true, locale: idLocale })}
+                            </span>
+                          </div>
                        </div>
                     </div>
 
@@ -461,7 +473,12 @@ export default function QueueDashboard() {
                     
                     <div className="mb-5">
                        <h4 className="text-lg font-black text-gray-900 uppercase tracking-tight">{q.patient.name}</h4>
-                       <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-tighter">Diperiksa oleh: {q.doctor?.name ? (q.doctor.name.toLowerCase().startsWith('dr') ? q.doctor.name : `Dr. ${q.doctor.name}`) : 'Dokter Jaga'}</p>
+                       <div className="flex flex-wrap items-center gap-2 mt-2">
+                         <p className="text-xs font-bold text-gray-400 uppercase tracking-tighter">Diperiksa oleh: {q.doctor?.name ? (q.doctor.name.toLowerCase().startsWith('dr') ? q.doctor.name : `Dr. ${q.doctor.name}`) : 'Dokter Jaga'}</p>
+                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-100 border border-amber-200 text-[10px] font-black text-amber-700 shadow-sm" title="Waktu Registrasi">
+                           <FiClock className="w-2.5 h-2.5 text-amber-600" /> {new Date(q.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} • {formatDistanceToNow(new Date(q.createdAt), { addSuffix: true, locale: idLocale })}
+                         </span>
+                       </div>
                     </div>
 
                     <div className="flex gap-2">
