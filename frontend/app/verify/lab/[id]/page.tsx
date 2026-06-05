@@ -155,9 +155,18 @@ export default function VerifyLabPage() {
             </div>
           </div>
 
-          <div className="mt-12 pt-6 border-t border-slate-100 flex items-center justify-center gap-2 text-slate-400">
-            <FiShield className="w-4 h-4" />
-            <p className="text-[10px] font-bold uppercase tracking-widest">Yasfina Secure Document Verification</p>
+          <div className="mt-12 pt-6 border-t border-slate-100 flex flex-col items-center justify-center gap-4">
+            <div className="flex items-center gap-2 text-slate-400">
+              <FiShield className="w-4 h-4" />
+              <p className="text-[10px] font-bold uppercase tracking-widest">Yasfina Secure Document Verification</p>
+            </div>
+            
+            <a 
+              href="https://yasfina-app.com" 
+              className="mt-2 inline-flex items-center justify-center gap-2 px-6 py-3 bg-slate-800 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition-colors shadow-lg shadow-slate-200"
+            >
+              Kunjungi Website Yasfina
+            </a>
           </div>
         </motion.div>
       </div>
