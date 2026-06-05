@@ -64,11 +64,16 @@ export default function VerifyLabPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 text-center">
         <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
-          <FiLoader className="w-12 h-12 text-teal-600" />
+          <FiLoader className="w-12 h-12 text-teal-600 mx-auto" />
         </motion.div>
-        <p className="mt-4 text-slate-500 font-bold uppercase tracking-widest text-sm">Memverifikasi Dokumen...</p>
+        <p className="mt-4 text-slate-800 font-bold uppercase tracking-widest text-sm">Memverifikasi Dokumen...</p>
+        <div className="mt-8 p-4 bg-white rounded-xl border border-slate-200 shadow-sm max-w-xs">
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Jika data belum bisa terbuka atau memuat terlalu lama, silakan <strong className="text-slate-800">scan ulang</strong>. Disarankan membuka link ini menggunakan <strong className="text-teal-600">Browser Chrome</strong>.
+          </p>
+        </div>
       </div>
     )
   }
