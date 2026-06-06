@@ -16,7 +16,8 @@ export const saveNurseVitals = async (req: Request, res: Response) => {
         registrationId,
         doctorId, 
         chiefComplaint, 
-        vitals 
+        vitals,
+        allergies
     } = req.body
 
     if (!queueId || !patientId || !clinicId) {
@@ -24,6 +25,14 @@ export const saveNurseVitals = async (req: Request, res: Response) => {
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      // 0. Update Patient Allergies if provided
+      if (allergies !== undefined) {
+        await tx.patient.update({
+          where: { id: patientId },
+          data: { allergies }
+        })
+      }
+
       // 1. Generate Medical Record Number if doesn't exist for this registration
       let medicalRecord = await tx.medicalRecord.findFirst({
         where: { registrationId }

@@ -2016,11 +2016,11 @@ export default function DoctorConsultationPage() {
                 <h1 className="text-lg md:text-xl font-black text-slate-900 tracking-tight">{queue.patient.name}</h1>
                 <span className="text-[9px] md:text-[10px] font-black px-2 md:px-2.5 py-0.5 md:py-1 bg-indigo-50 text-indigo-600 rounded-lg md:rounded-xl border border-indigo-100 uppercase tracking-wider">{queue.patient.medicalRecordNo}</span>
                 {queue.patient.gender && (
-                  <span className={`text-[9px] md:text-[10px] font-black px-2 md:px-2.5 py-0.5 md:py-1 rounded-lg md:rounded-xl border uppercase tracking-wider shadow-sm flex items-center gap-1 ${['L', 'M', 'Laki-laki'].includes(queue.patient.gender) ? 'bg-sky-500 text-white border-sky-600 shadow-sky-200' : 'bg-rose-500 text-white border-rose-600 shadow-rose-200'}`}>
+                  <span className={`text-[9px] md:text-[10px] font-black px-2 md:px-2.5 py-0.5 md:py-[3px] h-fit rounded-lg md:rounded-xl border uppercase tracking-wider shadow-sm flex items-center justify-center gap-1 leading-none ${['L', 'M', 'Laki-laki'].includes(queue.patient.gender) ? 'bg-sky-500 text-white border-sky-600 shadow-sky-200' : 'bg-rose-500 text-white border-rose-600 shadow-rose-200'}`}>
                     {['L', 'M', 'Laki-laki'].includes(queue.patient.gender) ? 'LAKI-LAKI' : 'PEREMPUAN'}
                   </span>
                 )}
-                  <span className="text-[9px] md:text-[10px] font-black px-2 md:px-2.5 py-0.5 md:py-1 rounded-lg md:rounded-xl border bg-indigo-600 text-white border-indigo-700 uppercase tracking-wider flex items-center gap-1 shadow-sm shadow-indigo-200">
+                  <span className="text-[9px] md:text-[10px] font-black px-2 md:px-2.5 py-0.5 md:py-[3px] h-fit rounded-lg md:rounded-xl border bg-indigo-600 text-white border-indigo-700 uppercase tracking-wider flex items-center justify-center gap-1 shadow-sm shadow-indigo-200 leading-none">
                     <FiUser className="w-3 h-3 text-white/80" />
                     {(() => {
                       if (!queue.patient.dateOfBirth) return '- TAHUN';
@@ -2043,26 +2043,19 @@ export default function DoctorConsultationPage() {
                       return ageStr;
                     })()}
                   </span>
-                <button
+                <span
                   onClick={() => setIsRMEInfoOpen(true)}
-                  className="flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1 bg-amber-400 text-white rounded-lg md:rounded-xl text-[9px] font-black hover:bg-amber-500 transition-all shadow-lg shadow-amber-200 animate-pulse"
+                  role="button"
+                  tabIndex={0}
+                  className="text-[9px] md:text-[10px] font-black px-2 md:px-2.5 py-0.5 md:py-[3px] h-fit rounded-lg md:rounded-xl border bg-amber-400 text-white border-amber-500 uppercase tracking-wider flex items-center justify-center gap-1 shadow-sm shadow-amber-200 leading-none cursor-pointer hover:bg-amber-500 transition-all animate-pulse"
                 >
-                  <FiInfo className="w-3 h-3" /> PANDUAN RME
-                </button>
+                  <FiInfo className="w-3 h-3 text-white/80 shrink-0" /> PANDUAN RME
+                </span>
               </div>
               <div className="flex flex-wrap items-center gap-2 mt-2 md:mt-1">
                 <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">
                   {queue.department?.name || 'UMUM'} • No. Antrean: <span className="text-slate-900">{queue.queueNo}</span>
                 </p>
-                {queue.patient.allergies && (
-                  <motion.div
-                    animate={{ scale: [1, 1.05, 1] }}
-                    transition={{ repeat: Infinity, duration: 2 }}
-                    className="flex items-center gap-1 md:gap-1.5 px-2 py-0.5 bg-rose-500 text-white rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-200"
-                  >
-                    <FiAlertCircle className="w-3 h-3" /> ALERGI: {queue.patient.allergies}
-                  </motion.div>
-                )}
               </div>
             </div>
           </div>
@@ -2159,6 +2152,30 @@ export default function DoctorConsultationPage() {
 
         {/* Content Area */}
         <div className="col-span-12 lg:col-span-9 space-y-4">
+          
+          {/* Allergy Banner - Always visible */}
+          {queue.patient.allergies ? (
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start sm:items-center gap-4 text-rose-700 shadow-sm animate-pulse">
+              <div className="w-10 h-10 bg-rose-100 rounded-xl flex items-center justify-center shrink-0">
+                <FiAlertCircle className="w-5 h-5 text-rose-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-rose-500 mb-0.5">Peringatan Medis Penting</p>
+                <p className="text-sm font-bold">Pasien memiliki riwayat alergi: <span className="font-black text-rose-800">{queue.patient.allergies}</span></p>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-start sm:items-center gap-4 text-slate-600 shadow-sm">
+              <div className="w-10 h-10 bg-slate-200 rounded-xl flex items-center justify-center shrink-0">
+                <FiCheckCircle className="w-5 h-5 text-slate-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Status Alergi</p>
+                <p className="text-sm font-bold">Tidak ada riwayat alergi yang terdaftar.</p>
+              </div>
+            </div>
+          )}
+
           {isReadOnly && (
             <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-amber-700">
               <div className="flex items-center gap-3">

@@ -2787,3 +2787,74 @@ export const mergePatients = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Get patient transaction history
+ */
+export const getPatientHistory = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+
+    const patient = await prisma.patient.findUnique({ where: { id } })
+    if (!patient) return res.status(404).json({ message: 'Pasien tidak ditemukan' })
+
+    const [registrations, medicalRecords, invoices, prescriptions, labOrders] = await Promise.all([
+      prisma.registration.findMany({
+        where: { patientId: id },
+        orderBy: { registrationDate: 'desc' },
+        include: {
+          doctor: { select: { name: true } },
+          clinic: { select: { name: true } },
+          department: { select: { name: true } }
+        }
+      }),
+      prisma.medicalRecord.findMany({
+        where: { patientId: id },
+        orderBy: { recordDate: 'desc' },
+        include: {
+          doctor: { select: { name: true } },
+          guestDoctor: { select: { name: true } },
+          clinic: { select: { name: true } },
+          icd10: { select: { code: true, nameId: true, nameEn: true } },
+          services: { include: { service: { select: { serviceName: true } } } }
+        }
+      }),
+      prisma.invoice.findMany({
+        where: { patientId: id },
+        orderBy: { invoiceDate: 'desc' },
+        include: {
+          clinic: { select: { name: true } },
+          items: { select: { description: true, quantity: true, subtotal: true } }
+        }
+      }),
+      prisma.prescription.findMany({
+        where: { patientId: id },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          doctor: { select: { name: true } },
+          items: { include: { medicine: { select: { medicineName: true } } } }
+        }
+      }),
+      prisma.labOrder.findMany({
+        where: { patientId: id },
+        orderBy: { orderDate: 'desc' },
+        include: {
+          doctor: { select: { name: true } },
+          results: true
+        }
+      })
+    ])
+
+    res.json({
+      patient: { id: patient.id, name: patient.name, medicalRecordNo: patient.medicalRecordNo, allergies: patient.allergies },
+      registrations,
+      medicalRecords,
+      invoices,
+      prescriptions,
+      labOrders
+    })
+  } catch (e: any) {
+    console.error('[getPatientHistory]', e)
+    res.status(500).json({ message: e.message })
+  }
+}
+

@@ -8,6 +8,7 @@ import DataTable, { Column } from '@/components/admin/master/DataTable'
 import PageHeader from '@/components/admin/master/PageHeader'
 import MasterModal from '@/components/admin/master/MasterModal'
 import MergePatientDialog from '@/components/admin/master/MergePatientDialog'
+import PatientHistoryDialog from '@/components/admin/master/PatientHistoryDialog'
 import { StatusBadge } from '@/components/admin/master/StatusBadge'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
@@ -59,6 +60,8 @@ export default function PatientsPage() {
   const [updatedId, setUpdatedId] = useState<string | null>(null)
   const [mergeModalOpen, setMergeModalOpen] = useState(false)
   const [mergeTarget, setMergeTarget] = useState<Patient | null>(null)
+  const [historyModalOpen, setHistoryModalOpen] = useState(false)
+  const [historyPatientId, setHistoryPatientId] = useState<string | null>(null)
   const [corporatePartners, setCorporatePartners] = useState<{id: string, name: string}[]>([])
 
   const fetchCorporatePartners = useCallback(async () => {
@@ -145,6 +148,11 @@ export default function PatientsPage() {
   const openMerge = (r: Patient) => {
     setMergeTarget(r)
     setMergeModalOpen(true)
+  }
+
+  const openHistory = (r: Patient) => {
+    setHistoryPatientId(r.id)
+    setHistoryModalOpen(true)
   }
 
   const handleSave = async () => {
@@ -302,6 +310,7 @@ export default function PatientsPage() {
         searchValue={search} onSearchChange={setSearch}
         searchPlaceholder="Cari nama, RM, Alamat, No. HP, KTP, Nama KK, atau BPJS..."
         onEdit={openEdit} onDelete={handleDelete} onMerge={openMerge}
+        onView={(user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN') ? openHistory : undefined}
         emptyText="Belum ada data pasien terdaftar."
         page={page}
         totalPages={meta.totalPages}
@@ -616,6 +625,12 @@ export default function PatientsPage() {
           setUpdatedId(mergeTarget?.id || null)
           setTimeout(() => setUpdatedId(null), 8000)
         }}
+      />
+
+      <PatientHistoryDialog
+        isOpen={historyModalOpen}
+        onClose={() => setHistoryModalOpen(false)}
+        patientId={historyPatientId}
       />
     </div>
   )
