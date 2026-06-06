@@ -13,8 +13,9 @@ export default function GoLiveSetupPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [resetType, setResetType] = useState<'CLINIC' | 'ALL'>('CLINIC')
+  const [resetMode, setResetMode] = useState<'MAY_ONLY' | 'ALL_TIME'>('MAY_ONLY')
 
-  const REQUIRED_TEXT = 'GOLIVE-CONFIRM-RESET'
+  const REQUIRED_TEXT = resetMode === 'MAY_ONLY' ? 'RESET-MEI' : 'GOLIVE-CONFIRM-RESET'
 
   const handleReset = async () => {
     if (confirmationText !== REQUIRED_TEXT) {
@@ -22,13 +23,18 @@ export default function GoLiveSetupPage() {
       return
     }
 
-    if (!confirm('PERINGATAN: Tindakan ini tidak dapat dibatalkan. Seluruh data transaksi akan terhapus selamanya. Apakah Anda benar-benar yakin?')) {
+    if (!confirm(
+      resetMode === 'MAY_ONLY' 
+        ? 'PERINGATAN: Tindakan ini tidak dapat dibatalkan. Seluruh data transaksi BULAN MEI akan terhapus. Stok obat aman. Lanjutkan?'
+        : 'PERINGATAN: Tindakan ini tidak dapat dibatalkan. Seluruh data transaksi akan terhapus selamanya. Apakah Anda benar-benar yakin?'
+    )) {
       return
     }
 
     setIsDeleting(true)
     try {
-      const { data } = await api.post('/system/reset-transactions', {
+      const endpoint = resetMode === 'MAY_ONLY' ? '/system/reset-may' : '/system/reset-transactions';
+      const { data } = await api.post(endpoint, {
         confirmationText,
         clinicId: resetType === 'CLINIC' ? activeClinicId : null
       })
@@ -115,6 +121,34 @@ export default function GoLiveSetupPage() {
 
             {/* Selection */}
             <div className="bg-white border border-slate-100 rounded-3xl p-8 shadow-sm space-y-8">
+              
+              {/* Reset Mode Selection */}
+              <div className="space-y-4">
+                <label className="text-xs font-black text-slate-800 uppercase tracking-widest block">Pilih Mode Pembersihan:</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button 
+                    onClick={() => setResetMode('MAY_ONLY')}
+                    className={`p-6 rounded-2xl border-2 transition-all text-left space-y-2 ${resetMode === 'MAY_ONLY' ? 'border-blue-600 bg-blue-50/50' : 'border-slate-100 hover:border-slate-200'}`}
+                  >
+                    <div className="flex justify-between items-center">
+                       <div className={`font-black text-sm uppercase ${resetMode === 'MAY_ONLY' ? 'text-blue-900' : 'text-slate-900'}`}>Bersihkan Data Mei (Aman Stok)</div>
+                       {resetMode === 'MAY_ONLY' && <div className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />}
+                    </div>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">Hapus transaksi s/d 31 Mei. Stok & Riwayat Mutasi DIPERTAHANKAN.</p>
+                  </button>
+                  <button 
+                    onClick={() => setResetMode('ALL_TIME')}
+                    className={`p-6 rounded-2xl border-2 transition-all text-left space-y-2 ${resetMode === 'ALL_TIME' ? 'border-rose-600 bg-rose-50/50' : 'border-slate-100 hover:border-slate-200'}`}
+                  >
+                    <div className="flex justify-between items-center">
+                       <div className={`font-black text-sm uppercase ${resetMode === 'ALL_TIME' ? 'text-rose-900' : 'text-slate-900'}`}>Reset Total Keseluruhan</div>
+                       {resetMode === 'ALL_TIME' && <div className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />}
+                    </div>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">Hapus SEMUA transaksi. STOK OBAT AKAN DI-NOL-KAN (Reset dari 0).</p>
+                  </button>
+                </div>
+              </div>
+
               <div className="space-y-4">
                 <label className="text-xs font-black text-slate-800 uppercase tracking-widest block">Pilih Lingkup Reset:</label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -145,20 +179,30 @@ export default function GoLiveSetupPage() {
 
               <div className="space-y-4">
                 <label className="text-xs font-black text-slate-800 uppercase tracking-widest block">Konfirmasi Keamanan:</label>
-                <p className="text-[11px] text-slate-400 font-bold uppercase tracking-normal">Ketik kalimat <span className="text-rose-600 font-black">GOLIVE-CONFIRM-RESET</span> di bawah untuk melanjutkan:</p>
+                <p className="text-[11px] text-slate-400 font-bold uppercase tracking-normal">
+                  Ketik kalimat <span className={resetMode === 'MAY_ONLY' ? "text-blue-600 font-black" : "text-rose-600 font-black"}>{REQUIRED_TEXT}</span> di bawah untuk melanjutkan:
+                </p>
                 <input 
                   type="text"
                   placeholder="Ketik di sini..."
                   value={confirmationText}
                   onChange={(e) => setConfirmationText(e.target.value)}
-                  className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-black focus:outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/5 transition-all text-rose-600 placeholder:text-slate-300"
+                  className={`w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-black focus:outline-none focus:ring-4 transition-all placeholder:text-slate-300 ${
+                    resetMode === 'MAY_ONLY' 
+                      ? 'focus:border-blue-600 focus:ring-blue-600/5 text-blue-600'
+                      : 'focus:border-indigo-600 focus:ring-indigo-600/5 text-rose-600'
+                  }`}
                 />
               </div>
 
               <button 
                 disabled={confirmationText !== REQUIRED_TEXT || isDeleting}
                 onClick={handleReset}
-                className="w-full py-5 bg-rose-600 text-white rounded-[2rem] text-sm font-black uppercase tracking-[0.2em] shadow-xl shadow-rose-100 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-rose-700 hover:scale-[1.01] transition-all active:scale-95 flex items-center justify-center gap-3"
+                className={`w-full py-5 text-white rounded-[2rem] text-sm font-black uppercase tracking-[0.2em] shadow-xl disabled:opacity-30 disabled:cursor-not-allowed hover:scale-[1.01] transition-all active:scale-95 flex items-center justify-center gap-3 ${
+                  resetMode === 'MAY_ONLY'
+                    ? 'bg-blue-600 shadow-blue-100 hover:bg-blue-700'
+                    : 'bg-rose-600 shadow-rose-100 hover:bg-rose-700'
+                }`}
               >
                 {isDeleting ? (
                   <>

@@ -112,6 +112,118 @@ export const resetTransactions = async (req: Request, res: Response) => {
   }
 };
 
+export const resetTransactionsMay = async (req: Request, res: Response) => {
+  const { confirmationText, clinicId } = req.body;
+
+  // Security check: Must be Super Admin
+  if ((req as any).user?.role !== 'SUPER_ADMIN') {
+    return res.status(403).json({ message: 'Hanya Super Admin yang dapat melakukan reset system.' });
+  }
+
+  // Double confirmation text
+  if (confirmationText !== 'RESET-MEI') {
+    return res.status(400).json({ message: 'Teks konfirmasi salah. Harap ketik RESET-MEI' });
+  }
+
+  try {
+    const cutOffDate = new Date('2026-05-31T17:00:00.000Z'); // 1 Juni 2026 WIB
+    
+    // Ensure the cutoff date is valid
+    const mayFilter = {
+      createdAt: { lt: cutOffDate }
+    };
+    
+    const mayClinicFilter = clinicId ? { clinicId, ...mayFilter } : mayFilter;
+    const parentFilter = (parent: string) => clinicId 
+      ? { [parent]: { clinicId, createdAt: { lt: cutOffDate } } }
+      : { [parent]: { createdAt: { lt: cutOffDate } } };
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Finance & Billing (Hapus tagihan dan pembayaran MEI)
+      await tx.payment.deleteMany({ where: parentFilter('invoice') });
+      await tx.corporatePayment.deleteMany({ where: parentFilter('corporateInvoice') });
+      await tx.corporateInvoice.deleteMany({ where: mayClinicFilter });
+      await tx.doctorCommission.deleteMany({ where: mayClinicFilter });
+      await tx.cashTransfer.deleteMany({ where: mayClinicFilter });
+      await tx.openingBalanceItem.deleteMany({ where: parentFilter('openingBalance') });
+      await tx.openingBalance.deleteMany({ where: mayClinicFilter });
+      await tx.invoiceItem.deleteMany({ where: parentFilter('invoice') });
+      await tx.invoice.deleteMany({ where: mayClinicFilter });
+      await tx.journalDetail.deleteMany({ where: parentFilter('journalEntry') });
+      await tx.journalEntry.deleteMany({ where: mayClinicFilter });
+      await tx.expense.deleteMany({ where: mayClinicFilter });
+      await tx.financialReport.deleteMany({ where: mayClinicFilter });
+      
+      const procurementFilter = clinicId 
+        ? { procurement: { branchId: clinicId, createdAt: { lt: cutOffDate } } }
+        : { procurement: { createdAt: { lt: cutOffDate } } };
+      await tx.procurementPayment.deleteMany({ where: procurementFilter });
+
+      // 2. Medical & Records (Hapus rekam medis MEI)
+      await tx.vitalSign.deleteMany({ where: parentFilter('medicalRecord') });
+      
+      const prescriptionItemComponentFilter = clinicId 
+        ? { prescriptionItem: { prescription: { medicalRecord: { clinicId, createdAt: { lt: cutOffDate } } } } }
+        : { prescriptionItem: { prescription: { medicalRecord: { createdAt: { lt: cutOffDate } } } } };
+      await tx.prescriptionItemComponent.deleteMany({ where: prescriptionItemComponentFilter });
+      
+      const prescriptionItemFilter = clinicId 
+        ? { prescription: { medicalRecord: { clinicId, createdAt: { lt: cutOffDate } } } }
+        : { prescription: { medicalRecord: { createdAt: { lt: cutOffDate } } } };
+      await tx.prescriptionItem.deleteMany({ where: prescriptionItemFilter });
+      
+      await tx.prescription.deleteMany({ where: parentFilter('medicalRecord') });
+      await tx.medicalRecordAttachment.deleteMany({ where: parentFilter('medicalRecord') });
+      await tx.medicalRecordService.deleteMany({ where: parentFilter('medicalRecord') });
+      await tx.referral.deleteMany({ where: parentFilter('medicalRecord') });
+      await tx.radiologyOrder.deleteMany({ where: parentFilter('medicalRecord') });
+      
+      const labResultFilter = clinicId 
+        ? { order: { medicalRecord: { clinicId, createdAt: { lt: cutOffDate } } } }
+        : { order: { medicalRecord: { createdAt: { lt: cutOffDate } } } };
+      await tx.labResultDetail.deleteMany({ where: labResultFilter });
+      
+      const labAttachmentFilter = clinicId 
+        ? { labOrder: { medicalRecord: { clinicId, createdAt: { lt: cutOffDate } } } }
+        : { labOrder: { medicalRecord: { createdAt: { lt: cutOffDate } } } };
+      await tx.labOrderAttachment.deleteMany({ where: labAttachmentFilter });
+      
+      await tx.labOrder.deleteMany({ where: parentFilter('medicalRecord') });
+      
+      if (!clinicId) {
+        await tx.visit.deleteMany({ where: { treatmentPlan: mayFilter } });
+        await tx.treatmentPlanItem.deleteMany({ where: { treatmentPlan: mayFilter } });
+        await tx.treatmentPlan.deleteMany({ where: mayFilter });
+        await tx.birthRecord.deleteMany({ where: { medicalRecord: mayFilter } });
+      }
+
+      await tx.medicalRecord.deleteMany({ where: mayClinicFilter });
+
+      // 3. Registration & Operational (Hapus antrean MEI)
+      await tx.queueNumber.deleteMany({ where: mayClinicFilter });
+      await tx.registration.deleteMany({ where: mayClinicFilter });
+      await tx.appointmentService.deleteMany({ where: parentFilter('appointment') });
+      await tx.appointment.deleteMany({ where: mayClinicFilter });
+
+      // 4. POS (Hapus penjualan bebas MEI)
+      await tx.directMedicinePurchaseItem.deleteMany({ where: parentFilter('directMedicinePurchase') });
+      await tx.directMedicinePurchase.deleteMany({ where: mayClinicFilter });
+
+      // NOTE: We intentionally DO NOT delete InventoryStock, InventoryMutation, InventoryBatch, Procurement, etc.
+      // This preserves all stock levels and their source of truth!
+    });
+
+    return res.status(200).json({ 
+      message: clinicId 
+        ? 'Data transaksi bulan Mei untuk klinik ini berhasil direset. Stok Obat AMAN.' 
+        : 'Seluruh data transaksi bulan Mei untuk semua cabang berhasil direset. Stok Obat AMAN.' 
+    });
+  } catch (error: any) {
+    console.error('Reset May Error:', error);
+    return res.status(500).json({ message: 'Gagal melakukan reset transaksi Mei: ' + error.message });
+  }
+};
+
 export const getRolePermissions = async (req: Request, res: Response) => {
   try {
     const permissions = await prisma.rolePermission.findMany();

@@ -594,35 +594,16 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
           finalClinicId = q?.clinicId || null
         }
 
-        // 3.1 Record Internal Commission for Doctor (only if doctor and clinic are resolved)
-        if (commissionDoctorId && finalClinicId) {
-          const existingPaid = await tx.doctorCommission.findFirst({
-            where: { sourceId: mr.id, type: 'AUTO_CONSULTATION', status: 'paid' }
+        // 3.1 [OPSI B - FULL PENDAPATAN KLINIK]
+        // Fee Jasa Pemeriksaan (CONS-DOC) seluruhnya menjadi pendapatan klinik.
+        // DoctorCommission AUTO_CONSULTATION tidak dibuat — dokter dibayar terpisah via honor/payroll manual.
+        // Jika sebelumnya ada commission AUTO_CONSULTATION yang belum lunas, hapus agar tidak duplikat.
+        if (commissionDoctorId) {
+          await tx.doctorCommission.deleteMany({
+            where: { sourceId: mr.id, type: 'AUTO_CONSULTATION', status: 'unpaid' }
           })
-
-          if (!existingPaid) {
-            // Remove existing unpaid commission to prevent duplicates on reopen
-            await tx.doctorCommission.deleteMany({
-              where: { sourceId: mr.id, type: 'AUTO_CONSULTATION', status: 'unpaid' }
-            })
-
-            await tx.doctorCommission.create({
-              data: {
-                doctorId: commissionDoctorId,
-                clinicId: finalClinicId,
-                date: new Date(),
-                description: `Jasa Konsultasi Dokter - Pasien: ${mr.patient.name} (${visitType})`,
-                amount: consultPrice,
-                type: 'AUTO_CONSULTATION',
-                status: 'unpaid',
-                invoiceId: invoice.id,
-                sourceId: mr.id
-              }
-            })
-          }
-        } else {
-          console.warn(`[Warning] Skipping auto-commission creation because doctorId (${commissionDoctorId}) or clinicId (${finalClinicId}) could not be resolved for MedicalRecord ${mr.id}`)
         }
+        console.log(`[Info] OPSI B: Fee Jasa Pemeriksaan Rp ${consultPrice} dialihkan ke Pendapatan Klinik (tidak dibuat DoctorCommission AUTO_CONSULTATION).`)
 
         // 3.2 Add to Invoice as "Jasa Pemeriksaan"
         let consultService = await tx.service.findFirst({
@@ -639,16 +620,24 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
         })
 
         if (!consultService) {
+          // [OPSI B] doctorFee = 0 → tidak ada beban jasa dokter saat posting GL
           consultService = await tx.service.create({
             data: {
               serviceCode: 'CONS-DOC',
               serviceName: 'Jasa Pemeriksaan',
               price: 70000,
-              doctorFee: 70000,
+              doctorFee: 0,
               isActive: true,
               clinicId: mr.clinicId
             }
           })
+        } else if (consultService.doctorFee && consultService.doctorFee > 0) {
+          // Update existing CONS-DOC service agar doctorFee = 0 (migrasi ke Opsi B)
+          await tx.service.update({
+            where: { id: consultService.id },
+            data: { doctorFee: 0 }
+          })
+          consultService = { ...consultService, doctorFee: 0 }
         }
 
         await tx.invoiceItem.create({
@@ -662,6 +651,96 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
           }
         })
         additionalTotal += consultPrice
+
+        // 3.3 [VOLUME BONUS] Fee dokter berbasis jumlah pasien — PASIEN KE 4 (TND-002)
+        // Setiap pasien ke-4 dan seterusnya dalam 1 hari per dokter per klinik,
+        // dokter mendapat bonus Rp 8.750 (atau sesuai doctorFee di TND-002).
+        // Dana berasal dari pendapatan klinik (mengurangi net pendapatan konsultasi).
+        //
+        // 🔒 IDEMPOTENCY GUARANTEE:
+        // - Posisi pasien dihitung berdasarkan createdAt antrian (STABIL, tidak berubah saat reopen)
+        // - Jika VOLUME_BONUS sudah pernah dibuat untuk rekam medis ini (status apapun),
+        //   SKIP seluruhnya — tidak dihapus, tidak dibuat ulang.
+        //   Ini mencegah double-counting saat dokter buka kunci dan simpan ulang.
+        if (commissionDoctorId && finalClinicId && isFinal) {
+
+          // GUARD: Cek apakah VOLUME_BONUS sudah pernah dibuat untuk rekam medis ini
+          const existingVolumeBonus = await tx.doctorCommission.findFirst({
+            where: { sourceId: mr.id, type: 'VOLUME_BONUS' }
+          })
+
+          if (existingVolumeBonus) {
+            // Sudah dihitung saat Selesai Pemeriksaan PERTAMA — jangan hitung ulang
+            console.log(`[VolumeBonus] ⏭️ Sudah ada commission (${existingVolumeBonus.status}, Rp ${existingVolumeBonus.amount}) untuk MR ${mr.id} — dilewati (reopen scenario).`)
+          } else {
+            // Pertama kali selesai — hitung posisi pasien hari ini
+            const todayStart = new Date()
+            todayStart.setHours(0, 0, 0, 0)
+            const todayEnd = new Date()
+            todayEnd.setHours(23, 59, 59, 999)
+
+            // Ambil createdAt antrian saat ini untuk penentuan posisi yang STABIL
+            // (posisi dihitung dari urutan antrian dibuat, bukan status completed,
+            //  sehingga tidak berubah meskipun antrian pernah di-reopen)
+            let currentQueueCreatedAt: Date | null = null
+            if (queueId) {
+              const currentQ = await tx.queueNumber.findUnique({
+                where: { id: queueId },
+                select: { createdAt: true }
+              })
+              currentQueueCreatedAt = currentQ?.createdAt || null
+            }
+
+            // Hitung posisi: jumlah antrian dokter hari ini yang dibuat SEBELUM/SAMA DENGAN antrian ini
+            const patientPositionToday = await tx.queueNumber.count({
+              where: {
+                doctorId: commissionDoctorId,
+                clinicId: finalClinicId,
+                queueDate: { gte: todayStart, lte: todayEnd },
+                // Filter berdasarkan waktu dibuat (stabil) bukan status (berubah saat reopen)
+                ...(currentQueueCreatedAt
+                  ? { createdAt: { lte: currentQueueCreatedAt } }
+                  : {}
+                )
+              }
+            })
+
+            console.log(`[VolumeBonus] Dokter ${commissionDoctorId} — Posisi pasien ke-${patientPositionToday} hari ini di klinik ${finalClinicId}`)
+
+            if (patientPositionToday >= 4) {
+              // Cari service TND-002 (PASIEN KE 4)
+              const volumeBonusService = await tx.service.findFirst({
+                where: {
+                  OR: [
+                    { serviceCode: 'TND-002' },
+                    { serviceName: { contains: 'PASIEN KE 4', mode: 'insensitive' } }
+                  ]
+                }
+              })
+
+              if (volumeBonusService && volumeBonusService.doctorFee && volumeBonusService.doctorFee > 0) {
+                await tx.doctorCommission.create({
+                  data: {
+                    doctorId: commissionDoctorId,
+                    clinicId: finalClinicId,
+                    date: new Date(),
+                    description: `Jasa Dokter Pasien ke-${patientPositionToday} - ${mr.patient.name}`,
+                    amount: volumeBonusService.doctorFee,
+                    type: 'VOLUME_BONUS',
+                    status: 'unpaid',
+                    invoiceId: invoice.id,
+                    sourceId: mr.id
+                  }
+                })
+                console.log(`[VolumeBonus] ✅ Commission VOLUME_BONUS Rp ${volumeBonusService.doctorFee} dibuat untuk pasien ke-${patientPositionToday}`)
+              } else {
+                console.warn(`[VolumeBonus] ⚠️ Service TND-002 tidak ditemukan atau doctorFee = 0. Volume bonus dilewati.`)
+              }
+            } else {
+              console.log(`[VolumeBonus] Pasien ke-${patientPositionToday} — belum mencapai threshold (min. ke-4). Tidak ada bonus.`)
+            }
+          }
+        }
 
         // Add Services (non-lab)
         if (services && Array.isArray(services)) {

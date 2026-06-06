@@ -1973,7 +1973,17 @@ export const updateInventoryProduct = async (req: Request, res: Response) => {
 
 export const deleteInventoryProduct = async (req: Request, res: Response) => {
   try {
-    await prisma.product.delete({ where: { id: req.params.id } })
+    const { id } = req.params;
+
+    // Pencegahan: Jangan boleh dihapus jika sudah ada riwayat mutasi / transaksi stok
+    const mutationCount = await prisma.inventoryMutation.count({ where: { productId: id } });
+    if (mutationCount > 0) {
+      return res.status(400).json({ 
+        message: 'Produk tidak dapat dihapus karena sudah memiliki riwayat mutasi atau transaksi stok. Silakan edit dan set status menjadi Tidak Aktif.' 
+      });
+    }
+
+    await prisma.product.delete({ where: { id } })
     res.json({ message: 'Item inventaris berhasil dihapus' })
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })

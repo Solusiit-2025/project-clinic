@@ -360,9 +360,14 @@ export const postInvoice = async (req: Request, res: Response) => {
       if (!existingMainJournal) {
         const revenueMap = new Map<string, { amount: number; coaName: string }>()
 
-        // Pre-calculate fees from already generated commissions (e.g. AUTO_CONSULTATION)
+        // [OPSI B - FULL PENDAPATAN KLINIK]
+        // Fee Jasa Pemeriksaan CONS-DOC sudah dialihkan ke pendapatan klinik secara penuh.
+        // AUTO_CONSULTATION commission tidak dibuat lagi di medicalRecord.controller.ts.
+        // Hasilnya: preCalculatedFees = 0, doctorFee pada CONS-DOC = 0,
+        // sehingga tidak ada entry GL DOCTOR_FEE_EXPENSE / DOCTOR_FEE_PAYABLE untuk Jasa Pemeriksaan.
+        // Commission tipe INVOICE (dari tindakan medis non-CONS-DOC) tetap berjalan normal.
         const existingCommissions = await (tx as any).doctorCommission.findMany({
-          where: { invoiceId: invoice.id }
+          where: { invoiceId: invoice.id, type: { not: 'AUTO_CONSULTATION' } }
         })
         const preCalculatedFees = existingCommissions.reduce((sum: number, c: any) => sum + Number(c.amount || 0), 0)
 
