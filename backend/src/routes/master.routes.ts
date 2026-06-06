@@ -14,7 +14,7 @@ import {
   getAssets, createAsset, updateAsset, deleteAsset,
   getProductCategories, createProductCategory, updateProductCategory, deleteProductCategory,
   getInventoryProducts, createInventoryProduct, updateInventoryProduct, deleteInventoryProduct,
-  getPatients, getPatientById, getNextMRNo, createPatient, updatePatient, deletePatient, importPatients,
+  getPatients, getPatientById, getNextMRNo, createPatient, updatePatient, deletePatient, importPatients, mergePreview, mergePatients,
   getIcd10, importIcd10
 } from '../controllers/master.controller'
 import { getCOAs, createCOA, updateCOA, deleteCOA, getCoaBalances } from '../controllers/coa.controller'
@@ -160,6 +160,8 @@ masterRoutes.delete('/inventory/:id', deleteInventoryProduct)
 
 // Patients
 masterRoutes.get('/patients', getPatients)
+masterRoutes.get('/patients/merge-preview', mergePreview)
+masterRoutes.post('/patients/merge', mergePatients)
 masterRoutes.get('/patients/next-mr', getNextMRNo)
 masterRoutes.post('/patients/import', uploadDocument.single('file'), importPatients)
 masterRoutes.get('/patients/:id', getPatientById)

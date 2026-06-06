@@ -2673,3 +2673,117 @@ export const importIcd10 = async (req: Request, res: Response) => {
     res.status(500).json({ message: e.message })
   }
 }
+
+// ==================== PATIENT MERGE ====================
+
+/**
+ * Preview counts of records that will be moved during patient merge
+ */
+export const mergePreview = async (req: Request, res: Response) => {
+  try {
+    const { sourceId, targetId } = req.query
+    if (!sourceId || !targetId) return res.status(400).json({ message: 'sourceId dan targetId wajib diisi' })
+    if (sourceId === targetId) return res.status(400).json({ message: 'Tidak dapat menggabungkan pasien yang sama' })
+
+    const source = await prisma.patient.findUnique({ where: { id: String(sourceId) } })
+    const target = await prisma.patient.findUnique({ where: { id: String(targetId) } })
+
+    if (!source || !target) return res.status(404).json({ message: 'Pasien tidak ditemukan' })
+
+    const [
+      registrations,
+      queueNumbers,
+      medicalRecords,
+      invoices,
+      prescriptions,
+      labOrders,
+      paidInvoices
+    ] = await Promise.all([
+      prisma.registration.count({ where: { patientId: String(sourceId) } }),
+      prisma.queueNumber.count({ where: { patientId: String(sourceId) } }),
+      prisma.medicalRecord.count({ where: { patientId: String(sourceId) } }),
+      prisma.invoice.count({ where: { patientId: String(sourceId) } }),
+      prisma.prescription.count({ where: { patientId: String(sourceId) } }),
+      prisma.labOrder.count({ where: { patientId: String(sourceId) } }),
+      prisma.invoice.count({ where: { patientId: String(sourceId), status: 'paid' } })
+    ])
+
+    res.json({
+      sourceName: source.name,
+      targetName: target.name,
+      counts: {
+        registrations,
+        queueNumbers,
+        medicalRecords,
+        invoices,
+        prescriptions,
+        labOrders
+      },
+      paidInvoices
+    })
+  } catch (e: any) {
+    console.error('[MergePreview]', e)
+    res.status(500).json({ message: e.message })
+  }
+}
+
+/**
+ * Execute patient merge operation
+ */
+export const mergePatients = async (req: Request, res: Response) => {
+  try {
+    const { sourceId, targetId } = req.body
+    
+    // Security check: Only Admin/SuperAdmin can merge
+    const user = (req as any).user
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(user?.role)) {
+      return res.status(403).json({ message: 'Hanya Admin yang dapat menggabungkan data pasien' })
+    }
+
+    if (!sourceId || !targetId) return res.status(400).json({ message: 'sourceId dan targetId wajib diisi' })
+    if (sourceId === targetId) return res.status(400).json({ message: 'Tidak dapat menggabungkan pasien yang sama' })
+
+    await prisma.$transaction(async (tx) => {
+      const source = await tx.patient.findUnique({ where: { id: sourceId } })
+      const target = await tx.patient.findUnique({ where: { id: targetId } })
+
+      if (!source || !target) throw new Error('Pasien tidak ditemukan')
+
+      // 1. Move all relations
+      await tx.registration.updateMany({ where: { patientId: sourceId }, data: { patientId: targetId } })
+      await tx.queueNumber.updateMany({ where: { patientId: sourceId }, data: { patientId: targetId } })
+      await tx.medicalRecord.updateMany({ where: { patientId: sourceId }, data: { patientId: targetId } })
+      await tx.invoice.updateMany({ where: { patientId: sourceId }, data: { patientId: targetId } })
+      await tx.prescription.updateMany({ where: { patientId: sourceId }, data: { patientId: targetId } })
+      await tx.labOrder.updateMany({ where: { patientId: sourceId }, data: { patientId: targetId } })
+      
+      try { await (tx as any).radiologyOrder.updateMany({ where: { patientId: sourceId }, data: { patientId: targetId } }) } catch (e) {}
+      try { await (tx as any).appointment.updateMany({ where: { patientId: sourceId }, data: { patientId: targetId } }) } catch (e) {}
+      try { await (tx as any).treatmentPlan.updateMany({ where: { patientId: sourceId }, data: { patientId: targetId } }) } catch (e) {}
+      try { await (tx as any).birthRecord.updateMany({ where: { patientId: sourceId }, data: { patientId: targetId } }) } catch (e) {}
+
+      // 2. Update Target Patient (Save old RM if target doesn't have one)
+      if (!target.oldMedicalRecordNo) {
+        await tx.patient.update({
+          where: { id: targetId },
+          data: { oldMedicalRecordNo: source.medicalRecordNo }
+        })
+      }
+
+      // 3. Deactivate and rename Source Patient
+      await tx.patient.update({
+        where: { id: sourceId },
+        data: { 
+          isActive: false, 
+          name: `[MERGED] ${source.name} → ${target.name}` 
+        }
+      })
+    })
+
+    res.json({ message: 'Pasien berhasil digabungkan' })
+  } catch (e: any) {
+    console.error('[MergePatients]', e)
+    res.status(500).json({ message: e.message })
+  }
+}
+

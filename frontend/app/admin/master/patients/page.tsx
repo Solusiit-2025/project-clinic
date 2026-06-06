@@ -7,6 +7,7 @@ import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
 import PageHeader from '@/components/admin/master/PageHeader'
 import MasterModal from '@/components/admin/master/MasterModal'
+import MergePatientDialog from '@/components/admin/master/MergePatientDialog'
 import { StatusBadge } from '@/components/admin/master/StatusBadge'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
@@ -56,6 +57,8 @@ export default function PatientsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [updatedId, setUpdatedId] = useState<string | null>(null)
+  const [mergeModalOpen, setMergeModalOpen] = useState(false)
+  const [mergeTarget, setMergeTarget] = useState<Patient | null>(null)
   const [corporatePartners, setCorporatePartners] = useState<{id: string, name: string}[]>([])
 
   const fetchCorporatePartners = useCallback(async () => {
@@ -137,6 +140,11 @@ export default function PatientsPage() {
       oldMedicalRecordNo: r.oldMedicalRecordNo || ''
     })
     setError(''); setModalOpen(true)
+  }
+
+  const openMerge = (r: Patient) => {
+    setMergeTarget(r)
+    setMergeModalOpen(true)
   }
 
   const handleSave = async () => {
@@ -293,7 +301,7 @@ export default function PatientsPage() {
         data={data} columns={columns} loading={loading}
         searchValue={search} onSearchChange={setSearch}
         searchPlaceholder="Cari nama, RM, Alamat, No. HP, KTP, Nama KK, atau BPJS..."
-        onEdit={openEdit} onDelete={handleDelete}
+        onEdit={openEdit} onDelete={handleDelete} onMerge={openMerge}
         emptyText="Belum ada data pasien terdaftar."
         page={page}
         totalPages={meta.totalPages}
@@ -598,6 +606,17 @@ export default function PatientsPage() {
           </div>
         </div>
       </MasterModal>
+
+      <MergePatientDialog
+        isOpen={mergeModalOpen}
+        onClose={() => setMergeModalOpen(false)}
+        targetPatient={mergeTarget}
+        onSuccess={() => {
+          fetchData()
+          setUpdatedId(mergeTarget?.id || null)
+          setTimeout(() => setUpdatedId(null), 8000)
+        }}
+      />
     </div>
   )
 }

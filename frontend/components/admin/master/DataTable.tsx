@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { FiSearch, FiFilter, FiEdit2, FiTrash2, FiLoader, FiInbox, FiEye, FiCopy } from 'react-icons/fi'
+import { FiSearch, FiFilter, FiEdit2, FiTrash2, FiLoader, FiInbox, FiEye, FiCopy, FiGitMerge } from 'react-icons/fi'
 
 export interface Column<T> {
   key: string
@@ -22,6 +22,7 @@ interface DataTableProps<T> {
   onEdit?: (row: T) => void
   onDelete?: (row: T) => void
   onDuplicate?: (row: T) => void
+  onMerge?: (row: T) => void
   extraFilters?: React.ReactNode
   keyField?: string
   emptyText?: string
@@ -88,7 +89,7 @@ export default function DataTable<T extends Record<string, any>>({
   data, columns, loading = false,
   searchValue, onSearchChange,
   searchPlaceholder = 'Cari data...',
-  onView, onEdit, onDelete, onDuplicate,
+  onView, onEdit, onDelete, onDuplicate, onMerge,
   extraFilters, keyField = 'id',
   emptyText = 'Belum ada data. Klik Tambah untuk memulai.',
   groupBy,
@@ -138,7 +139,7 @@ export default function DataTable<T extends Record<string, any>>({
                   {col.label}
                 </th>
               ))}
-              {(onView || onEdit || onDuplicate || onDelete) && (
+              {(onView || onEdit || onDuplicate || onDelete || onMerge) && (
                 <th className="px-3 py-2 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest w-20">OPSI</th>
               )}
             </tr>
@@ -206,9 +207,18 @@ export default function DataTable<T extends Record<string, any>>({
                             {col.render ? col.render(row) : (row[col.key] ?? <span className="text-gray-200">—</span>)}
                           </td>
                         ))}
-                        {(onView || onEdit || onDuplicate || onDelete) && (
+                        {(onView || onEdit || onDuplicate || onDelete || onMerge) && (
                           <td className="px-3 py-1.5">
                             <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {onMerge && (
+                                <button
+                                  onClick={() => onMerge(row)}
+                                  className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 transition-all"
+                                  title="Gabungkan Pasien"
+                                >
+                                  <FiGitMerge className="w-3 h-3" />
+                                </button>
+                              )}
                               {onDuplicate && (
                                 <button
                                   onClick={() => onDuplicate(row)}
@@ -344,8 +354,13 @@ export default function DataTable<T extends Record<string, any>>({
                       </div>
 
                       {/* Action buttons below */}
-                      {(onView || onEdit || onDuplicate || onDelete) && (
+                      {(onView || onEdit || onDuplicate || onDelete || onMerge) && (
                         <div className="flex gap-1.5 sm:gap-2 mt-2 sm:mt-2.5 pt-2 sm:pt-2.5 border-t border-gray-100">
+                          {onMerge && (
+                            <button onClick={() => onMerge(row)} className="flex-1 p-1.5 sm:p-2 rounded-lg sm:rounded-lg bg-emerald-50 text-emerald-600 active:bg-emerald-100 transition-all text-[9px] sm:text-xs font-bold uppercase tracking-tight">
+                              <FiGitMerge className="w-3 h-3 sm:w-3.5 sm:h-3.5 inline mr-0.5 sm:mr-1" /> <span className="hidden sm:inline">Gabung</span>
+                            </button>
+                          )}
                           {onView && (
                             <button onClick={() => onView(row)} className="flex-1 p-1.5 sm:p-2 rounded-lg sm:rounded-lg bg-indigo-50 text-indigo-600 active:bg-indigo-100 transition-all text-[9px] sm:text-xs font-bold uppercase tracking-tight">
                               <FiEye className="w-3 h-3 sm:w-3.5 sm:h-3.5 inline mr-0.5 sm:mr-1" /> <span className="hidden sm:inline">Lihat</span>
