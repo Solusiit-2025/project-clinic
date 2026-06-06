@@ -12,6 +12,7 @@ import { HiOutlineBeaker } from 'react-icons/hi'
 import { toast } from 'react-hot-toast'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import QRCode from 'qrcode'
 
 type LabOrder = {
   id: string; orderNo: string; orderDate: string; status: string;
@@ -186,7 +187,7 @@ export default function LabInputPage() {
     }
   }
 
-  const generatePDF = () => {
+  const generatePDF = async () => {
     if (!orderDetails) return;
 
     const doc = new jsPDF();
@@ -222,8 +223,8 @@ export default function LabInputPage() {
     let currentY = 40;
     doc.setDrawColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
     doc.setLineWidth(0.5);
-    doc.rect(15, currentY, pageWidth - 30, 25); // Main Box
-    doc.line(pageWidth / 2, currentY, pageWidth / 2, currentY + 25); // Vertical Divider
+    doc.rect(15, currentY, pageWidth - 30, 32); // Main Box
+    doc.line(pageWidth / 2, currentY, pageWidth / 2, currentY + 32); // Vertical Divider
 
     doc.setFontSize(9);
     doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
@@ -240,6 +241,7 @@ export default function LabInputPage() {
     doc.text('Dokter :', rightX, currentY + 7);
     doc.text('No. Order :', rightX, currentY + 14);
     doc.text('Tanggal :', rightX, currentY + 21);
+    doc.text('Waktu Pengambilan Spesimen :', rightX, currentY + 28);
 
     doc.setTextColor(0);
     doc.setFont('helvetica', 'normal');
@@ -256,8 +258,9 @@ export default function LabInputPage() {
     doc.text(orderDetails.doctor?.name || 'PASIEN MANDIRI', rightX + 25, currentY + 7);
     doc.text(orderDetails.orderNo, rightX + 25, currentY + 14);
     doc.text(new Date(orderDetails.orderDate).toLocaleDateString('id-ID'), rightX + 25, currentY + 21);
+    doc.text(new Date(orderDetails.orderDate).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB', rightX + 25, currentY + 28);
 
-    currentY += 35;
+    currentY += 42;
 
     // --- Results Table grouped by Category ---
     const groupedResults = results.reduce((acc, curr) => {
@@ -332,14 +335,35 @@ export default function LabInputPage() {
     }
 
     const footerY = Math.max(finalY + 25, pageHeight - 40);
+    
+    // --- QR Code for Authenticity ---
+    try {
+      const verifyUrl = `https://yasfina-app.com/verify/lab/${orderDetails.id}`;
+      const qrDataUrl = await QRCode.toDataURL(verifyUrl, { width: 100, margin: 1 });
+      doc.addImage(qrDataUrl, 'PNG', 15, footerY - 5, 20, 20);
+      
+      doc.setFontSize(8);
+      doc.setTextColor(100);
+      doc.text('Pindai untuk periksa', 38, footerY + 2);
+      doc.text('keaslian dokumen.', 38, footerY + 6);
+      doc.setFont('helvetica', 'italic');
+      doc.text('Scan to check authenticity.', 38, footerY + 10);
+      
+      doc.setFontSize(9);
+      doc.setTextColor(0);
+      doc.setFont('helvetica', 'normal');
+    } catch (e) {
+      console.error('Failed to generate QR Code', e);
+    }
+    
     doc.text(`Bogor, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, pageWidth - 70, footerY);
-    doc.text('Petugas Laboratorium,', pageWidth - 70, footerY + 5);
+    doc.text('Tanda Tangan Petugas Laboratorium,', pageWidth - 70, footerY + 5);
     doc.text('( ____________________ )', pageWidth - 70, footerY + 25);
 
     doc.save(`Hasil_Lab_${orderDetails.orderNo}_${orderDetails.patient.name}.pdf`);
   };
 
-  const handlePreviewPDF = () => {
+  const handlePreviewPDF = async () => {
     if (!orderDetails) return;
 
     const doc = new jsPDF();
@@ -375,8 +399,8 @@ export default function LabInputPage() {
     let currentY = 40;
     doc.setDrawColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
     doc.setLineWidth(0.5);
-    doc.rect(15, currentY, pageWidth - 30, 25); // Main Box
-    doc.line(pageWidth / 2, currentY, pageWidth / 2, currentY + 25); // Vertical Divider
+    doc.rect(15, currentY, pageWidth - 30, 32); // Main Box
+    doc.line(pageWidth / 2, currentY, pageWidth / 2, currentY + 32); // Vertical Divider
 
     doc.setFontSize(9);
     doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
@@ -393,6 +417,7 @@ export default function LabInputPage() {
     doc.text('Dokter :', rightX, currentY + 7);
     doc.text('No. Order :', rightX, currentY + 14);
     doc.text('Tanggal :', rightX, currentY + 21);
+    doc.text('Waktu Pengambilan Spesimen :', rightX, currentY + 28);
 
     doc.setTextColor(0);
     doc.setFont('helvetica', 'normal');
@@ -409,8 +434,9 @@ export default function LabInputPage() {
     doc.text(orderDetails.doctor?.name || 'PASIEN MANDIRI', rightX + 25, currentY + 7);
     doc.text(orderDetails.orderNo, rightX + 25, currentY + 14);
     doc.text(new Date(orderDetails.orderDate).toLocaleDateString('id-ID'), rightX + 25, currentY + 21);
+    doc.text(new Date(orderDetails.orderDate).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB', rightX + 25, currentY + 28);
 
-    currentY += 35;
+    currentY += 42;
 
     // --- Results Table grouped by Category ---
     const groupedResults = results.reduce((acc, curr) => {
@@ -469,6 +495,46 @@ export default function LabInputPage() {
         }
       }
     });
+
+    // --- Footer ---
+    const finalY = (doc as any).lastAutoTable.finalY + 15;
+
+    doc.setFontSize(9);
+    doc.setTextColor(0);
+    doc.setFont('helvetica', 'normal');
+
+    if (clinicalNotes) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('Catatan / Kesimpulan:', 15, finalY);
+      doc.setFont('helvetica', 'normal');
+      doc.text(clinicalNotes, 15, finalY + 5, { maxWidth: pageWidth - 30 });
+    }
+
+    const footerY = Math.max(finalY + 25, pageHeight - 40);
+    
+    // --- QR Code for Authenticity ---
+    try {
+      const verifyUrl = `https://yasfina-app.com/verify/lab/${orderDetails.id}`;
+      const qrDataUrl = await QRCode.toDataURL(verifyUrl, { width: 100, margin: 1 });
+      doc.addImage(qrDataUrl, 'PNG', 15, footerY - 5, 20, 20);
+      
+      doc.setFontSize(8);
+      doc.setTextColor(100);
+      doc.text('Pindai untuk periksa', 38, footerY + 2);
+      doc.text('keaslian dokumen.', 38, footerY + 6);
+      doc.setFont('helvetica', 'italic');
+      doc.text('Scan to check authenticity.', 38, footerY + 10);
+      
+      doc.setFontSize(9);
+      doc.setTextColor(0);
+      doc.setFont('helvetica', 'normal');
+    } catch (e) {
+      console.error('Failed to generate QR Code', e);
+    }
+    
+    doc.text(`Bogor, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, pageWidth - 70, footerY);
+    doc.text('Tanda Tangan Petugas Laboratorium,', pageWidth - 70, footerY + 5);
+    doc.text('( ____________________ )', pageWidth - 70, footerY + 25);
 
     const pdfOutput = doc.output('bloburl');
     window.open(pdfOutput, '_blank');

@@ -384,7 +384,7 @@ export const getQueues = async (req: Request, res: Response) => {
         skip: req.query.page ? skip : undefined, // Only paginate if page is provided
         take: req.query.page ? take : undefined,
         include: {
-          patient: { select: { id: true, name: true, medicalRecordNo: true, gender: true } },
+          patient: { select: { id: true, name: true, medicalRecordNo: true, gender: true, dateOfBirth: true } },
           doctor: { select: { id: true, name: true, specialization: true } },
           department: { select: { id: true, name: true } },
           // Efficiently join medical record to avoid sequential queries
@@ -506,7 +506,7 @@ export const getQueueById = async (req: Request, res: Response) => {
       },
       include: {
         patient: {
-           select: { id: true, name: true, medicalRecordNo: true, gender: true }
+           select: { id: true, name: true, medicalRecordNo: true, gender: true, dateOfBirth: true }
         },
         doctor: {
            select: { id: true, name: true, specialization: true }

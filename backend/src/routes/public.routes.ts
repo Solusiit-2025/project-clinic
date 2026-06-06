@@ -4,6 +4,7 @@ import { getQueues } from '../controllers/transaction.controller'
 import { createAppointment } from '../controllers/appointment.controller'
 import { prisma } from '../lib/prisma'
 import { SiteSettingService } from '../services/siteSetting.service'
+import { verifyLabOrder } from '../controllers/verify.controller'
 
 const router = Router()
 const siteSettingService = new SiteSettingService()
@@ -80,5 +81,39 @@ router.get('/settings', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch public settings' })
   }
 })
+
+// Rate Limiter khusus untuk verifikasi dokumen (5 req / 5 min)
+const verifyTracker = new Map<string, { count: number; firstRequest: number }>();
+
+const verifyRateLimit = (req: any, res: any, next: any) => {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+    const WINDOW_MS = 5 * 60 * 1000; // 5 Menit
+    const MAX_REQUESTS = 5;
+
+    const data = verifyTracker.get(ip);
+
+    if (!data) {
+        verifyTracker.set(ip, { count: 1, firstRequest: now });
+        return next();
+    }
+
+    if (now - data.firstRequest > WINDOW_MS) {
+        verifyTracker.set(ip, { count: 1, firstRequest: now });
+        return next();
+    }
+
+    if (data.count >= MAX_REQUESTS) {
+        return res.status(429).json({ 
+            message: 'Terlalu banyak permintaan verifikasi. Mohon coba lagi dalam 5 menit demi keamanan.' 
+        });
+    }
+
+    data.count++;
+    next();
+};
+
+// GET /api/public/verify/lab/:id
+router.get('/verify/lab/:id', verifyRateLimit, verifyLabOrder)
 
 export default router

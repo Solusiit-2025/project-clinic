@@ -12,7 +12,7 @@ export default function PharmacyDetailPage({ params }: { params: Promise<{ id: s
   const resolvedParams = use(params)
   const router = useRouter()
   const { user } = useAuthStore()
-  const isPrivileged = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN'
+  const [showPrices, setShowPrices] = useState(true)
   const [prescription, setPrescription] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -236,7 +236,15 @@ export default function PharmacyDetailPage({ params }: { params: Promise<{ id: s
                       <h2 className="text-sm font-black text-gray-900 uppercase tracking-widest">Rincian Obat & Inventori</h2>
                       <p className="text-[10px] font-bold text-gray-400 mt-0.5">Pastikan ketersediaan fisik obat sebelum pemotongan stok.</p>
                     </div>
-                    {isEditing && <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-lg uppercase tracking-widest animate-pulse">Mode Edit Aktif</span>}
+                    <div className="flex items-center gap-4">
+                       <div className="flex items-center gap-2 cursor-pointer" onClick={() => setShowPrices(!showPrices)}>
+                          <div className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${showPrices ? 'bg-primary' : 'bg-gray-300'}`}>
+                             <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${showPrices ? 'translate-x-4' : 'translate-x-1'}`} />
+                          </div>
+                          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{showPrices ? 'Harga Terlihat' : 'Harga Tersembunyi'}</span>
+                       </div>
+                       {isEditing && <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-lg uppercase tracking-widest animate-pulse">Mode Edit Aktif</span>}
+                    </div>
                  </div>
                  
                  <div className="overflow-x-auto">
@@ -338,21 +346,21 @@ export default function PharmacyDetailPage({ params }: { params: Promise<{ id: s
                                    </td>
                                    <td className="px-8 py-6 text-right">
                                       {isExternal ? (
-                                        <div className="flex flex-col items-end">
-                                           <span className="text-[10px] font-black text-rose-500 bg-rose-50 px-2 py-0.5 rounded border border-rose-100 uppercase tracking-widest leading-none">Rp 0 (Luar)</span>
-                                           <span className="text-[7px] font-bold text-gray-400 uppercase mt-1">Tidak Ditagih</span>
-                                        </div>
-                                      ) : isPrivileged ? (
-                                        <div className="flex flex-col items-end">
-                                           <span className="text-[10px] font-black text-gray-900 group-hover:text-primary transition-colors leading-none">Rp {subtotal.toLocaleString('id-ID')}</span>
-                                           <span className="text-[8px] font-bold text-gray-400 uppercase mt-1">@ Rp {(item.sellingPrice || 0).toLocaleString('id-ID')}</span>
-                                        </div>
-                                      ) : (
-                                        <div className="flex flex-col items-end">
-                                           <span className="text-[10px] font-black text-gray-300 tracking-[0.2em] bg-gray-100/50 px-2 py-0.5 rounded-md leading-none">••••••</span>
-                                           <span className="text-[7px] font-bold text-gray-300 uppercase mt-1 tracking-tighter">Hidden</span>
-                                        </div>
-                                      )}
+                                         <div className="flex flex-col items-end">
+                                            <span className="text-[10px] font-black text-rose-500 bg-rose-50 px-2 py-0.5 rounded border border-rose-100 uppercase tracking-widest leading-none">Rp 0 (Luar)</span>
+                                            <span className="text-[7px] font-bold text-gray-400 uppercase mt-1">Tidak Ditagih</span>
+                                         </div>
+                                       ) : showPrices ? (
+                                         <div className="flex flex-col items-end">
+                                            <span className="text-[10px] font-black text-gray-900 group-hover:text-primary transition-colors leading-none">Rp {subtotal.toLocaleString('id-ID')}</span>
+                                            <span className="text-[8px] font-bold text-gray-400 uppercase mt-1">@ Rp {(item.sellingPrice || 0).toLocaleString('id-ID')}</span>
+                                         </div>
+                                       ) : (
+                                         <div className="flex flex-col items-end">
+                                            <span className="text-[10px] font-black text-gray-300 tracking-[0.2em] bg-gray-100/50 px-2 py-0.5 rounded-md leading-none">••••••</span>
+                                            <span className="text-[7px] font-bold text-gray-300 uppercase mt-1 tracking-tighter">Hidden</span>
+                                         </div>
+                                       )}
                                    </td>
                                    {isEditing && (
                                      <td className="px-8 py-6 text-center">
@@ -507,7 +515,7 @@ export default function PharmacyDetailPage({ params }: { params: Promise<{ id: s
                  </div>
                  <div className="flex items-baseline justify-between">
                     <span className="text-xs font-bold text-gray-500 uppercase">Grand Total</span>
-                    {isPrivileged ? (
+                    {showPrices ? (
                       <span className="text-2xl font-black text-gray-900">
                         Rp {prescription.items.reduce((sum: number, i: any) => {
                           const isExt = i.isExternal || 

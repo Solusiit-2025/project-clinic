@@ -111,7 +111,8 @@ function forceLogout(message?: string) {
     path !== '/' && 
     !path.startsWith('/login') && 
     !path.startsWith('/register') && 
-    !path.startsWith('/display')
+    !path.startsWith('/display') &&
+    !path.startsWith('/verify')
   ) {
     window.location.href = '/login'
   }
