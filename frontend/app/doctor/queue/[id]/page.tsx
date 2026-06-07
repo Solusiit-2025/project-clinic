@@ -307,7 +307,7 @@ export default function DoctorConsultationPage() {
       setRacikanComponents(prescriptionItemData.components.map((c: any) => ({
         medicineId: c.medicineId,
         medicineName: c.medicine?.medicineName || 'Bahan',
-        quantity: c.quantity, // qty per 1 unit racikan
+        quantity: c.quantity * (parseInt(racikanQty) || 10), // convert formula's per-racik to total
         unit: c.unit || c.medicine?.unit || 'tablet',
         availableStock: c.availableStock ?? 0,
         sellingPrice: c.sellingPrice || c.medicine?.sellingPrice || 0
@@ -348,7 +348,7 @@ export default function DoctorConsultationPage() {
       components: racikanComponents.map(c => ({
         medicineId: c.medicineId,
         medicine: { medicineName: c.medicineName },
-        quantity: parseFloat(c.quantity) || 0,
+        quantity: (parseFloat(c.quantity) || 0) / (qty || 1), // Convert Total to per racik for backend
         unit: c.unit || 'unit',
         availableStock: c.availableStock ?? 99999,
         sellingPrice: c.sellingPrice || 0
@@ -2749,8 +2749,8 @@ export default function DoctorConsultationPage() {
                                         return {
                                           medicineId: c.medicineId,
                                           medicineName: c.medicineName || c.medicine?.medicineName || med?.masterName || med?.medicine?.medicineName || 'Bahan',
-                                          quantity: c.quantity,
-                                          unit: c.unit || med?.unit || 'unit',
+                                          quantity: c.quantity * (parseInt(p.quantity) || 1), // Load as total for UI
+                                            unit: c.unit || med?.unit || 'unit',
                                           availableStock: c.availableStock ?? med?.stock ?? 99999,
                                           sellingPrice: c.sellingPrice || c.medicine?.sellingPrice || med?.sellingPrice || 0
                                         }
@@ -4410,7 +4410,7 @@ export default function DoctorConsultationPage() {
                 </button>
                 <button
                   onClick={handleSaveRacikan}
-                  disabled={racikanComponents.length === 0 || racikanComponents.some(c => (parseFloat(c.quantity) || 0) * (parseInt(racikanQty) || 0) > c.availableStock)}
+                  disabled={racikanComponents.length === 0 || racikanComponents.some(c => (parseFloat(c.quantity) || 0) > c.availableStock)}
                   className="px-6 py-3 bg-violet-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-violet-700 disabled:opacity-50 transition-all shadow-lg shadow-violet-200 flex items-center gap-2"
                 >
                   <FiCheckCircle /> {isEditingRacikanIdx !== null ? 'Simpan Perubahan' : 'Tambahkan Racikan'}

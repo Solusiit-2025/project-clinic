@@ -882,7 +882,7 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
               }
 
               const quantity = parseInt(p.quantity) || 0
-              const medicineSubtotal = itemPrice
+              const medicineSubtotal = itemPrice * quantity
               
               // 1. Create Invoice Item for the Puyer itself (ONLY raw price, NO tuslah!)
               await tx.invoiceItem.create({
@@ -891,7 +891,7 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
                   serviceId: obatService.id,
                   description: `${p.racikanName || 'Obat Racikan'} (${p.dosageForm || 'Racikan'})`,
                   quantity: quantity,
-                  price: quantity > 0 ? itemPrice / quantity : itemPrice,
+                  price: itemPrice,
                   subtotal: medicineSubtotal
                 }
               })
