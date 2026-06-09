@@ -682,6 +682,16 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
             // Sudah dihitung saat Selesai Pemeriksaan PERTAMA — jangan hitung ulang
             console.log(`[VolumeBonus] ⏭️ Sudah ada commission (${existingVolumeBonus.status}, Rp ${existingVolumeBonus.amount}) untuk MR ${mr.id} — dilewati (reopen scenario).`)
           } else {
+            // Ambil pengaturan dinamis
+            const volumeSettings = await tx.siteSetting.findMany({
+              where: { key: { in: ['volume_bonus_threshold', 'volume_bonus_fee'] } }
+            })
+            const thresholdSetting = volumeSettings.find((s: any) => s.key === 'volume_bonus_threshold')
+            const feeSetting = volumeSettings.find((s: any) => s.key === 'volume_bonus_fee')
+            
+            const volumeBonusThreshold = thresholdSetting ? parseInt(String(thresholdSetting.value)) : 4
+            const volumeBonusFee = feeSetting ? parseFloat(String(feeSetting.value)) : 8750
+
             // Pertama kali selesai — hitung posisi pasien hari ini
             const todayStart = new Date()
             todayStart.setHours(0, 0, 0, 0)
@@ -716,37 +726,27 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
 
             console.log(`[VolumeBonus] Dokter ${commissionDoctorId} — Posisi pasien ke-${patientPositionToday} hari ini di klinik ${finalClinicId}`)
 
-            if (patientPositionToday >= 4) {
-              // Cari service TND-002 (PASIEN KE 4)
-              const volumeBonusService = await tx.service.findFirst({
-                where: {
-                  OR: [
-                    { serviceCode: 'TND-002' },
-                    { serviceName: { contains: 'PASIEN KE 4', mode: 'insensitive' } }
-                  ]
-                }
-              })
-
-              if (volumeBonusService && volumeBonusService.doctorFee && volumeBonusService.doctorFee > 0) {
+            if (patientPositionToday >= volumeBonusThreshold) {
+              if (volumeBonusFee > 0) {
                 await tx.doctorCommission.create({
                   data: {
                     doctorId: commissionDoctorId,
                     clinicId: finalClinicId,
                     date: new Date(),
                     description: `Jasa Dokter Pasien ke-${patientPositionToday} - ${mr.patient.name}`,
-                    amount: volumeBonusService.doctorFee,
+                    amount: volumeBonusFee,
                     type: 'VOLUME_BONUS',
                     status: 'unpaid',
                     invoiceId: invoice.id,
                     sourceId: mr.id
                   }
                 })
-                console.log(`[VolumeBonus] ✅ Commission VOLUME_BONUS Rp ${volumeBonusService.doctorFee} dibuat untuk pasien ke-${patientPositionToday}`)
+                console.log(`[VolumeBonus] ✅ Commission VOLUME_BONUS Rp ${volumeBonusFee} dibuat untuk pasien ke-${patientPositionToday}`)
               } else {
-                console.warn(`[VolumeBonus] ⚠️ Service TND-002 tidak ditemukan atau doctorFee = 0. Volume bonus dilewati.`)
+                console.warn(`[VolumeBonus] ⚠️ volumeBonusFee diset 0. Volume bonus dilewati.`)
               }
             } else {
-              console.log(`[VolumeBonus] Pasien ke-${patientPositionToday} — belum mencapai threshold (min. ke-4). Tidak ada bonus.`)
+              console.log(`[VolumeBonus] Pasien ke-${patientPositionToday} — belum mencapai threshold (min. ke-${volumeBonusThreshold}). Tidak ada bonus.`)
             }
           }
         }

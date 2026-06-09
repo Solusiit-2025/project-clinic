@@ -28,7 +28,9 @@ export default function SettingsPage() {
   const [feeSettings, setFeeSettings] = useState({
     regular: '70000',
     holiday: '80000',
-    control: '35000'
+    control: '35000',
+    volumeBonusThreshold: '4',
+    volumeBonusFee: '8750'
   })
 
   const [newTemplate, setNewTemplate] = useState({
@@ -57,11 +59,15 @@ export default function SettingsPage() {
       const regular = data.find((s: any) => s.key === 'fee_doctor_regular')?.value
       const holiday = data.find((s: any) => s.key === 'fee_doctor_holiday')?.value
       const control = data.find((s: any) => s.key === 'fee_doctor_control')?.value
+      const volumeBonusThreshold = data.find((s: any) => s.key === 'volume_bonus_threshold')?.value
+      const volumeBonusFee = data.find((s: any) => s.key === 'volume_bonus_fee')?.value
       
       setFeeSettings({
         regular: regular?.toString() || '70000',
         holiday: holiday?.toString() || '80000',
-        control: control?.toString() || '35000'
+        control: control?.toString() || '35000',
+        volumeBonusThreshold: volumeBonusThreshold?.toString() || '4',
+        volumeBonusFee: volumeBonusFee?.toString() || '8750'
       })
     } catch (e) {
       console.error('Failed to fetch fee settings', e)
@@ -826,6 +832,58 @@ export default function SettingsPage() {
                             className="w-full py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20"
                           >
                             Simpan Tarif
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+                      {/* Volume Bonus Threshold */}
+                      <div className="p-8 bg-emerald-50/30 rounded-[2.5rem] border border-emerald-100 flex flex-col justify-between group hover:border-emerald-300 transition-all">
+                        <div className="mb-6">
+                          <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2">Target Pasien</p>
+                          <h3 className="text-lg font-black text-slate-900 leading-tight">Threshold Bonus Volume</h3>
+                        </div>
+                        <div className="space-y-4">
+                          <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-emerald-300">Min</span>
+                            <input 
+                              type="number"
+                              value={feeSettings.volumeBonusThreshold}
+                              onChange={(e) => setFeeSettings({...feeSettings, volumeBonusThreshold: e.target.value})}
+                              className="w-full pl-14 pr-4 py-4 bg-white border border-emerald-200 rounded-2xl font-black text-lg focus:border-emerald-400 outline-none transition-all text-emerald-600"
+                            />
+                          </div>
+                          <button 
+                            onClick={() => handleSaveFee('volume_bonus_threshold', feeSettings.volumeBonusThreshold, 'Threshold Bonus Volume')}
+                            className="w-full py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
+                          >
+                            Simpan Threshold
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Volume Bonus Fee */}
+                      <div className="p-8 bg-teal-50/30 rounded-[2.5rem] border border-teal-100 flex flex-col justify-between group hover:border-teal-300 transition-all">
+                        <div className="mb-6">
+                          <p className="text-[10px] font-black text-teal-400 uppercase tracking-widest mb-2">Bonus Per Pasien</p>
+                          <h3 className="text-lg font-black text-slate-900 leading-tight">Nominal Bonus Volume</h3>
+                        </div>
+                        <div className="space-y-4">
+                          <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-teal-300">Rp</span>
+                            <input 
+                              type="number"
+                              value={feeSettings.volumeBonusFee}
+                              onChange={(e) => setFeeSettings({...feeSettings, volumeBonusFee: e.target.value})}
+                              className="w-full pl-12 pr-4 py-4 bg-white border border-teal-200 rounded-2xl font-black text-lg focus:border-teal-400 outline-none transition-all text-teal-600"
+                            />
+                          </div>
+                          <button 
+                            onClick={() => handleSaveFee('volume_bonus_fee', feeSettings.volumeBonusFee, 'Nominal Bonus Volume')}
+                            className="w-full py-3 bg-teal-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-teal-700 transition-all shadow-lg shadow-teal-600/20"
+                          >
+                            Simpan Nominal Bonus
                           </button>
                         </div>
                       </div>

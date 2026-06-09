@@ -566,7 +566,7 @@ export default function AdminDashboard() {
             href: '/admin/transactions/registration',
           },
           {
-            label: 'Pendapatan',
+            label: 'Pendapatan Hari Ini',
             value: `Rp ${(todayData.revenue ?? 0).toLocaleString()}`,
             trend: todayData.revenueTrend,
             icon: FiDollarSign,

@@ -71,7 +71,7 @@ export class InventoryService {
         picks.push({ 
           batchId: null, 
           quantity: take, 
-          purchasePrice: defaultPurchasePrice 
+          purchasePrice: globalStock.unitCost ?? defaultPurchasePrice 
         });
         remaining -= take;
       }
@@ -106,7 +106,7 @@ export class InventoryService {
     // 0. Fetch product with Row-Level Locking (Implicit in transaction) to ensure data stability
     const product = await tx.product.findUnique({
       where: { id: data.productId },
-      select: { productName: true, purchasePrice: true }
+      select: { productName: true, purchasePrice: true, sellingPrice: true }
     });
 
     const picks = await this.pickBatchesFIFO(data.productId, data.branchId, data.quantity, tx, product?.productName, product?.purchasePrice || 0);
@@ -151,6 +151,8 @@ export class InventoryService {
           referenceId: data.referenceId,
           notes: data.notes,
           userId: data.userId,
+          unitCost: pick.purchasePrice,
+          sellingPrice: product?.sellingPrice || 0
         },
       });
       // Simpan mutation ID di pick agar caller bisa sync ke GL
@@ -261,6 +263,11 @@ export class InventoryService {
       throw new Error(`Gagal reservasi: Stok tersedia (${availability.totalAvailable}) tidak cukup.`);
     }
 
+    const product = await tx.product.findUnique({
+      where: { id: productId },
+      select: { purchasePrice: true, sellingPrice: true }
+    });
+
     // Ensure a global stock record (batchId: null) exists to track reservations
     const existingGlobal = await tx.inventoryStock.findFirst({
       where: { productId, branchId, batchId: null }
@@ -293,7 +300,9 @@ export class InventoryService {
         referenceType: 'DISPENSING',
         referenceId,
         notes: notes || 'Reservasi stok untuk penyiapan obat',
-        userId
+        userId,
+        unitCost: product?.purchasePrice || 0,
+        sellingPrice: product?.sellingPrice || 0
       }
     });
 
@@ -317,6 +326,11 @@ export class InventoryService {
       data: { reservedQty: { decrement: quantity } }
     });
     
+    const product = await tx.product.findUnique({
+      where: { id: productId },
+      select: { purchasePrice: true, sellingPrice: true }
+    });
+    
     // 1. Log Mutation for History
     await tx.inventoryMutation.create({
       data: {
@@ -327,7 +341,9 @@ export class InventoryService {
         referenceType: 'DISPENSING',
         referenceId,
         notes: notes || 'Pelepasan reservasi (pembatalan/perubahan)',
-        userId
+        userId,
+        unitCost: product?.purchasePrice || 0,
+        sellingPrice: product?.sellingPrice || 0
       }
     });
 

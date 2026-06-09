@@ -1,18 +1,22 @@
-const axios = require('axios');
+const http = require('http');
 
-async function check() {
-  try {
-    const queueId = '5f4f93d8-ba17-44fa-9f88-427e31775baa';
-    const queueRes = await axios.get(`http://localhost:5006/api/transactions/queues/${queueId}`);
-    const regId = queueRes.data.registrationId;
-    console.log('Registration ID:', regId);
-    
-    if (regId) {
-      const mrRes = await axios.get(`http://localhost:5006/api/transactions/medical-records/registration/${regId}`);
-      console.log('Medical Record:', JSON.stringify(mrRes.data, null, 2));
+http.get('http://localhost:3000/api/inventory/procurement', (res) => {
+  let data = '';
+  res.on('data', (chunk) => { data += chunk; });
+  res.on('end', () => {
+    try {
+      const parsed = JSON.parse(data);
+      console.log('Status code:', res.statusCode);
+      if (parsed.length > 0) {
+        console.log('First procurement items:', JSON.stringify(parsed[0].items, null, 2));
+      } else {
+        console.log('No procurements found');
+      }
+    } catch(e) {
+      console.log('Parse error:', e.message);
+      console.log('Raw data:', data.substring(0, 500));
     }
-  } catch (err) {
-    console.error(err.message);
-  }
-}
-check();
+  });
+}).on('error', (err) => {
+  console.log('Error:', err.message);
+});

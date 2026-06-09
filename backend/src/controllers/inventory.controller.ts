@@ -96,16 +96,23 @@ export const getBranchStocks = async (req: Request, res: Response) => {
       };
     });
 
-    // Calculate total asset value across ALL pages for the current search
-    const allMatchingProducts = await prisma.product.findMany({
+    // Calculate total asset value across ALL pages for the current search accurately using batch prices
+    const allMatchingStocks = await prisma.inventoryStock.findMany({
       where: {
-        clinicId: branchId as string,
-        quantity: { gt: 0 },
-        productName: { contains: search as string, mode: 'insensitive' },
+        branchId: branchId as string,
+        onHandQty: { gt: 0 },
+        product: {
+          productName: { contains: search as string, mode: 'insensitive' }
+        }
       },
-      select: { quantity: true, purchasePrice: true }
+      select: { 
+        onHandQty: true, 
+        unitCost: true
+      }
     });
-    const totalAssetValue = allMatchingProducts.reduce((sum, p) => sum + ((p.quantity || 0) * (p.purchasePrice || 0)), 0);
+    const totalAssetValue = allMatchingStocks.reduce((sum, s) => {
+      return sum + (s.onHandQty * (s.unitCost || 0));
+    }, 0);
 
     if (pageParam) {
       const result: PaginatedResult<any> & { meta: { totalAssetValue?: number } } = {
@@ -243,6 +250,17 @@ export const adjustStock = async (req: Request, res: Response) => {
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      // Get product for fallback pricing
+      const product = await tx.product.findUnique({
+        where: { id: productId },
+        include: { inventoryBatches: { where: { id: batchId || '' } } }
+      });
+      if (!product) throw new Error('Produk tidak ditemukan');
+
+      const batchPrice = product.inventoryBatches[0]?.purchasePrice;
+      const unitCost = batchPrice ?? product.purchasePrice ?? 0;
+      const sellingPrice = product.sellingPrice ?? 0;
+
       // 1. Get Stock Record ID (Prisma findUnique can have issues with null batchId in composite keys)
       const existingStock = await tx.inventoryStock.findFirst({
         where: { branchId, productId, batchId: batchId || null }
@@ -273,6 +291,8 @@ export const adjustStock = async (req: Request, res: Response) => {
             productId,
             batchId: batchId || null,
             onHandQty: quantity,
+            unitCost,
+            sellingPrice,
           }
         });
       }
@@ -298,6 +318,8 @@ export const adjustStock = async (req: Request, res: Response) => {
           referenceType: 'MANUAL_ADJUSTMENT',
           notes: reason,
           userId,
+          unitCost,
+          sellingPrice,
         },
       });
 

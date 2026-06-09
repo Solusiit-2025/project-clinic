@@ -118,7 +118,7 @@ async function resolveAccount(
  *   → INVENTORY_ACCOUNT  (key lama yang sudah ada di DB)
  *   → COA by code (1-1301 / 1-1302 / 1-1303)
  */
-async function resolveInventoryAccount(
+export async function resolveInventoryAccount(
   tx: Prisma.TransactionClient,
   productId: string,
   clinicId: string
@@ -276,11 +276,11 @@ export async function syncInventoryToLedger(
       }
     }
 
-    // ── 3. Hitung Nilai Transaksi ──────────────────────────────────────────
-    // Prioritas harga: batch.purchasePrice → product.purchasePrice → 0
+    // Prioritas harga: mutation.unitCost → batch.purchasePrice → product.purchasePrice → 0
     const unitCost =
-      mutation.batch?.purchasePrice ??
-      mutation.product?.purchasePrice ??
+      mutation.unitCost ||
+      mutation.batch?.purchasePrice ||
+      mutation.product?.purchasePrice ||
       0
 
     const totalValue = Math.abs(mutation.quantity) * unitCost

@@ -653,7 +653,7 @@ export const getFinancialSummary = async (req: Request, res: Response) => {
       }),
       prisma.invoice.aggregate({
         where: {
-          status: { not: 'paid' },
+          status: { in: ['unpaid', 'partial'] },
           ...(!isAdminView ? { clinicId: currentClinicId } : {}),
         },
         _sum: { total: true }
@@ -1147,6 +1147,38 @@ export const postCashTransfer = async (req: Request, res: Response) => {
     })
 
     res.json(result)
+  } catch (e) {
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+/**
+ * Delete an invoice
+ */
+export const deleteInvoice = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const invoice = await prisma.invoice.findUnique({
+      where: { id }
+    })
+
+    if (!invoice) {
+      return res.status(404).json({ message: 'Invoice tidak ditemukan' })
+    }
+
+    if (invoice.isPosted) {
+      return res.status(400).json({ message: 'Invoice sudah diposting dan tidak dapat dihapus.' })
+    }
+    
+    if (invoice.status !== 'unpaid') {
+      return res.status(400).json({ message: 'Hanya invoice dengan status Belum Bayar yang dapat dihapus.' })
+    }
+
+    await prisma.invoice.delete({
+      where: { id }
+    })
+
+    res.json({ message: 'Invoice berhasil dihapus' })
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })
   }

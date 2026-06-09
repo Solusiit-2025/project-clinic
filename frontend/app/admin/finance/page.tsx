@@ -7,7 +7,7 @@ import {
   FiClock, FiCheckCircle, FiMoreVertical, FiEye, 
   FiCreditCard, FiCalendar, FiArrowRight, FiActivity, FiShare2, FiZap, FiSend, FiPlus, FiBriefcase, FiEdit2, FiX,
   FiRefreshCw, FiRepeat, FiShield,
-  FiUser, FiAlertTriangle
+  FiUser, FiAlertTriangle, FiTrash2
 } from 'react-icons/fi'
 import { toast } from 'react-hot-toast'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -330,6 +330,20 @@ export default function FinanceDashboard() {
         fetchData()
     } catch (error: any) {
         toast.error(error?.response?.data?.message || 'Gagal memposting invoice')
+    } finally {
+        setProcessing(false)
+    }
+  }
+
+  const handleDeleteInvoice = async (invoiceId: string) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus invoice ini?')) return;
+    try {
+        setProcessing(true)
+        await api.delete(`/finance/invoices/${invoiceId}`)
+        toast.success('Invoice berhasil dihapus')
+        fetchData()
+    } catch (error: any) {
+        toast.error(error?.response?.data?.message || 'Gagal menghapus invoice')
     } finally {
         setProcessing(false)
     }
@@ -674,6 +688,16 @@ export default function FinanceDashboard() {
                              >
                                 <FiEye className="w-4 h-4" />
                              </button>
+
+                             {user?.role === 'SUPER_ADMIN' && inv.status === 'unpaid' && (
+                                <button 
+                                   onClick={() => handleDeleteInvoice(inv.id)}
+                                   className="p-3 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-100 transition-colors tooltip"
+                                   data-tip="Hapus Invoice"
+                                >
+                                   <FiTrash2 className="w-4 h-4" />
+                                </button>
+                             )}
 
                              {!inv.isPosted && ['paid', 'pending_corporate'].includes(inv.status) && (
                                 <button 

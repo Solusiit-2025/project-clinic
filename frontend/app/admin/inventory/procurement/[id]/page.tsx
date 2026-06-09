@@ -35,13 +35,18 @@ export default function ProcurementDetailView({ params }: { params: Promise<{ id
       setData(res.data)
       
       // Init GRN form
-      if (res.data.status === 'APPROVED') {
+      if (res.data.status === 'APPROVED' || res.data.status === 'PARTIAL_RECEIVED') {
         setGrnNo(`GRN-${Date.now()}`)
-        setGrnItems(res.data.items.map((i: any) => ({
+        
+        // Hanya tampilkan item yang belum sepenuhnya diterima
+        const pendingItems = res.data.items.filter((i: any) => i.requestedQty > i.receivedQty)
+        
+        setGrnItems(pendingItems.map((i: any) => ({
            itemId: i.id,
            productName: i.product.productName,
            requestedQty: i.requestedQty,
-           receivedQty: i.requestedQty, // default full
+           alreadyReceived: i.receivedQty, // tambahan info
+           receivedQty: i.requestedQty - i.receivedQty, // default sisa
            batchNumber: '',
            expiryDate: ''
         })))
@@ -181,6 +186,7 @@ export default function ProcurementDetailView({ params }: { params: Promise<{ id
                        <tr className="bg-gray-50/50 text-[10px] uppercase tracking-widest font-black text-gray-400">
                            <th className="px-6 py-4">Produk</th>
                            <th className="px-6 py-4">Kode</th>
+                           <th className="px-6 py-4">Harga Satuan</th>
                            <th className="px-6 py-4">Diajukan</th>
                            <th className="px-6 py-4">Diterima</th>
                            <th className="px-6 py-4">Subtotal</th>
@@ -191,6 +197,7 @@ export default function ProcurementDetailView({ params }: { params: Promise<{ id
                            <tr key={item.id} className="font-bold text-sm text-gray-700">
                                <td className="px-6 py-4">{item.product.productName}</td>
                                <td className="px-6 py-4 font-mono text-xs">{item.product.productCode}</td>
+                               <td className="px-6 py-4">Rp {item.unitPrice?.toLocaleString('id-ID') || '-'}</td>
                                <td className="px-6 py-4">{item.requestedQty}</td>
                                <td className="px-6 py-4 text-primary">{item.receivedQty || '-'}</td>
                                <td className="px-6 py-4">Rp {item.subtotal.toLocaleString('id-ID')}</td>
@@ -223,11 +230,11 @@ export default function ProcurementDetailView({ params }: { params: Promise<{ id
               </div>
            )}
 
-           {data.status === 'APPROVED' && (
+           {(data.status === 'APPROVED' || data.status === 'PARTIAL_RECEIVED') && grnItems.length > 0 && (
               <div className="bg-blue-50/50 border border-blue-100 p-6 rounded-[32px]">
                  <h2 className="text-blue-900 font-black uppercase tracking-widest text-sm flex items-center gap-2 mb-4">
                     <Truck className="w-5 h-5 text-blue-600" />
-                    Penerimaan Barang (GRN)
+                    {data.status === 'PARTIAL_RECEIVED' ? 'Penerimaan Sisa Barang (GRN)' : 'Penerimaan Barang (GRN)'}
                  </h2>
                  <div className="mb-4">
                     <label className="text-[10px] font-black text-blue-400 tracking-widest uppercase block mb-1">Nomor GRN</label>
@@ -251,8 +258,10 @@ export default function ProcurementDetailView({ params }: { params: Promise<{ id
                                 value={item.receivedQty}
                                 onChange={e => handleGrnUpdate(item.itemId, 'receivedQty', Number(e.target.value))}
                                 className="w-20 px-2 py-1.5 bg-gray-50 border border-gray-100 rounded text-center text-sm font-bold"
+                                max={item.requestedQty - (item.alreadyReceived || 0)}
+                                min={0}
                               />
-                              <span className="text-xs font-bold text-gray-400">/ {item.requestedQty}</span>
+                              <span className="text-xs font-bold text-gray-400">/ {item.requestedQty - (item.alreadyReceived || 0)} (Sisa)</span>
                            </div>
 
                            <div className="space-y-2 relative">

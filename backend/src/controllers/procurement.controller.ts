@@ -108,10 +108,10 @@ export const receiveGoods = async (req: Request, res: Response) => {
 
     if (!procurement) return res.status(404).json({ message: 'Procurement record not found' });
 
-    // Validasi status — hanya bisa receive jika sudah APPROVED atau ORDERED
-    if (!['APPROVED', 'ORDERED'].includes(procurement.status)) {
+    // Validasi status — hanya bisa receive jika sudah APPROVED, ORDERED, atau PARTIAL_RECEIVED
+    if (!['APPROVED', 'ORDERED', 'PARTIAL_RECEIVED'].includes(procurement.status)) {
       return res.status(400).json({
-        message: `Tidak dapat menerima barang. Status procurement saat ini: ${procurement.status}. Harus APPROVED atau ORDERED terlebih dahulu.`
+        message: `Tidak dapat menerima barang. Status procurement saat ini: ${procurement.status}. Harus APPROVED, ORDERED, atau PARTIAL_RECEIVED terlebih dahulu.`
       });
     }
 
@@ -139,7 +139,7 @@ export const receiveGoods = async (req: Request, res: Response) => {
         await tx.procurementItem.update({
           where: { id: receiveItem.itemId },
           data: {
-            receivedQty: receiveItem.receivedQty,
+            receivedQty: { increment: receiveItem.receivedQty },
             batchNumber: receiveItem.batchNumber,
             expiryDate: new Date(receiveItem.expiryDate),
           },
@@ -194,12 +194,18 @@ export const receiveGoods = async (req: Request, res: Response) => {
               batchId: batch.id,
             },
           },
-          update: { onHandQty: { increment: receiveItem.receivedQty } },
+          update: { 
+            onHandQty: { increment: receiveItem.receivedQty },
+            unitCost: originalItem.unitPrice,
+            sellingPrice: originalItem.product.sellingPrice || 0
+          },
           create: {
             branchId: procurement.branchId,
             productId: originalItem.productId,
             batchId: batch.id,
             onHandQty: receiveItem.receivedQty,
+            unitCost: originalItem.unitPrice,
+            sellingPrice: originalItem.product.sellingPrice || 0
           },
         });
 
@@ -215,6 +221,8 @@ export const receiveGoods = async (req: Request, res: Response) => {
             referenceId: id,
             notes: `Received via ${grnNo || procurement.procurementNo}`,
             userId,
+            unitCost: originalItem.unitPrice,
+            sellingPrice: originalItem.product.sellingPrice || 0
           },
         });
 
@@ -232,10 +240,15 @@ export const receiveGoods = async (req: Request, res: Response) => {
       // 6. Synchronize total quantities (Bulk sync)
       await InventoryService.syncMultipleProductsQuantity(tx, modifiedProductIds, procurement.branchId);
 
-      // 7. Final status update
+      // 7. Final status update - Cek apakah sudah terima semua
+      const freshItems = await tx.procurementItem.findMany({
+        where: { procurementId: id }
+      });
+      const isFullyReceived = freshItems.every((i: any) => i.receivedQty >= i.requestedQty);
+
       await tx.procurement.update({
         where: { id },
-        data: { status: 'RECEIVED' },
+        data: { status: isFullyReceived ? 'RECEIVED' : 'PARTIAL_RECEIVED' },
       });
 
       return {
@@ -274,6 +287,11 @@ export const getProcurements = async (req: Request, res: Response) => {
       where,
       include: {
         _count: { select: { items: true } },
+        items: {
+          include: {
+            product: { select: { productName: true } }
+          }
+        }
       },
       orderBy: { createdAt: 'desc' },
     });

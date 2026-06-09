@@ -21,6 +21,7 @@ interface Procurement {
   createdAt: string
   vendor?: { name: string }
   _count: { items: number }
+  items?: { product: { productName: string } }[]
 }
 
 export default function ProcurementListPage() {
@@ -54,6 +55,7 @@ export default function ProcurementListPage() {
     switch (status) {
       case 'PENDING_APPROVAL': return 'bg-amber-50 text-amber-700 border-amber-100'
       case 'APPROVED': return 'bg-blue-50 text-blue-700 border-blue-100'
+      case 'PARTIAL_RECEIVED': return 'bg-red-50 text-red-700 border-red-100'
       case 'RECEIVED': return 'bg-emerald-50 text-emerald-700 border-emerald-100'
       case 'COMPLETED': return 'bg-slate-100 text-slate-700 border-slate-200'
       default: return 'bg-gray-50 text-gray-600 border-gray-100'
@@ -151,6 +153,12 @@ export default function ProcurementListPage() {
                                <span className="text-[10px] font-black text-gray-900 bg-gray-100 px-2.5 py-1 rounded-lg uppercase">{p._count.items} SKU</span>
                             </div>
                          </div>
+                          
+                         {p.items && p.items.length > 0 && (
+                             <p className="text-[10px] italic text-gray-500 mt-2 break-words whitespace-normal leading-relaxed">
+                                {p.items.map((i: any) => i.product?.productName).filter(Boolean).join(', ')}
+                             </p>
+                          )}
 
                          <div className="flex items-end justify-between">
                             <div>
@@ -171,20 +179,34 @@ export default function ProcurementListPage() {
                             <FileText className="w-5 h-5" />
                          </div>
                          <div className="min-w-0">
-                            <p className="text-lg font-black text-gray-900 uppercase tracking-tight group-hover:text-primary transition-colors truncate">{p.procurementNo}</p>
-                            <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">{p.type}</span>
-                         </div>
+                             <p className="text-lg font-black text-gray-900 uppercase tracking-tight group-hover:text-primary transition-colors truncate">{p.procurementNo}</p>
+                             <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">{p.type}</span>
+                          </div>
                       </div>
-                      <div className="col-span-3">
-                         <p className="text-xs font-black text-gray-700 uppercase">{p.vendor?.name || 'N/A'}</p>
+                      <div className="col-span-2">
+                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Supplier</p>
+                         <p className="text-xs font-black text-gray-700 uppercase truncate" title={p.vendor?.name || 'N/A'}>{p.vendor?.name || 'N/A'}</p>
                       </div>
-                      <div className="col-span-2 text-center text-lg font-black text-gray-900">{p._count.items}</div>
+                      <div className="col-span-3 min-w-0 pr-4">
+                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Item Pesanan</p>
+                         {p.items && p.items.length > 0 ? (
+                            <p className="text-[11px] italic text-gray-500 break-words whitespace-normal leading-relaxed" title={p.items.map((i: any) => i.product?.productName).filter(Boolean).join(', ')}>
+                               {p.items.map((i: any) => i.product?.productName).filter(Boolean).join(', ')}
+                            </p>
+                         ) : (
+                            <p className="text-[11px] italic text-gray-300">-</p>
+                         )}
+                      </div>
+                      <div className="col-span-1 text-center">
+                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">SKU</p>
+                         <p className="text-lg font-black text-gray-900">{p._count.items}</p>
+                      </div>
                       <div className="col-span-2 text-right">
                          <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1">Total PR Value</p>
                          <p className="text-lg font-black text-indigo-600">Rp {p.totalAmount.toLocaleString('id-ID')}</p>
                       </div>
-                      <div className="col-span-2 flex justify-end">
-                         <div className={`px-6 py-2.5 rounded-[2rem] border text-[9px] font-black uppercase tracking-widest shadow-sm ${getStatusStyle(p.status)}`}>
+                      <div className="col-span-1 flex justify-end">
+                         <div className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm text-center break-words whitespace-normal leading-tight ${getStatusStyle(p.status)}`}>
                             {p.status.replace('_', ' ')}
                          </div>
                       </div>

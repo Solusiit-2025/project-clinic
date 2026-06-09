@@ -825,23 +825,26 @@ export const getReconciliationData = async (req: Request, res: Response) => {
     const totalCredit = aggregate._sum.credit || 0
     const glBalance = coaPersediaan.openingBalance + (totalDebit - totalCredit)
 
-    // 4. Hitung Nilai Fisik Persediaan (Sum quantity * purchasePrice dari seluruh Produk aktif)
-    const products = await prisma.product.findMany({
+    // 4. Hitung Nilai Fisik Persediaan (Sum onHandQty * unitCost dari seluruh InventoryStock)
+    const stocks = await prisma.inventoryStock.findMany({
       where: {
-        clinicId: targetClinicId,
-        deletedAt: null,
-        isActive: true
+        branchId: targetClinicId,
+        product: {
+          deletedAt: null,
+          isActive: true
+        }
       },
-      select: {
-        id: true,
-        productName: true,
-        sku: true,
-        quantity: true,
-        purchasePrice: true,
-        masterProduct: {
+      include: {
+        product: {
           select: {
-            masterName: true,
-            sku: true
+            productName: true,
+            sku: true,
+            masterProduct: {
+              select: {
+                masterName: true,
+                sku: true
+              }
+            }
           }
         }
       }
@@ -849,16 +852,16 @@ export const getReconciliationData = async (req: Request, res: Response) => {
 
     let physicalValue = 0
     const stockDetails = []
-    for (const p of products) {
-      const value = p.quantity * (p.purchasePrice || 0)
+    for (const s of stocks) {
+      const value = Number(s.onHandQty) * Number(s.unitCost || 0)
       physicalValue += value
-      if (p.quantity > 0 || (p.purchasePrice || 0) > 0) {
+      if (Number(s.onHandQty) > 0 || Number(s.unitCost || 0) > 0) {
         stockDetails.push({
-          id: p.id,
-          name: p.productName || p.masterProduct?.masterName || 'Produk Tanpa Nama',
-          sku: p.sku || p.masterProduct?.sku || '-',
-          quantity: p.quantity,
-          purchasePrice: p.purchasePrice || 0,
+          id: s.id,
+          name: s.product.productName || s.product.masterProduct?.masterName || 'Produk Tanpa Nama',
+          sku: s.product.sku || s.product.masterProduct?.sku || '-',
+          quantity: Number(s.onHandQty),
+          purchasePrice: Number(s.unitCost || 0),
           totalValue: value
         })
       }

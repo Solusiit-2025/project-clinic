@@ -3,7 +3,8 @@ import { authMiddleware } from '../middleware/auth.middleware'
 import { 
   getInvoices, processPayment, getFinancialSummary, postInvoice, 
   resetInvoicePayment, updateInvoiceBank, getExpenses, createExpense, deleteExpense,
-  getCashTransfers, createCashTransfer, updateCashTransfer, deleteCashTransfer, postCashTransfer
+  getCashTransfers, createCashTransfer, updateCashTransfer, deleteCashTransfer, postCashTransfer,
+  deleteInvoice
 } from '../controllers/finance.controller'
 import { uploadBon } from '../middleware/procurementUpload.middleware'
 
@@ -25,6 +26,7 @@ financeRoutes.post('/opening-balance/:id/unpost', OpeningBalanceController.unpos
 financeRoutes.delete('/opening-balance/:id', OpeningBalanceController.delete)
 
 financeRoutes.get('/invoices', getInvoices)
+financeRoutes.delete('/invoices/:id', deleteInvoice)
 financeRoutes.post('/payments', processPayment)
 financeRoutes.post('/invoices/post-to-ledger', postInvoice)
 financeRoutes.post('/invoices/:id/reset-payment', resetInvoicePayment)

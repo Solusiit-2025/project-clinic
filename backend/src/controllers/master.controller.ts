@@ -1316,11 +1316,14 @@ export const updateProductMaster = async (req: Request, res: Response) => {
       data.isActive = data.isActive === 'true' || data.isActive === true
     }
 
+    const oldProduct = await prisma.productMaster.findUnique({ where: { id: req.params.id } })
+
     const product = await prisma.productMaster.update({ 
       where: { id: req.params.id }, 
       data,
       include: { productCategory: true }
     })
+
 
     // AUTO-SYNC: Push changes to all linked branch products
     try {
