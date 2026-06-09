@@ -327,9 +327,14 @@ export default function PatientDetailPage() {
                           <FiCalendar className="w-7 h-7" />
                         </div>
                         <div>
-                          <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.3em] mb-1">
-                            {format(new Date(record.recordDate), 'EEEE, dd MMMM yyyy', { locale: idLocale })}
-                          </p>
+                          <div className="flex items-center gap-3 mb-1">
+                            <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.3em]">
+                              {format(new Date(record.recordDate), 'EEEE, dd MMMM yyyy', { locale: idLocale })}
+                            </p>
+                            <span className="px-2 py-0.5 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-md text-[9px] font-black tracking-widest flex items-center gap-1">
+                              <FiClock className="w-2.5 h-2.5"/> {format(new Date(record.recordDate), 'HH:mm')}
+                            </span>
+                          </div>
                           <h4 className="text-2xl font-black text-slate-900 tracking-tight leading-none">
                             Rekam Medis <span className="text-slate-300 font-bold ml-1">#{record.recordNo}</span>
                           </h4>

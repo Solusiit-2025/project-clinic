@@ -153,6 +153,15 @@ export default function PharmacyDetailPage({ params }: { params: Promise<{ id: s
   if (isLoading) return <div className="p-8 text-center text-gray-500 font-black uppercase tracking-widest animate-pulse">Memuat rincian resep farmasi...</div>
   if (!prescription) return <div className="p-8 text-center text-red-500 font-bold">{error}</div>
 
+  const statusLabelMap: Record<string, string> = {
+    pending: 'Menunggu',
+    preparing: 'Diramu',
+    ready: 'Siap',
+    dispensed: 'Diserahkan',
+  }
+
+  const getStatusLabel = (status: string) => statusLabelMap[status] || status
+
   const isCompleted = prescription.dispenseStatus === 'dispensed'
   const steps = ['pending', 'preparing', 'ready', 'dispensed']
   const currentStepIdx = steps.indexOf(prescription.dispenseStatus)
@@ -172,7 +181,7 @@ export default function PharmacyDetailPage({ params }: { params: Promise<{ id: s
                <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border ${
                  isCompleted ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'
                }`}>
-                 {prescription.dispenseStatus}
+                 {getStatusLabel(prescription.dispenseStatus)}
                </span>
                <button 
                 onClick={() => { setIsSubmitting(true); fetchPrescription().finally(() => setIsSubmitting(false)); }}
@@ -212,12 +221,21 @@ export default function PharmacyDetailPage({ params }: { params: Promise<{ id: s
                      <div className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-black transition-all duration-500 ${active ? 'bg-primary text-white' : 'bg-gray-200 text-gray-400'}`}>
                         {active ? <CheckCircle className="w-3 h-3" /> : i + 1}
                      </div>
-                     <span className={`text-[10px] font-black uppercase tracking-widest ${active ? 'text-gray-900' : 'text-gray-400'}`}>{s.replace('_', ' ')}</span>
+                     <span className={`text-[10px] font-black uppercase tracking-widest ${active ? 'text-gray-900' : 'text-gray-400'}`}>{getStatusLabel(s)}</span>
                   </div>
                </div>
              )
            })}
         </div>
+
+        {prescription.dispenseStatus !== 'dispensed' && (
+          <div className="mb-6 rounded-3xl border border-rose-500 bg-rose-500/10 p-4 text-sm font-black text-rose-900 uppercase tracking-wider shadow-lg animate-pulse ring-2 ring-rose-400">
+            <div className="inline-flex items-center gap-3">
+              <span className="px-2 py-1 rounded-full bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider animate-pulse">⚠️ WARNING</span>
+              Transaksi ini belum selesai sampai <span className="text-primary">{getStatusLabel('dispensed')}</span>. Jika belum finalisasi, stok belum dipotong dan jurnal belum tercatat.
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-col xl:flex-row gap-6 items-start">
            {/* Left Column: Tables & Content */}
@@ -437,6 +455,13 @@ export default function PharmacyDetailPage({ params }: { params: Promise<{ id: s
                          <p className="text-[9px] font-black text-emerald-400 uppercase">Apoteker Penanggung Jawab</p>
                          <p className="text-[11px] font-black text-emerald-600 mt-1 uppercase italic tracking-widest">{prescription.pharmacistId?.slice(0, 8) || 'SYSTEM ADMIN'}</p>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => router.push('/admin/transactions/pharmacy')}
+                        className="mt-6 w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-white text-gray-700 border border-emerald-100 rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-emerald-50 transition-all"
+                      >
+                        <ArrowLeft className="w-4 h-4" /> Kembali ke List Farmasi
+                      </button>
                    </div>
                  ) : (
                    <div className="space-y-4">

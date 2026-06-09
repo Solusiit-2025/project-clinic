@@ -270,6 +270,16 @@ export default function StockOpnamePage() {
 
   const addItem = async () => {
     if (!session || !selectedProduct) return
+
+    // Validasi harga beli wajib diisi
+    if (!unitPrice || unitPrice <= 0) {
+      toast.error('Harga beli wajib diisi dan harus lebih dari 0!', {
+        icon: '⚠️',
+        duration: 4000
+      })
+      return
+    }
+
     try {
       setIsSubmitting(true)
       await api.post('inventory/opname/item', {
@@ -290,8 +300,9 @@ export default function StockOpnamePage() {
       setNotes('')
       setExpiryDate('')
       fetchSession()
-    } catch (error) {
-      toast.error('Gagal menambahkan item')
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || 'Gagal menambahkan item'
+      toast.error(msg, { duration: 5000 })
     } finally {
       setIsSubmitting(false)
     }
@@ -313,6 +324,17 @@ export default function StockOpnamePage() {
       return
     }
 
+    // Cek apakah ada item dengan selisih (diffQty != 0) tapi harga 0
+    const itemsZeroPrice = session.items.filter(i => i.diffQty !== 0 && i.unitPrice === 0)
+    if (itemsZeroPrice.length > 0) {
+      const namaList = itemsZeroPrice.map(i => i.product.productName).join(', ')
+      toast.error(
+        `Tidak bisa finalisasi!\n${itemsZeroPrice.length} item memiliki harga beli = 0:\n${namaList}\n\nMohon isi harga beli terlebih dahulu.`,
+        { duration: 8000, icon: '⚠️' }
+      )
+      return
+    }
+
     if (!confirm('Apakah Anda yakin ingin melakukan rekonsiliasi stok? Tindakan ini akan langsung merubah data stok sistem.')) {
       return
     }
@@ -324,8 +346,9 @@ export default function StockOpnamePage() {
       })
       toast.success('Rekonsiliasi stok berhasil!')
       fetchSession()
-    } catch (error) {
-      toast.error('Gagal melakukan rekonsiliasi')
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || 'Gagal melakukan rekonsiliasi'
+      toast.error(msg, { duration: 8000 })
     } finally {
       setIsSubmitting(false)
     }
@@ -377,6 +400,8 @@ export default function StockOpnamePage() {
         productId: item.productId,
         batchId: item.batchId,
         physicalQty: newQty,
+        unitPrice: item.unitPrice,   // ← selalu kirim unitPrice yang sudah ada
+        notes: item.notes,
         branchId: activeClinicId
       })
     } catch (error) {
@@ -811,13 +836,28 @@ export default function StockOpnamePage() {
                              />
                           </div>
                           <div>
-                             <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1 text-center">Harga Baru</label>
+                             <label className="block text-[8px] font-black uppercase tracking-widest mb-2 px-1 text-center">
+                               <span className={unitPrice <= 0 ? 'text-red-500' : 'text-gray-400'}>
+                                 Harga Beli {unitPrice <= 0 ? '⚠ WAJIB DIISI' : ''}
+                               </span>
+                             </label>
                              <input 
                                type="number"
-                               className="w-full px-4 py-4 bg-white border-2 border-gray-100 rounded-2xl focus:ring-4 focus:ring-primary/5 outline-none text-center font-black text-base text-gray-900"
+                               min={1}
+                               className={`w-full px-4 py-4 rounded-2xl focus:ring-4 outline-none text-center font-black text-base transition-all ${
+                                 unitPrice <= 0
+                                   ? 'bg-red-50 border-2 border-red-400 text-red-600 focus:ring-red-100'
+                                   : 'bg-white border-2 border-gray-100 text-gray-900 focus:ring-primary/5'
+                               }`}
                                value={unitPrice}
                                onChange={(e) => setUnitPrice(Number(e.target.value))}
+                               placeholder="Wajib isi harga beli"
                              />
+                             {unitPrice <= 0 && (
+                               <p className="text-[9px] font-black text-red-500 mt-1 px-1 text-center">
+                                 Harga 0 tidak diizinkan!
+                               </p>
+                             )}
                           </div>
                        </div>
                        
@@ -850,12 +890,16 @@ export default function StockOpnamePage() {
                        />
                        
                        <button 
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || unitPrice <= 0}
                         onClick={addItem}
-                        className="w-full py-5 bg-primary text-white font-black rounded-3xl shadow-xl shadow-primary/20 hover:shadow-2xl transition-all text-xs uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
+                        className={`w-full py-5 font-black rounded-3xl shadow-xl transition-all text-xs uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 ${
+                          unitPrice <= 0
+                            ? 'bg-red-100 text-red-400 shadow-none cursor-not-allowed'
+                            : 'bg-primary text-white shadow-primary/20 hover:shadow-2xl disabled:opacity-50'
+                        }`}
                        >
                         {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                        Simpan ke Draft
+                        {unitPrice <= 0 ? 'Isi Harga Beli Dulu' : 'Simpan ke Draft'}
                        </button>
                     </div>
                   </motion.div>
@@ -891,7 +935,25 @@ export default function StockOpnamePage() {
                   </div>
 
                   <div className="grid grid-cols-1 gap-3">
-                    <button onClick={finalizeOpname} disabled={isSubmitting} className="w-full py-5 bg-emerald-500 text-white font-black rounded-[2rem] shadow-xl shadow-emerald-500/20 hover:bg-emerald-400 transition-all flex items-center justify-center gap-3 uppercase text-xs tracking-widest active:scale-95 disabled:opacity-50">
+                    {/* Warning jika ada item dengan harga 0 dan diffQty != 0 */}
+                    {session.items.some(i => i.diffQty !== 0 && i.unitPrice === 0) && (
+                      <div className="p-3 bg-red-500 rounded-2xl flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-white shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-[10px] font-black text-white uppercase tracking-widest">
+                            {session.items.filter(i => i.diffQty !== 0 && i.unitPrice === 0).length} Item Harga = 0
+                          </p>
+                          <p className="text-[9px] text-red-200 font-bold mt-0.5">
+                            Isi harga beli di tabel sebelum finalisasi
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    <button
+                      onClick={finalizeOpname}
+                      disabled={isSubmitting || session.items.some(i => i.diffQty !== 0 && i.unitPrice === 0)}
+                      className="w-full py-5 bg-emerald-500 text-white font-black rounded-[2rem] shadow-xl shadow-emerald-500/20 hover:bg-emerald-400 transition-all flex items-center justify-center gap-3 uppercase text-xs tracking-widest active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                        <CheckCircle className="w-6 h-6" /> FINALISASI & REKONSILIASI PENUH
                     </button>
                     <div className="grid grid-cols-2 gap-3">
@@ -967,10 +1029,11 @@ export default function StockOpnamePage() {
                         .map((item) => {
                         const isLoss = item.diffQty < 0
                         const isGain = item.diffQty > 0
+                        const needsPrice = item.diffQty !== 0 && item.unitPrice === 0
                         return (
                           <div key={item.id}>
                             {/* Desktop Row View */}
-                            <div className="hidden lg:block hover:bg-gray-50/30 transition-colors">
+                            <div className={`hidden lg:block transition-colors ${needsPrice ? 'bg-red-50/60 hover:bg-red-50' : 'hover:bg-gray-50/30'}`}>
                                  <div className="grid grid-cols-13 gap-2 items-center px-6 py-4">
                                    <div className="col-span-3 flex items-center gap-3">
                                       <div className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center font-black text-gray-400 shrink-0">
@@ -1006,8 +1069,23 @@ export default function StockOpnamePage() {
                                    </div>
                                    <div className="col-span-2 flex justify-center">
                                       <div className="relative w-full">
-                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-300">Rp</span>
-                                        <input type="number" className="w-full pl-7 pr-1 py-1.5 bg-gray-50 rounded-xl text-right font-black text-gray-900 outline-none text-sm border border-transparent focus:border-primary/20 transition-all" value={item.unitPrice} onChange={(e) => handleUpdatePrice(item, Number(e.target.value))} />
+                                        <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-black ${needsPrice ? 'text-red-400' : 'text-gray-300'}`}>Rp</span>
+                                        <input
+                                          type="number"
+                                          className={`w-full pl-7 pr-1 py-1.5 rounded-xl text-right font-black outline-none text-sm transition-all ${
+                                            needsPrice
+                                              ? 'bg-red-100 border-2 border-red-400 text-red-700 focus:border-red-500'
+                                              : 'bg-gray-50 border border-transparent text-gray-900 focus:border-primary/20'
+                                          }`}
+                                          value={item.unitPrice}
+                                          onChange={(e) => handleUpdatePrice(item, Number(e.target.value))}
+                                          title={needsPrice ? 'Harga beli wajib diisi!' : undefined}
+                                        />
+                                        {needsPrice && (
+                                          <div className="absolute -top-5 left-0 right-0 text-center">
+                                            <span className="text-[8px] font-black text-red-500 whitespace-nowrap">⚠ Wajib isi harga!</span>
+                                          </div>
+                                        )}
                                       </div>
                                    </div>
                                    <div className="col-span-2 flex items-center justify-end gap-1">

@@ -23,6 +23,7 @@ export default function SettingsPage() {
   const [videoVolume, setVideoVolume] = useState(50)
   const [isLoading, setIsLoading] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
+  const [isSyncingPrices, setIsSyncingPrices] = useState(false)
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [feeSettings, setFeeSettings] = useState({
@@ -260,6 +261,19 @@ export default function SettingsPage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
+  const handleSyncInventoryPrices = async () => {
+    setIsSyncingPrices(true)
+    const toastId = toast.loading('Sedang mensinkronisasi harga stok dan GL... Jangan tutup halaman ini.')
+    try {
+      const { data } = await api.post('inventory/sync-prices')
+      toast.success(data.message || 'Sinkronisasi berhasil!', { id: toastId, duration: 5000 })
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Gagal mensinkronisasi harga', { id: toastId })
+    } finally {
+      setIsSyncingPrices(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50/50 pb-20">
       <Toaster position="top-right" />
@@ -333,7 +347,7 @@ export default function SettingsPage() {
                   exit={{ opacity: 0, y: -20 }}
                   className="space-y-6"
                 >
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Backup Action Card */}
                     <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-200/50 flex flex-col justify-between">
                       <div>
@@ -380,6 +394,32 @@ export default function SettingsPage() {
                           </>
                         )}
                       </label>
+                    </div>
+
+                    {/* Sync Inventory Prices Card */}
+                    <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-200/50 flex flex-col justify-between">
+                      <div>
+                        <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mb-6">
+                          <FiRefreshCw className="w-7 h-7" />
+                        </div>
+                        <h2 className="text-2xl font-black text-gray-900 mb-2">Sinkronisasi Harga</h2>
+                        <p className="text-gray-500 font-medium leading-relaxed text-sm">
+                          Menarik ulang data HPP stok dan meng-generate ulang Jurnal Keuangan agar laporan neraca akurat.
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleSyncInventoryPrices}
+                        disabled={isSyncingPrices}
+                        className="mt-8 group relative overflow-hidden px-8 py-4 bg-amber-100 text-amber-700 border border-amber-200 rounded-2xl font-black transition-all hover:bg-amber-200 active:scale-95 disabled:opacity-50"
+                      >
+                        <span className="relative z-10 flex items-center justify-center gap-3">
+                          {isSyncingPrices ? 'Sedang Sinkronisasi...' : (
+                            <>
+                              Mulai Sinkronisasi <FiRefreshCw />
+                            </>
+                          )}
+                        </span>
+                      </button>
                     </div>
                   </div>
 

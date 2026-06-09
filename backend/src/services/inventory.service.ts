@@ -26,8 +26,14 @@ export class InventoryService {
   }
 
   /**
-   * Pick batches for stock out using FIFO (First Expiry First Out) logic.
-   * Returns a list of batches and quantities to be deducted.
+   * Pick batches for stock out using FEFO (First Expiry First Out) logic.
+   *
+   * Urutan pengambilan:
+   *  1. inventoryStock batchId=NULL (stok lama tanpa batch — dianggap paling tua, habiskan dulu)
+   *  2. inventoryBatch diurutkan expiryDate ASC (yang paling dekat expired diambil duluan)
+   *
+   * Dengan urutan ini, stok lama yang masuk via opname tanpa batch akan selalu
+   * habis lebih dulu sebelum batch baru (OPN-xxx) disentuh — FIFO tetap terjaga.
    */
   static async pickBatchesFIFO(
     productId: string, 
@@ -38,40 +44,45 @@ export class InventoryService {
     defaultPurchasePrice: number = 0
   ) {
     const client = tx || prisma;
-    const batches = await client.inventoryBatch.findMany({
-      where: {
-        productId,
-        branchId,
-        currentQty: { gt: 0 },
-      },
-      orderBy: {
-        expiryDate: 'asc',
-      },
-    });
 
     let remaining = quantityNeeded;
     const picks: { batchId: string | null; quantity: number; purchasePrice: number }[] = [];
 
-    for (const batch of batches) {
-      if (remaining <= 0) break;
+    // ── LANGKAH 1: Ambil stok NULL-batch dulu (stok lama, paling prioritas) ──
+    const nullStock = await client.inventoryStock.findFirst({
+      where: { productId, branchId, batchId: null, onHandQty: { gt: 0 } }
+    });
 
-      const take = Math.min(batch.currentQty, remaining);
-      picks.push({ batchId: batch.id, quantity: take, purchasePrice: batch.purchasePrice });
+    if (nullStock && remaining > 0) {
+      const take = Math.min(nullStock.onHandQty, remaining);
+      picks.push({
+        batchId: null,
+        quantity: take,
+        purchasePrice: nullStock.unitCost > 0 ? nullStock.unitCost : defaultPurchasePrice
+      });
       remaining -= take;
     }
 
-    // FALLBACK: If still remaining, check global stock (batchId: null)
+    // ── LANGKAH 2: Ambil dari batch (FEFO: expiryDate ASC) ──
     if (remaining > 0) {
-      const globalStock = await client.inventoryStock.findFirst({
-        where: { productId, branchId, batchId: null, onHandQty: { gt: 0 } }
+      const batches = await client.inventoryBatch.findMany({
+        where: {
+          productId,
+          branchId,
+          currentQty: { gt: 0 },
+        },
+        orderBy: {
+          expiryDate: 'asc',
+        },
       });
 
-      if (globalStock) {
-        const take = Math.min(remaining, globalStock.onHandQty);
-        picks.push({ 
-          batchId: null, 
-          quantity: take, 
-          purchasePrice: globalStock.unitCost ?? defaultPurchasePrice 
+      for (const batch of batches) {
+        if (remaining <= 0) break;
+        const take = Math.min(batch.currentQty, remaining);
+        picks.push({
+          batchId: batch.id,
+          quantity: take,
+          purchasePrice: batch.purchasePrice > 0 ? batch.purchasePrice : defaultPurchasePrice
         });
         remaining -= take;
       }
@@ -79,7 +90,9 @@ export class InventoryService {
 
     if (remaining > 0) {
       const totalAvailable = quantityNeeded - remaining;
-      throw new Error(`Stok ${productName || 'Produk'} tidak mencukupi (Tersisa: ${totalAvailable}, Diminta: ${quantityNeeded}).`);
+      throw new Error(
+        `Stok ${productName || 'Produk'} tidak mencukupi (Tersisa: ${totalAvailable}, Diminta: ${quantityNeeded}).`
+      );
     }
 
     return picks;

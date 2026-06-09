@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { InventoryService } from '../services/inventory.service';
-import { syncInventoryToLedger } from '../services/inventoryLedger.service';
+import { syncInventoryToLedger, syncAllInventoryToLedger, syncOpeningBalances } from '../services/inventoryLedger.service';
 import { getPaginationOptions, PaginatedResult } from '../utils/pagination';
 
 /**
@@ -107,11 +107,14 @@ export const getBranchStocks = async (req: Request, res: Response) => {
       },
       select: { 
         onHandQty: true, 
-        unitCost: true
+        unitCost: true,
+        product: {
+          select: { purchasePrice: true }
+        }
       }
     });
     const totalAssetValue = allMatchingStocks.reduce((sum, s) => {
-      return sum + (s.onHandQty * (s.unitCost || 0));
+      return sum + (s.onHandQty * (s.unitCost || s.product?.purchasePrice || 0));
     }, 0);
 
     if (pageParam) {
@@ -185,6 +188,15 @@ export const getStockMutations = async (req: Request, res: Response) => {
 
     const whereClause: any = { branchId: branchId as string };
     if (productId) whereClause.productId = productId as string;
+    
+    if (req.query.search) {
+      const search = req.query.search as string;
+      whereClause.OR = [
+        { product: { productName: { contains: search, mode: 'insensitive' } } },
+        { product: { productCode: { contains: search, mode: 'insensitive' } } },
+        { notes: { contains: search, mode: 'insensitive' } }
+      ];
+    }
 
     if (startDate || endDate) {
       whereClause.createdAt = {};
@@ -538,22 +550,7 @@ export const addOrUpdateOpnameItem = async (req: Request, res: Response) => {
     const systemQty = stock?.onHandQty || 0;
     const diffQty = physicalQty - systemQty;
 
-    // 3. Resolve price (User provided or database fallback)
-    let unitPrice = req.body.unitPrice;
-
-    if (unitPrice === undefined || unitPrice === null) {
-      if (batchId) {
-        const batch = await prisma.inventoryBatch.findUnique({ where: { id: batchId } });
-        unitPrice = batch?.purchasePrice || 0;
-      } else {
-        const product = await prisma.product.findUnique({ where: { id: targetProductId } });
-        unitPrice = product?.purchasePrice || 0;
-      }
-    }
-
-    const subtotal = physicalQty * unitPrice;
-
-    // 4. Upsert item (Use findFirst + update/create to handle null batchId safely)
+    // 3. Cek apakah item sudah ada di session (diperlukan untuk preserve unitPrice)
     const existingItem = await prisma.stockOpnameItem.findFirst({
       where: {
         sessionId,
@@ -562,6 +559,31 @@ export const addOrUpdateOpnameItem = async (req: Request, res: Response) => {
       }
     });
 
+    // 4. Resolve price — priority:
+    //    1. Nilai eksplisit dari request yang > 0
+    //    2. Nilai yang sudah tersimpan di item sebelumnya (preserve, jangan overwrite dengan 0)
+    //    3. Fallback dari batch/product di DB
+    let unitPrice = req.body.unitPrice;
+
+    if (unitPrice === undefined || unitPrice === null) {
+      // Tidak dikirim sama sekali → preserve nilai lama atau fallback DB
+      if (existingItem && existingItem.unitPrice > 0) {
+        unitPrice = existingItem.unitPrice;
+      } else if (batchId) {
+        const batch = await prisma.inventoryBatch.findUnique({ where: { id: batchId } });
+        unitPrice = batch?.purchasePrice || 0;
+      } else {
+        const product = await prisma.product.findUnique({ where: { id: targetProductId } });
+        unitPrice = product?.purchasePrice || 0;
+      }
+    } else if (Number(unitPrice) === 0 && existingItem && existingItem.unitPrice > 0) {
+      // Dikirim 0 tapi item sudah punya harga valid → preserve, jangan overwrite
+      unitPrice = existingItem.unitPrice;
+    }
+
+    const subtotal = physicalQty * unitPrice;
+
+    // 5. Upsert item
     let item;
     if (existingItem) {
       item = await prisma.stockOpnameItem.update({
@@ -651,83 +673,207 @@ export const finalizeOpname = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Session not found or already finalized' });
     }
 
+    // Validasi: semua item yang ada selisih (diffQty != 0) WAJIB punya unitPrice > 0
+    const itemsWithZeroPrice = session.items.filter(
+      item => item.diffQty !== 0 && item.unitPrice === 0
+    );
+    if (itemsWithZeroPrice.length > 0) {
+      const productIds = itemsWithZeroPrice.map(i => i.productId);
+      const products = await prisma.product.findMany({
+        where: { id: { in: productIds } },
+        select: { id: true, productName: true }
+      });
+      const productMap = new Map(products.map(p => [p.id, p.productName]));
+      const namaList = itemsWithZeroPrice
+        .map(i => productMap.get(i.productId) || i.productId)
+        .join(', ');
+      return res.status(400).json({
+        message: `Finalisasi gagal: ${itemsWithZeroPrice.length} item memiliki harga beli = 0. ` +
+          `Mohon isi harga beli terlebih dahulu sebelum finalisasi. Produk: ${namaList}`,
+        field: 'unitPrice',
+        affectedItems: itemsWithZeroPrice.map(i => ({
+          id: i.id,
+          productId: i.productId,
+          productName: productMap.get(i.productId) || i.productId,
+          diffQty: i.diffQty
+        }))
+      });
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const modifiedProductIds = new Set<string>();
 
       for (const item of session.items) {
         if (item.diffQty === 0) continue;
 
-        // 1. Update Stock Record (Find first to handle null batchId safely)
-        const existingStock = await tx.inventoryStock.findFirst({
-          where: {
-            branchId: session.branchId,
-            productId: item.productId,
-            batchId: item.batchId || null,
+        // 1. Update Product Price (branch) + ambil sellingPrice dari master
+        const branchProduct = await tx.product.update({
+          where: { id: item.productId },
+          data: { purchasePrice: item.unitPrice },
+          select: {
+            masterProductId: true,
+            sellingPrice: true,
+            masterProduct: { select: { sellingPrice: true } }
           }
         });
 
-        if (existingStock) {
-          await tx.inventoryStock.update({
-            where: { id: existingStock.id },
-            data: { onHandQty: item.physicalQty }
-          });
-        } else {
-          await tx.inventoryStock.create({
-            data: {
-              branchId: session.branchId,
-              productId: item.productId,
-              batchId: item.batchId || null,
-              onHandQty: item.physicalQty,
-            }
+        // Ambil sellingPrice: branch product → master product (tidak overwrite dengan 0)
+        const sellingPrice =
+          (branchProduct.sellingPrice && branchProduct.sellingPrice > 0
+            ? branchProduct.sellingPrice
+            : branchProduct.masterProduct?.sellingPrice) || 0;
+
+        // Propagate purchasePrice ke ProductMaster
+        if (branchProduct.masterProductId) {
+          await tx.productMaster.update({
+            where: { id: branchProduct.masterProductId },
+            data: { purchasePrice: item.unitPrice }
           });
         }
 
-        // 2. Update Product Price (Global for branch)
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { purchasePrice: item.unitPrice }
-        });
+        // 2. Update Stock Record — hanya untuk item yang SUDAH punya batchId
+        // (item tanpa batch akan ditangani di step 3 saat batch dibuat)
+        const existingStock = item.batchId
+          ? await tx.inventoryStock.findFirst({
+              where: {
+                branchId: session.branchId,
+                productId: item.productId,
+                batchId: item.batchId,
+              }
+            })
+          : null; // tanpa batch → akan dibuat ulang di step 3
 
-        // 3. Update Price and Batch (if applicable)
-        if (item.batchId) {
+        // 3. Auto-create batch (FIFO) untuk item tanpa batch, atau update batch yang sudah ada
+        let resolvedBatchId: string | null = item.batchId || null;
+
+        if (!item.batchId) {
+          // Item belum punya batch → buat batch baru dengan batchNumber = unix timestamp
+          // sehingga FIFO dapat berjalan (setiap opname menghasilkan batch berbeda)
+          const batchNumber = `OPN-${Date.now()}`;
+          // expiryDate wajib — pakai dari input opname, atau default 5 tahun ke depan
+          const expiryDate = item.expiryDate
+            ? new Date(item.expiryDate)
+            : new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000);
+
+          // Cek apakah batch dengan number ini sudah ada (idempotent guard)
+          const newBatch = await tx.inventoryBatch.upsert({
+            where: {
+              branchId_productId_batchNumber: {
+                branchId: session.branchId,
+                productId: item.productId,
+                batchNumber,
+              }
+            },
+            update: {
+              currentQty: item.physicalQty,
+              purchasePrice: item.unitPrice,
+              expiryDate,
+            },
+            create: {
+              branchId: session.branchId,
+              productId: item.productId,
+              batchNumber,
+              expiryDate,
+              purchasePrice: item.unitPrice,
+              initialQty: item.physicalQty,
+              currentQty: item.physicalQty,
+            }
+          });
+
+          resolvedBatchId = newBatch.id;
+
+          // Hapus inventoryStock lama yang tanpa batch (batchId: null) jika ada
+          // lalu buat yang baru dengan batchId → FIFO bisa berjalan
+          await tx.inventoryStock.deleteMany({
+            where: {
+              branchId: session.branchId,
+              productId: item.productId,
+              batchId: null,
+            }
+          });
+
+          // Buat InventoryStock baru dengan batchId — upsert by batch
+          const existingBatchStock = await tx.inventoryStock.findFirst({
+            where: {
+              branchId: session.branchId,
+              productId: item.productId,
+              batchId: resolvedBatchId,
+            }
+          });
+
+          if (existingBatchStock) {
+            await tx.inventoryStock.update({
+              where: { id: existingBatchStock.id },
+              data: {
+                onHandQty: item.physicalQty,
+                unitCost: item.unitPrice,
+                ...(sellingPrice > 0 ? { sellingPrice } : {}),
+              }
+            });
+          } else {
+            await tx.inventoryStock.create({
+              data: {
+                branchId: session.branchId,
+                productId: item.productId,
+                batchId: resolvedBatchId,
+                onHandQty: item.physicalQty,
+                unitCost: item.unitPrice,
+                sellingPrice,
+              }
+            });
+          }
+
+        } else {
+          // Sudah punya batch → update saja
           await tx.inventoryBatch.update({
             where: { id: item.batchId },
             data: {
               currentQty: item.physicalQty,
               purchasePrice: item.unitPrice,
-              // Update expired date jika diverifikasi ulang saat opname
-              ...(item.expiryDate ? { expiryDate: item.expiryDate } : {})
+              ...(item.expiryDate ? { expiryDate: new Date(item.expiryDate) } : {})
             }
           });
-        } else {
-          // For non-batched items, update branch-specific pricing
-          await tx.branchProductPrice.upsert({
-            where: {
-              branchId_productId: {
-                branchId: session.branchId,
-                productId: item.productId,
+
+          // Update inventoryStock yang terhubung ke batch ini
+          if (existingStock) {
+            await tx.inventoryStock.update({
+              where: { id: existingStock.id },
+              data: {
+                onHandQty: item.physicalQty,
+                unitCost: item.unitPrice,
+                ...(sellingPrice > 0 ? { sellingPrice } : {}),
               }
-            },
-            update: {
-              purchasePrice: item.unitPrice
-            },
-            create: {
-              branchId: session.branchId,
-              productId: item.productId,
-              purchasePrice: item.unitPrice,
-              sellingPrice: 0 // Default selling price for new records
-            }
-          });
+            });
+          }
         }
 
-        // 3. Create Mutation
+        // Update branchProductPrice untuk non-batch (pricing reference)
+        await tx.branchProductPrice.upsert({
+          where: {
+            branchId_productId: {
+              branchId: session.branchId,
+              productId: item.productId,
+            }
+          },
+          update: { purchasePrice: item.unitPrice },
+          create: {
+            branchId: session.branchId,
+            productId: item.productId,
+            purchasePrice: item.unitPrice,
+            sellingPrice: sellingPrice || 0,
+          }
+        });
+
+        // 4. Create Mutation dengan batchId yang sudah di-resolve (bisa batch baru)
         const mutation = await tx.inventoryMutation.create({
           data: {
             branchId: session.branchId,
             productId: item.productId,
-            batchId: item.batchId,
+            batchId: resolvedBatchId,        // ← pakai batch yang sudah di-resolve
             type: 'ADJUSTMENT',
             quantity: item.diffQty,
+            unitCost: item.unitPrice,
+            sellingPrice,
             referenceType: 'STOCK_OPNAME',
             referenceId: session.id,
             notes: `Stock Opname: ${session.notes || ''}`,
@@ -738,13 +884,9 @@ export const finalizeOpname = async (req: Request, res: Response) => {
         // 4. Sync ke General Ledger (atomic, idempotent)
         // Selisih positif → Debit Persediaan (1-1301/1302/1303), Kredit Laba Ditahan (3-2001)
         // Selisih negatif → Debit HPP (5-1101), Kredit Persediaan (1-1301/1302/1303)
-        try {
-          await syncInventoryToLedger(mutation.id, { tx, idempotent: true });
-        } catch (glErr) {
-          // GL sync gagal tidak membatalkan reconciliation stok.
-          // Admin bisa re-sync manual via POST /api/inventory-ledger/sync/:mutationId
-          console.error(`[StockOpname] GL sync gagal untuk mutasi ${mutation.id}:`, (glErr as Error).message);
-        }
+        // Sinkronisasi GL harus sukses agar stok dan buku besar konsisten.
+        // Jika syncInventoryToLedger melempar error, transaksi akan di-rollback.
+        await syncInventoryToLedger(mutation.id, { tx, idempotent: true });
 
         // 5. Mark item as modified for synchronization
         modifiedProductIds.add(item.productId);
@@ -1075,6 +1217,201 @@ export const importOpnameExcel = async (req: Request, res: Response) => {
     console.error('[InventoryController] importOpnameExcel Error:', error);
     res.status(500).json({
       message: 'Internal server error during import',
+      details: (error as Error).message
+    });
+  }
+};
+
+/**
+ * Sync Inventory Prices (Backfill unitCost and sellingPrice)
+ * and Re-sync General Ledger for inventory mutations.
+ */
+export const syncInventoryPrices = async (req: Request, res: Response) => {
+  try {
+    console.log('[SyncInventoryPrices] Starting database backfill for unitCost and sellingPrice...');
+    let stockUpdatedCount = 0;
+    let mutationUpdatedCount = 0;
+
+    // 1. Sync InventoryStock
+    const stocksToFix = await prisma.inventoryStock.findMany({
+      where: { OR: [{ unitCost: 0 }, { sellingPrice: 0 }] },
+      include: {
+        batch: true,
+        product: {
+          include: {
+            branchPrices: true,
+            masterProduct: true
+          }
+        }
+      }
+    });
+
+    for (const stock of stocksToFix) {
+      let unitPrice = stock.batch?.purchasePrice || 0;
+      let sellPrice = 0;
+
+      const branchPrice = stock.product?.branchPrices?.find(bp => bp.branchId === stock.branchId);
+      
+      if (!unitPrice && branchPrice?.purchasePrice) unitPrice = branchPrice.purchasePrice;
+      if (!unitPrice && stock.product?.purchasePrice) unitPrice = stock.product.purchasePrice;
+      if (!unitPrice && stock.product?.masterProduct?.purchasePrice) unitPrice = stock.product.masterProduct.purchasePrice;
+
+      if (branchPrice?.sellingPrice) sellPrice = branchPrice.sellingPrice;
+      if (!sellPrice && stock.product?.sellingPrice) sellPrice = stock.product.sellingPrice;
+      if (!sellPrice && stock.product?.masterProduct?.sellingPrice) sellPrice = stock.product.masterProduct.sellingPrice;
+
+      if (unitPrice > 0 || sellPrice > 0) {
+        await prisma.inventoryStock.update({
+          where: { id: stock.id },
+          data: { 
+            unitCost: unitPrice > 0 ? unitPrice : stock.unitCost,
+            sellingPrice: sellPrice > 0 ? sellPrice : stock.sellingPrice
+          }
+        });
+        stockUpdatedCount++;
+      }
+    }
+
+    // 2. Sync InventoryMutation
+    const mutationsToFix = await prisma.inventoryMutation.findMany({
+      where: { OR: [{ unitCost: 0 }, { sellingPrice: 0 }] },
+      include: {
+        batch: true,
+        product: {
+          include: {
+            branchPrices: true,
+            masterProduct: true
+          }
+        }
+      }
+    });
+
+    for (const mut of mutationsToFix) {
+      let unitPrice = mut.batch?.purchasePrice || 0;
+      let sellPrice = 0;
+
+      const branchPrice = mut.product?.branchPrices?.find(bp => bp.branchId === mut.branchId);
+      
+      if (!unitPrice && branchPrice?.purchasePrice) unitPrice = branchPrice.purchasePrice;
+      if (!unitPrice && mut.product?.purchasePrice) unitPrice = mut.product.purchasePrice;
+      if (!unitPrice && mut.product?.masterProduct?.purchasePrice) unitPrice = mut.product.masterProduct.purchasePrice;
+
+      if (branchPrice?.sellingPrice) sellPrice = branchPrice.sellingPrice;
+      if (!sellPrice && mut.product?.sellingPrice) sellPrice = mut.product.sellingPrice;
+      if (!sellPrice && mut.product?.masterProduct?.sellingPrice) sellPrice = mut.product.masterProduct.sellingPrice;
+
+      if (unitPrice > 0 || sellPrice > 0) {
+        await prisma.inventoryMutation.update({
+          where: { id: mut.id },
+          data: { 
+            unitCost: unitPrice > 0 ? unitPrice : mut.unitCost,
+            sellingPrice: sellPrice > 0 ? sellPrice : mut.sellingPrice
+          }
+        });
+        mutationUpdatedCount++;
+      }
+    }
+
+    console.log(`[SyncInventoryPrices] Stock Updated: ${stockUpdatedCount}, Mutations Updated: ${mutationUpdatedCount}`);
+
+    // 2.5 Auto-Reconcile orphaned physical stock differences
+    console.log('[SyncInventoryPrices] Reconciling physical stock differences...');
+    const allClinics = await prisma.clinic.findMany();
+    const sysUser = await prisma.user.findFirst();
+    let reconciliationCount = 0;
+    
+    for (const clinic of allClinics) {
+      const stocks = await prisma.inventoryStock.findMany({ 
+        where: { branchId: clinic.id },
+        include: { product: { include: { branchPrices: { where: { branchId: clinic.id } }, masterProduct: true } } } 
+      });
+      const muts = await prisma.inventoryMutation.findMany({ where: { branchId: clinic.id } });
+      
+      const mutGroups: any = {};
+      for (const m of muts) {
+        const key = m.productId + '_' + (m.batchId || 'null');
+        if (!mutGroups[key]) mutGroups[key] = { qty: 0 };
+        if (m.type === 'OPENING_BALANCE' || m.type === 'IN' || m.type === 'PURCHASE' || m.type === 'ADJUSTMENT') {
+          mutGroups[key].qty += m.quantity;
+        } else if (m.type === 'OUT' || m.type === 'SALE' || m.type === 'USAGE' || m.type === 'EXPIRED') {
+          mutGroups[key].qty -= m.quantity;
+        }
+      }
+
+      for (const key in mutGroups) {
+        const [pid, bid] = key.split('_');
+        const stock = stocks.find(s => s.productId === pid && (s.batchId || 'null') === bid);
+        const stockQty = stock ? stock.onHandQty : 0;
+        const mutQty = mutGroups[key].qty;
+        
+        if (Math.abs(stockQty - mutQty) > 0.001) {
+          const diffQty = stockQty - mutQty; 
+          const product = stock?.product || await prisma.product.findUnique({ where: { id: pid }, include: { branchPrices: { where: { branchId: clinic.id } }, masterProduct: true } });
+          if (!product) continue;
+
+          let unitCost = stock?.unitCost || product.purchasePrice || product.masterProduct?.purchasePrice || 0;
+          if (!unitCost && product.branchPrices?.length > 0) {
+             unitCost = product.branchPrices[0].purchasePrice || 0;
+          }
+          
+          if (sysUser) {
+            await prisma.inventoryMutation.create({
+              data: {
+                branchId: clinic.id,
+                productId: pid,
+                batchId: bid === 'null' ? null : bid,
+                type: 'ADJUSTMENT',
+                quantity: diffQty,
+                unitCost: unitCost,
+                sellingPrice: product.sellingPrice || 0,
+                notes: 'Auto-adjustment to reconcile physical stock with ledger',
+                userId: sysUser.id
+              }
+            });
+            reconciliationCount++;
+          }
+        }
+      }
+    }
+    console.log(`[SyncInventoryPrices] Auto-reconciled ${reconciliationCount} stock discrepancies.`);
+
+    // 3. Delete old JournalEntries related to inventory
+    const deletedJournals = await prisma.journalEntry.deleteMany({
+      where: {
+        OR: [
+          { referenceNo: { startsWith: 'INV-MUT-' } },
+          { referenceNo: { startsWith: 'OPENING-' } }
+        ],
+        entryType: 'SYSTEM'
+      }
+    });
+    console.log(`[SyncInventoryPrices] Deleted ${deletedJournals.count} old inventory journals.`);
+
+    // 4. Resync Ledger
+    let journalsCreated = 0;
+    
+    // syncOpeningBalances REMOVED: It causes double accounting since syncAllInventoryToLedger 
+    // processes historical ADJUSTMENT mutations which already account for the opening balance!
+
+    // Re-run Mutations
+    const retroResult = await syncAllInventoryToLedger();
+    journalsCreated += retroResult.synced;
+
+    res.json({
+      message: 'Sinkronisasi Harga Stok dan Jurnal Keuangan Berhasil!',
+      data: {
+        stockUpdated: stockUpdatedCount,
+        mutationUpdated: mutationUpdatedCount,
+        oldJournalsDeleted: deletedJournals.count,
+        newJournalsCreated: journalsCreated,
+        ledgerSyncErrors: retroResult.errors
+      }
+    });
+
+  } catch (error) {
+    console.error('[InventoryController] syncInventoryPrices Error:', error);
+    res.status(500).json({
+      message: 'Gagal melakukan sinkronisasi harga stok',
       details: (error as Error).message
     });
   }

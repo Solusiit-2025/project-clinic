@@ -17,6 +17,7 @@ router.get('/products', InventoryController.getBranchProducts);
 router.get('/stocks', InventoryController.getBranchStocks);
 router.get('/mutations', InventoryController.getStockMutations);
 router.post('/adjust', InventoryController.adjustStock);
+router.post('/sync-prices', InventoryController.syncInventoryPrices);
 
 // --- Stock Opname ---
 router.get('/opname/session', InventoryController.getOrCreateOpnameSession);

@@ -775,6 +775,53 @@ export const postYearEndClosing = async (req: Request, res: Response) => {
 }
 
 /**
+ * Resolve the inventory COA used for reconciliation.
+ *  - Prefer mapped SystemAccount INVENTORY_ACCOUNT if configured.
+ *  - Then prefer explicit inventory asset codes, including 1-1301-K001 and 1-1304-K001.
+ *  - Finally fallback to any 1-13 asset account available for the clinic.
+ */
+async function resolveReconciliationInventoryAccount(targetClinicId: string) {
+  const sysInventory = await prisma.systemAccount.findFirst({
+    where: {
+      key: 'INVENTORY_ACCOUNT',
+      OR: [{ clinicId: targetClinicId }, { clinicId: null }]
+    },
+    include: { coa: true },
+    orderBy: { clinicId: 'desc' }
+  })
+
+  if (sysInventory?.coa && sysInventory.coa.category === 'ASSET' && sysInventory.coa.accountType === 'DETAIL') {
+    return sysInventory.coa
+  }
+
+  const preferredCodes = ['1-1301-K001', '1-1304-K001']
+  for (const code of preferredCodes) {
+    const coa = await prisma.chartOfAccount.findFirst({
+      where: {
+        code,
+        OR: [{ clinicId: targetClinicId }, { clinicId: null }]
+      },
+      orderBy: { clinicId: 'desc' }
+    })
+    if (coa) return coa
+  }
+
+  const fallbackCoa = await prisma.chartOfAccount.findFirst({
+    where: {
+      code: { startsWith: '1-13' },
+      OR: [{ clinicId: targetClinicId }, { clinicId: null }]
+    },
+    orderBy: [{ clinicId: 'desc' }, { code: 'asc' }]
+  })
+
+  if (!fallbackCoa) {
+    throw new Error('Akun Persediaan tidak ditemukan untuk klinik ini. Pastikan COA 1-1301-K001 atau 1-1304-K001 tersedia atau Inventory Account telah dipetakan.')
+  }
+
+  return fallbackCoa
+}
+
+/**
  * Get Reconciliation Data (GL Balance vs Physical Inventory Value)
  */
 export const getReconciliationData = async (req: Request, res: Response) => {
@@ -788,20 +835,8 @@ export const getReconciliationData = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Clinic ID wajib disertakan.' })
     }
 
-    // 1. Dapatkan akun Persediaan (1-1301-K001)
-    let coaPersediaan = await prisma.chartOfAccount.findFirst({
-      where: { code: '1-1301-K001', clinicId: targetClinicId }
-    })
-    // Fallback jika tidak ditemukan
-    if (!coaPersediaan) {
-      coaPersediaan = await prisma.chartOfAccount.findFirst({
-        where: { code: { startsWith: '1-13' }, clinicId: targetClinicId }
-      })
-    }
-
-    if (!coaPersediaan) {
-      return res.status(404).json({ message: 'Akun Persediaan (1-1301) tidak ditemukan untuk klinik ini.' })
-    }
+    // 1. Dapatkan akun Persediaan yang aktif untuk rekonsiliasi
+    const coaPersediaan = await resolveReconciliationInventoryAccount(targetClinicId)
 
     // 2. Dapatkan akun Penyesuaian/Tuslah (4-1302-K001)
     let coaTuslah = await prisma.chartOfAccount.findFirst({

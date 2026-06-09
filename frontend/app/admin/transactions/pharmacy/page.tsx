@@ -54,8 +54,18 @@ export default function PharmacyQueuePage() {
     return () => clearInterval(interval)
   }, [activeClinicId])
 
+  const statusLabelMap: Record<string, string> = {
+    pending: 'Menunggu',
+    preparing: 'Diramu',
+    ready: 'Siap',
+    dispensed: 'Diserahkan',
+  }
+
+  const getStatusLabel = (status: string) => statusLabelMap[status] || status
+
   const pending = prescriptions.filter(p => ['pending', 'preparing'].includes(p.dispenseStatus))
   const ready = prescriptions.filter(p => ['ready', 'dispensed'].includes(p.dispenseStatus))
+  const incomplete = prescriptions.filter(p => p.dispenseStatus !== 'dispensed')
 
   if (isLoading) {
     return (
@@ -82,6 +92,15 @@ export default function PharmacyQueuePage() {
           {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
         </button>
       </div>
+
+      {incomplete.length > 0 && (
+        <div className="mb-6 rounded-3xl border border-rose-500 bg-rose-500/10 p-4 text-sm font-black text-rose-900 uppercase tracking-wider shadow-lg animate-pulse ring-2 ring-rose-300">
+          <span className="inline-flex items-center gap-2">
+            <span className="px-2 py-1 rounded-full bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider animate-pulse">⚠️ BELUM DISERAHKAN</span>
+            Terdapat {incomplete.length} resep yang belum selesai sampai <span className="text-primary">{getStatusLabel('dispensed')}</span>. Pastikan selesaikan penyerahan obat agar stok dan laporan keuangan tercatat.
+          </span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Kolom 1: Menunggu Diproses */}
@@ -111,8 +130,13 @@ export default function PharmacyQueuePage() {
                     <span className="font-bold text-gray-800 text-sm">{p.prescriptionNo}</span>
                     <div className="flex flex-col items-end gap-1">
                       <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${p.dispenseStatus === 'preparing' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
-                        {p.dispenseStatus}
+                        {getStatusLabel(p.dispenseStatus)}
                       </span>
+                      {p.dispenseStatus !== 'dispensed' && (
+                        <span className="text-[9px] px-2 py-0.5 rounded-md font-black uppercase tracking-wider bg-rose-500 text-white animate-pulse">
+                          BELUM SELESAI
+                        </span>
+                      )}
                       {(() => {
                         const isPaid = p.medicalRecord?.registration?.invoices?.some(inv => inv.status === 'paid');
                         return isPaid ? (
@@ -178,9 +202,16 @@ export default function PharmacyQueuePage() {
                 >
                   <div className="flex justify-between items-start mb-2">
                     <span className="font-bold text-gray-800">{p.prescriptionNo}</span>
-                    <span className={`text-xs px-3 py-1 rounded-full font-bold uppercase tracking-wider ${p.dispenseStatus === 'dispensed' ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-700'}`}>
-                      {p.dispenseStatus}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs px-3 py-1 rounded-full font-bold uppercase tracking-wider ${p.dispenseStatus === 'dispensed' ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-700'}`}>
+                        {getStatusLabel(p.dispenseStatus)}
+                      </span>
+                      {p.dispenseStatus !== 'dispensed' && (
+                        <span className="text-[9px] px-2 py-1 rounded-md font-black uppercase tracking-wider bg-rose-500 text-white animate-pulse">
+                          BELUM DISERAHKAN
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="text-sm text-gray-600 mb-2">
                     <p className="font-semibold">{p.patient.name}</p>

@@ -705,11 +705,12 @@ export const createService = async (req: Request, res: Response) => {
 export const updateService = async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { coaId, categoryId, departmentId, ...rest } = req.body
+    const { coaId, categoryId, departmentId, clinicId, ...rest } = req.body
     const service = await prisma.service.update({ 
       where: { id }, 
       data: {
         ...rest,
+        clinicId: clinicId === '' ? null : clinicId,
         coaId: coaId || null,
         categoryId: categoryId || null,
         departmentId: departmentId || null
@@ -991,7 +992,8 @@ export const updateMedicine = async (req: Request, res: Response) => {
       clinic, 
       productMaster, 
       createdAt, 
-      updatedAt, 
+      updatedAt,
+      clinicId, 
       ...rest 
     } = req.body
     
@@ -1004,6 +1006,7 @@ export const updateMedicine = async (req: Request, res: Response) => {
       where: { id }, 
       data: {
         ...rest,
+        clinicId: clinicId === '' ? null : clinicId,
         image,
         isActive: isActive === 'true' || isActive === true
       } 

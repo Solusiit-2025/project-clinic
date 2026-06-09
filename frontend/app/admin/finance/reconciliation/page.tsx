@@ -79,12 +79,17 @@ export default function ReconciliationPage() {
       })
       setData(resData)
       
-      // Pre-fill form options
+      // Pre-fill form options based on sign of discrepancy
       if (resData.inventoryAccount) {
-        setCustomCreditCoa(resData.inventoryAccount.id)
-      }
-      if (resData.adjustmentAccount) {
-        setCustomDebitCoa(resData.adjustmentAccount.id)
+        if (resData.discrepancy < 0) {
+          // GL < Fisik → perlu menambah saldo Persediaan agar GL mendekati nilai fisik
+          setCustomDebitCoa(resData.inventoryAccount.id)
+          setCustomCreditCoa(resData.adjustmentAccount?.id || '')
+        } else {
+          // GL > Fisik → perlu mengurangi saldo Persediaan
+          setCustomDebitCoa(resData.adjustmentAccount?.id || '')
+          setCustomCreditCoa(resData.inventoryAccount.id)
+        }
       }
       setFormDescription(`Jurnal Penyesuaian Rekonsiliasi Selisih Persediaan - ${activeClinic?.name || 'Pusat'}`)
     } catch (e: any) {
@@ -473,7 +478,11 @@ export default function ReconciliationPage() {
                     ))}
                   </select>
                   <p className="text-[8px] font-bold text-amber-600 uppercase tracking-wider mt-1 ml-1">
-                    ⚠️ Direkomendasikan: Akun Pendapatan Jasa Racik/Tuslah (4-1302-K001) untuk selisih perakitan.
+                    {data.discrepancy < 0 ? (
+                      '⚠️ Discrepansi negatif: Debit ke Persediaan (1-1301-K001), Kredit ke Penyesuaian/Tuslah (4-1302-K001).'
+                    ) : (
+                      '⚠️ Discrepansi positif: Debit ke Penyesuaian/Tuslah (4-1302-K001), Kredit ke Persediaan (1-1301-K001).'
+                    )}
                   </p>
                 </div>
 

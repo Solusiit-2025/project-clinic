@@ -9,7 +9,7 @@ import {
   FiHome, FiAlertCircle, FiClipboard, FiHeart, FiThermometer, FiWind,
   FiEdit3, FiTrash2, FiSearch, FiPackage, FiInfo, FiArrowLeft, FiSave, FiRotateCcw, FiPrinter,
   FiPlus, FiMinus, FiDollarSign, FiHash, FiClock, FiChevronDown, FiCalendar, FiLock, FiUnlock,
-  FiMonitor
+  FiMonitor, FiFileText, FiBox
 } from 'react-icons/fi'
 import { HiOutlineBeaker } from 'react-icons/hi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -19,6 +19,8 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import html2canvas from 'html2canvas'
 import QRCode from 'qrcode'
+import { format } from 'date-fns'
+import { id as idLocale } from 'date-fns/locale'
 
 interface Queue {
   id: string
@@ -2253,7 +2255,7 @@ export default function DoctorConsultationPage() {
                         <div className="w-6 h-6 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white flex items-center justify-center text-[10px] font-black shadow-md shadow-indigo-500/20 transform group-hover:rotate-6 transition-transform">S</div>
                         <label className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.2em] group-focus-within:text-indigo-600 transition-colors">Subjective (Anamnesa)</label>
                       </div>
-                      <textarea disabled={isReadOnly} value={subjective} onChange={(e) => setSubjective(e.target.value)} className={`w-full p-3 border-2 border-indigo-50/80 rounded-xl min-h-[90px] lg:min-h-[110px] text-xs font-medium leading-relaxed focus:bg-white focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60' : 'bg-indigo-50/30 hover:bg-indigo-50/50'}`} placeholder="Keluhan utama, riwayat penyakit..." />
+                      <textarea disabled={isReadOnly} value={subjective} onChange={(e) => setSubjective(e.target.value)} className={`w-full p-3 border-2 border-indigo-200 rounded-xl min-h-[90px] lg:min-h-[110px] text-xs font-medium leading-relaxed focus:bg-white focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60' : 'bg-indigo-50/10 hover:border-indigo-300'}`} placeholder="Keluhan utama, riwayat penyakit..." />
                     </div>
 
                     {/* O Quadrant */}
@@ -2262,7 +2264,7 @@ export default function DoctorConsultationPage() {
                         <div className="w-6 h-6 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white flex items-center justify-center text-[10px] font-black shadow-md shadow-emerald-500/20 transform group-hover:-rotate-6 transition-transform">O</div>
                         <label className="text-[9px] font-black text-emerald-400 uppercase tracking-[0.2em] group-focus-within:text-emerald-600 transition-colors">Objective (Pemeriksaan)</label>
                       </div>
-                      <textarea disabled={isReadOnly} value={objective} onChange={(e) => setObjective(e.target.value)} className={`w-full p-3 border-2 border-emerald-50/80 rounded-xl min-h-[90px] lg:min-h-[110px] text-xs font-medium leading-relaxed focus:bg-white focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60' : 'bg-emerald-50/30 hover:bg-emerald-50/50'}`} placeholder="Pemeriksaan fisik, tanda klinis..." />
+                      <textarea disabled={isReadOnly} value={objective} onChange={(e) => setObjective(e.target.value)} className={`w-full p-3 border-2 border-emerald-200 rounded-xl min-h-[90px] lg:min-h-[110px] text-xs font-medium leading-relaxed focus:bg-white focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60' : 'bg-emerald-50/10 hover:border-emerald-300'}`} placeholder="Pemeriksaan fisik, tanda klinis..." />
                     </div>
 
                     {/* A Quadrant */}
@@ -2387,7 +2389,7 @@ export default function DoctorConsultationPage() {
                         </div>
                       )}
 
-                      <textarea disabled={isReadOnly} value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} className={`w-full p-3 border-2 border-violet-50/80 rounded-xl min-h-[90px] lg:min-h-[110px] text-xs font-medium leading-relaxed focus:bg-white focus:border-violet-400 focus:ring-4 focus:ring-violet-500/10 outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60' : 'bg-violet-50/30 hover:bg-violet-50/50'}`} placeholder="Catatan tambahan diagnosa utama..." />
+                      <textarea disabled={isReadOnly} value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} className={`w-full p-3 border-2 border-violet-200 rounded-xl min-h-[90px] lg:min-h-[110px] text-xs font-medium leading-relaxed focus:bg-white focus:border-violet-400 focus:ring-4 focus:ring-violet-500/10 outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60' : 'bg-violet-50/10 hover:border-violet-300'}`} placeholder="Catatan tambahan diagnosa utama..." />
 
                       {/* DIAGNOSA SEKUNDER */}
                       <div className="pt-4 mt-2 border-t border-slate-100">
@@ -2507,7 +2509,7 @@ export default function DoctorConsultationPage() {
                         <div className="w-6 h-6 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center text-[10px] font-black shadow-md shadow-amber-500/20 transform group-hover:-rotate-6 transition-transform">P</div>
                         <label className="text-[9px] font-black text-amber-400 uppercase tracking-[0.2em] group-focus-within:text-amber-600 transition-colors">Plan (Terapi/Rencana)</label>
                       </div>
-                      <textarea disabled={isReadOnly} value={treatmentPlan} onChange={(e) => setTreatmentPlan(e.target.value)} className={`w-full p-3 border-2 border-amber-50/80 rounded-xl min-h-[90px] lg:min-h-[110px] text-xs font-medium leading-relaxed focus:bg-white focus:border-amber-400 focus:ring-4 focus:ring-amber-500/10 outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60' : 'bg-amber-50/30 hover:bg-amber-50/50'}`} placeholder="Rencana pengobatan, edukasi..." />
+                      <textarea disabled={isReadOnly} value={treatmentPlan} onChange={(e) => setTreatmentPlan(e.target.value)} className={`w-full p-3 border-2 border-amber-200 rounded-xl min-h-[90px] lg:min-h-[110px] text-xs font-medium leading-relaxed focus:bg-white focus:border-amber-400 focus:ring-4 focus:ring-amber-500/10 outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60' : 'bg-amber-50/10 hover:border-amber-300'}`} placeholder="Rencana pengobatan, edukasi..." />
                     </div>
                   </div>
                 </div>
@@ -3553,46 +3555,125 @@ export default function DoctorConsultationPage() {
 
             {activeSegment === 'history' && (
               <motion.div key="history" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-                <div className="bg-white/80 backdrop-blur-xl p-4 lg:p-6 rounded-2xl border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] min-h-[300px]">
+                        <div className="bg-white/80 backdrop-blur-xl p-4 lg:p-6 rounded-2xl border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] min-h-[300px]">
                   <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-3 lg:mb-4 pb-3 border-b border-slate-50">Riwayat Kunjungan</h3>
                   <div className="space-y-6 lg:space-y-8">
                     {history.map((h, idx) => (
                       <div key={idx} className="p-6 lg:p-8 bg-slate-50/30 rounded-3xl lg:rounded-[2rem] border border-slate-100 relative group hover:bg-white hover:shadow-xl hover:shadow-slate-100 transition-all">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-indigo-500 shadow-sm border border-slate-100">
-                              <FiCalendar className="w-6 h-6" />
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-white shadow-lg">
+                              <FiCalendar className="w-5 h-5" />
                             </div>
                             <div>
-                              <p className="text-xs font-black text-slate-900">{new Date(h.recordDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{h.doctor?.name}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs font-black text-slate-800 tracking-tight">{format(new Date(h.recordDate), 'd MMMM yyyy', { locale: idLocale })}</p>
+                                <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md text-[9px] font-black tracking-widest flex items-center gap-1"><FiClock className="w-2.5 h-2.5"/> {format(new Date(h.recordDate), 'HH:mm')}</span>
+                              </div>
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1.5 flex items-center gap-1.5">
+                                <FiUser className="w-3 h-3" /> {h.doctor?.name ? h.doctor.name.toUpperCase() : 'DOKTER'}
+                              </p>
                             </div>
                           </div>
                           <span className="text-[9px] font-black bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-xl border border-emerald-100 uppercase tracking-widest self-start md:self-center">Kunjungan Selesai</span>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pl-0 md:pl-14">
+                        <div className="flex flex-col gap-6 pl-0 md:pl-14">
+                          {/* Anamnesis / Subjective */}
                           <div className="space-y-2">
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Diagnosa</p>
-                            <div className="flex flex-col gap-1">
-                              {h.icd10 && (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[8px] font-black bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20">{h.icd10.code}</span>
-                                  <span className="text-[10px] font-bold text-slate-700">{h.icd10.nameId || h.icd10.nameEn}</span>
-                                </div>
-                              )}
-                              {h.secondaryIcd10s && h.secondaryIcd10s.length > 0 && h.secondaryIcd10s.map((sec: any) => (
-                                <div key={sec.id} className="flex items-center gap-2">
-                                  <span className="text-[8px] font-black bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded border border-slate-300">{sec.code}</span>
-                                  <span className="text-[10px] font-bold text-slate-600">{sec.nameId || sec.nameEn}</span>
-                                </div>
-                              ))}
-                              <p className="text-sm font-bold text-slate-800 leading-relaxed italic mt-1">"{h.diagnosis || '-'}"</p>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><FiFileText className="w-3 h-3"/> Anamnesis / Keluhan Utama</p>
+                            <p className="text-sm font-medium text-slate-700 leading-relaxed bg-white p-3 rounded-xl border border-slate-100 shadow-sm">{h.subjective || h.chiefComplaint || '-'}</p>
+                          </div>
+
+                          {/* Vitals & Objective */}
+                          {(h.vitals?.length > 0 || h.objective) && (
+                            <div className="space-y-3">
+                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><FiActivity className="w-3 h-3"/> Pemeriksaan Fisik & Tanda Vital</p>
+                              <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm space-y-3">
+                                <p className="text-sm font-medium text-slate-700 leading-relaxed">{h.objective || 'Hasil pemeriksaan fisik normal.'}</p>
+                                {h.vitals && h.vitals.length > 0 && (
+                                  <div className="flex flex-wrap gap-2 pt-2 border-t border-dashed border-slate-100">
+                                    {h.vitals[0].bloodPressure && <span className="bg-rose-50 text-rose-700 border border-rose-100 px-2.5 py-1 rounded-lg text-[10px] font-bold">TD: {h.vitals[0].bloodPressure} mmHg</span>}
+                                    {h.vitals[0].heartRate > 0 && <span className="bg-orange-50 text-orange-700 border border-orange-100 px-2.5 py-1 rounded-lg text-[10px] font-bold">HR: {h.vitals[0].heartRate} bpm</span>}
+                                    {h.vitals[0].temperature > 0 && <span className="bg-amber-50 text-amber-700 border border-amber-100 px-2.5 py-1 rounded-lg text-[10px] font-bold">Suhu: {h.vitals[0].temperature} °C</span>}
+                                    {h.vitals[0].weight > 0 && <span className="bg-blue-50 text-blue-700 border border-blue-100 px-2.5 py-1 rounded-lg text-[10px] font-bold">BB: {h.vitals[0].weight} kg</span>}
+                                    {h.vitals[0].height > 0 && <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-1 rounded-lg text-[10px] font-bold">TB: {h.vitals[0].height} cm</span>}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Diagnosa */}
+                            <div className="space-y-2">
+                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Diagnosa</p>
+                              <div className="flex flex-col gap-2 bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                                {h.icd10 && (
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-[8px] font-black bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20 shrink-0 mt-0.5">{h.icd10.code}</span>
+                                    <span className="text-xs font-bold text-slate-700 leading-tight">{h.icd10.nameId || h.icd10.nameEn}</span>
+                                  </div>
+                                )}
+                                {h.secondaryIcd10s && h.secondaryIcd10s.length > 0 && h.secondaryIcd10s.map((sec: any) => (
+                                  <div key={sec.id} className="flex items-start gap-2">
+                                    <span className="text-[8px] font-black bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded border border-slate-300 shrink-0 mt-0.5">{sec.code}</span>
+                                    <span className="text-xs font-bold text-slate-600 leading-tight">{sec.nameId || sec.nameEn}</span>
+                                  </div>
+                                ))}
+                                <p className="text-sm font-medium text-slate-800 leading-relaxed italic mt-1 border-t border-dashed border-slate-200 pt-2">"{h.diagnosis || (h.icd10 ? '' : 'Observasi Klinis')}"</p>
+                              </div>
+                            </div>
+
+                            {/* Rencana Terapi */}
+                            <div className="space-y-2">
+                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Rencana Terapi</p>
+                              <div className="bg-white p-3 rounded-xl border border-slate-100 h-full shadow-sm">
+                                <p className="text-sm font-medium text-slate-700 leading-relaxed italic">"{h.treatmentPlan || 'Monitoring berkala.'}"</p>
+                              </div>
                             </div>
                           </div>
-                          <div className="space-y-2">
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Rencana Terapi</p>
-                            <p className="text-sm font-medium text-slate-500 leading-relaxed italic">"{h.treatmentPlan || '-'}"</p>
-                          </div>
+
+                          {/* Tindakan & Layanan */}
+                          {h.services && h.services.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><FiCheckCircle className="w-3 h-3"/> Tindakan Medis</p>
+                              <div className="flex flex-wrap gap-2">
+                                {h.services.map((svc: any) => (
+                                  <span key={svc.id} className="text-xs font-bold text-slate-700 bg-white border border-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
+                                    {svc.service?.serviceName || 'Tindakan'}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Resep Obat */}
+                          {h.prescriptions && h.prescriptions.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><FiBox className="w-3 h-3"/> Resep Obat</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {h.prescriptions.map((rx: any) => rx.items?.map((item: any) => (
+                                  <div key={item.id} className="flex flex-col bg-white border border-slate-200 p-2.5 rounded-xl shadow-sm relative overflow-hidden">
+                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-400"></div>
+                                    <div className="flex justify-between items-start pl-2">
+                                      <p className="text-xs font-bold text-slate-800 leading-tight pr-2">{item.isRacikan ? (item.racikanName || 'Obat Racikan') : item.medicine?.medicineName || 'Obat'}</p>
+                                      <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded shrink-0">{item.quantity} {item.unit || 'pcs'}</span>
+                                    </div>
+                                    <p className="text-[10px] font-bold text-slate-500 mt-1 pl-2"><span className="text-slate-400">Dosis:</span> {item.instructions || item.frequency}</p>
+                                    {item.isRacikan && item.components && item.components.length > 0 && (
+                                      <div className="mt-1.5 pl-2 border-t border-dashed border-slate-100 pt-1.5">
+                                        <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Komposisi:</p>
+                                        {item.components.map((c: any, cIdx: number) => (
+                                          <p key={cIdx} className="text-[9px] font-medium text-slate-600">• {c.medicine?.medicineName} ({c.quantity})</p>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
