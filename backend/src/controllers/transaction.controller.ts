@@ -189,26 +189,29 @@ export const createRegistration = async (req: Request, res: Response) => {
       })
 
       // 3. Create Invoice logic...
-      let regService = await tx.service.findFirst({
-        where: { 
-          serviceName: { contains: isDirectLab ? 'Lab' : 'Pendaftaran', mode: 'insensitive' },
-          OR: [ { clinicId: clinicId }, { clinic: { isMain: true } } ]
-        }
-      })
-
-      if (!regService) {
-        const clinic = await tx.clinic.findUnique({ where: { id: clinicId } })
-        const clinicSuffix = clinic?.code || clinicId.slice(0, 4).toUpperCase()
-        regService = await tx.service.create({
-          data: {
-            serviceCode: `REG-${clinicSuffix}-${Math.floor(Math.random() * 1000)}`,
-            serviceName: 'Biaya Pendaftaran',
-            category: 'Administrasi',
-            price: 50000,
-            isActive: true,
-            clinicId: clinicId
+      let regService = null;
+      if (!isDirectLab) {
+        regService = await tx.service.findFirst({
+          where: { 
+            serviceName: { contains: 'Pendaftaran', mode: 'insensitive' },
+            OR: [ { clinicId: clinicId }, { clinic: { isMain: true } } ]
           }
         })
+
+        if (!regService) {
+          const clinic = await tx.clinic.findUnique({ where: { id: clinicId } })
+          const clinicSuffix = clinic?.code || clinicId.slice(0, 4).toUpperCase()
+          regService = await tx.service.create({
+            data: {
+              serviceCode: `REG-${clinicSuffix}-${Math.floor(Math.random() * 1000)}`,
+              serviceName: 'Biaya Pendaftaran',
+              category: 'Administrasi',
+              price: 50000,
+              isActive: true,
+              clinicId: clinicId
+            }
+          })
+        }
       }
 
       const jakartaTodayStrInv = jakartaTodayStr
@@ -261,23 +264,25 @@ export const createRegistration = async (req: Request, res: Response) => {
           clinicId,
           registrationId: registration.id,
           invoiceDate: new Date(),
-          total: regService.price + labTestsTotal,
-          subtotal: regService.price + labTestsTotal,
+          total: (regService?.price || 0) + labTestsTotal,
+          subtotal: (regService?.price || 0) + labTestsTotal,
           status: 'unpaid'
         }
       })
 
       // Add Registration Service Item
-      await tx.invoiceItem.create({
-        data: {
-          invoiceId: invoice.id,
-          serviceId: regService.id,
-          description: regService.serviceName,
-          quantity: 1,
-          price: regService.price,
-          subtotal: regService.price
-        }
-      })
+      if (regService) {
+        await tx.invoiceItem.create({
+          data: {
+            invoiceId: invoice.id,
+            serviceId: regService.id,
+            description: regService.serviceName,
+            quantity: 1,
+            price: regService.price,
+            subtotal: regService.price
+          }
+        })
+      }
 
       // Add Lab Test Items
       let labService = null
