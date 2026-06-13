@@ -34,8 +34,10 @@ router.get('/procurement/outstanding-payables', getOutstandingPayables);
 router.get('/procurement', ProcurementController.getProcurements);
 router.get('/procurement/:id', ProcurementController.getProcurementById);
 router.post('/procurement', ProcurementController.createProcurement);
+router.patch('/procurement/:id', ProcurementController.updateProcurement);
 router.patch('/procurement/:id/approve', ProcurementController.approveProcurement);
 router.post('/procurement/:id/receive', ProcurementController.receiveGoods);
+router.delete('/procurement/:id', ProcurementController.deleteProcurement);
 
 // --- Procurement Payment (Bayar Hutang / Bon Tunai) ---
 router.get('/procurement/:id/payments', getProcurementPayments);

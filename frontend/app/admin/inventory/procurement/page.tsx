@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   ShoppingBag, Plus, FileText, CheckCircle, 
   Clock, Truck, Package, RefreshCw, ChevronRight,
-  TrendingUp, ArrowRight, Layers
+  TrendingUp, ArrowRight, Layers, Edit, Trash2
 } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -45,6 +45,24 @@ export default function ProcurementListPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    if (!confirm('Yakin ingin menghapus pengadaan ini?')) return
+    try {
+      await api.delete(`/inventory/procurement/${id}`)
+      toast.success('Pengadaan berhasil dihapus')
+      fetchProcurements()
+    } catch (error: any) {
+      console.error(error)
+      toast.error(error?.response?.data?.message || 'Gagal menghapus pengadaan')
+    }
+  }
+
+  const handleEdit = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    router.push(`/admin/inventory/procurement/${id}/edit`)
   }
 
   useEffect(() => {
@@ -165,8 +183,20 @@ export default function ProcurementListPage() {
                                <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Estimasi Total</p>
                                <p className="text-xl font-black text-indigo-600 tracking-tight">Rp {p.totalAmount.toLocaleString('id-ID')}</p>
                             </div>
-                            <div className="w-10 h-10 bg-primary/5 rounded-xl flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">
-                               <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                            <div className="flex items-center gap-2">
+                               {p.status === 'PENDING_APPROVAL' && (
+                                 <div className="flex gap-1.5 mr-1">
+                                   <button onClick={(e) => handleEdit(e, p.id)} className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center text-amber-600 hover:bg-amber-100 transition-colors">
+                                     <Edit className="w-3.5 h-3.5" />
+                                   </button>
+                                   <button onClick={(e) => handleDelete(e, p.id)} className="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center text-red-600 hover:bg-red-100 transition-colors">
+                                     <Trash2 className="w-3.5 h-3.5" />
+                                   </button>
+                                 </div>
+                               )}
+                               <div className="w-10 h-10 bg-primary/5 rounded-xl flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">
+                                  <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                               </div>
                             </div>
                          </div>
                       </div>
@@ -205,10 +235,20 @@ export default function ProcurementListPage() {
                          <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1">Total PR Value</p>
                          <p className="text-lg font-black text-indigo-600">Rp {p.totalAmount.toLocaleString('id-ID')}</p>
                       </div>
-                      <div className="col-span-1 flex justify-end">
+                      <div className="col-span-1 flex flex-col items-end justify-center gap-2">
                          <div className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm text-center break-words whitespace-normal leading-tight ${getStatusStyle(p.status)}`}>
                             {p.status.replace('_', ' ')}
                          </div>
+                         {p.status === 'PENDING_APPROVAL' && (
+                           <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                             <button onClick={(e) => handleEdit(e, p.id)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit">
+                               <Edit className="w-4 h-4" />
+                             </button>
+                             <button onClick={(e) => handleDelete(e, p.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                               <Trash2 className="w-4 h-4" />
+                             </button>
+                           </div>
+                         )}
                       </div>
                    </div>
                 </motion.div>

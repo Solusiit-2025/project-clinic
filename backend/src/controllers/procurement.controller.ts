@@ -328,3 +328,102 @@ export const getProcurementById = async (req: Request, res: Response) => {
     res.status(500).json({ message: (error as Error).message });
   }
 };
+
+export const deleteProcurement = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const procurement = await prisma.procurement.findUnique({
+      where: { id },
+    });
+
+    if (!procurement) {
+      return res.status(404).json({ message: 'Procurement not found' });
+    }
+
+    if (procurement.status !== 'PENDING_APPROVAL') {
+      return res.status(400).json({ message: 'Only pending procurements can be deleted' });
+    }
+
+    await prisma.$transaction([
+      prisma.procurementItem.deleteMany({
+        where: { procurementId: id },
+      }),
+      prisma.procurement.delete({
+        where: { id },
+      }),
+    ]);
+
+    res.json({ message: 'Procurement deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting procurement:', error);
+    res.status(500).json({ message: (error as Error).message });
+  }
+};
+
+export const updateProcurement = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { type, notes, items, vendorId } = req.body;
+
+    if (!items || !Array.isArray(items)) {
+      return res.status(400).json({ message: 'Missing required fields: items' });
+    }
+
+    const procurement = await prisma.procurement.findUnique({
+      where: { id },
+    });
+
+    if (!procurement) {
+      return res.status(404).json({ message: 'Procurement not found' });
+    }
+
+    if (procurement.status !== 'PENDING_APPROVAL') {
+      return res.status(400).json({ message: 'Only pending procurements can be edited' });
+    }
+
+    let totalAmount = 0;
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Delete existing items
+      await tx.procurementItem.deleteMany({
+        where: { procurementId: id },
+      });
+
+      // Update procurement and create new items
+      const updatedProcurement = await tx.procurement.update({
+        where: { id },
+        data: {
+          type,
+          notes,
+          vendorId,
+          items: {
+            create: items.map((item: any) => {
+              const subtotal = item.requestedQty * item.unitPrice;
+              totalAmount += subtotal;
+              return {
+                productId: item.productId,
+                requestedQty: item.requestedQty,
+                unitPrice: item.unitPrice,
+                subtotal,
+              };
+            }),
+          },
+        },
+      });
+
+      // Update total amount
+      await tx.procurement.update({
+        where: { id },
+        data: { totalAmount },
+      });
+
+      return updatedProcurement;
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error updating procurement:', error);
+    res.status(500).json({ message: (error as Error).message });
+  }
+};

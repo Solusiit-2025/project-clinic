@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   ArrowLeft, Search, Plus, Trash2, 
@@ -27,8 +27,10 @@ interface SelectedItem extends Product {
   currentQuantity?: number
 }
 
-export default function NewProcurementPage() {
+export default function EditProcurementPage() {
   const router = useRouter()
+  const params = useParams()
+  const { id } = params as { id: string }
   const { activeClinicId } = useAuthStore()
   const [products, setProducts] = useState<Product[]>([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -43,6 +45,43 @@ export default function NewProcurementPage() {
   const [lowStockProducts, setLowStockProducts] = useState<any[]>([])
   const [isFetchingLowStock, setIsFetchingLowStock] = useState(false)
   const [selectedLowStockIds, setSelectedLowStockIds] = useState<string[]>([])
+
+  useEffect(() => {
+    const fetchProcurement = async () => {
+      try {
+        const res = await api.get(`/inventory/procurement/${id}`)
+        const data = res.data
+        if (data.status !== 'PENDING_APPROVAL') {
+          toast.error('Hanya PR pending yang dapat diedit')
+          router.push('/admin/inventory/procurement')
+          return
+        }
+        setType(data.type)
+        setNotes(data.notes || '')
+        
+        if (data.items) {
+          const formattedItems = data.items.map((i: any) => ({
+            id: i.productId,
+            productName: i.product?.productName || i.product?.masterProduct?.masterName || 'Unknown',
+            productCode: i.product?.productCode || i.product?.masterProduct?.masterCode || '-',
+            isMedicine: !!i.product?.masterProduct?.medicineId,
+            basePrice: i.unitPrice,
+            requestedQty: i.requestedQty,
+            unitPrice: i.unitPrice
+          }))
+          setSelectedItems(formattedItems)
+        }
+      } catch (error) {
+        console.error(error)
+        toast.error('Gagal mengambil data PR')
+        router.push('/admin/inventory/procurement')
+      }
+    }
+    
+    if (id) {
+      fetchProcurement()
+    }
+  }, [id, router])
 
   useEffect(() => {
     // Fetch products based on branch and type
@@ -157,8 +196,7 @@ export default function NewProcurementPage() {
 
     setIsLoading(true)
     try {
-      await api.post('/inventory/procurement', {
-        branchId: activeClinicId,
+      await api.patch(`/inventory/procurement/${id}`, {
         type,
         notes,
         items: selectedItems.map(item => ({
@@ -167,10 +205,10 @@ export default function NewProcurementPage() {
           unitPrice: item.unitPrice
         }))
       })
-      toast.success('Purchase Request berhasil dibuat')
+      toast.success('Purchase Request berhasil diperbarui')
       router.push('/admin/inventory/procurement')
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Gagal membuat PR')
+      toast.error(error.response?.data?.message || 'Gagal memperbarui PR')
     } finally {
       setIsLoading(false)
     }
@@ -189,9 +227,9 @@ export default function NewProcurementPage() {
         </button>
         <div>
           <h1 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
-            Buat Purchase Request Baru
+            Edit Purchase Request
           </h1>
-          <p className="text-gray-500 font-medium text-sm mt-1">Pengajuan pembelian barang atau obat untuk cabang ini.</p>
+          <p className="text-gray-500 font-medium text-sm mt-1">Ubah pengajuan pembelian barang atau obat.</p>
         </div>
       </div>
 
@@ -390,7 +428,7 @@ export default function NewProcurementPage() {
               {isLoading ? 'Memproses...' : (
                 <>
                   <CheckCircle className="w-5 h-5" />
-                  AJUKAN PURCHASE REQUEST
+                  SIMPAN PERUBAHAN
                 </>
               )}
             </button>
