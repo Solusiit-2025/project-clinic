@@ -1034,6 +1034,34 @@ export const updateMedicine = async (req: Request, res: Response) => {
             isActive: med.isActive
           }
         });
+      } else {
+        let category = await prisma.productCategory.findFirst({ 
+          where: { 
+            OR: [
+              { categoryName: 'Obat-obatan' },
+              { categoryName: 'Medicine' }
+            ]
+          } 
+        });
+        
+        if (!category) {
+          category = await prisma.productCategory.create({ 
+            data: { categoryName: 'Obat-obatan', description: 'Kategori otomatis untuk obat-obatan klinis' } 
+          });
+        }
+
+        await prisma.productMaster.create({
+          data: {
+            masterCode: med.medicineCode || `MED-${Date.now().toString().slice(-6)}`,
+            masterName: med.medicineName,
+            description: med.description,
+            image: med.image,
+            categoryId: category.id,
+            medicineId: med.id,
+            isActive: med.isActive,
+            manufacturer: med.manufacturer
+          }
+        });
       }
     } catch (syncError) {
       console.error('Failed to sync medicine update:', syncError)
@@ -1287,6 +1315,37 @@ export const createProductMaster = async (req: Request, res: Response) => {
       data,
       include: { productCategory: true }
     })
+
+    // AUTO-SYNC: If category is Obat/Medicine/Alkes/BHP, create linked Medicine automatically
+    try {
+      if (product.categoryId) {
+        const category = product.productCategory;
+        if (category && (
+          category.categoryName.toLowerCase().includes('obat') || 
+          category.categoryName.toLowerCase().includes('medicine') ||
+          category.categoryName.toLowerCase().includes('alkes') ||
+          category.categoryName.toLowerCase().includes('bhp')
+        )) {
+          const med = await prisma.medicine.create({
+            data: {
+              medicineName: product.masterName,
+              medicineCode: product.masterCode,
+              description: product.description,
+              manufacturer: product.manufacturer,
+              image: product.image,
+              isActive: product.isActive
+            }
+          });
+          await prisma.productMaster.update({
+            where: { id: product.id },
+            data: { medicineId: med.id }
+          });
+        }
+      }
+    } catch (syncError) {
+      console.error('Failed to sync new ProductMaster to Medicine:', syncError);
+    }
+
     res.status(201).json(product)
   } catch (e: any) {
     console.error('Create Product Master Error:', e)
@@ -1346,8 +1405,22 @@ export const updateProductMaster = async (req: Request, res: Response) => {
           data: syncData
         })
       }
+
+      // AUTO-SYNC: Sync back to Medicine if linked
+      if (product.medicineId) {
+        await prisma.medicine.update({
+          where: { id: product.medicineId },
+          data: {
+            medicineName: product.masterName,
+            description: product.description,
+            image: product.image,
+            isActive: product.isActive,
+            manufacturer: product.manufacturer
+          }
+        });
+      }
     } catch (syncError) {
-      console.error('Failed to sync ProductMaster changes to branch products:', syncError)
+      console.error('Failed to sync ProductMaster changes to branch products/medicine:', syncError)
     }
 
     res.json(product)

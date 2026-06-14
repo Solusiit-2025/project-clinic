@@ -364,8 +364,12 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
           const validMedicineIds = new Set(existingMedicines.map((m: any) => m.id))
           const safePrescriptions = validPrescriptions.filter((item: any) => {
             if (item.isRacikan) {
-              if (!Array.isArray(item.components) || item.components.length === 0) return false
-              return item.components.every((c: any) => validMedicineIds.has(c.medicineId))
+              // If it has a formulaId, it's a valid master formula racikan even without components
+              if (item.formulaId) return true;
+              // If it's a custom racikan, it must have components
+              if (!Array.isArray(item.components) || item.components.length === 0) return false;
+              // Accept components (stock validation will further verify them)
+              return true;
             }
             return validMedicineIds.has(item.medicineId)
           })
@@ -443,11 +447,13 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
                     isExternal: !!item.isExternal,
                     tuslahPrice: parseFloat(item.tuslahPrice) || 0,
                     components: item.isRacikan && Array.isArray(item.components) ? {
-                      create: item.components.map((comp: any) => ({
-                        medicineId: comp.medicineId,
-                        quantity: parseFloat(comp.quantity) || 0,
-                        unit: comp.unit || null
-                      }))
+                      create: item.components
+                        .filter((comp: any) => validMedicineIds.has(comp.medicineId))
+                        .map((comp: any) => ({
+                          medicineId: comp.medicineId,
+                          quantity: parseFloat(comp.quantity) || 0,
+                          unit: comp.unit || null
+                        }))
                     } : undefined
                   }))
                 }
@@ -472,11 +478,13 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
                   isExternal: !!item.isExternal,
                   tuslahPrice: parseFloat(item.tuslahPrice) || 0,
                   components: item.isRacikan && Array.isArray(item.components) ? {
-                    create: item.components.map((comp: any) => ({
-                      medicineId: comp.medicineId,
-                      quantity: parseFloat(comp.quantity) || 0,
-                      unit: comp.unit || null
-                    }))
+                    create: item.components
+                      .filter((comp: any) => validMedicineIds.has(comp.medicineId))
+                      .map((comp: any) => ({
+                        medicineId: comp.medicineId,
+                        quantity: parseFloat(comp.quantity) || 0,
+                        unit: comp.unit || null
+                      }))
                   } : undefined
                 }
               })
