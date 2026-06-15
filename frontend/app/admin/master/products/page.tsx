@@ -213,6 +213,7 @@ export default function ProductsPage() {
 
   const handleSave = async () => {
     if (!form.productName || !form.sku) { setError('Nama produk dan SKU wajib diisi'); return }
+    if (!form.masterProductId) { setError('Kategori belum ditentukan'); return }
     setSaving(true); setError('')
     try {
       const formData = new FormData()

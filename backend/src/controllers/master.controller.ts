@@ -1311,6 +1311,11 @@ export const createProductMaster = async (req: Request, res: Response) => {
       data.masterCode = `PM-${timestamp}${random}`
     }
 
+    // 5. Handle empty relations
+    if (data.categoryId === '') data.categoryId = null
+    if (data.medicineId === '') data.medicineId = null
+    if (data.compoundFormulaId === '') data.compoundFormulaId = null
+
     const product = await prisma.productMaster.create({ 
       data,
       include: { productCategory: true }
@@ -1377,6 +1382,11 @@ export const updateProductMaster = async (req: Request, res: Response) => {
     if (data.isActive !== undefined) {
       data.isActive = data.isActive === 'true' || data.isActive === true
     }
+
+    // 4. Handle Empty Relations
+    if (data.categoryId === '') data.categoryId = null
+    if (data.medicineId === '') data.medicineId = null
+    if (data.compoundFormulaId === '') data.compoundFormulaId = null
 
     const oldProduct = await prisma.productMaster.findUnique({ where: { id: req.params.id } })
 
@@ -1705,6 +1715,34 @@ export const createAsset = async (req: Request, res: Response) => {
     // Resolve COA berdasarkan tipe aset
     const { coa: assetCoa, accumDep: accumDepCoa } = await resolveAssetCOA(otherData.assetType || 'equipment', clinicId)
 
+    let finalMasterProductId = req.body.masterProductId || undefined;
+    if (finalMasterProductId === 'null' || finalMasterProductId === 'undefined' || finalMasterProductId === '') {
+      finalMasterProductId = undefined;
+    }
+
+    if (!finalMasterProductId && otherData.assetName) {
+      const typeMap: Record<string, string> = {
+        'computer': 'Elektronik',
+        'clinical-device': 'Alat Medis',
+        'furniture': 'Furniture',
+        'vehicle': 'Kendaraan'
+      };
+      const pType = typeMap[otherData.assetType] || 'Aset Lainnya';
+      
+      const newMaster = await prisma.productMaster.create({
+        data: {
+          masterName: otherData.assetName,
+          masterCode: `AST-${Math.floor(Math.random() * 900000) + 100000}`,
+          description: otherData.description || null,
+          brand: otherData.manufacturer || null,
+          productType: pType,
+          purchasePrice: price,
+          isActive: true,
+        }
+      });
+      finalMasterProductId = newMaster.id;
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       // 1. Buat record aset
       const asset = await tx.asset.create({
@@ -1725,49 +1763,63 @@ export const createAsset = async (req: Request, res: Response) => {
             return isNaN(d.getTime()) ? new Date() : d
           })(),
           clinicId,
-          masterProductId: req.body.masterProductId || undefined
+          masterProductId: finalMasterProductId || undefined
         } as any,
         include: { masterProduct: true, clinic: true }
       })
 
       // 2. Buat jurnal GL pembelian aset (jika ada COA dan harga > 0)
       if (assetCoa && price > 0) {
-        // Resolve sumber dana (default: Kas Kecil, bisa dikonfigurasi)
-        const cashCoa = await tx.systemAccount.findFirst({
-          where: { key: 'CASH_ACCOUNT', OR: [{ clinicId }, { clinicId: null }] },
-          include: { coa: true },
-          orderBy: { clinicId: 'desc' }
-        })
-        const creditCoa = cashCoa?.coa || await tx.chartOfAccount.findFirst({
-          where: { code: '1-1101', OR: [{ clinicId }, { clinicId: null }] }
-        })
+        // Cek cutoff date dari OpeningBalance
+        const openingBalance = await tx.openingBalance.findFirst({
+          where: { clinicId },
+          orderBy: { date: 'asc' }
+        });
+        
+        const purchaseD = asset.purchaseDate || new Date();
+        const cutoffDate = openingBalance ? openingBalance.date : null;
 
-        if (creditCoa) {
-          await tx.journalEntry.create({
-            data: {
-              date: asset.purchaseDate || new Date(),
-              description: `Pembelian Aset: ${otherData.assetName} (${asset.assetCode})`,
-              referenceNo: `ASSET-${asset.assetCode}`,
-              entryType: 'SYSTEM',
-              clinicId,
-              details: {
-                create: [
-                  {
-                    coaId: assetCoa.id,
-                    debit: price,
-                    credit: 0,
-                    description: `Aset Tetap: ${otherData.assetName}`
-                  },
-                  {
-                    coaId: creditCoa.id,
-                    debit: 0,
-                    credit: price,
-                    description: `Pembayaran Aset: ${asset.assetCode}`
-                  }
-                ]
-              }
-            }
+        if (cutoffDate && purchaseD < cutoffDate) {
+          // Skip entry GL karena pembelian terjadi sebelum Neraca Saldo Awal (Cutoff System)
+          console.log(`[Asset] Skip GL entry for asset ${asset.assetCode} because purchase date ${purchaseD.toISOString()} is before cutoff date ${cutoffDate.toISOString()}`);
+        } else {
+          // Resolve sumber dana (default: Kas Kecil, bisa dikonfigurasi)
+          const cashCoa = await tx.systemAccount.findFirst({
+            where: { key: 'CASH_ACCOUNT', OR: [{ clinicId }, { clinicId: null }] },
+            include: { coa: true },
+            orderBy: { clinicId: 'desc' }
           })
+          const creditCoa = cashCoa?.coa || await tx.chartOfAccount.findFirst({
+            where: { code: '1-1101', OR: [{ clinicId }, { clinicId: null }] }
+          })
+  
+          if (creditCoa) {
+            await tx.journalEntry.create({
+              data: {
+                date: asset.purchaseDate || new Date(),
+                description: `Pembelian Aset: ${otherData.assetName} (${asset.assetCode})`,
+                referenceNo: `ASSET-${asset.assetCode}`,
+                entryType: 'SYSTEM',
+                clinicId,
+                details: {
+                  create: [
+                    {
+                      coaId: assetCoa.id,
+                      debit: price,
+                      credit: 0,
+                      description: `Aset Tetap: ${otherData.assetName}`
+                    },
+                    {
+                      coaId: creditCoa.id,
+                      debit: 0,
+                      credit: price,
+                      description: `Pembayaran Aset: ${asset.assetCode}`
+                    }
+                  ]
+                }
+              }
+            })
+          }
         }
       }
 
@@ -1785,7 +1837,7 @@ export const updateAsset = async (req: Request, res: Response) => {
   try {
     const { 
       purchasePrice, purchaseDate, currentValue, salvageValue, usefulLifeYears, totalDepreciated,
-      clinic, masterProduct, id, createdAt, updatedAt, clinicId, ...otherData 
+      clinic, masterProduct, id, createdAt, updatedAt, clinicId, masterProductId, ...otherData 
     } = req.body
     
     let image = req.body.image
@@ -1793,10 +1845,39 @@ export const updateAsset = async (req: Request, res: Response) => {
       image = await processAssetPhoto(req.file)
     }
 
+    let finalMasterProductId = masterProductId;
+    if (finalMasterProductId === 'null' || finalMasterProductId === 'undefined' || finalMasterProductId === '') {
+      finalMasterProductId = null;
+    }
+
+    if (!finalMasterProductId && otherData.assetName) {
+      const typeMap: Record<string, string> = {
+        'computer': 'Elektronik',
+        'clinical-device': 'Alat Medis',
+        'furniture': 'Furniture',
+        'vehicle': 'Kendaraan'
+      };
+      const pType = typeMap[otherData.assetType] || 'Aset Lainnya';
+      
+      const newMaster = await prisma.productMaster.create({
+        data: {
+          masterName: otherData.assetName,
+          masterCode: `AST-${Math.floor(Math.random() * 900000) + 100000}`,
+          description: otherData.description || null,
+          brand: otherData.manufacturer || null,
+          productType: pType,
+          purchasePrice: purchasePrice ? Number(purchasePrice) : 0,
+          isActive: true,
+        }
+      });
+      finalMasterProductId = newMaster.id;
+    }
+
     const asset = await prisma.asset.update({ 
       where: { id: req.params.id }, 
       data: {
         ...otherData,
+        masterProductId: finalMasterProductId || null,
         image,
         clinicId: clinicId || undefined,
         purchasePrice: purchasePrice ? Number(purchasePrice) : undefined,

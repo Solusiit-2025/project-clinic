@@ -388,7 +388,7 @@ export default function GeneralLedgerPage() {
                     <tbody className="divide-y divide-slate-50">
                       <tr className="bg-indigo-50/40 border-b border-indigo-100">
                         <td className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-[9px] sm:text-[10px] font-black text-indigo-500 uppercase tracking-widest">Saldo Akhir</td>
-                        <td className="px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-xs font-bold text-indigo-600" colSpan={3}>Per akhir periode</td>
+                        <td className="px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-xs font-bold text-indigo-600" colSpan={3}>Per akhir halaman ini</td>
                         <td className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm font-black text-indigo-700 text-right pr-3 sm:pr-4">{fmt(report.finalBalance)}</td>
                       </tr>
                       {(report.transactions as AccountTransaction[]).map((t, idx) => (
@@ -402,7 +402,7 @@ export default function GeneralLedgerPage() {
                       ))}
                       <tr className="bg-slate-50/60 border-t border-slate-100">
                         <td className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Saldo Awal</td>
-                        <td className="px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-xs font-bold text-slate-500" colSpan={3}>Sebelum periode ini</td>
+                        <td className="px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-xs font-bold text-slate-500" colSpan={3}>Sebelum transaksi di atas</td>
                         <td className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm font-black text-slate-600 text-right pr-3 sm:pr-4">{fmt(report.openingBalance ?? report.initialBalance)}</td>
                       </tr>
                     </tbody>
@@ -410,6 +410,33 @@ export default function GeneralLedgerPage() {
                 </div>
               </div>
             )}
+
+            {/* Pagination Controls */}
+            {meta && meta.totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between px-4 sm:px-6 py-4 bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm mx-1 sm:mx-2 mt-4 no-print gap-4">
+                <div className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+                  Halaman <span className="text-indigo-600 font-black">{meta.page}</span> dari <span className="text-slate-900 font-black">{meta.totalPages}</span>
+                  <span className="ml-2 text-slate-400">({meta.total} transaksi)</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => fetchLedger(meta.page - 1)}
+                    disabled={meta.page === 1 || loading}
+                    className="px-5 py-2.5 bg-slate-50 border border-slate-100 text-slate-600 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-widest hover:bg-slate-100 disabled:opacity-50 transition-all active:scale-95"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    onClick={() => fetchLedger(meta.page + 1)}
+                    disabled={meta.page === meta.totalPages || loading}
+                    className="px-5 py-2.5 bg-slate-50 border border-slate-100 text-slate-600 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-widest hover:bg-slate-100 disabled:opacity-50 transition-all active:scale-95"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+
           </motion.div>
         </AnimatePresence>
       ) : null}
