@@ -878,10 +878,12 @@ export const getReconciliationData = async (req: Request, res: Response) => {
           select: {
             productName: true,
             sku: true,
+            purchasePrice: true,
             masterProduct: {
               select: {
                 masterName: true,
-                sku: true
+                sku: true,
+                purchasePrice: true
               }
             }
           }
