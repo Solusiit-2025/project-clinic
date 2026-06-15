@@ -1,0 +1,1011 @@
+=== Hutang Jasa Medik (2-1102) ===
+[2026-05-14] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - drg.Dhyandra
+   Debit: 0 | Credit: 275000 | Ref: ADJ-6B585ABD | Balance After: 275000
+[2026-05-14] 2-1102 - Pembayaran Jasa Medik: drg.Dhyandra (UANG DUDUK)
+   Debit: 275000 | Credit: 0 | Ref: PAY-603227 | Balance After: 0
+[2026-05-14] 2-1102 - Pembayaran Jasa Medik: dr. Hartono (2 Layanan)
+   Debit: 60000 | Credit: 0 | Ref: PAY-591900 | Balance After: -60000
+[2026-05-14] 2-1102 - Pembayaran Jasa Medik: dr. Hartono (3 Layanan)
+   Debit: 39500 | Credit: 0 | Ref: PAY-193364 | Balance After: -99500
+[2026-05-14] 2-1102 - Pembayaran Jasa Medik: dr. Hartono (6 Layanan)
+   Debit: 332500 | Credit: 0 | Ref: PAY-051137 | Balance After: -432000
+[2026-05-14] 2-1102 - (RE-POSTED) Pengakuan Piutang & Pendapatan - Inv #INV-20260514-0001
+   Debit: 0 | Credit: 17500 | Ref: INV-20260514-0001 | Balance After: -414500
+[2026-05-14] 2-1102 - (RE-POSTED) Pengakuan Piutang & Pendapatan - Inv #INV-20260514-0002
+   Debit: 0 | Credit: 40000 | Ref: INV-20260514-0002 | Balance After: -374500
+[2026-05-15] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - dr. Hartono
+   Debit: 0 | Credit: 275000 | Ref: ADJ-F3730E07 | Balance After: -99500
+[2026-05-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260515-0001
+   Debit: 0 | Credit: 39500 | Ref: INV-20260515-0001 | Balance After: -60000
+[2026-05-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260515-0002
+   Debit: 0 | Credit: 30000 | Ref: INV-20260515-0002 | Balance After: -30000
+[2026-05-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260515-0003
+   Debit: 0 | Credit: 30000 | Ref: INV-20260515-0003 | Balance After: 0
+[2026-05-16] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260516-0009
+   Debit: 0 | Credit: 5000 | Ref: INV-20260516-0009 | Balance After: 5000
+[2026-05-18] 2-1102 - Pembayaran Jasa Medik: Ester (Jasa Konsultasi Dokter - Pasien: Restu (Bini Ugi) (outpatient))
+   Debit: 70000 | Credit: 0 | Ref: PAY-457271 | Balance After: -65000
+[2026-05-18] 2-1102 - Pembayaran Jasa Medik: Hartono (Jasa Konsultasi Dokter - Pasien: Alvina (outpatient))
+   Debit: 70000 | Credit: 0 | Ref: PAY-451691 | Balance After: -135000
+[2026-05-18] 2-1102 - Pembayaran Jasa Medik: Hartono (2 Layanan)
+   Debit: 20000 | Credit: 0 | Ref: PAY-782289 | Balance After: -155000
+[2026-05-18] 2-1102 - Pembayaran Jasa Medik: Hartono (KB SUNTIK 1 & 3 Bulan)
+   Debit: 5000 | Credit: 0 | Ref: PAY-515157 | Balance After: -160000
+[2026-05-19] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260519-0002
+   Debit: 0 | Credit: 20000 | Ref: INV-20260519-0002 | Balance After: -140000
+[2026-05-19] 2-1102 - Penyesuaian Jasa Medik Manual: pasien 7 sampai 20 - Feri
+   Debit: 0 | Credit: 175000 | Ref: ADJ-209262DE | Balance After: 35000
+[2026-05-19] 2-1102 - Penyesuaian Jasa Medik Manual: PASIEN KE 6 - Feri
+   Debit: 0 | Credit: 8750 | Ref: ADJ-4053DDD8 | Balance After: 43750
+[2026-05-20] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - Feri
+   Debit: 0 | Credit: 275000 | Ref: ADJ-6080F07D | Balance After: 318750
+[2026-05-20] 2-1102 - Penyesuaian Jasa Medik Manual: PASIEN KE 6 - Feri
+   Debit: 0 | Credit: 8750 | Ref: ADJ-E23D404D | Balance After: 327500
+[2026-05-20] 2-1102 - Penyesuaian Jasa Medik Manual: pasien 7 sampai 20 - Feri
+   Debit: 0 | Credit: 200000 | Ref: ADJ-F95CA064 | Balance After: 527500
+[2026-05-20] 2-1102 - Pembayaran Jasa Medik: Feri (4 Layanan)
+   Debit: 489750 | Credit: 0 | Ref: PAY-030026 | Balance After: 37750
+[2026-05-21] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260521-0002
+   Debit: 0 | Credit: 6000 | Ref: INV-20260521-0002 | Balance After: 43750
+[2026-05-21] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260521-0005
+   Debit: 0 | Credit: 75000 | Ref: INV-20260521-0005 | Balance After: 118750
+[2026-05-21] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260521-0006
+   Debit: 0 | Credit: 50000 | Ref: INV-20260521-0006 | Balance After: 168750
+[2026-05-23] 2-1102 - Pembayaran Jasa Medik: Ester (4 Layanan)
+   Debit: 455000 | Credit: 0 | Ref: PAY-655120 | Balance After: -286250
+[2026-05-23] 2-1102 - Penyesuaian Jasa Medik Manual:  pasien ke 20 - Ester
+   Debit: 0 | Credit: 50000 | Ref: ADJ-D8CA22EC | Balance After: -236250
+[2026-05-23] 2-1102 - Penyesuaian Jasa Medik Manual: uang duduk 13.00 - 15.00 - Ester
+   Debit: 0 | Credit: 50000 | Ref: ADJ-023EAAEE | Balance After: -186250
+[2026-05-23] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - Ester
+   Debit: 0 | Credit: 275000 | Ref: ADJ-BEE62E59 | Balance After: 88750
+[2026-05-24] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260524-0001
+   Debit: 0 | Credit: 38000 | Ref: INV-20260524-0001 | Balance After: 126750
+[2026-05-25] 2-1102 - Penyesuaian Jasa Medik Manual: pasien ke 15 - Sintia Balqis
+   Debit: 0 | Credit: 132000 | Ref: ADJ-8D86DEBB | Balance After: 258750
+[2026-05-25] 2-1102 - Penyesuaian Jasa Medik Manual: INJEKSI VIT C 1X - Sintia Balqis
+   Debit: 0 | Credit: 30000 | Ref: ADJ-1CA3E356 | Balance After: 288750
+[2026-05-25] 2-1102 - Penyesuaian Jasa Medik Manual: pasien ke 15 - Sintia Balqis
+   Debit: 0 | Credit: 135000 | Ref: ADJ-485B4345 | Balance After: 423750
+[2026-05-25] 2-1102 - Pembayaran Jasa Medik: Sintia Balqis (4 Layanan)
+   Debit: 450000 | Credit: 0 | Ref: PAY-272821 | Balance After: -26250
+[2026-05-25] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - Sintia Balqis
+   Debit: 0 | Credit: 275000 | Ref: ADJ-CE62EECB | Balance After: 248750
+[2026-05-25] 2-1102 - Pembayaran Jasa Medik: Sintia Balqis (2 Layanan)
+   Debit: 142000 | Credit: 0 | Ref: PAY-890953 | Balance After: 106750
+[2026-05-25] 2-1102 - Penyesuaian Jasa Medik Manual: WT KECIL - Sintia Balqis
+   Debit: 0 | Credit: 10000 | Ref: ADJ-5DE53553 | Balance After: 116750
+[2026-05-26] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260526-0003
+   Debit: 0 | Credit: 10000 | Ref: INV-20260526-0003 | Balance After: 126750
+[2026-05-26] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260526-0008
+   Debit: 0 | Credit: 9000 | Ref: INV-20260526-0008 | Balance After: 135750
+[2026-05-26] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260526-0009
+   Debit: 0 | Credit: 30000 | Ref: INV-20260526-0009 | Balance After: 165750
+[2026-06-02] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260602-0014
+   Debit: 0 | Credit: 120000 | Ref: INV-20260602-0014 | Balance After: 285750
+[2026-06-02] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260602-0016
+   Debit: 0 | Credit: 280000 | Ref: INV-20260602-0016 | Balance After: 565750
+[2026-06-02] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260602-0017
+   Debit: 0 | Credit: 70000 | Ref: INV-20260602-0017 | Balance After: 635750
+[2026-06-02] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260602-0018
+   Debit: 0 | Credit: 220000 | Ref: INV-20260602-0018 | Balance After: 855750
+[2026-06-02] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260602-0019
+   Debit: 0 | Credit: 70000 | Ref: INV-20260602-0019 | Balance After: 925750
+[2026-06-02] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260602-0021
+   Debit: 0 | Credit: 70000 | Ref: INV-20260602-0021 | Balance After: 995750
+[2026-06-02] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260602-0022
+   Debit: 0 | Credit: 160000 | Ref: INV-20260602-0022 | Balance After: 1155750
+[2026-06-02] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260602-0024
+   Debit: 0 | Credit: 70000 | Ref: INV-20260602-0024 | Balance After: 1225750
+[2026-06-02] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260602-0025
+   Debit: 0 | Credit: 70000 | Ref: INV-20260602-0025 | Balance After: 1295750
+[2026-06-02] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260602-0027
+   Debit: 0 | Credit: 70000 | Ref: INV-20260602-0027 | Balance After: 1365750
+[2026-06-02] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260602-0028
+   Debit: 0 | Credit: 70000 | Ref: INV-20260602-0028 | Balance After: 1435750
+[2026-06-02] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260602-0030
+   Debit: 0 | Credit: 75000 | Ref: INV-20260602-0030 | Balance After: 1510750
+[2026-06-02] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260602-0031
+   Debit: 0 | Credit: 70000 | Ref: INV-20260602-0031 | Balance After: 1580750
+[2026-06-02] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - dr. Sintia Balqis
+   Debit: 0 | Credit: 275000 | Ref: ADJ-0AE1CF7D | Balance After: 1855750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0001
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0001 | Balance After: 1925750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0002
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0002 | Balance After: 1995750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0005
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0005 | Balance After: 2065750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0006
+   Debit: 0 | Credit: 140000 | Ref: INV-20260603-0006 | Balance After: 2205750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0007
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0007 | Balance After: 2275750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0009
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0009 | Balance After: 2345750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0010
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0010 | Balance After: 2415750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0011
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0011 | Balance After: 2485750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0012
+   Debit: 0 | Credit: 286000 | Ref: INV-20260603-0012 | Balance After: 2771750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0016
+   Debit: 0 | Credit: 150000 | Ref: INV-20260603-0016 | Balance After: 2921750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0017
+   Debit: 0 | Credit: 280000 | Ref: INV-20260603-0017 | Balance After: 3201750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0019
+   Debit: 0 | Credit: 140000 | Ref: INV-20260603-0019 | Balance After: 3341750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0020
+   Debit: 0 | Credit: 210000 | Ref: INV-20260603-0020 | Balance After: 3551750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0021
+   Debit: 0 | Credit: 100000 | Ref: INV-20260603-0021 | Balance After: 3651750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0022
+   Debit: 0 | Credit: 220000 | Ref: INV-20260603-0022 | Balance After: 3871750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0023
+   Debit: 0 | Credit: 140000 | Ref: INV-20260603-0023 | Balance After: 4011750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0024
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0024 | Balance After: 4081750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0026
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0026 | Balance After: 4151750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0027
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0027 | Balance After: 4221750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0028
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0028 | Balance After: 4291750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0029
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0029 | Balance After: 4361750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0030
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0030 | Balance After: 4431750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0031
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0031 | Balance After: 4501750
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0032
+   Debit: 0 | Credit: 97500 | Ref: INV-20260603-0032 | Balance After: 4599250
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0033
+   Debit: 0 | Credit: 210000 | Ref: INV-20260603-0033 | Balance After: 4809250
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0034
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0034 | Balance After: 4879250
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0035
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0035 | Balance After: 4949250
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0036
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0036 | Balance After: 5019250
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0037
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0037 | Balance After: 5089250
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0038
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0038 | Balance After: 5159250
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0039
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0039 | Balance After: 5229250
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0040
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0040 | Balance After: 5299250
+[2026-06-03] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260603-0041
+   Debit: 0 | Credit: 70000 | Ref: INV-20260603-0041 | Balance After: 5369250
+[2026-06-03] 2-1102 - Pembayaran Jasa Medik: drg. Devi (2 Layanan)
+   Debit: 265000 | Credit: 0 | Ref: PAY-677649 | Balance After: 5104250
+[2026-06-03] 2-1102 - Penyesuaian Jasa Medik Manual: Uang duduk - drg. Devi
+   Debit: 0 | Credit: 220000 | Ref: ADJ-75EA003C | Balance After: 5324250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0001
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0001 | Balance After: 5394250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0002
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0002 | Balance After: 5464250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0004
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0004 | Balance After: 5534250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0005
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0005 | Balance After: 5604250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0007
+   Debit: 0 | Credit: 140000 | Ref: INV-20260604-0007 | Balance After: 5744250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0008
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0008 | Balance After: 5814250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0009
+   Debit: 0 | Credit: 280000 | Ref: INV-20260604-0009 | Balance After: 6094250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0013
+   Debit: 0 | Credit: 165000 | Ref: INV-20260604-0013 | Balance After: 6259250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0014
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0014 | Balance After: 6329250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0015
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0015 | Balance After: 6399250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0016
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0016 | Balance After: 6469250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0017
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0017 | Balance After: 6539250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0018
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0018 | Balance After: 6609250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0020
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0020 | Balance After: 6679250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0021
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0021 | Balance After: 6749250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0022
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0022 | Balance After: 6819250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0023
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0023 | Balance After: 6889250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0024
+   Debit: 0 | Credit: 550000 | Ref: INV-20260604-0024 | Balance After: 7439250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0025
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0025 | Balance After: 7509250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0026
+   Debit: 0 | Credit: 140000 | Ref: INV-20260604-0026 | Balance After: 7649250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0027
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0027 | Balance After: 7719250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0028
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0028 | Balance After: 7789250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0029
+   Debit: 0 | Credit: 210000 | Ref: INV-20260604-0029 | Balance After: 7999250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0030
+   Debit: 0 | Credit: 97500 | Ref: INV-20260604-0030 | Balance After: 8096750
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0032
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0032 | Balance After: 8166750
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0034
+   Debit: 0 | Credit: 115000 | Ref: INV-20260604-0034 | Balance After: 8281750
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0035
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0035 | Balance After: 8351750
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0036
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0036 | Balance After: 8421750
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0037
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0037 | Balance After: 8491750
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0038
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0038 | Balance After: 8561750
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0039
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0039 | Balance After: 8631750
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0040
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0040 | Balance After: 8701750
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0041
+   Debit: 0 | Credit: 76500 | Ref: INV-20260604-0041 | Balance After: 8778250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0042
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0042 | Balance After: 8848250
+[2026-06-04] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260604-0043
+   Debit: 0 | Credit: 70000 | Ref: INV-20260604-0043 | Balance After: 8918250
+[2026-06-04] 2-1102 - Penyesuaian Jasa Medik Manual: uang duduk - drg. Widya
+   Debit: 0 | Credit: 220000 | Ref: ADJ-DCFC736E | Balance After: 9138250
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0003
+   Debit: 0 | Credit: 70000 | Ref: INV-20260605-0003 | Balance After: 9208250
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0004
+   Debit: 0 | Credit: 70000 | Ref: INV-20260605-0004 | Balance After: 9278250
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0005
+   Debit: 0 | Credit: 70000 | Ref: INV-20260605-0005 | Balance After: 9348250
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0007
+   Debit: 0 | Credit: 70000 | Ref: INV-20260605-0007 | Balance After: 9418250
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0016
+   Debit: 0 | Credit: 70000 | Ref: INV-20260605-0016 | Balance After: 9488250
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0017
+   Debit: 0 | Credit: 70000 | Ref: INV-20260605-0017 | Balance After: 9558250
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0018
+   Debit: 0 | Credit: 115000 | Ref: INV-20260605-0018 | Balance After: 9673250
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0019
+   Debit: 0 | Credit: 227500 | Ref: INV-20260605-0019 | Balance After: 9900750
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0020
+   Debit: 0 | Credit: 220000 | Ref: INV-20260605-0020 | Balance After: 10120750
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0021
+   Debit: 0 | Credit: 82000 | Ref: INV-20260605-0021 | Balance After: 10202750
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0022
+   Debit: 0 | Credit: 130000 | Ref: INV-20260605-0022 | Balance After: 10332750
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0023
+   Debit: 0 | Credit: 70000 | Ref: INV-20260605-0023 | Balance After: 10402750
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0026
+   Debit: 0 | Credit: 70000 | Ref: INV-20260605-0026 | Balance After: 10472750
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0027
+   Debit: 0 | Credit: 70000 | Ref: INV-20260605-0027 | Balance After: 10542750
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0028
+   Debit: 0 | Credit: 80000 | Ref: INV-20260605-0028 | Balance After: 10622750
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0029
+   Debit: 0 | Credit: 130000 | Ref: INV-20260605-0029 | Balance After: 10752750
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0030
+   Debit: 0 | Credit: 70000 | Ref: INV-20260605-0030 | Balance After: 10822750
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0032
+   Debit: 0 | Credit: 370000 | Ref: INV-20260605-0032 | Balance After: 11192750
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0033
+   Debit: 0 | Credit: 70000 | Ref: INV-20260605-0033 | Balance After: 11262750
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0036
+   Debit: 0 | Credit: 190000 | Ref: INV-20260605-0036 | Balance After: 11452750
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0037
+   Debit: 0 | Credit: 70000 | Ref: INV-20260605-0037 | Balance After: 11522750
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0038
+   Debit: 0 | Credit: 80000 | Ref: INV-20260605-0038 | Balance After: 11602750
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0039
+   Debit: 0 | Credit: 70000 | Ref: INV-20260605-0039 | Balance After: 11672750
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0040
+   Debit: 0 | Credit: 70000 | Ref: INV-20260605-0040 | Balance After: 11742750
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0041
+   Debit: 0 | Credit: 70000 | Ref: INV-20260605-0041 | Balance After: 11812750
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0042
+   Debit: 0 | Credit: 70000 | Ref: INV-20260605-0042 | Balance After: 11882750
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0043
+   Debit: 0 | Credit: 160000 | Ref: INV-20260605-0043 | Balance After: 12042750
+[2026-06-05] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260605-0044
+   Debit: 0 | Credit: 70000 | Ref: INV-20260605-0044 | Balance After: 12112750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0001
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0001 | Balance After: 12182750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0002
+   Debit: 0 | Credit: 370000 | Ref: INV-20260606-0002 | Balance After: 12552750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0003
+   Debit: 0 | Credit: 370000 | Ref: INV-20260606-0003 | Balance After: 12922750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0004
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0004 | Balance After: 12992750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0005
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0005 | Balance After: 13062750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0007
+   Debit: 0 | Credit: 93000 | Ref: INV-20260606-0007 | Balance After: 13155750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0008
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0008 | Balance After: 13225750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0009
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0009 | Balance After: 13295750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0010
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0010 | Balance After: 13365750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0013
+   Debit: 0 | Credit: 265000 | Ref: INV-20260606-0013 | Balance After: 13630750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0014
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0014 | Balance After: 13700750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0015
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0015 | Balance After: 13770750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0017
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0017 | Balance After: 13840750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0018
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0018 | Balance After: 13910750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0019
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0019 | Balance After: 13980750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0020
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0020 | Balance After: 14050750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0021
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0021 | Balance After: 14120750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0022
+   Debit: 0 | Credit: 83000 | Ref: INV-20260606-0022 | Balance After: 14203750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0023
+   Debit: 0 | Credit: 93000 | Ref: INV-20260606-0023 | Balance After: 14296750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0025
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0025 | Balance After: 14366750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0028
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0028 | Balance After: 14436750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0029
+   Debit: 0 | Credit: 89500 | Ref: INV-20260606-0029 | Balance After: 14526250
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0030
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0030 | Balance After: 14596250
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0031
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0031 | Balance After: 14666250
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0032
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0032 | Balance After: 14736250
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0033
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0033 | Balance After: 14806250
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0034
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0034 | Balance After: 14876250
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0035
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0035 | Balance After: 14946250
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0036
+   Debit: 0 | Credit: 70000 | Ref: INV-20260606-0036 | Balance After: 15016250
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0037
+   Debit: 0 | Credit: 225000 | Ref: INV-20260606-0037 | Balance After: 15241250
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0038
+   Debit: 0 | Credit: 60000 | Ref: INV-20260606-0038 | Balance After: 15301250
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0039
+   Debit: 0 | Credit: 8750 | Ref: INV-20260606-0039 | Balance After: 15310000
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0040
+   Debit: 0 | Credit: 8750 | Ref: INV-20260606-0040 | Balance After: 15318750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0041
+   Debit: 0 | Credit: 405000 | Ref: INV-20260606-0041 | Balance After: 15723750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0042
+   Debit: 0 | Credit: 38750 | Ref: INV-20260606-0042 | Balance After: 15762500
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0043
+   Debit: 0 | Credit: 38750 | Ref: INV-20260606-0043 | Balance After: 15801250
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0044
+   Debit: 0 | Credit: 218750 | Ref: INV-20260606-0044 | Balance After: 16020000
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0045
+   Debit: 0 | Credit: 8750 | Ref: INV-20260606-0045 | Balance After: 16028750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0046
+   Debit: 0 | Credit: 8750 | Ref: INV-20260606-0046 | Balance After: 16037500
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0047
+   Debit: 0 | Credit: 8750 | Ref: INV-20260606-0047 | Balance After: 16046250
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0048
+   Debit: 0 | Credit: 8750 | Ref: INV-20260606-0048 | Balance After: 16055000
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0049
+   Debit: 0 | Credit: 8750 | Ref: INV-20260606-0049 | Balance After: 16063750
+[2026-06-06] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260606-0050
+   Debit: 0 | Credit: 8750 | Ref: INV-20260606-0050 | Balance After: 16072500
+[2026-06-06] 2-1102 - Penyesuaian Jasa Medik Manual: SUNAT UFC - dr. Feri Gustiawan
+   Debit: 0 | Credit: 300000 | Ref: ADJ-A1FD9F59 | Balance After: 16372500
+[2026-06-06] 2-1102 - Pembayaran Jasa Medik: dr. Prasetyo (14 Layanan)
+   Debit: 961250 | Credit: 0 | Ref: PAY-088765 | Balance After: 15411250
+[2026-06-06] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - dr. Prasetyo
+   Debit: 0 | Credit: 275000 | Ref: ADJ-C1AC3F06 | Balance After: 15686250
+[2026-06-06] 2-1102 - Penyesuaian Jasa Medik Manual: BONUS JAGA MINGGU - dr. Prasetyo
+   Debit: 0 | Credit: 90000 | Ref: ADJ-C6FB4E04 | Balance After: 15776250
+[2026-06-06] 2-1102 - Penyesuaian Jasa Medik Manual: BONUS HARI MINGGU - dr. Feri Gustiawan
+   Debit: 0 | Credit: 90000 | Ref: ADJ-8124AD0C | Balance After: 15866250
+[2026-06-06] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - dr. Feri Gustiawan
+   Debit: 0 | Credit: 275000 | Ref: ADJ-1B14DF46 | Balance After: 16141250
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0006
+   Debit: 0 | Credit: 8750 | Ref: INV-20260607-0006 | Balance After: 16150000
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0007
+   Debit: 0 | Credit: 58750 | Ref: INV-20260607-0007 | Balance After: 16208750
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0008
+   Debit: 0 | Credit: 8750 | Ref: INV-20260607-0008 | Balance After: 16217500
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0010
+   Debit: 0 | Credit: 60000 | Ref: INV-20260607-0010 | Balance After: 16277500
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0012
+   Debit: 0 | Credit: 8750 | Ref: INV-20260607-0012 | Balance After: 16286250
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0013
+   Debit: 0 | Credit: 8750 | Ref: INV-20260607-0013 | Balance After: 16295000
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0015
+   Debit: 0 | Credit: 8750 | Ref: INV-20260607-0015 | Balance After: 16303750
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0016
+   Debit: 0 | Credit: 165000 | Ref: INV-20260607-0016 | Balance After: 16468750
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0019
+   Debit: 0 | Credit: 8750 | Ref: INV-20260607-0019 | Balance After: 16477500
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0023
+   Debit: 0 | Credit: 8750 | Ref: INV-20260607-0023 | Balance After: 16486250
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0024
+   Debit: 0 | Credit: 508750 | Ref: INV-20260607-0024 | Balance After: 16995000
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0025
+   Debit: 0 | Credit: 8750 | Ref: INV-20260607-0025 | Balance After: 17003750
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0026
+   Debit: 0 | Credit: 8750 | Ref: INV-20260607-0026 | Balance After: 17012500
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0027
+   Debit: 0 | Credit: 8750 | Ref: INV-20260607-0027 | Balance After: 17021250
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0029
+   Debit: 0 | Credit: 150000 | Ref: INV-20260607-0029 | Balance After: 17171250
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0030
+   Debit: 0 | Credit: 8750 | Ref: INV-20260607-0030 | Balance After: 17180000
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0031
+   Debit: 0 | Credit: 8750 | Ref: INV-20260607-0031 | Balance After: 17188750
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0032
+   Debit: 0 | Credit: 8750 | Ref: INV-20260607-0032 | Balance After: 17197500
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0033
+   Debit: 0 | Credit: 8750 | Ref: INV-20260607-0033 | Balance After: 17206250
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0034
+   Debit: 0 | Credit: 165000 | Ref: INV-20260607-0034 | Balance After: 17371250
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0035
+   Debit: 0 | Credit: 8750 | Ref: INV-20260607-0035 | Balance After: 17380000
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0036
+   Debit: 0 | Credit: 8750 | Ref: INV-20260607-0036 | Balance After: 17388750
+[2026-06-07] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260607-0037
+   Debit: 0 | Credit: 8750 | Ref: INV-20260607-0037 | Balance After: 17397500
+[2026-06-07] 2-1102 - Pembayaran Jasa Medik: drg. Widya (UANG DUDUK DOKTER GIGI)
+   Debit: 220000 | Credit: 0 | Ref: PAY-013442 | Balance After: 17177500
+[2026-06-07] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - dr. Sintia Balqis
+   Debit: 0 | Credit: 275000 | Ref: ADJ-91B4C1B5 | Balance After: 17452500
+[2026-06-07] 2-1102 - Pembayaran Jasa Medik: dr. Sintia Balqis (19 Layanan)
+   Debit: 449500 | Credit: 0 | Ref: PAY-554249 | Balance After: 17003000
+[2026-06-07] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK DOKTER GIGI - drg. Widya
+   Debit: 0 | Credit: 220000 | Ref: ADJ-B9DEB2B4 | Balance After: 17223000
+[2026-06-07] 2-1102 - Pembayaran Jasa Medik: dr. Prasetyo (SUNAT METODE KHUSUS)
+   Debit: 350000 | Credit: 0 | Ref: PAY-999101 | Balance After: 16873000
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0001
+   Debit: 0 | Credit: 13000 | Ref: INV-20260608-0001 | Balance After: 16886000
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0002
+   Debit: 0 | Credit: 350000 | Ref: INV-20260608-0002 | Balance After: 17236000
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0003
+   Debit: 0 | Credit: 10000 | Ref: INV-20260608-0003 | Balance After: 17246000
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0005
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0005 | Balance After: 17254750
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0006
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0006 | Balance After: 17263500
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0008
+   Debit: 0 | Credit: 43750 | Ref: INV-20260608-0008 | Balance After: 17307250
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0009
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0009 | Balance After: 17316000
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0010
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0010 | Balance After: 17324750
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0011
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0011 | Balance After: 17333500
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0012
+   Debit: 0 | Credit: 5000 | Ref: INV-20260608-0012 | Balance After: 17338500
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0013
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0013 | Balance After: 17347250
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0014
+   Debit: 0 | Credit: 13750 | Ref: INV-20260608-0014 | Balance After: 17361000
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0015
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0015 | Balance After: 17369750
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0016
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0016 | Balance After: 17378500
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0017
+   Debit: 0 | Credit: 15250 | Ref: INV-20260608-0017 | Balance After: 17393750
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0018
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0018 | Balance After: 17402500
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0023
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0023 | Balance After: 17411250
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0024
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0024 | Balance After: 17420000
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0025
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0025 | Balance After: 17428750
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0026
+   Debit: 0 | Credit: 30750 | Ref: INV-20260608-0026 | Balance After: 17459500
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0027
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0027 | Balance After: 17468250
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0028
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0028 | Balance After: 17477000
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0029
+   Debit: 0 | Credit: 18750 | Ref: INV-20260608-0029 | Balance After: 17495750
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0031
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0031 | Balance After: 17504500
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0032
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0032 | Balance After: 17513250
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0033
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0033 | Balance After: 17522000
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0035
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0035 | Balance After: 17530750
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0037
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0037 | Balance After: 17539500
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0039
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0039 | Balance After: 17548250
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0040
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0040 | Balance After: 17557000
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0041
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0041 | Balance After: 17565750
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0042
+   Debit: 0 | Credit: 120000 | Ref: INV-20260608-0042 | Balance After: 17685750
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0043
+   Debit: 0 | Credit: 75000 | Ref: INV-20260608-0043 | Balance After: 17760750
+[2026-06-08] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260608-0044
+   Debit: 0 | Credit: 8750 | Ref: INV-20260608-0044 | Balance After: 17769500
+[2026-06-08] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - dr. Fiola
+   Debit: 0 | Credit: 275000 | Ref: ADJ-08DDEA0E | Balance After: 18044500
+[2026-06-08] 2-1102 - Pembayaran Jasa Medik: drg. Rossi (4 Layanan)
+   Debit: 340000 | Credit: 0 | Ref: PAY-992547 | Balance After: 17704500
+[2026-06-08] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK DOKTER GIGI - drg. Rossi
+   Debit: 0 | Credit: 220000 | Ref: ADJ-BED7B95B | Balance After: 17924500
+[2026-06-08] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - dr. Sintia Balqis
+   Debit: 0 | Credit: 275000 | Ref: ADJ-D9E14F0D | Balance After: 18199500
+[2026-06-08] 2-1102 - Pembayaran Jasa Medik: dr. Sintia Balqis (16 Layanan)
+   Debit: 425750 | Credit: 0 | Ref: PAY-111717 | Balance After: 17773750
+[2026-06-08] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK DOKTER GIGI - drg.Dhyandra
+   Debit: 0 | Credit: 220000 | Ref: ADJ-A7BBF499 | Balance After: 17993750
+[2026-06-08] 2-1102 - Pembayaran Jasa Medik: drg.Dhyandra (6 Layanan)
+   Debit: 520000 | Credit: 0 | Ref: PAY-127372 | Balance After: 17473750
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0003
+   Debit: 0 | Credit: 350000 | Ref: INV-20260609-0003 | Balance After: 17823750
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0004
+   Debit: 0 | Credit: 10000 | Ref: INV-20260609-0004 | Balance After: 17833750
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0005
+   Debit: 0 | Credit: 8750 | Ref: INV-20260609-0005 | Balance After: 17842500
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0006
+   Debit: 0 | Credit: 16750 | Ref: INV-20260609-0006 | Balance After: 17859250
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0007
+   Debit: 0 | Credit: 300000 | Ref: INV-20260609-0007 | Balance After: 18159250
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0008
+   Debit: 0 | Credit: 8750 | Ref: INV-20260609-0008 | Balance After: 18168000
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0009
+   Debit: 0 | Credit: 47750 | Ref: INV-20260609-0009 | Balance After: 18215750
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0010
+   Debit: 0 | Credit: 8750 | Ref: INV-20260609-0010 | Balance After: 18224500
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0011
+   Debit: 0 | Credit: 8750 | Ref: INV-20260609-0011 | Balance After: 18233250
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0012
+   Debit: 0 | Credit: 8750 | Ref: INV-20260609-0012 | Balance After: 18242000
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0013
+   Debit: 0 | Credit: 23750 | Ref: INV-20260609-0013 | Balance After: 18265750
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0014
+   Debit: 0 | Credit: 8750 | Ref: INV-20260609-0014 | Balance After: 18274500
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0018
+   Debit: 0 | Credit: 47750 | Ref: INV-20260609-0018 | Balance After: 18322250
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0019
+   Debit: 0 | Credit: 8750 | Ref: INV-20260609-0019 | Balance After: 18331000
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0020
+   Debit: 0 | Credit: 8750 | Ref: INV-20260609-0020 | Balance After: 18339750
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0021
+   Debit: 0 | Credit: 8750 | Ref: INV-20260609-0021 | Balance After: 18348500
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0023
+   Debit: 0 | Credit: 20000 | Ref: INV-20260609-0023 | Balance After: 18368500
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0024
+   Debit: 0 | Credit: 8750 | Ref: INV-20260609-0024 | Balance After: 18377250
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0025
+   Debit: 0 | Credit: 8750 | Ref: INV-20260609-0025 | Balance After: 18386000
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0026
+   Debit: 0 | Credit: 45000 | Ref: INV-20260609-0026 | Balance After: 18431000
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0027
+   Debit: 0 | Credit: 20000 | Ref: INV-20260609-0027 | Balance After: 18451000
+[2026-06-09] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260609-0028
+   Debit: 0 | Credit: 75000 | Ref: INV-20260609-0028 | Balance After: 18526000
+[2026-06-09] 2-1102 - Pembayaran Jasa Medik: dr. Sintia Balqis (12 Layanan)
+   Debit: 377250 | Credit: 0 | Ref: PAY-165350 | Balance After: 18148750
+[2026-06-09] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - dr. Feri Gustiawan
+   Debit: 0 | Credit: 275000 | Ref: ADJ-331A9984 | Balance After: 18423750
+[2026-06-09] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK DOKTER GIGI - drg. Asma
+   Debit: 0 | Credit: 220000 | Ref: ADJ-46CCDA9B | Balance After: 18643750
+[2026-06-09] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - dr. Sintia Balqis
+   Debit: 0 | Credit: 275000 | Ref: ADJ-2A5816ED | Balance After: 18918750
+[2026-06-09] 2-1102 - Pembayaran Jasa Medik: drg. Widya (12 Layanan)
+   Debit: 1435000 | Credit: 0 | Ref: PAY-826475 | Balance After: 17483750
+[2026-06-09] 2-1102 - Penyesuaian Jasa Medik Manual: lab tn deni - dr. Sintia Balqis
+   Debit: 0 | Credit: 17000 | Ref: ADJ-FF4C8789 | Balance After: 17500750
+[2026-06-09] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK DOKTER GIGI - drg. Widya
+   Debit: 0 | Credit: 220000 | Ref: ADJ-57352E8B | Balance After: 17720750
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0004
+   Debit: 0 | Credit: 15250 | Ref: INV-20260610-0004 | Balance After: 17736000
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0005
+   Debit: 0 | Credit: 8750 | Ref: INV-20260610-0005 | Balance After: 17744750
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0008
+   Debit: 0 | Credit: 510000 | Ref: INV-20260610-0008 | Balance After: 18254750
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0009
+   Debit: 0 | Credit: 8750 | Ref: INV-20260610-0009 | Balance After: 18263500
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0010
+   Debit: 0 | Credit: 300000 | Ref: INV-20260610-0010 | Balance After: 18563500
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0011
+   Debit: 0 | Credit: 8750 | Ref: INV-20260610-0011 | Balance After: 18572250
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0012
+   Debit: 0 | Credit: 8750 | Ref: INV-20260610-0012 | Balance After: 18581000
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0013
+   Debit: 0 | Credit: 413750 | Ref: INV-20260610-0013 | Balance After: 18994750
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0014
+   Debit: 0 | Credit: 8750 | Ref: INV-20260610-0014 | Balance After: 19003500
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0015
+   Debit: 0 | Credit: 8750 | Ref: INV-20260610-0015 | Balance After: 19012250
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0016
+   Debit: 0 | Credit: 8750 | Ref: INV-20260610-0016 | Balance After: 19021000
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0017
+   Debit: 0 | Credit: 8750 | Ref: INV-20260610-0017 | Balance After: 19029750
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0018
+   Debit: 0 | Credit: 8750 | Ref: INV-20260610-0018 | Balance After: 19038500
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0021
+   Debit: 0 | Credit: 27500 | Ref: INV-20260610-0021 | Balance After: 19066000
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0025
+   Debit: 0 | Credit: 75000 | Ref: INV-20260610-0025 | Balance After: 19141000
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0026
+   Debit: 0 | Credit: 8750 | Ref: INV-20260610-0026 | Balance After: 19149750
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0027
+   Debit: 0 | Credit: 8750 | Ref: INV-20260610-0027 | Balance After: 19158500
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0028
+   Debit: 0 | Credit: 8750 | Ref: INV-20260610-0028 | Balance After: 19167250
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0029
+   Debit: 0 | Credit: 8750 | Ref: INV-20260610-0029 | Balance After: 19176000
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0030
+   Debit: 0 | Credit: 8750 | Ref: INV-20260610-0030 | Balance After: 19184750
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0031
+   Debit: 0 | Credit: 8750 | Ref: INV-20260610-0031 | Balance After: 19193500
+[2026-06-10] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260610-0032
+   Debit: 0 | Credit: 8750 | Ref: INV-20260610-0032 | Balance After: 19202250
+[2026-06-10] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK DOKTER GIGI - drg. Devi
+   Debit: 0 | Credit: 220000 | Ref: ADJ-213DC4A5 | Balance After: 19422250
+[2026-06-10] 2-1102 - Pembayaran Jasa Medik: drg. Devi (UANG DUDUK DOKTER GIGI)
+   Debit: 220000 | Credit: 0 | Ref: PAY-946335 | Balance After: 19202250
+[2026-06-10] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK DOKTER GIGI - drg.Dhyandra
+   Debit: 0 | Credit: 220000 | Ref: ADJ-DAA73FBB | Balance After: 19422250
+[2026-06-10] 2-1102 - Pembayaran Jasa Medik: dr. Feri Gustiawan (14 Layanan)
+   Debit: 411000 | Credit: 0 | Ref: PAY-992044 | Balance After: 19011250
+[2026-06-10] 2-1102 - Penyesuaian Jasa Medik Manual: jasa lab  - dr. Feri Gustiawan
+   Debit: 0 | Credit: 17500 | Ref: ADJ-C50FC185 | Balance After: 19028750
+[2026-06-10] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - dr. Feri Gustiawan
+   Debit: 0 | Credit: 275000 | Ref: ADJ-9D2CFFCC | Balance After: 19303750
+[2026-06-10] 2-1102 - Penyesuaian Jasa Medik Manual: lab darah rutin - dr. Feri Gustiawan
+   Debit: 0 | Credit: 9000 | Ref: ADJ-B9ACC574 | Balance After: 19312750
+[2026-06-10] 2-1102 - Pembayaran Jasa Medik: drg.Dhyandra (5 Layanan)
+   Debit: 580000 | Credit: 0 | Ref: PAY-216620 | Balance After: 18732750
+[2026-06-10] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - dr. Edo
+   Debit: 0 | Credit: 275000 | Ref: ADJ-815EE7C3 | Balance After: 19007750
+[2026-06-11] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260611-0001
+   Debit: 0 | Credit: 22000 | Ref: INV-20260611-0001 | Balance After: 19029750
+[2026-06-11] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260611-0005
+   Debit: 0 | Credit: 8750 | Ref: INV-20260611-0005 | Balance After: 19038500
+[2026-06-11] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260611-0006
+   Debit: 0 | Credit: 8750 | Ref: INV-20260611-0006 | Balance After: 19047250
+[2026-06-11] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260611-0007
+   Debit: 0 | Credit: 8750 | Ref: INV-20260611-0007 | Balance After: 19056000
+[2026-06-11] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260611-0008
+   Debit: 0 | Credit: 120000 | Ref: INV-20260611-0008 | Balance After: 19176000
+[2026-06-11] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260611-0009
+   Debit: 0 | Credit: 8750 | Ref: INV-20260611-0009 | Balance After: 19184750
+[2026-06-11] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260611-0010
+   Debit: 0 | Credit: 8750 | Ref: INV-20260611-0010 | Balance After: 19193500
+[2026-06-11] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260611-0011
+   Debit: 0 | Credit: 240000 | Ref: INV-20260611-0011 | Balance After: 19433500
+[2026-06-11] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260611-0012
+   Debit: 0 | Credit: 8750 | Ref: INV-20260611-0012 | Balance After: 19442250
+[2026-06-11] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260611-0013
+   Debit: 0 | Credit: 8750 | Ref: INV-20260611-0013 | Balance After: 19451000
+[2026-06-11] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260611-0015
+   Debit: 0 | Credit: 8750 | Ref: INV-20260611-0015 | Balance After: 19459750
+[2026-06-11] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260611-0016
+   Debit: 0 | Credit: 8750 | Ref: INV-20260611-0016 | Balance After: 19468500
+[2026-06-11] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260611-0017
+   Debit: 0 | Credit: 8750 | Ref: INV-20260611-0017 | Balance After: 19477250
+[2026-06-11] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260611-0019
+   Debit: 0 | Credit: 8750 | Ref: INV-20260611-0019 | Balance After: 19486000
+[2026-06-11] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260611-0025
+   Debit: 0 | Credit: 8750 | Ref: INV-20260611-0025 | Balance After: 19494750
+[2026-06-11] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260611-0026
+   Debit: 0 | Credit: 8750 | Ref: INV-20260611-0026 | Balance After: 19503500
+[2026-06-11] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260611-0027
+   Debit: 0 | Credit: 8750 | Ref: INV-20260611-0027 | Balance After: 19512250
+[2026-06-11] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260611-0028
+   Debit: 0 | Credit: 8750 | Ref: INV-20260611-0028 | Balance After: 19521000
+[2026-06-11] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260611-0029
+   Debit: 0 | Credit: 8750 | Ref: INV-20260611-0029 | Balance After: 19529750
+[2026-06-11] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - dr. Pera Siska
+   Debit: 0 | Credit: 275000 | Ref: ADJ-8EAAF2E3 | Balance After: 19804750
+[2026-06-11] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK DOKTER GIGI - drg. Rossi
+   Debit: 0 | Credit: 220000 | Ref: ADJ-19343B39 | Balance After: 20024750
+[2026-06-11] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - dr. Fiola
+   Debit: 0 | Credit: 275000 | Ref: ADJ-A0BF2D46 | Balance After: 20299750
+[2026-06-11] 2-1102 - Penyesuaian Jasa Medik Manual: jasa lab - dr. Fiola
+   Debit: 0 | Credit: 17000 | Ref: ADJ-94A10E86 | Balance After: 20316750
+[2026-06-11] 2-1102 - Pembayaran Jasa Medik: dr. Fiola (14 Layanan)
+   Debit: 402250 | Credit: 0 | Ref: PAY-073684 | Balance After: 19914500
+[2026-06-11] 2-1102 - Penyesuaian Jasa Medik Manual: lab - dr. Pera Siska
+   Debit: 0 | Credit: 17 | Ref: ADJ-E9722F6F | Balance After: 19914517
+[2026-06-11] 2-1102 - Penyesuaian Jasa Medik Manual: lab  - dr. Pera Siska
+   Debit: 0 | Credit: 17000 | Ref: ADJ-1BB4D792 | Balance After: 19931517
+[2026-06-11] 2-1102 - Penyesuaian Jasa Medik Manual: lab  - dr. Pera Siska
+   Debit: 0 | Credit: 17 | Ref: ADJ-0C4A0115 | Balance After: 19931534
+[2026-06-11] 2-1102 - Pembayaran Jasa Medik: drg. Widya (4 Layanan)
+   Debit: 290000 | Credit: 0 | Ref: PAY-535555 | Balance After: 19641534
+[2026-06-11] 2-1102 - Penyesuaian Jasa Medik Manual: uan duduk - drg. Widya
+   Debit: 0 | Credit: 200000 | Ref: ADJ-12D95807 | Balance After: 19841534
+[2026-06-11] 2-1102 - Pembayaran Jasa Medik: drg. Rossi (9 Layanan)
+   Debit: 916000 | Credit: 0 | Ref: PAY-449236 | Balance After: 18925534
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0001
+   Debit: 0 | Credit: 15000 | Ref: INV-20260612-0001 | Balance After: 18940534
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0004
+   Debit: 0 | Credit: 8750 | Ref: INV-20260612-0004 | Balance After: 18949284
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0005
+   Debit: 0 | Credit: 8750 | Ref: INV-20260612-0005 | Balance After: 18958034
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0006
+   Debit: 0 | Credit: 8750 | Ref: INV-20260612-0006 | Balance After: 18966784
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0007
+   Debit: 0 | Credit: 8750 | Ref: INV-20260612-0007 | Balance After: 18975534
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0008
+   Debit: 0 | Credit: 8750 | Ref: INV-20260612-0008 | Balance After: 18984284
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0009
+   Debit: 0 | Credit: 8750 | Ref: INV-20260612-0009 | Balance After: 18993034
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0010
+   Debit: 0 | Credit: 8750 | Ref: INV-20260612-0010 | Balance After: 19001784
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0011
+   Debit: 0 | Credit: 8750 | Ref: INV-20260612-0011 | Balance After: 19010534
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0012
+   Debit: 0 | Credit: 25250 | Ref: INV-20260612-0012 | Balance After: 19035784
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0014
+   Debit: 0 | Credit: 90000 | Ref: INV-20260612-0014 | Balance After: 19125784
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0015
+   Debit: 0 | Credit: 555000 | Ref: INV-20260612-0015 | Balance After: 19680784
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0017
+   Debit: 0 | Credit: 10000 | Ref: INV-20260612-0017 | Balance After: 19690784
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0018
+   Debit: 0 | Credit: 8750 | Ref: INV-20260612-0018 | Balance After: 19699534
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0019
+   Debit: 0 | Credit: 8750 | Ref: INV-20260612-0019 | Balance After: 19708284
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0020
+   Debit: 0 | Credit: 8750 | Ref: INV-20260612-0020 | Balance After: 19717034
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0021
+   Debit: 0 | Credit: 8750 | Ref: INV-20260612-0021 | Balance After: 19725784
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0022
+   Debit: 0 | Credit: 8750 | Ref: INV-20260612-0022 | Balance After: 19734534
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0023
+   Debit: 0 | Credit: 8750 | Ref: INV-20260612-0023 | Balance After: 19743284
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0024
+   Debit: 0 | Credit: 8750 | Ref: INV-20260612-0024 | Balance After: 19752034
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0025
+   Debit: 0 | Credit: 273750 | Ref: INV-20260612-0025 | Balance After: 20025784
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0026
+   Debit: 0 | Credit: 273750 | Ref: INV-20260612-0026 | Balance After: 20299534
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0027
+   Debit: 0 | Credit: 8750 | Ref: INV-20260612-0027 | Balance After: 20308284
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0028
+   Debit: 0 | Credit: 51000 | Ref: INV-20260612-0028 | Balance After: 20359284
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0029
+   Debit: 0 | Credit: 90000 | Ref: INV-20260612-0029 | Balance After: 20449284
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0030
+   Debit: 0 | Credit: 8750 | Ref: INV-20260612-0030 | Balance After: 20458034
+[2026-06-12] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260612-0031
+   Debit: 0 | Credit: 8750 | Ref: INV-20260612-0031 | Balance After: 20466784
+[2026-06-12] 2-1102 - Pembayaran Jasa Medik: dr. Feri Gustiawan (2 Layanan)
+   Debit: 600000 | Credit: 0 | Ref: PAY-939818 | Balance After: 19866784
+[2026-06-12] 2-1102 - Penyesuaian Jasa Medik Manual: SUNAT LEM  - dr. Feri Gustiawan
+   Debit: 0 | Credit: 300000 | Ref: ADJ-FF4A7898 | Balance After: 20166784
+[2026-06-12] 2-1102 - Penyesuaian Jasa Medik Manual: SUNAT LEM  - dr. Feri Gustiawan
+   Debit: 0 | Credit: 300000 | Ref: ADJ-C12CDD81 | Balance After: 20466784
+[2026-06-12] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK DOKTER GIGI - drg. Putri
+   Debit: 0 | Credit: 220000 | Ref: ADJ-A24528D1 | Balance After: 20686784
+[2026-06-12] 2-1102 - Pembayaran Jasa Medik: drg. Putri (5 Layanan)
+   Debit: 565000 | Credit: 0 | Ref: PAY-159786 | Balance After: 20121784
+[2026-06-12] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - dr. Pera Siska
+   Debit: 0 | Credit: 275000 | Ref: ADJ-D84315C6 | Balance After: 20396784
+[2026-06-12] 2-1102 - Penyesuaian Jasa Medik Manual: lab darah rutin  - dr. Pera Siska
+   Debit: 0 | Credit: 9000 | Ref: ADJ-17AA7B61 | Balance After: 20405784
+[2026-06-12] 2-1102 - Penyesuaian Jasa Medik Manual: lab dr+gds - dr. Pera Siska
+   Debit: 0 | Credit: 11500 | Ref: ADJ-A4E4A779 | Balance After: 20417284
+[2026-06-12] 2-1102 - Pembayaran Jasa Medik: dr. Pera Siska (18 Layanan)
+   Debit: 420750 | Credit: 0 | Ref: PAY-670177 | Balance After: 19996534
+[2026-06-12] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK DOKTER GIGI - drg. Widya
+   Debit: 0 | Credit: 220000 | Ref: ADJ-A959C557 | Balance After: 20216534
+[2026-06-12] 2-1102 - Pembayaran Jasa Medik: drg. Widya (6 Layanan)
+   Debit: 616000 | Credit: 0 | Ref: PAY-339901 | Balance After: 19600534
+[2026-06-12] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - dr. Pera Siska
+   Debit: 0 | Credit: 275000 | Ref: ADJ-721380FD | Balance After: 19875534
+[2026-06-12] 2-1102 - Penyesuaian Jasa Medik Manual: ASAM URAT STIK - dr. Pera Siska
+   Debit: 0 | Credit: 5000 | Ref: ADJ-71D2D1F9 | Balance After: 19880534
+[2026-06-12] 2-1102 - Penyesuaian Jasa Medik Manual: lab - dr. Pera Siska
+   Debit: 0 | Credit: 17000 | Ref: ADJ-B5BC8272 | Balance After: 19897534
+[2026-06-12] 2-1102 - Penyesuaian Jasa Medik Manual: ASAM URAT STIK - dr. Pera Siska
+   Debit: 0 | Credit: 5000 | Ref: ADJ-2BDEB36C | Balance After: 19902534
+[2026-06-12] 2-1102 - Penyesuaian Jasa Medik Manual: lab  - dr. Pera Siska
+   Debit: 0 | Credit: 8000 | Ref: ADJ-1361A86F | Balance After: 19910534
+[2026-06-12] 2-1102 - Pembayaran Jasa Medik: dr. Pera Siska (10 Layanan)
+   Debit: 380000 | Credit: 0 | Ref: PAY-006261 | Balance After: 19530534
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0001
+   Debit: 0 | Credit: 350000 | Ref: INV-20260613-0001 | Balance After: 19880534
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0002
+   Debit: 0 | Credit: 350000 | Ref: INV-20260613-0002 | Balance After: 20230534
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0004
+   Debit: 0 | Credit: 6500 | Ref: INV-20260613-0004 | Balance After: 20237034
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0007
+   Debit: 0 | Credit: 8750 | Ref: INV-20260613-0007 | Balance After: 20245784
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0008
+   Debit: 0 | Credit: 8750 | Ref: INV-20260613-0008 | Balance After: 20254534
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0009
+   Debit: 0 | Credit: 8750 | Ref: INV-20260613-0009 | Balance After: 20263284
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0010
+   Debit: 0 | Credit: 45000 | Ref: INV-20260613-0010 | Balance After: 20308284
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0011
+   Debit: 0 | Credit: 8750 | Ref: INV-20260613-0011 | Balance After: 20317034
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0012
+   Debit: 0 | Credit: 8750 | Ref: INV-20260613-0012 | Balance After: 20325784
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0013
+   Debit: 0 | Credit: 8750 | Ref: INV-20260613-0013 | Balance After: 20334534
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0014
+   Debit: 0 | Credit: 8750 | Ref: INV-20260613-0014 | Balance After: 20343284
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0015
+   Debit: 0 | Credit: 8750 | Ref: INV-20260613-0015 | Balance After: 20352034
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0017
+   Debit: 0 | Credit: 8750 | Ref: INV-20260613-0017 | Balance After: 20360784
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0018
+   Debit: 0 | Credit: 8750 | Ref: INV-20260613-0018 | Balance After: 20369534
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0019
+   Debit: 0 | Credit: 300000 | Ref: INV-20260613-0019 | Balance After: 20669534
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0021
+   Debit: 0 | Credit: 8750 | Ref: INV-20260613-0021 | Balance After: 20678284
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0022
+   Debit: 0 | Credit: 8750 | Ref: INV-20260613-0022 | Balance After: 20687034
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0023
+   Debit: 0 | Credit: 13750 | Ref: INV-20260613-0023 | Balance After: 20700784
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0024
+   Debit: 0 | Credit: 8750 | Ref: INV-20260613-0024 | Balance After: 20709534
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0025
+   Debit: 0 | Credit: 8750 | Ref: INV-20260613-0025 | Balance After: 20718284
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0026
+   Debit: 0 | Credit: 43750 | Ref: INV-20260613-0026 | Balance After: 20762034
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0027
+   Debit: 0 | Credit: 75000 | Ref: INV-20260613-0027 | Balance After: 20837034
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0029
+   Debit: 0 | Credit: 210000 | Ref: INV-20260613-0029 | Balance After: 21047034
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0030
+   Debit: 0 | Credit: 111000 | Ref: INV-20260613-0030 | Balance After: 21158034
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0032
+   Debit: 0 | Credit: 8750 | Ref: INV-20260613-0032 | Balance After: 21166784
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0033
+   Debit: 0 | Credit: 8750 | Ref: INV-20260613-0033 | Balance After: 21175534
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0034
+   Debit: 0 | Credit: 8750 | Ref: INV-20260613-0034 | Balance After: 21184284
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0035
+   Debit: 0 | Credit: 8750 | Ref: INV-20260613-0035 | Balance After: 21193034
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0036
+   Debit: 0 | Credit: 8750 | Ref: INV-20260613-0036 | Balance After: 21201784
+[2026-06-13] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260613-0037
+   Debit: 0 | Credit: 8750 | Ref: INV-20260613-0037 | Balance After: 21210534
+[2026-06-13] 2-1102 - Pembayaran Jasa Medik: drg. Putri (6 Layanan)
+   Debit: 415000 | Credit: 0 | Ref: PAY-687070 | Balance After: 20795534
+[2026-06-13] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - dr. Feri Gustiawan
+   Debit: 0 | Credit: 275000 | Ref: ADJ-4B9CD24F | Balance After: 21070534
+[2026-06-13] 2-1102 - Penyesuaian Jasa Medik Manual: bonus minggu - dr. Feri Gustiawan
+   Debit: 0 | Credit: 90000 | Ref: ADJ-45B1F485 | Balance After: 21160534
+[2026-06-13] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK DOKTER GIGI - drg. Putri
+   Debit: 0 | Credit: 220000 | Ref: ADJ-68F6BCFA | Balance After: 21380534
+[2026-06-13] 2-1102 - Penyesuaian Jasa Medik Manual: Bonus Minggu - drg. Putri
+   Debit: 0 | Credit: 90000 | Ref: ADJ-C2081126 | Balance After: 21470534
+[2026-06-13] 2-1102 - Pembayaran Jasa Medik: dr. Feri Gustiawan (20 Layanan)
+   Debit: 890000 | Credit: 0 | Ref: PAY-435830 | Balance After: 20580534
+[2026-06-13] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK DOKTER GIGI - drg. Asma
+   Debit: 0 | Credit: 220000 | Ref: ADJ-3F3CC57A | Balance After: 20800534
+[2026-06-13] 2-1102 - Penyesuaian Jasa Medik Manual: bonus minggu - drg. Asma
+   Debit: 0 | Credit: 90000 | Ref: ADJ-A18C3CDE | Balance After: 20890534
+[2026-06-13] 2-1102 - Pembayaran Jasa Medik: drg. Asma (3 Layanan)
+   Debit: 445000 | Credit: 0 | Ref: PAY-635392 | Balance After: 20445534
+[2026-06-13] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - dr. Pera Siska
+   Debit: 0 | Credit: 275000 | Ref: ADJ-6C683202 | Balance After: 20720534
+[2026-06-13] 2-1102 - Penyesuaian Jasa Medik Manual: uang lembur - dr. Pera Siska
+   Debit: 0 | Credit: 90000 | Ref: ADJ-3ECABE84 | Balance After: 20810534
+[2026-06-13] 2-1102 - Pembayaran Jasa Medik: dr. Pera Siska (11 Layanan)
+   Debit: 440500 | Credit: 0 | Ref: PAY-237719 | Balance After: 20370034
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0001
+   Debit: 0 | Credit: 300000 | Ref: INV-20260614-0001 | Balance After: 20670034
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0004
+   Debit: 0 | Credit: 8750 | Ref: INV-20260614-0004 | Balance After: 20678784
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0005
+   Debit: 0 | Credit: 8750 | Ref: INV-20260614-0005 | Balance After: 20687534
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0006
+   Debit: 0 | Credit: 8750 | Ref: INV-20260614-0006 | Balance After: 20696284
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0007
+   Debit: 0 | Credit: 75250 | Ref: INV-20260614-0007 | Balance After: 20771534
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0008
+   Debit: 0 | Credit: 8750 | Ref: INV-20260614-0008 | Balance After: 20780284
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0009
+   Debit: 0 | Credit: 8750 | Ref: INV-20260614-0009 | Balance After: 20789034
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0010
+   Debit: 0 | Credit: 8750 | Ref: INV-20260614-0010 | Balance After: 20797784
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0011
+   Debit: 0 | Credit: 8750 | Ref: INV-20260614-0011 | Balance After: 20806534
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0012
+   Debit: 0 | Credit: 8750 | Ref: INV-20260614-0012 | Balance After: 20815284
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0013
+   Debit: 0 | Credit: 8750 | Ref: INV-20260614-0013 | Balance After: 20824034
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0014
+   Debit: 0 | Credit: 105000 | Ref: INV-20260614-0014 | Balance After: 20929034
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0015
+   Debit: 0 | Credit: 79750 | Ref: INV-20260614-0015 | Balance After: 21008784
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0016
+   Debit: 0 | Credit: 13000 | Ref: INV-20260614-0016 | Balance After: 21021784
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0019
+   Debit: 0 | Credit: 8750 | Ref: INV-20260614-0019 | Balance After: 21030534
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0020
+   Debit: 0 | Credit: 8750 | Ref: INV-20260614-0020 | Balance After: 21039284
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0021
+   Debit: 0 | Credit: 18750 | Ref: INV-20260614-0021 | Balance After: 21058034
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0022
+   Debit: 0 | Credit: 8750 | Ref: INV-20260614-0022 | Balance After: 21066784
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0023
+   Debit: 0 | Credit: 8750 | Ref: INV-20260614-0023 | Balance After: 21075534
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0024
+   Debit: 0 | Credit: 8750 | Ref: INV-20260614-0024 | Balance After: 21084284
+[2026-06-14] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260614-0025
+   Debit: 0 | Credit: 135000 | Ref: INV-20260614-0025 | Balance After: 21219284
+[2026-06-14] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK DOKTER GIGI - drg. Widya
+   Debit: 0 | Credit: 220000 | Ref: ADJ-31361B58 | Balance After: 21439284
+[2026-06-14] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK DOKTER GIGI - drg. Devi
+   Debit: 0 | Credit: 220000 | Ref: ADJ-01689B11 | Balance After: 21659284
+[2026-06-14] 2-1102 - Pembayaran Jasa Medik: drg. Devi (UANG DUDUK DOKTER GIGI)
+   Debit: 220000 | Credit: 0 | Ref: PAY-728042 | Balance After: 21439284
+[2026-06-14] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - dr. Sintia Balqis
+   Debit: 0 | Credit: 275000 | Ref: ADJ-3ED9E3F5 | Balance After: 21714284
+[2026-06-14] 2-1102 - Penyesuaian Jasa Medik Manual: stik lab - dr. Sintia Balqis
+   Debit: 0 | Credit: 32000 | Ref: ADJ-61CDB38D | Balance After: 21746284
+[2026-06-14] 2-1102 - Pembayaran Jasa Medik: dr. Sintia Balqis (19 Layanan)
+   Debit: 485750 | Credit: 0 | Ref: PAY-352115 | Balance After: 21260534
+[2026-06-14] 2-1102 - Penyesuaian Jasa Medik Manual: UANG DUDUK - dr. Pera Siska
+   Debit: 0 | Credit: 275000 | Ref: ADJ-BF5C47AD | Balance After: 21535534
+[2026-06-14] 2-1102 - Pembayaran Jasa Medik: dr. Pera Siska (14 Layanan)
+   Debit: 383500 | Credit: 0 | Ref: PAY-740292 | Balance After: 21152034
+[2026-06-14] 2-1102 - Pembayaran Jasa Medik: drg. Widya (UANG DUDUK DOKTER GIGI)
+   Debit: 220000 | Credit: 0 | Ref: PAY-957143 | Balance After: 20932034
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0001
+   Debit: 0 | Credit: 13000 | Ref: INV-20260615-0001 | Balance After: 20945034
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0004
+   Debit: 0 | Credit: 8750 | Ref: INV-20260615-0004 | Balance After: 20953784
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0006
+   Debit: 0 | Credit: 8750 | Ref: INV-20260615-0006 | Balance After: 20962534
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0008
+   Debit: 0 | Credit: 8750 | Ref: INV-20260615-0008 | Balance After: 20971284
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0009
+   Debit: 0 | Credit: 8750 | Ref: INV-20260615-0009 | Balance After: 20980034
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0010
+   Debit: 0 | Credit: 8750 | Ref: INV-20260615-0010 | Balance After: 20988784
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0011
+   Debit: 0 | Credit: 16750 | Ref: INV-20260615-0011 | Balance After: 21005534
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0013
+   Debit: 0 | Credit: 8750 | Ref: INV-20260615-0013 | Balance After: 21014284
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0014
+   Debit: 0 | Credit: 8750 | Ref: INV-20260615-0014 | Balance After: 21023034
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0015
+   Debit: 0 | Credit: 8750 | Ref: INV-20260615-0015 | Balance After: 21031784
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0016
+   Debit: 0 | Credit: 8750 | Ref: INV-20260615-0016 | Balance After: 21040534
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0018
+   Debit: 0 | Credit: 10000 | Ref: INV-20260615-0018 | Balance After: 21050534
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0020
+   Debit: 0 | Credit: 8750 | Ref: INV-20260615-0020 | Balance After: 21059284
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0021
+   Debit: 0 | Credit: 23750 | Ref: INV-20260615-0021 | Balance After: 21083034
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0022
+   Debit: 0 | Credit: 8750 | Ref: INV-20260615-0022 | Balance After: 21091784
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0024
+   Debit: 0 | Credit: 8750 | Ref: INV-20260615-0024 | Balance After: 21100534
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0025
+   Debit: 0 | Credit: 8750 | Ref: INV-20260615-0025 | Balance After: 21109284
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0026
+   Debit: 0 | Credit: 38750 | Ref: INV-20260615-0026 | Balance After: 21148034
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0027
+   Debit: 0 | Credit: 8750 | Ref: INV-20260615-0027 | Balance After: 21156784
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0028
+   Debit: 0 | Credit: 8750 | Ref: INV-20260615-0028 | Balance After: 21165534
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0029
+   Debit: 0 | Credit: 8750 | Ref: INV-20260615-0029 | Balance After: 21174284
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0030
+   Debit: 0 | Credit: 18750 | Ref: INV-20260615-0030 | Balance After: 21193034
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0031
+   Debit: 0 | Credit: 8750 | Ref: INV-20260615-0031 | Balance After: 21201784
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0032
+   Debit: 0 | Credit: 8750 | Ref: INV-20260615-0032 | Balance After: 21210534
+[2026-06-15] 2-1102 - Pengakuan Piutang & Pendapatan - Inv #INV-20260615-0033
+   Debit: 0 | Credit: 8750 | Ref: INV-20260615-0033 | Balance After: 21219284
+[2026-06-15] 2-1102 - Pembayaran Jasa Medik: drg. Widya (362 Layanan)
+   Debit: 22189284 | Credit: 0 | Ref: PAY-622397 | Balance After: -970000
+
+=== SALDO AKHIR: -970000 ===

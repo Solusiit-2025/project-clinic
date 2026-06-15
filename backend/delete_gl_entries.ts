@@ -1,12 +1,15 @@
 import { PrismaClient } from '@prisma/client';
+
 const prisma = new PrismaClient();
 
-async function run() {
-  const journals = await prisma.journalEntry.findMany({
+async function main() {
+  console.log("Menghapus entri GL untuk 'Running Tex' dan 'Alat Laborator...'...");
+
+  const entriesToDelete = await prisma.journalEntry.findMany({
     where: {
       OR: [
-        { description: { contains: 'Running Tex' } },
-        { description: { contains: 'Alat Laborator' } }
+        { description: { contains: "Running Tex" } },
+        { description: { contains: "Alat Laborator" } }
       ]
     },
     include: {
@@ -14,34 +17,40 @@ async function run() {
     }
   });
 
-  if (journals.length === 0) {
-    console.log("No matching Journal Entries found.");
-    return;
+  console.log(`Ditemukan ${entriesToDelete.length} entri jurnal.`);
+
+  for (const entry of entriesToDelete) {
+    console.log(`Menghapus entri: ${entry.description} (Tgl: ${entry.date})`);
+    
+    // We can just use the delete operation if cascade is set, or delete details first.
+    // The details relation is `details`, so the table is likely `journalEntryDetail` or `journalDetail` or similar.
+    // We can just use raw query to delete if we aren't sure of the exact model name, or we can use deleteMany on journalEntry if Cascade is on.
+    
+    try {
+      await prisma.journalEntry.delete({
+        where: { id: entry.id }
+      });
+      console.log(`✅ Berhasil dihapus (Cascade bekerja).`);
+    } catch (e: any) {
+      console.log(`Cascade gagal, mencoba menghapus manual...`);
+      // Use raw SQL to delete details first
+      await prisma.$executeRawUnsafe(`DELETE FROM journal_details WHERE "journalEntryId" = '${entry.id}'`);
+      await prisma.$executeRawUnsafe(`DELETE FROM journal_entry_details WHERE "journalEntryId" = '${entry.id}'`);
+      await prisma.journalEntry.delete({
+        where: { id: entry.id }
+      });
+      console.log(`✅ Berhasil dihapus.`);
+    }
   }
 
-  console.log("Found Journal Entries to delete:");
-  for (const entry of journals) {
-    console.log(`- ID: ${entry.id}, Date: ${entry.date}, Desc: ${entry.description}`);
-  }
-
-  console.log("\nDeleting entries...");
-  const deleteDetails = await prisma.journalDetail.deleteMany({
-    where: {
-      journalEntryId: {
-        in: journals.map(e => e.id)
-      }
-    }
-  });
-  
-  const deleteJournals = await prisma.journalEntry.deleteMany({
-    where: {
-      id: {
-        in: journals.map(e => e.id)
-      }
-    }
-  });
-
-  console.log(`Deleted ${deleteDetails.count} journal details and ${deleteJournals.count} journal entries.`);
+  console.log("Selesai menghapus data.");
 }
 
-run().catch(console.error).finally(() => prisma.$disconnect());
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

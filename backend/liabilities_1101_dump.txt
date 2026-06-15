@@ -1,0 +1,18 @@
+=== Hutang Dagang (2-1101) ===
+[2026-05-15] 2-1101-K001 - Stok Masuk: Acyclovir Salp [Batch: 1778842529879] (PROCUREMENT_GRN #34d87fcb-ca73-42fc-b2e5-6b7a78580b75)
+   Debit: 0 | Credit: 150000 | Ref: INV-MUT-018fbe5e-5dba-4018-a788-5fd4dbed7833 | Balance After: 150000
+   ID Journal: 3f0b03cf-9dda-408f-b113-3be3da804e0b
+[2026-05-15] 2-1101-K001 - Stok Masuk: Kapsul Alergi  (ASSEMBLY #1a112eda-d6be-4b0e-ae55-8ebc770a6ed1)
+   Debit: 0 | Credit: 10000 | Ref: INV-MUT-1a112eda-d6be-4b0e-ae55-8ebc770a6ed1 | Balance After: 160000
+   ID Journal: af6843ad-5486-4208-8204-8cfff7051834
+[2026-05-16] 2-1101-K001 - Pembayaran Hutang Supplier - PR-1778842516148
+   Debit: 150000 | Credit: 0 | Ref: PPAY-1778931383400-001 | Balance After: 10000
+   ID Journal: 2e006d70-0047-4550-81a9-96ad2cf38561
+[2026-05-20] 2-1101-K001 - Stok Masuk: Acyclovir Salp [Batch: pm] (PROCUREMENT_GRN #02add140-db7c-42fc-bd1a-a27d2fc2d0c9)
+   Debit: 0 | Credit: 150000 | Ref: INV-MUT-c0230f92-7e31-4c89-b00d-8de7ad236b9f | Balance After: 160000
+   ID Journal: d69620b9-dff7-4ecb-9cd4-a0258e7957ec
+[2026-05-23] 2-1101-K001 - Pembayaran Hutang Supplier - PR-1779256579666
+   Debit: 1500 | Credit: 0 | Ref: PPAY-1779512384423-002 | Balance After: 158500
+   ID Journal: dda84c23-4416-43c8-937b-95d11fee63e7
+
+=== SALDO AKHIR: 158500 ===

@@ -217,7 +217,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
     const totalRevValue = (totalRevenueAgg._sum.credit || 0) - (totalRevenueAgg._sum.debit || 0)
     const totalExpValue = (totalExpenseAgg._sum.debit || 0) - (totalExpenseAgg._sum.credit || 0)
 
-    const globalNetProfit = totalRevValue - totalExpValue
+    const globalNetProfit = Math.round(totalRevValue - totalExpValue)
 
     // Real trend: compare today vs yesterday for registrations & revenue
     const regTrend =
@@ -268,7 +268,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         name: c.name,
         code: c.code,
         patients: pats.length,
-        profit: r - ex,
+        profit: Math.round(r - ex),
         assets: assets._sum.purchasePrice || 0,
         stocks: stocks._sum.onHandQty || 0,
       })
@@ -302,7 +302,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         const r = (revAgg._sum.credit || 0) - (revAgg._sum.debit || 0)
         const ex = (expAgg._sum.debit || 0) - (expAgg._sum.credit || 0)
         const label = new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: '2-digit', timeZone: 'Asia/Jakarta' }).format(d)
-        financialTrend.push({ label, revenue: r, expense: ex, profit: r - ex })
+        financialTrend.push({ label, revenue: Math.round(r), expense: Math.round(ex), profit: Math.round(r - ex) })
       }
     } else if (range === 'year') {
       const currentYear = today.getFullYear()
@@ -336,7 +336,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         const r = (revAgg._sum.credit || 0) - (revAgg._sum.debit || 0)
         const ex = (expAgg._sum.debit || 0) - (expAgg._sum.credit || 0)
         const label = new Intl.DateTimeFormat('id-ID', { month: 'short', timeZone: 'Asia/Jakarta' }).format(monthStart)
-        financialTrend.push({ label, revenue: r, expense: ex, profit: r - ex })
+        financialTrend.push({ label, revenue: Math.round(r), expense: Math.round(ex), profit: Math.round(r - ex) })
       }
     } else {
       // week (default)
@@ -365,7 +365,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         const r = (revAgg._sum.credit || 0) - (revAgg._sum.debit || 0)
         const ex = (expAgg._sum.debit || 0) - (expAgg._sum.credit || 0)
         const label = new Intl.DateTimeFormat('id-ID', { weekday: 'short', timeZone: 'Asia/Jakarta' }).format(d)
-        financialTrend.push({ label, revenue: r, expense: ex, profit: r - ex })
+        financialTrend.push({ label, revenue: Math.round(r), expense: Math.round(ex), profit: Math.round(r - ex) })
       }
     }
 

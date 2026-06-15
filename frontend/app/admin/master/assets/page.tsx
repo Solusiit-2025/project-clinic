@@ -114,6 +114,49 @@ export default function AssetsPage() {
     fetchMasters()
   }, [fetchData, fetchClinics, fetchMasters])
 
+  useEffect(() => {
+    if (!modalOpen) return;
+    
+    const price = Number(form.purchasePrice) || 0;
+    const salvage = Number(form.salvageValue) || 0;
+    const years = Number(form.usefulLifeYears) || 5;
+    const purchaseD = form.purchaseDate ? new Date(form.purchaseDate) : new Date();
+    const now = new Date();
+    
+    let monthsElapsed = (now.getFullYear() - purchaseD.getFullYear()) * 12 + (now.getMonth() - purchaseD.getMonth());
+    if (monthsElapsed < 0) monthsElapsed = 0;
+    
+    let accumulated = 0;
+    if (form.depreciationMethod === 'STRAIGHT_LINE') {
+      const depreciableAmount = Math.max(0, price - salvage);
+      accumulated = (depreciableAmount / (years * 12)) * monthsElapsed;
+    } else {
+      const rate = (1 / years) * 2;
+      let bookValue = price;
+      const fullYears = Math.floor(monthsElapsed / 12);
+      const remMonths = monthsElapsed % 12;
+      for (let i = 0; i < fullYears; i++) {
+        let dep = bookValue * rate;
+        if (bookValue - dep < salvage) dep = bookValue - salvage;
+        accumulated += dep;
+        bookValue -= dep;
+      }
+      if (remMonths > 0 && bookValue > salvage) {
+        let dep = (bookValue * rate) * (remMonths / 12);
+        if (bookValue - dep < salvage) dep = bookValue - salvage;
+        accumulated += dep;
+      }
+    }
+    
+    if (accumulated > price - salvage) accumulated = Math.max(0, price - salvage);
+    const totalDep = Math.round(accumulated);
+    const currentVal = price - totalDep;
+    
+    if (form.totalDepreciated !== totalDep || form.currentValue !== currentVal) {
+      setForm(p => ({ ...p, totalDepreciated: totalDep, currentValue: currentVal }));
+    }
+  }, [form.purchasePrice, form.salvageValue, form.usefulLifeYears, form.purchaseDate, form.depreciationMethod, modalOpen]);
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -128,6 +171,7 @@ export default function AssetsPage() {
 
   const handleSave = async () => {
     if (!form.assetCode || !form.assetName) { setError('Kode dan nama aset wajib diisi'); return }
+    if (!form.masterProductId) { setError('Kategori Katalog Master Belum Ditentukan. Harap pilih dari katalog.'); return }
     setSaving(true); setError('')
     try {
       const formData = new FormData()
@@ -488,53 +532,9 @@ export default function AssetsPage() {
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-[10px] font-black text-emerald-800/40 uppercase tracking-widest">Akum. Penyusutan Saat Ini (Rp)</label>
-                    <button 
-                      type="button" 
-                      onClick={() => {
-                        const price = Number(form.purchasePrice) || 0;
-                        const salvage = Number(form.salvageValue) || 0;
-                        const years = Number(form.usefulLifeYears) || 5;
-                        const purchaseD = form.purchaseDate ? new Date(form.purchaseDate) : new Date();
-                        const now = new Date();
-                        
-                        let monthsElapsed = (now.getFullYear() - purchaseD.getFullYear()) * 12 + (now.getMonth() - purchaseD.getMonth());
-                        if (monthsElapsed < 0) monthsElapsed = 0;
-                        
-                        let accumulated = 0;
-                        if (form.depreciationMethod === 'STRAIGHT_LINE') {
-                          const depreciableAmount = Math.max(0, price - salvage);
-                          accumulated = (depreciableAmount / (years * 12)) * monthsElapsed;
-                        } else {
-                          const rate = (1 / years) * 2;
-                          let bookValue = price;
-                          const fullYears = Math.floor(monthsElapsed / 12);
-                          const remMonths = monthsElapsed % 12;
-                          for (let i = 0; i < fullYears; i++) {
-                            let dep = bookValue * rate;
-                            if (bookValue - dep < salvage) dep = bookValue - salvage;
-                            accumulated += dep;
-                            bookValue -= dep;
-                          }
-                          if (remMonths > 0 && bookValue > salvage) {
-                            let dep = (bookValue * rate) * (remMonths / 12);
-                            if (bookValue - dep < salvage) dep = bookValue - salvage;
-                            accumulated += dep;
-                          }
-                        }
-                        
-                        if (accumulated > price - salvage) accumulated = Math.max(0, price - salvage);
-                        
-                        const totalDep = Math.round(accumulated);
-                        setForm(p => ({
-                          ...p, 
-                          totalDepreciated: totalDep,
-                          currentValue: (p.purchasePrice || 0) - totalDep
-                        }));
-                      }}
-                      className="text-[9px] text-emerald-600 hover:text-emerald-700 hover:bg-emerald-200/50 bg-emerald-100/50 px-2 py-0.5 rounded transition-all font-black"
-                    >
-                      HITUNG OTOMATIS
-                    </button>
+                    <span className="text-[9px] text-emerald-600 bg-emerald-100/50 px-2 py-0.5 rounded font-black italic">
+                      DIHITUNG OTOMATIS
+                    </span>
                   </div>
                   <input 
                     type="number" value={form.totalDepreciated} 
