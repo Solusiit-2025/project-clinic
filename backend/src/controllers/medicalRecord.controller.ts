@@ -3,6 +3,14 @@ import { PrismaClient, Prisma } from '@prisma/client'
 
 import { prisma } from '../lib/prisma'
 
+/** Konversi ke tanggal WIB (UTC midnight) agar konsisten */
+function toWIBDate(utcDate: Date = new Date()): Date {
+  const WIB_OFFSET_MS = 7 * 60 * 60 * 1000
+  const wibMs = utcDate.getTime() + WIB_OFFSET_MS
+  const wib = new Date(wibMs)
+  return new Date(Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate()))
+}
+
 /**
  * Step 1: Nurse saves Vital Signs and Chief Complaint
  * Updates queue status to 'ready' (for doctor)
@@ -432,7 +440,7 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
                 medicalRecordId: mr.id,
                 patientId: mr.patientId,
                 doctorId: mr.doctorId || (req as any).user.doctor?.id,
-                prescriptionDate: new Date(),
+                prescriptionDate: toWIBDate(),
                 items: {
                   create: safePrescriptions.map((item: any) => ({
                     isRacikan: !!item.isRacikan,
@@ -740,7 +748,7 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
                   data: {
                     doctorId: commissionDoctorId,
                     clinicId: finalClinicId,
-                    date: new Date(),
+                    date: toWIBDate(),
                     description: `Jasa Dokter Pasien ke-${patientPositionToday} - ${mr.patient.name}`,
                     amount: volumeBonusFee,
                     type: 'VOLUME_BONUS',

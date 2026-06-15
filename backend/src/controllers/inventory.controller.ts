@@ -114,7 +114,7 @@ export const getBranchStocks = async (req: Request, res: Response) => {
       }
     });
     const totalAssetValue = allMatchingStocks.reduce((sum, s) => {
-      return sum + (s.onHandQty * (s.unitCost || s.product?.purchasePrice || 0));
+      return sum + (s.onHandQty * (s.unitCost ?? s.product?.purchasePrice ?? 0));
     }, 0);
 
     if (pageParam) {
@@ -1349,7 +1349,7 @@ export const syncInventoryPrices = async (req: Request, res: Response) => {
           const product = stock?.product || await prisma.product.findUnique({ where: { id: pid }, include: { branchPrices: { where: { branchId: clinic.id } }, masterProduct: true } });
           if (!product) continue;
 
-          let unitCost = stock?.unitCost || product.purchasePrice || product.masterProduct?.purchasePrice || 0;
+          let unitCost = stock?.unitCost ?? product.purchasePrice ?? product.masterProduct?.purchasePrice ?? 0;
           if (!unitCost && product.branchPrices?.length > 0) {
              unitCost = product.branchPrices[0].purchasePrice || 0;
           }

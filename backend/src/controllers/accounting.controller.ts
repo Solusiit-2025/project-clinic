@@ -3,6 +3,14 @@ import { prisma } from '../lib/prisma'
 import { AccountCategory } from '@prisma/client'
 import { parseLocalDate } from '../utils/date'
 
+/** Konversi ke tanggal WIB (UTC midnight) agar konsisten dengan semua jurnal inventory */
+function toWIBDate(utcDate: Date = new Date()): Date {
+  const WIB_OFFSET_MS = 7 * 60 * 60 * 1000
+  const wibMs = utcDate.getTime() + WIB_OFFSET_MS
+  const wib = new Date(wibMs)
+  return new Date(Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate()))
+}
+
 /**
  * Get Trial Balance (Real-time)
  */
@@ -988,7 +996,7 @@ export const postReconciliation = async (req: Request, res: Response) => {
     const journal = await prisma.journalEntry.create({
       data: {
         clinicId: targetClinicId,
-        date: new Date(),
+        date: toWIBDate(),
         description: description || 'Jurnal Penyesuaian Rekonsiliasi Persediaan',
         referenceNo,
         entryType: 'MANUAL',

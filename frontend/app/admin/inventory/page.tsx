@@ -245,9 +245,10 @@ export default function InventoryDashboard() {
           ) : (
             <div className="grid grid-cols-1 gap-3 md:gap-4 lg:gap-2">
               {filteredStocks.map((stock) => {
-                const onHand = stock.onHandQty || 0;
-                const reserved = stock.reservedQty || 0;
-                const available = onHand - reserved;
+                const formatQty = (qty: number) => Number.isInteger(qty) ? qty : Number(qty.toFixed(2));
+                const onHand = formatQty(stock.onHandQty || 0);
+                const reserved = formatQty(stock.reservedQty || 0);
+                const available = formatQty(onHand - reserved);
                 const isLow = onHand <= (stock.minStockAlert || 0);
                 const price = stock.batch?.purchasePrice || stock.product?.purchasePrice || 0;
 

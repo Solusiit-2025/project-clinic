@@ -1,6 +1,14 @@
 import { Request, Response } from 'express'
 import { prisma } from '../lib/prisma'
 
+/** Konversi ke tanggal WIB (UTC midnight) agar konsisten dengan semua jurnal */
+function toWIBDate(utcDate: Date = new Date()): Date {
+  const WIB_OFFSET_MS = 7 * 60 * 60 * 1000
+  const wibMs = utcDate.getTime() + WIB_OFFSET_MS
+  const wib = new Date(wibMs)
+  return new Date(Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate()))
+}
+
 // Helper function untuk format rupiah
 const formatRupiah = (amount: number): string => {
   return new Intl.NumberFormat('id-ID', {
@@ -348,7 +356,7 @@ export const assembleCompoundFormula = async (req: Request, res: Response) => {
         journalEntry = await tx.journalEntry.create({
           data: {
             clinicId,
-            date: new Date(),
+            date: toWIBDate(),
             description: `Assembly produk racikan: ${formula.formulaName} (${quantity} unit)`,
             referenceNo,
             entryType: 'ASSEMBLY',

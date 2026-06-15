@@ -21,6 +21,14 @@ import { prisma } from '../lib/prisma'
 import path from 'path'
 import fs from 'fs'
 
+/** Konversi ke tanggal WIB (UTC midnight) agar konsisten dengan inventoryLedger.service.ts */
+function toWIBDate(utcDate: Date = new Date()): Date {
+  const WIB_OFFSET_MS = 7 * 60 * 60 * 1000
+  const wibMs = utcDate.getTime() + WIB_OFFSET_MS
+  const wib = new Date(wibMs)
+  return new Date(Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate()))
+}
+
 // ─── Helper: resolve COA ──────────────────────────────────────────────────────
 
 async function resolveCoa(key: string, fallbackCode: string, clinicId: string) {
@@ -118,7 +126,7 @@ export const payProcurement = async (req: Request, res: Response) => {
       // Debit 2-1101 Hutang Dagang / Kredit Kas atau Bank
       const journal = await tx.journalEntry.create({
         data: {
-          date: new Date(),
+          date: toWIBDate(),
           description: `Pembayaran Hutang Supplier - ${procurement.procurementNo}`,
           referenceNo: paymentNo,
           entryType: 'SYSTEM',
@@ -359,7 +367,7 @@ export const receiveCash = async (req: Request, res: Response) => {
 
       const journal = await tx.journalEntry.create({
         data: {
-          date: new Date(),
+          date: toWIBDate(),
           description: `Pembelian Tunai - ${procurement.procurementNo}`,
           referenceNo: paymentNo,
           entryType: 'SYSTEM',

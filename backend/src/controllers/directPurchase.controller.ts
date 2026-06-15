@@ -2,6 +2,14 @@ import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { syncInventoryToLedger } from '../services/inventoryLedger.service';
 
+/** Konversi ke tanggal WIB (UTC midnight) agar konsisten dengan semua jurnal */
+function toWIBDate(utcDate: Date = new Date()): Date {
+  const WIB_OFFSET_MS = 7 * 60 * 60 * 1000
+  const wibMs = utcDate.getTime() + WIB_OFFSET_MS
+  const wib = new Date(wibMs)
+  return new Date(Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate()))
+}
+
 // Get all direct purchases
 export const getDirectPurchases = async (req: Request, res: Response) => {
   try {
@@ -368,7 +376,7 @@ export const payDirectPurchase = async (req: Request, res: Response) => {
       
       await tx.journalEntry.create({
         data: {
-          date: new Date(),
+          date: toWIBDate(),
           description,
           referenceNo: `PAY-${purchase.purchaseNo}`,
           entryType: 'SYSTEM',

@@ -11,6 +11,14 @@
 import { Request, Response } from 'express'
 import { prisma } from '../lib/prisma'
 
+/** Konversi ke tanggal WIB (UTC midnight) agar konsisten dengan semua jurnal */
+function toWIBDate(utcDate: Date = new Date()): Date {
+  const WIB_OFFSET_MS = 7 * 60 * 60 * 1000
+  const wibMs = utcDate.getTime() + WIB_OFFSET_MS
+  const wib = new Date(wibMs)
+  return new Date(Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate()))
+}
+
 // Helper for COA resolution
 async function resolveCoa(key: string, fallbackCode: string, clinicId: string) {
   const sys = await prisma.systemAccount.findFirst({
@@ -922,7 +930,7 @@ export const postAssetInsuranceToGL = async (req: Request, res: Response) => {
       const referenceNo = `INS-${insurance.asset.assetCode}-${Date.now().toString().slice(-4)}`
       const journal = await tx.journalEntry.create({
         data: {
-          date: new Date(),
+          date: toWIBDate(),
           description: `Pembayaran Asuransi: ${insurance.asset.assetName} (${insurance.policyNumber})`,
           referenceNo,
           entryType: 'SYSTEM',
