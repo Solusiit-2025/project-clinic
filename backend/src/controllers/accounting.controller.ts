@@ -871,11 +871,7 @@ export const getReconciliationData = async (req: Request, res: Response) => {
     // 4. Hitung Nilai Fisik Persediaan (Sum onHandQty * unitCost dari seluruh InventoryStock)
     const stocks = await prisma.inventoryStock.findMany({
       where: {
-        branchId: targetClinicId,
-        product: {
-          deletedAt: null,
-          isActive: true
-        }
+        branchId: targetClinicId
       },
       include: {
         product: {
@@ -896,15 +892,16 @@ export const getReconciliationData = async (req: Request, res: Response) => {
     let physicalValue = 0
     const stockDetails = []
     for (const s of stocks) {
-      const value = Number(s.onHandQty) * Number(s.unitCost || 0)
+      const unitCost = s.unitCost ?? s.product?.purchasePrice ?? s.product?.masterProduct?.purchasePrice ?? 0
+      const value = Number(s.onHandQty) * Number(unitCost)
       physicalValue += value
-      if (Number(s.onHandQty) > 0 || Number(s.unitCost || 0) > 0) {
+      if (Number(s.onHandQty) > 0 || Number(unitCost) > 0) {
         stockDetails.push({
           id: s.id,
           name: s.product.productName || s.product.masterProduct?.masterName || 'Produk Tanpa Nama',
           sku: s.product.sku || s.product.masterProduct?.sku || '-',
           quantity: Number(s.onHandQty),
-          purchasePrice: Number(s.unitCost || 0),
+          purchasePrice: Number(unitCost),
           totalValue: value
         })
       }
