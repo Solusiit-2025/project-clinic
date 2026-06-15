@@ -248,6 +248,8 @@ export default function ProductsPage() {
 
       if (form.image instanceof File) {
         formData.append('image', form.image)
+      } else if (form.image === null) {
+        formData.append('image', 'null')
       }
 
       if (editing) {

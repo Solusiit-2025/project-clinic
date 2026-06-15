@@ -176,6 +176,7 @@ export default function MedicinesPage() {
       Object.entries(form).forEach(([key, value]) => {
         if (key === 'image') {
           if (value instanceof File) formData.append('image', value)
+          else if (value === null) formData.append('image', 'null')
         } else if (key === 'expiryDate') {
           if (value) formData.append('expiryDate', new Date(value as string).toISOString())
         } else if (value !== null && value !== undefined && typeof value !== 'object') {

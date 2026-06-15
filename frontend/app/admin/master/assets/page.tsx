@@ -178,6 +178,7 @@ export default function AssetsPage() {
       Object.entries(form).forEach(([key, value]) => {
         if (key === 'image') {
           if (value instanceof File) formData.append('image', value)
+          else if (value === null) formData.append('image', 'null')
         } else if (key === 'purchaseDate') {
           if (value) formData.append('purchaseDate', new Date(value as string).toISOString())
         } else if (value !== null && value !== undefined) {

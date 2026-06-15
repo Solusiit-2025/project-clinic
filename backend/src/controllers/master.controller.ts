@@ -997,7 +997,8 @@ export const updateMedicine = async (req: Request, res: Response) => {
       ...rest 
     } = req.body
     
-    let image = req.body.image
+    let image: string | null | undefined = typeof req.body.image === 'string' ? req.body.image : undefined
+    if (req.body.image === 'null' || req.body.image === '') image = null
     if (req.file) {
       image = await processMedicinePhoto(req.file)
     }
@@ -1366,7 +1367,9 @@ export const updateProductMaster = async (req: Request, res: Response) => {
     // 1. Handle Image
     if (req.file) {
       data.image = await processProductPhoto(req.file)
-    } else if (data.image === 'undefined' || data.image === 'null' || data.image === '/uploads/undefined') {
+    } else if (data.image === 'null' || data.image === '' || data.image === 'undefined') {
+      data.image = null
+    } else {
       delete data.image
     }
 
@@ -1840,7 +1843,8 @@ export const updateAsset = async (req: Request, res: Response) => {
       clinic, masterProduct, id, createdAt, updatedAt, clinicId, masterProductId, ...otherData 
     } = req.body
     
-    let image = req.body.image
+    let image: string | null | undefined = typeof req.body.image === 'string' ? req.body.image : undefined
+    if (req.body.image === 'null' || req.body.image === '') image = null
     if (req.file) {
       image = await processAssetPhoto(req.file)
     }
@@ -2090,10 +2094,15 @@ export const updateInventoryProduct = async (req: Request, res: Response) => {
       if (pm) rest.productName = pm.masterName
     }
     
-    // Process image if uploaded
-    if (req.file) {
-      const imagePath = await processProductPhoto(req.file)
-      
+    // Process image if uploaded or deleted
+    let imagePath: string | null | undefined = undefined;
+    if (req.body.image === 'null' || req.body.image === '') {
+      imagePath = null;
+    } else if (req.file) {
+      imagePath = await processProductPhoto(req.file)
+    }
+    
+    if (imagePath !== undefined) {
       // Find the master product id
       const currentProduct = await prisma.product.findUnique({
         where: { id: req.params.id },
