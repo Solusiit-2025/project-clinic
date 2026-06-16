@@ -6,7 +6,8 @@ import {
   FiLayers, FiPlus, FiSearch, FiRefreshCw, FiUser, FiCalendar,
   FiCheckCircle, FiClock, FiDollarSign, FiFileText, FiX,
   FiChevronRight, FiActivity, FiCreditCard, FiEye, FiTrash2,
-  FiArrowRight, FiHash
+  FiArrowRight, FiHash, FiDroplet, FiPrinter, FiAlertCircle,
+  FiPackage, FiTruck, FiEdit3, FiPhone, FiMapPin
 } from 'react-icons/fi'
 import { toast } from 'react-hot-toast'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -71,6 +72,37 @@ interface TreatmentPlanItem {
   subtotal: number
 }
 
+type WorkOrderStatus = 'DRAFT' | 'PENDING_DP' | 'SENT_TO_LAB' | 'RECEIVED' | 'FITTED' | 'CANCELLED'
+
+interface WorkOrder {
+  id: string
+  workOrderNo: string
+  labName: string
+  labContact?: string
+  labAddress?: string
+  itemDescription: string
+  shade?: string
+  size?: string
+  toothNumber?: string
+  estimatedDate?: string
+  labFee: number
+  status: WorkOrderStatus
+  notes?: string
+  sentDate?: string
+  receivedDate?: string
+  fittedDate?: string
+  createdAt: string
+}
+
+const WO_STATUS_CONFIG: Record<WorkOrderStatus, { label: string; color: string; bg: string; border: string; icon: any }> = {
+  DRAFT:       { label: 'Draft',             color: 'text-gray-500',    bg: 'bg-gray-50',    border: 'border-gray-200',   icon: FiEdit3 },
+  PENDING_DP:  { label: 'Menunggu DP',       color: 'text-orange-600',  bg: 'bg-orange-50',  border: 'border-orange-200', icon: FiAlertCircle },
+  SENT_TO_LAB: { label: 'Di Lab',            color: 'text-blue-600',    bg: 'bg-blue-50',    border: 'border-blue-200',   icon: FiTruck },
+  RECEIVED:    { label: 'Diterima dari Lab', color: 'text-violet-600',  bg: 'bg-violet-50',  border: 'border-violet-200', icon: FiPackage },
+  FITTED:      { label: 'Sudah Dipasang',    color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: FiCheckCircle },
+  CANCELLED:   { label: 'Dibatalkan',        color: 'text-red-500',     bg: 'bg-red-50',     border: 'border-red-200',    icon: FiX },
+}
+
 interface TreatmentPlan {
   id: string
   description: string
@@ -81,6 +113,7 @@ interface TreatmentPlan {
   visits: Visit[]
   invoices?: Invoice[]
   items?: TreatmentPlanItem[]
+  workOrders?: WorkOrder[]
 }
 
 // ──────────────────────── Helpers ────────────────────────
@@ -139,7 +172,39 @@ export default function TreatmentPlansPage() {
   // Invoice form
   const [invoiceForm, setInvoiceForm] = useState({ description: 'DP / Termin', price: 0 })
 
-  // ── Fetch list ──
+  // Work Order state
+  const [showWorkOrderModal, setShowWorkOrderModal] = useState(false)
+  const [woLoading, setWoLoading] = useState(false)
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
+  const [woForm, setWoForm] = useState({
+    labName: '',
+    labContact: '',
+    labAddress: '',
+    itemDescription: '',
+    shade: '',
+    size: '',
+    toothNumber: '',
+    estimatedDate: '',
+    labFee: 0,
+    notes: '',
+  })
+
+  // Fetch WOs for selected plan
+  const fetchWorkOrders = useCallback(async (planId: string) => {
+    try {
+      setWoLoading(true)
+      const res = await api.get('/dental-lab/work-orders', { params: { treatmentPlanId: planId } })
+      // Filter client-side untuk treatmentPlan yang dipilih
+      const allWOs = res.data?.data || []
+      setWorkOrders(allWOs.filter((wo: WorkOrder & { treatmentPlanId: string }) => wo.treatmentPlanId === planId))
+    } catch {
+      setWorkOrders([])
+    } finally {
+      setWoLoading(false)
+    }
+  }, [])
+
+
   const fetchPlans = useCallback(async () => {
     try {
       setLoading(true)
@@ -174,6 +239,7 @@ export default function TreatmentPlansPage() {
       setDetailLoading(true)
       const res = await api.get(`/treatment-plans/${id}`)
       setSelectedPlan(res.data)
+      fetchWorkOrders(id) // Load WOs for this plan
     } catch {
       toast.error('Gagal mengambil detail')
     } finally {
@@ -218,6 +284,36 @@ export default function TreatmentPlansPage() {
       setProcessing(false)
     }
   }
+
+  // ── Create Work Order (SPK Lab) ──
+  const handleCreateWorkOrder = async () => {
+    if (!selectedPlan || !woForm.labName || !woForm.itemDescription) {
+      return toast.error('Nama Lab dan Deskripsi Item wajib diisi')
+    }
+    try {
+      setProcessing(true)
+      await api.post('/dental-lab/work-orders', {
+        treatmentPlanId: selectedPlan.id,
+        ...woForm,
+        labFee: parseFloat(String(woForm.labFee)) || 0
+      })
+      toast.success('🧪 SPK Lab berhasil dibuat!')
+      setShowWorkOrderModal(false)
+      setWoForm({ labName: '', labContact: '', labAddress: '', itemDescription: '', shade: '', size: '', toothNumber: '', estimatedDate: '', labFee: 0, notes: '' })
+      fetchWorkOrders(selectedPlan.id)
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Gagal membuat SPK Lab'
+      if (err?.response?.data?.errorCode === 'NO_DP_FOUND') {
+        toast.error('❌ SPK belum bisa dibuat — Pasien belum bayar DP!', { duration: 5000 })
+      } else {
+        toast.error(msg)
+      }
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+
 
   // ── Edit treatment plan ──
   const [isEditingDesc, setIsEditingDesc] = useState(false)
@@ -747,11 +843,117 @@ export default function TreatmentPlansPage() {
                       </>
                     )}
                   </div>
+
+                  {/* ── SPK Lab Eksternal Section ── */}
+                  <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm p-6 md:p-8">
+                    <div className="flex items-center justify-between mb-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center text-blue-500">
+                          <FiDroplet className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">SPK Lab Eksternal</h3>
+                          <p className="text-[9px] font-bold text-gray-400 tracking-widest mt-0.5">Surat Perintah Kerja Dental Lab</p>
+                        </div>
+                      </div>
+                      {selectedPlan.status === 'ACTIVE' && (() => {
+                        const hasDp = (selectedPlan.invoices || []).some(inv => inv.status === 'partial' || inv.status === 'paid')
+                        return hasDp ? (
+                          <button
+                            onClick={() => setShowWorkOrderModal(true)}
+                            className="px-4 py-2.5 bg-blue-50 text-blue-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-100 transition-all flex items-center gap-1.5 shadow-sm hover:shadow-md"
+                          >
+                            <FiPlus className="w-3.5 h-3.5" /> Buat SPK
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-2 px-4 py-2.5 bg-orange-50 text-orange-500 rounded-xl border border-orange-200">
+                            <FiAlertCircle className="w-3.5 h-3.5" />
+                            <span className="text-[9px] font-black uppercase tracking-widest">Butuh DP dulu</span>
+                          </div>
+                        )
+                      })()}
+                    </div>
+
+                    {/* DP Status Banner */}
+                    {(() => {
+                      const invoices = selectedPlan.invoices || []
+                      const hasDp = invoices.some(inv => inv.status === 'partial' || inv.status === 'paid')
+                      if (!hasDp && invoices.length > 0) {
+                        return (
+                          <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-2xl flex items-start gap-3">
+                            <FiAlertCircle className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="text-xs font-black text-orange-700">SPK Belum Bisa Dibuat</p>
+                              <p className="text-[10px] text-orange-600 mt-0.5">Pasien belum membayar Down Payment. Arahkan ke Kasir untuk proses DP terlebih dahulu sebelum membuat SPK ke Dental Lab.</p>
+                            </div>
+                          </div>
+                        )
+                      }
+                      if (hasDp) {
+                        return (
+                          <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-2">
+                            <FiCheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">DP Sudah Dibayar — SPK Dapat Dibuat</p>
+                          </div>
+                        )
+                      }
+                      return null
+                    })()}
+
+                    {/* WO List */}
+                    {woLoading ? (
+                      <div className="py-6 text-center">
+                        <FiRefreshCw className="w-5 h-5 text-blue-400 animate-spin mx-auto mb-2" />
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Memuat SPK...</p>
+                      </div>
+                    ) : workOrders.length === 0 ? (
+                      <div className="py-6 text-center border-2 border-dashed border-gray-100 rounded-2xl">
+                        <FiDroplet className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Belum ada SPK Lab dibuat</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {workOrders.map(wo => {
+                          const cfg = WO_STATUS_CONFIG[wo.status]
+                          const WOIcon = cfg.icon
+                          return (
+                            <div key={wo.id} className={`border rounded-2xl p-4 ${cfg.bg} ${cfg.border}`}>
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-black text-gray-800 uppercase truncate">{wo.itemDescription}</p>
+                                  <p className="text-[9px] font-mono text-gray-400 mt-0.5">{wo.workOrderNo}</p>
+                                </div>
+                                <span className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border flex items-center gap-1 shrink-0 ${cfg.color} ${cfg.bg} ${cfg.border}`}>
+                                  <WOIcon className="w-3 h-3" />{cfg.label}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-4 text-[9px] font-bold text-gray-500">
+                                <span className="flex items-center gap-1"><FiDroplet className="w-3 h-3" />{wo.labName}</span>
+                                {wo.toothNumber && <span className="flex items-center gap-1"><FiHash className="w-3 h-3" />Gigi {wo.toothNumber}</span>}
+                                {wo.estimatedDate && <span className="flex items-center gap-1"><FiCalendar className="w-3 h-3" />{new Date(wo.estimatedDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>}
+                              </div>
+                              {wo.shade && (
+                                <p className="text-[9px] font-bold text-gray-400 mt-1">Shade: {wo.shade}</p>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    <a
+                      href="/admin/lab/external"
+                      className="mt-4 w-full flex items-center justify-center gap-2 py-3 border border-blue-200 text-blue-500 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-50 transition-all"
+                    >
+                      <FiArrowRight className="w-3.5 h-3.5" /> Buka Halaman Monitoring Lab
+                    </a>
+                  </div>
                 </>
               )}
             </motion.div>
           )}
         </AnimatePresence>
+
       </div>
 
       {/* ═══════════════════ MODALS ═══════════════════ */}
@@ -1009,6 +1211,155 @@ export default function TreatmentPlansPage() {
                 >
                   {processing ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiPlus className="w-4 h-4" />}
                   {processing ? 'Memproses...' : 'Terbitkan Tagihan'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Create Work Order (SPK Lab) Modal ── */}
+      <AnimatePresence>
+        {showWorkOrderModal && selectedPlan && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => !processing && setShowWorkOrderModal(false)}
+              className="absolute inset-0 bg-gray-950/80 backdrop-blur-md" />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[92vh] overflow-y-auto shadow-2xl">
+              <div className="p-6 md:p-8">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
+                      <FiDroplet className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">Buat SPK Lab Eksternal</h3>
+                      <p className="text-[10px] font-bold text-gray-400 tracking-widest mt-0.5">Surat Perintah Kerja ke Dental Lab</p>
+                    </div>
+                  </div>
+                  <button onClick={() => !processing && setShowWorkOrderModal(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-50">
+                    <FiX className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Patient Info Banner */}
+                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-6">
+                  <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mb-1">Pasien</p>
+                  <p className="text-sm font-black text-gray-800">{selectedPlan.patient.name}</p>
+                  <p className="text-[10px] font-mono text-gray-500">{selectedPlan.patient.medicalRecordNo} • {selectedPlan.description}</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  {/* Nama Lab */}
+                  <div className="md:col-span-2">
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block flex items-center gap-1">
+                      <FiDroplet className="w-3 h-3" /> Nama Dental Lab *
+                    </label>
+                    <input type="text" value={woForm.labName}
+                      onChange={e => setWoForm(f => ({ ...f, labName: e.target.value }))}
+                      placeholder="Misal: Dental Lab Sejahtera / UD. Karya Gigi"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+                  </div>
+
+                  {/* Kontak Lab */}
+                  <div>
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block flex items-center gap-1">
+                      <FiPhone className="w-3 h-3" /> Kontak Lab
+                    </label>
+                    <input type="text" value={woForm.labContact}
+                      onChange={e => setWoForm(f => ({ ...f, labContact: e.target.value }))}
+                      placeholder="No. Telp / WhatsApp"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+                  </div>
+
+                  {/* Biaya Lab */}
+                  <div>
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block flex items-center gap-1">
+                      <FiDollarSign className="w-3 h-3" /> Biaya ke Lab (Rp)
+                    </label>
+                    <input type="number" value={woForm.labFee || ''}
+                      onChange={e => setWoForm(f => ({ ...f, labFee: parseFloat(e.target.value) || 0 }))}
+                      placeholder="0"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+                  </div>
+
+                  {/* Deskripsi Item */}
+                  <div className="md:col-span-2">
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block">
+                      Jenis Pekerjaan Lab *
+                    </label>
+                    <input type="text" value={woForm.itemDescription}
+                      onChange={e => setWoForm(f => ({ ...f, itemDescription: e.target.value }))}
+                      placeholder="Misal: Crown Porselen / Gigi Palsu Sebagian / Veneer Komposit"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+                  </div>
+
+                  {/* Nomor Gigi */}
+                  <div>
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block">
+                      Nomor Gigi
+                    </label>
+                    <input type="text" value={woForm.toothNumber}
+                      onChange={e => setWoForm(f => ({ ...f, toothNumber: e.target.value }))}
+                      placeholder="Misal: 36 / 11, 12"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+                  </div>
+
+                  {/* Shade */}
+                  <div>
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block">
+                      Shade / Warna Gigi
+                    </label>
+                    <input type="text" value={woForm.shade}
+                      onChange={e => setWoForm(f => ({ ...f, shade: e.target.value }))}
+                      placeholder="Misal: A1 / A2 / B2 / Natural"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+                  </div>
+
+                  {/* Size / Mold */}
+                  <div>
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block">
+                      Ukuran / Cetakan
+                    </label>
+                    <input type="text" value={woForm.size}
+                      onChange={e => setWoForm(f => ({ ...f, size: e.target.value }))}
+                      placeholder="Misal: L / XL / Cetakan Alginate"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+                  </div>
+
+                  {/* Estimasi Selesai */}
+                  <div>
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block flex items-center gap-1">
+                      <FiCalendar className="w-3 h-3" /> Estimasi Selesai Lab
+                    </label>
+                    <input type="date" value={woForm.estimatedDate}
+                      onChange={e => setWoForm(f => ({ ...f, estimatedDate: e.target.value }))}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+                  </div>
+
+                  {/* Notes */}
+                  <div className="md:col-span-2">
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block">
+                      Catatan Dokter ke Lab
+                    </label>
+                    <textarea value={woForm.notes}
+                      onChange={e => setWoForm(f => ({ ...f, notes: e.target.value }))}
+                      placeholder="Instruksi khusus untuk lab, preferensi bahan, dll..."
+                      rows={3}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all resize-none" />
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleCreateWorkOrder}
+                  disabled={processing || !woForm.labName || !woForm.itemDescription}
+                  className="w-full px-6 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-200 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {processing ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiDroplet className="w-4 h-4" />}
+                  {processing ? 'Membuat SPK...' : 'Buat Surat Perintah Kerja'}
                 </button>
               </div>
             </motion.div>

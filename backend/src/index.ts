@@ -29,6 +29,7 @@ import directPurchaseRoutes from './routes/directPurchase.routes';
 import { guestDoctorRoutes } from './routes/guest-doctor.routes';
 import treatmentPlanRoutes from './routes/treatmentPlan.routes';
 import notificationRoutes from './routes/notification.routes';
+import dentalLabRoutes from './routes/dentalLab.routes';
 
 // Load environment variables
 dotenv.config();
@@ -113,6 +114,7 @@ app.use('/api/direct-purchases', directPurchaseRoutes);
 app.use('/api/guest-doctors', guestDoctorRoutes);
 app.use('/api/treatment-plans', treatmentPlanRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/dental-lab', dentalLabRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

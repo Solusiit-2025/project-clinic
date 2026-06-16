@@ -139,16 +139,17 @@ model Patient {
   deathIcd10Id       String?
   deathIcd10         Icd10?            @relation("DeathIcd", fields: [deathIcd10Id], references: [id])
   
-  appointments       Appointment[]
-  invoices           Invoice[]
-  labOrders          LabOrder[]
-  medicalRecords     MedicalRecord[]
-  birthRecords       BirthRecord[]
-  corporatePartner   CorporatePartner? @relation(fields: [corporatePartnerId], references: [id])
-  prescriptions      Prescription[]
-  queueNumbers       QueueNumber[]
-  registrations      Registration[]
-  treatmentPlans     TreatmentPlan[]
+  appointments         Appointment[]
+  invoices             Invoice[]
+  labOrders            LabOrder[]
+  medicalRecords       MedicalRecord[]
+  birthRecords         BirthRecord[]
+  corporatePartner     CorporatePartner? @relation(fields: [corporatePartnerId], references: [id])
+  prescriptions        Prescription[]
+  queueNumbers         QueueNumber[]
+  registrations        Registration[]
+  treatmentPlans       TreatmentPlan[]
+  dentalLabWorkOrders  DentalLabWorkOrder[]
 
   @@index([medicalRecordNo])
   @@index([phone])
@@ -1743,6 +1744,7 @@ model TreatmentPlan {
   items          TreatmentPlanItem[]
   patient        Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
   visits         Visit[]
+  workOrders     DentalLabWorkOrder[]
 
   @@index([patientId])
   @@index([status])
@@ -1881,6 +1883,51 @@ enum AccountType {
 enum TreatmentPlanStatus {
   ACTIVE
   COMPLETED
+}
+
+enum WorkOrderStatus {
+  DRAFT
+  PENDING_DP       // Menunggu DP sebelum bisa dikirim ke lab
+  SENT_TO_LAB      // Sudah dikirim ke lab
+  RECEIVED         // Barang sudah diterima dari lab
+  FITTED           // Sudah dipasang ke pasien
+  CANCELLED        // Dibatalkan
+}
+
+/// Surat Perintah Kerja (SPK) ke Dental Lab Eksternal.
+/// Dibuat oleh Dokter setelah pasien membayar DP.
+/// Berbeda dengan LabOrder (lab internal medis).
+model DentalLabWorkOrder {
+  id              String          @id @default(uuid())
+  workOrderNo     String          @unique
+  treatmentPlanId String
+  patientId       String
+  labName         String          // Nama Dental Lab Eksternal
+  labContact      String?         // Nomor kontak lab
+  labAddress      String?         // Alamat lab
+  itemDescription String          // Deskripsi item (Crown Porselen, Gigi Palsu, dll)
+  shade           String?         // Warna gigi (A1, A2, B1, dll)
+  size            String?         // Ukuran / cetakan
+  toothNumber     String?         // Nomor gigi yang dikerjakan
+  estimatedDate   DateTime?       // Estimasi selesai dari lab
+  sentDate        DateTime?       // Tanggal SPK dikirim ke lab
+  receivedDate    DateTime?       // Tanggal barang diterima
+  fittedDate      DateTime?       // Tanggal dipasang ke pasien
+  status          WorkOrderStatus @default(DRAFT)
+  labFee          Float           @default(0) // Biaya yang dibayar ke lab
+  notes           String?         // Catatan tambahan dari dokter
+  createdBy       String?         // userId dokter yang membuat
+  updatedBy       String?         // userId yang terakhir update
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  treatmentPlan   TreatmentPlan   @relation(fields: [treatmentPlanId], references: [id], onDelete: Cascade)
+  patient         Patient         @relation(fields: [patientId], references: [id])
+
+  @@index([treatmentPlanId])
+  @@index([patientId])
+  @@index([status])
+  @@map("dental_lab_work_orders")
 }
 
 model BirthRecord {
