@@ -9,9 +9,11 @@ import {
   FiHome, FiAlertCircle, FiClipboard, FiHeart, FiThermometer, FiWind,
   FiEdit3, FiTrash2, FiSearch, FiPackage, FiInfo, FiArrowLeft, FiSave, FiRotateCcw, FiPrinter,
   FiPlus, FiMinus, FiDollarSign, FiHash, FiClock, FiChevronDown, FiCalendar, FiLock, FiUnlock,
-  FiMonitor, FiFileText, FiBox
+  FiMonitor, FiFileText, FiBox, FiLayers
 } from 'react-icons/fi'
 import { HiOutlineBeaker } from 'react-icons/hi'
+import TreatmentPlanModule from '@/components/doctor/TreatmentPlanModule'
+import Odontogram from '@/components/doctor/Odontogram'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { useUIStore } from '@/lib/store/useUIStore'
 import { toast } from 'react-hot-toast'
@@ -130,7 +132,7 @@ export default function DoctorConsultationPage() {
   const [isSecondaryIcdDropdownOpen, setIsSecondaryIcdDropdownOpen] = useState(false)
   const [highlightedSecondaryIcdIndex, setHighlightedSecondaryIcdIndex] = useState(-1)
 
-  const [treatmentPlan, setTreatmentPlan] = useState('')
+  const [soapPlanText, setSoapPlanText] = useState('')
   const [labNotes, setLabNotes] = useState('')
   const [labResults, setLabResults] = useState('')
   const [notes, setNotes] = useState('')
@@ -168,7 +170,12 @@ export default function DoctorConsultationPage() {
   const [attachments, setAttachments] = useState<any[]>([])
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false)
 
-  const [activeSegment, setActiveSegment] = useState<'nurse' | 'diag' | 'tindakan' | 'lab' | 'rx' | 'history' | 'referral' | 'attachment' | 'consent'>('nurse')
+  const [activeSegment, setActiveSegment] = useState<'nurse' | 'diag' | 'odontogram' | 'tindakan' | 'lab' | 'treatmentPlan' | 'rx' | 'history' | 'referral' | 'attachment' | 'consent'>('nurse')
+  const [odontogramBefore, setOdontogramBefore] = useState<any>({ teeth: {} })
+  const [odontogramAfter, setOdontogramAfter] = useState<any>({ teeth: {} })
+  const [odontogramVersion, setOdontogramVersion] = useState<number>(1)
+  const [isOdontogramLoaded, setIsOdontogramLoaded] = useState(false)
+
   const [searchMed, setSearchMed] = useState('')
   const [searchService, setSearchService] = useState('')
 
@@ -408,7 +415,7 @@ export default function DoctorConsultationPage() {
       const queueHeaders = qData?.clinicId ? { 'x-clinic-id': qData.clinicId } : undefined
 
       // Fetch independent resources in parallel to reduce total load time
-      const [medicalRecordRes, historyRes, svcRes, labTestRes, templateRes, clinicsRes, deptsRes] = await Promise.all([
+      const [medicalRecordRes, historyRes, svcRes, labTestRes, templateRes, clinicsRes, deptsRes, odontogramRes] = await Promise.all([
         qData.registrationId
           ? api.get(`transactions/medical-records/registration/${qData.registrationId}`)
           : Promise.resolve({ data: null }),
@@ -422,7 +429,10 @@ export default function DoctorConsultationPage() {
         api.get('/lab/test-masters', { params: { isActive: true } }),
         api.get('clinical/templates'),
         api.get('master/clinics'),
-        api.get('master/departments')
+        api.get('master/departments'),
+        qData.patientId
+          ? api.get(`odontograms/${qData.patientId}`).catch(() => ({ data: { data: null } }))
+          : Promise.resolve({ data: { data: null } })
       ])
 
       // Fetch draft medical record
@@ -437,7 +447,7 @@ export default function DoctorConsultationPage() {
           setSelectedIcd10(data.icd10 || null)
           setSecondaryIcd10Ids(data.secondaryIcd10s?.map((s: any) => s.id) || [])
           setSelectedSecondaryIcd10s(data.secondaryIcd10s || [])
-          setTreatmentPlan(data.treatmentPlan || '')
+          setSoapPlanText(data.treatmentPlan || '')
           setLabNotes(data.labNotes || '')
           setLabResults(data.labResults || '')
           setNotes(data.notes || '')
@@ -537,7 +547,22 @@ export default function DoctorConsultationPage() {
                 serviceCode: s.code || s.serviceCode
               })));
             }
+
+            if (draft.odontogramBefore) setOdontogramBefore(draft.odontogramBefore);
+            if (draft.odontogramAfter) setOdontogramAfter(draft.odontogramAfter);
           }
+          
+          // If no draft odontogramBefore, but latest Odontogram exists from db, set it as before
+          const odontogramData = odontogramRes?.data?.data;
+          
+          if (!data.consultationDraft?.odontogramBefore && odontogramData?.state) {
+            setOdontogramBefore(odontogramData.state);
+            setOdontogramAfter(odontogramData.state); // Start "After" as same as "Before"
+          }
+          if (odontogramData?.version) {
+            setOdontogramVersion(odontogramData.version);
+          }
+          setIsOdontogramLoaded(true);
         }
 
         setHistory((historyRes.data || []).filter((h: any) => h.id !== data?.id))
@@ -875,7 +900,7 @@ export default function DoctorConsultationPage() {
         diagnosis,
         icd10Id,
         secondaryIcd10Ids,
-        treatmentPlan,
+        treatmentPlan: soapPlanText,
         labNotes,
         labResults,
         notes,
@@ -903,7 +928,10 @@ export default function DoctorConsultationPage() {
           instructions: p.instructions ? p.instructions.replace(/\s*\(?Apotek Luar\)?/gi, '').replace(/\s*\[?Eksternal\]?/gi, '').trim() : '',
           isExternal: !!p.isExternal
         })),
-        isFinal
+        isFinal,
+        odontogramBefore,
+        odontogramAfter,
+        odontogramVersion
       })
 
       toast.success(isFinal ? 'Pemeriksaan selesai!' : 'Draft disimpan!', { id: toastId })
@@ -939,7 +967,7 @@ export default function DoctorConsultationPage() {
         diagnosis,
         icd10Id,
         secondaryIcd10Ids,
-        treatmentPlan,
+        treatmentPlan: soapPlanText,
         labNotes,
         labResults,
         notes,
@@ -967,7 +995,10 @@ export default function DoctorConsultationPage() {
           instructions: p.instructions ? p.instructions.replace(/\s*\(?Apotek Luar\)?/gi, '').replace(/\s*\[?Eksternal\]?/gi, '').trim() : '',
           isExternal: !!p.isExternal
         })),
-        isFinal: false
+        isFinal: false,
+        odontogramBefore,
+        odontogramAfter,
+        odontogramVersion
       })
       toast.success('Draft tersimpan', { id: toastId })
       setRxPrintMode(mode)
@@ -1496,6 +1527,175 @@ export default function DoctorConsultationPage() {
 
     } catch (e) {
       console.error('Error generating PDF:', e)
+      toast.error('Gagal menghasilkan file PDF')
+    } finally {
+      setIsPrinting(false)
+    }
+  }
+
+  const generateOdontogramPDF = async (patientName: string) => {
+    const printElement = document.getElementById('print-odontogram-template')
+    if (!printElement || !queue) {
+      setIsPrinting(false)
+      return
+    }
+
+    try {
+      setIsPrinting(true)
+      const toastId = toast.loading('Memproses PDF Odontogram...')
+      // Capture the element
+      const canvas = await html2canvas(printElement, {
+        scale: 2, // High resolution
+        useCORS: true,
+        logging: false
+      })
+
+      const imgData = canvas.toDataURL('image/png')
+      // Landscape A4
+      const pdf = new jsPDF('l', 'mm', 'a4')
+      
+      const pdfWidth = 297 // A4 Landscape width
+      const pageHeight = 210 // A4 Landscape height
+      
+      // Calculate scaled height keeping aspect ratio
+      const imgWidth = 277 // Leave 10mm margin on each side (297 - 20)
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+
+      // --- Header (Similar to Lab PDF) ---
+      const primaryGreen: [number, number, number] = [21, 128, 61];
+
+      try {
+        pdf.addImage('/logo-yasfina.png', 'PNG', 15, 8, 30, 25);
+      } catch (e) {
+        pdf.setDrawColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+        pdf.setLineWidth(1);
+        pdf.rect(15, 8, 30, 25);
+        pdf.setFontSize(8);
+        pdf.text('LOGO', 23, 22);
+      }
+
+      pdf.setFontSize(18);
+      pdf.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('KLINIK PRATAMA YASFINA - HASIL ODONTOGRAM', 50, 20);
+
+      pdf.setFontSize(9);
+      pdf.setTextColor(80);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Villa Bogor Indah Blok BB 2 No. 1 Kedung Halang - Bogor', 50, 26);
+      pdf.text('Telp. : 0251-8666169', 50, 31);
+
+      // --- Patient Box ---
+      let currentY = 40;
+      pdf.setDrawColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+      pdf.setLineWidth(0.5);
+      pdf.rect(15, currentY, pdfWidth - 30, 20); // Main Box
+
+      pdf.setFontSize(9);
+      pdf.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+      pdf.setFont('helvetica', 'bold');
+
+      const leftX = 20;
+      const rightX = pdfWidth / 2 + 5;
+
+      pdf.text('Nama Pasien :', leftX, currentY + 7);
+      pdf.text('No. RM :', leftX, currentY + 14);
+
+      pdf.text('Dokter :', rightX, currentY + 7);
+      pdf.text('Tanggal :', rightX, currentY + 14);
+
+      pdf.setTextColor(0);
+      pdf.setFont('helvetica', 'normal');
+
+      pdf.text(patientName.toUpperCase(), leftX + 25, currentY + 7);
+      pdf.text(queue.patient.medicalRecordNo || '-', leftX + 25, currentY + 14);
+
+      pdf.text(queue.doctor?.name || '-', rightX + 25, currentY + 7);
+      pdf.text(new Date().toLocaleDateString('id-ID'), rightX + 25, currentY + 14);
+
+      currentY += 25;
+
+      // Ensure it fits
+      if (currentY + imgHeight > pageHeight) {
+        // If image is too tall, shrink it
+        const maxImgHeight = pageHeight - currentY - 10;
+        const newImgWidth = (canvas.width * maxImgHeight) / canvas.height;
+        // Center the smaller image
+        const xOffset = (pdfWidth - newImgWidth) / 2;
+        pdf.addImage(imgData, 'PNG', xOffset, currentY, newImgWidth, maxImgHeight)
+        currentY += maxImgHeight;
+      } else {
+        pdf.addImage(imgData, 'PNG', 10, currentY, imgWidth, imgHeight)
+        currentY += imgHeight;
+      }
+
+      // --- Table of Conditions ---
+      const conditionsList: any[] = [];
+      const conditionLabels: Record<string, string> = {
+        normal: 'Normal',
+        karies: 'Karies',
+        karies_sekunder: 'Karies Sekunder',
+        tambalan: 'Tambalan',
+        missing: 'Missing',
+        sisa_akar: 'Sisa Akar',
+        crown: 'Crown',
+        bridge: 'Bridge',
+        implan: 'Implan',
+      };
+
+      if (odontogramAfter?.teeth) {
+        Object.entries(odontogramAfter.teeth).forEach(([tooth, data]: [string, any]) => {
+          if (data.existing && data.existing.length > 0) {
+            data.existing.forEach((c: any) => {
+              conditionsList.push({
+                tooth,
+                status: 'Aktual',
+                type: conditionLabels[c.type] || c.type,
+                surface: c.surface.join(', ')
+              });
+            });
+          }
+          if (data.planned && data.planned.length > 0) {
+            data.planned.forEach((c: any) => {
+              conditionsList.push({
+                tooth,
+                status: 'Rencana (Planned)',
+                type: conditionLabels[c.type] || c.type,
+                surface: c.surface.join(', ')
+              });
+            });
+          }
+        });
+      }
+
+      if (conditionsList.length > 0) {
+        currentY += 10;
+        if (currentY > pageHeight - 30) {
+           pdf.addPage();
+           currentY = 20;
+        }
+
+        pdf.setFontSize(10);
+        pdf.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Daftar Kondisi Gigi:', 15, currentY);
+
+        autoTable(pdf, {
+          startY: currentY + 5,
+          head: [['Gigi', 'Status', 'Kondisi', 'Area']],
+          body: conditionsList.map(c => [c.tooth, c.status, c.type, c.surface]),
+          theme: 'grid',
+          headStyles: { fillColor: primaryGreen, textColor: 255 },
+          styles: { fontSize: 9 }
+        });
+      }
+
+      const dateStr = new Date().toISOString().split('T')[0]
+      pdf.save(`Odontogram_${patientName.replace(/\s+/g, '_')}_${dateStr}.pdf`)
+      toast.success('PDF Odontogram berhasil diunduh', { id: toastId })
+
+    } catch (e) {
+      console.error('Error generating Odontogram PDF:', e)
       toast.error('Gagal menghasilkan file PDF')
     } finally {
       setIsPrinting(false)
@@ -2099,14 +2299,18 @@ export default function DoctorConsultationPage() {
             {[
               { id: 'nurse', label: 'Nurse Handover', icon: <FiClipboard /> },
               { id: 'diag', label: 'SOAP & Diagnosa', icon: <FiActivity /> },
+              { id: 'odontogram', label: 'Odontogram', icon: <FiLayers />, isDentalOnly: true },
               { id: 'referral', label: 'Rujukan Medis', icon: <FiArrowLeft className="rotate-180" /> },
               { id: 'rx', label: 'Resep Obat (Rx)', icon: <FiPackage /> },
               { id: 'tindakan', label: 'Tindakan Medis', icon: <FiCheckCircle /> },
               { id: 'lab', label: 'Laboratorium', icon: <HiOutlineBeaker /> },
+              { id: 'treatmentPlan', label: 'Rangkaian & Lab Ekst', icon: <FiLayers />, isDentalOnly: true },
               { id: 'attachment', label: 'Lampiran / Media', icon: <FiPackage /> },
               { id: 'consent', label: 'Persetujuan (Consent)', icon: <FiLock /> },
               { id: 'history', label: 'Riwayat Pasien', icon: <FiRotateCcw /> },
-            ].map((s) => (
+            ]
+            .filter(s => !s.isDentalOnly || queue?.department?.name?.toLowerCase().includes('gigi'))
+            .map((s) => (
               <button
                 key={s.id}
                 onClick={() => setActiveSegment(s.id as any)}
@@ -2214,6 +2418,50 @@ export default function DoctorConsultationPage() {
               </motion.div>
             )}
 
+            {activeSegment === 'odontogram' && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-4"
+              >
+                <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
+                    <div className="flex flex-col gap-2">
+                      <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                        <FiLayers className="w-4 h-4 text-primary" /> Odontogram Pasien
+                      </h3>
+                      <p className="text-xs text-slate-500 font-medium">Pemetaan kondisi gigi pasien saat ini. Klik pada nomor gigi untuk memperbarui statusnya.</p>
+                    </div>
+                    {isOdontogramLoaded && (
+                      <button
+                        onClick={() => generateOdontogramPDF(queue?.patient?.name || 'Pasien')}
+                        disabled={isPrinting}
+                        className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
+                      >
+                        {isPrinting ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiPrinter className="w-4 h-4" />}
+                        {isPrinting ? 'Mencetak...' : 'Cetak PDF'}
+                      </button>
+                    )}
+                  </div>
+                  
+                  {isOdontogramLoaded ? (
+                    <div id="print-odontogram-template" className="bg-white p-2">
+                      <Odontogram 
+                        value={odontogramAfter} 
+                        onChange={setOdontogramAfter} 
+                        readonly={isReadOnly} 
+                      />
+                    </div>
+                  ) : (
+                    <div className="p-10 text-center text-slate-400">
+                      <FiRefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
+                      <p className="text-xs">Memuat Odontogram...</p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
             {activeSegment === 'diag' && (
               <motion.div key="diag" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
                 <div className="bg-white/80 backdrop-blur-xl p-4 lg:p-6 rounded-2xl border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] min-h-[300px]">
@@ -2236,7 +2484,7 @@ export default function DoctorConsultationPage() {
                                 setSubjective(t.content.subjective || '');
                                 setObjective(t.content.objective || '');
                                 setDiagnosis(t.content.diagnosis || '');
-                                setTreatmentPlan(t.content.treatmentPlan || '');
+                                setSoapPlanText(t.content.treatmentPlan || '');
                               }} className="w-full text-left p-3 hover:bg-slate-50 rounded-xl text-[11px] font-bold text-slate-700 transition-colors">
                                 {t.name}
                               </button>
@@ -2509,7 +2757,7 @@ export default function DoctorConsultationPage() {
                         <div className="w-6 h-6 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center text-[10px] font-black shadow-md shadow-amber-500/20 transform group-hover:-rotate-6 transition-transform">P</div>
                         <label className="text-[9px] font-black text-amber-400 uppercase tracking-[0.2em] group-focus-within:text-amber-600 transition-colors">Plan (Terapi/Rencana)</label>
                       </div>
-                      <textarea disabled={isReadOnly} value={treatmentPlan} onChange={(e) => setTreatmentPlan(e.target.value)} className={`w-full p-3 border-2 border-amber-200 rounded-xl min-h-[90px] lg:min-h-[110px] text-xs font-medium leading-relaxed focus:bg-white focus:border-amber-400 focus:ring-4 focus:ring-amber-500/10 outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60' : 'bg-amber-50/10 hover:border-amber-300'}`} placeholder="Rencana pengobatan, edukasi..." />
+                      <textarea disabled={isReadOnly} value={soapPlanText} onChange={(e) => setSoapPlanText(e.target.value)} className={`w-full p-3 border-2 border-amber-200 rounded-xl min-h-[90px] lg:min-h-[110px] text-xs font-medium leading-relaxed focus:bg-white focus:border-amber-400 focus:ring-4 focus:ring-amber-500/10 outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60' : 'bg-amber-50/10 hover:border-amber-300'}`} placeholder="Rencana pengobatan, edukasi..." />
                     </div>
                   </div>
                 </div>
@@ -3250,6 +3498,19 @@ export default function DoctorConsultationPage() {
                       )}
                     </div>
                   </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeSegment === 'treatmentPlan' && (
+              <motion.div key='treatmentPlan' initial={{ opacity: 0 }} animate={{ opacity: 1 }} className='space-y-4'>
+                <div className='bg-white/80 backdrop-blur-xl p-4 lg:p-6 rounded-2xl border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] min-h-[300px] flex flex-col'>
+                  <TreatmentPlanModule
+                    patientId={queue.patientId}
+                    doctorId={queue.doctorId}
+                    clinicId={queue.clinicId}
+                    isReadOnly={isReadOnly}
+                  />
                 </div>
               </motion.div>
             )}
@@ -4866,7 +5127,7 @@ export default function DoctorConsultationPage() {
                             {diagnosis || (!selectedIcd10 ? '-' : '')}
                           </p>
                           <p className="font-bold text-slate-400 uppercase tracking-widest text-[8px] mb-1">Terapi Diberikan (P)</p>
-                          <p className="whitespace-pre-wrap text-slate-700 leading-relaxed">{treatmentPlan || '-'}</p>
+                          <p className="whitespace-pre-wrap text-slate-700 leading-relaxed">{soapPlanText || '-'}</p>
                         </div>
                       </div>
                     </div>
@@ -4968,7 +5229,7 @@ export default function DoctorConsultationPage() {
                   </p>
 
                   <p className="font-bold text-slate-400 uppercase tracking-widest text-[8px] mb-1">Terapi Diberikan (P)</p>
-                  <p className="whitespace-pre-wrap text-slate-700 leading-relaxed">{treatmentPlan || "-"}</p>
+                  <p className="whitespace-pre-wrap text-slate-700 leading-relaxed">{soapPlanText || "-"}</p>
                 </div>
               </div>
             </div>

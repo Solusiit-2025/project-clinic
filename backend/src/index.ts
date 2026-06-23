@@ -30,6 +30,7 @@ import { guestDoctorRoutes } from './routes/guest-doctor.routes';
 import treatmentPlanRoutes from './routes/treatmentPlan.routes';
 import notificationRoutes from './routes/notification.routes';
 import dentalLabRoutes from './routes/dentalLab.routes';
+import odontogramRoutes from './routes/odontogram.routes';
 
 // Load environment variables
 dotenv.config();
@@ -115,6 +116,7 @@ app.use('/api/guest-doctors', guestDoctorRoutes);
 app.use('/api/treatment-plans', treatmentPlanRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/dental-lab', dentalLabRoutes);
+app.use('/api/odontograms', odontogramRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

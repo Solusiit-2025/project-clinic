@@ -57,6 +57,7 @@ export const LAYANAN_UTAMA_GROUPS = [
     moduleId: 'LABORATORY',
     items: [
       { icon: HiOutlineBeaker, label: 'Antrian Laboratorium', href: '/admin/lab/input' },
+      { icon: FiFileText,      label: 'SPK Lab Eksternal', href: '/admin/lab/external' },
       { icon: FiBookOpen,      label: 'Master Parameter Lab', href: '/admin/master/lab', roles: ['SUPER_ADMIN', 'ADMIN'] },
     ]
   }

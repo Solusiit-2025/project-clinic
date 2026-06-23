@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
 import { PrismaClient, Prisma } from '@prisma/client'
+import { OdontogramStateSchema } from '../types/odontogram.schema'
 
 import { prisma } from '../lib/prisma'
 
@@ -203,7 +204,10 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
         hasInformedConsent,
         services, // [{ serviceId, price, quantity }]
         prescriptions, // [{ medicineId, quantity, dosage, frequency, duration, instructions }]
-        isFinal = true // Default to true for backward compatibility
+        isFinal = true, // Default to true for backward compatibility
+        odontogramBefore,
+        odontogramAfter,
+        odontogramVersion
     } = req.body
 
     const result = await prisma.$transaction(async (tx) => {
@@ -223,12 +227,45 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
           labResults,
           notes,
           hasInformedConsent: !!hasInformedConsent,
-          consultationDraft: !isFinal ? { subjective, objective, diagnosis, icd10Id, secondaryIcd10Ids, treatmentPlan, services, prescriptions } : Prisma.DbNull,
+          odontogramBefore: odontogramBefore ? odontogramBefore : Prisma.DbNull,
+          odontogramAfter: odontogramAfter ? odontogramAfter : Prisma.DbNull,
+          consultationDraft: !isFinal ? { subjective, objective, diagnosis, icd10Id, secondaryIcd10Ids, treatmentPlan, services, prescriptions, odontogramBefore, odontogramAfter } : Prisma.DbNull,
           // Only update doctorId if we have a valid doctor account
           ...( (req as any).user.doctor?.id ? { doctorId: (req as any).user.doctor.id } : {} )
         },
         include: { patient: true, services: true, icd10: true, secondaryIcd10s: true }
       })
+
+      // 1.0.1 Update Odontogram latest state if provided
+      if (odontogramAfter) {
+        const parsedState = OdontogramStateSchema.safeParse(odontogramAfter)
+        if (!parsedState.success) {
+          throw new Error('Format state odontogram tidak valid')
+        }
+
+        const existingOdontogram = await tx.odontogram.findUnique({ where: { patientId: mr.patientId } }) as any
+
+        if (existingOdontogram && odontogramVersion !== undefined && existingOdontogram.version !== odontogramVersion) {
+          throw new Error('Terjadi konflik versi Odontogram. Data telah diubah oleh sesi lain. Harap muat ulang halaman.')
+        }
+
+        const newVersion = existingOdontogram ? existingOdontogram.version + 1 : 1
+
+        await tx.odontogram.upsert({
+          where: { patientId: mr.patientId },
+          update: { 
+            state: odontogramAfter, 
+            version: newVersion, 
+            lastUpdatedByRecordId: medicalRecordId 
+          },
+          create: { 
+            patientId: mr.patientId, 
+            state: odontogramAfter, 
+            version: newVersion, 
+            lastUpdatedByRecordId: medicalRecordId 
+          }
+        })
+      }
 
       // Update Patient's updatedAt to reflect the recent visit so it surfaces correctly in sorting
       if (isFinal) {

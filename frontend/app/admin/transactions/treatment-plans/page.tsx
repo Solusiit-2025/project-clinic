@@ -2,16 +2,18 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import Link from 'next/link'
 import {
   FiLayers, FiPlus, FiSearch, FiRefreshCw, FiUser, FiCalendar,
   FiCheckCircle, FiClock, FiDollarSign, FiFileText, FiX,
-  FiChevronRight, FiActivity, FiCreditCard, FiEye, FiTrash2,
+  FiChevronRight, FiActivity, FiCreditCard, FiEye, FiTrash2, FiUserCheck,
   FiArrowRight, FiHash, FiDroplet, FiPrinter, FiAlertCircle,
-  FiPackage, FiTruck, FiEdit3, FiPhone, FiMapPin
+  FiPackage, FiTruck, FiEdit3, FiPhone, FiMapPin, FiUploadCloud
 } from 'react-icons/fi'
 import { toast } from 'react-hot-toast'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import api from '@/lib/api'
+import TreatmentStepModal from '@/components/doctor/TreatmentStepModal'
 
 // ──────────────────────── Types ────────────────────────
 
@@ -27,9 +29,11 @@ interface Patient {
 
 interface Visit {
   id: string
-  visitNumber: number
+  order: number
   visitDate: string
   notes?: string
+  status?: string
+  services?: any[]
 }
 
 interface InvoiceItem {
@@ -81,6 +85,9 @@ interface WorkOrder {
   labContact?: string
   labAddress?: string
   itemDescription: string
+  jobType?: string
+  material?: string
+  stage?: string
   shade?: string
   size?: string
   toothNumber?: string
@@ -107,6 +114,7 @@ interface TreatmentPlan {
   id: string
   description: string
   totalAmount: number
+  calculatedTotalAmount?: number
   status: 'ACTIVE' | 'COMPLETED'
   createdAt: string
   patient: Patient
@@ -114,6 +122,7 @@ interface TreatmentPlan {
   invoices?: Invoice[]
   items?: TreatmentPlanItem[]
   workOrders?: WorkOrder[]
+  doctor?: { id: string; name: string }
 }
 
 // ──────────────────────── Helpers ────────────────────────
@@ -130,7 +139,7 @@ const formatDateTime = (date: string) =>
 // ──────────────────────── Component ────────────────────────
 
 export default function TreatmentPlansPage() {
-  const { activeClinicId } = useAuthStore()
+  const { activeClinicId, user } = useAuthStore()
 
   // List state
   const [plans, setPlans] = useState<TreatmentPlan[]>([])
@@ -147,7 +156,6 @@ export default function TreatmentPlansPage() {
 
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showVisitModal, setShowVisitModal] = useState(false)
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const [processing, setProcessing] = useState(false)
 
@@ -156,21 +164,43 @@ export default function TreatmentPlansPage() {
     patientSearch: string;
     patientId: string;
     description: string;
+    doctorId: string;
     items: { id: string; description: string; quantity: number; price: number }[];
   }>({ 
     patientSearch: '', 
     patientId: '', 
     description: '',
+    doctorId: '',
     items: [] 
   })
   const [patientResults, setPatientResults] = useState<Patient[]>([])
   const [searchingPatients, setSearchingPatients] = useState(false)
 
-  // Visit form
-  const [visitForm, setVisitForm] = useState({ notes: '', visitDate: '' })
+  // Visit form — #12: now uses TreatmentStepModal for service selection
+  const [showStepModal, setShowStepModal] = useState(false)
+
+  // #11: Inline schedule edit state
+  const [editingScheduleVisitId, setEditingScheduleVisitId] = useState<string | null>(null)
+  const [editScheduleDate, setEditScheduleDate] = useState('')
+
+  const handleUpdateVisitSchedule = async (visitId: string) => {
+    if (!selectedPlan) return
+    try {
+      setProcessing(true)
+      await api.put(`/treatment-plans/${selectedPlan.id}/visits/${visitId}/schedule`, { visitDate: editScheduleDate || null })
+      toast.success('Jadwal kunjungan berhasil diperbarui')
+      setEditingScheduleVisitId(null)
+      fetchDetail(selectedPlan.id)
+      fetchPlans()
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Gagal mengubah jadwal')
+    } finally {
+      setProcessing(false)
+    }
+  }
 
   // Invoice form
-  const [invoiceForm, setInvoiceForm] = useState({ description: 'DP / Termin', price: 0 })
+  const [invoiceForm, setInvoiceForm] = useState<{ description: string, price: number, isLabDeposit?: boolean }>({ description: 'DP / Termin', price: 0, isLabDeposit: false })
 
   // Work Order state
   const [showWorkOrderModal, setShowWorkOrderModal] = useState(false)
@@ -181,6 +211,10 @@ export default function TreatmentPlansPage() {
     labContact: '',
     labAddress: '',
     itemDescription: '',
+    jobType: '',
+    material: '',
+    stage: '',
+    doctorId: '',
     shade: '',
     size: '',
     toothNumber: '',
@@ -188,6 +222,8 @@ export default function TreatmentPlansPage() {
     labFee: 0,
     notes: '',
   })
+  const [woAttachments, setWoAttachments] = useState<File[]>([])
+  const [doctors, setDoctors] = useState<any[]>([])
 
   // Fetch WOs for selected plan
   const fetchWorkOrders = useCallback(async (planId: string) => {
@@ -230,8 +266,39 @@ export default function TreatmentPlansPage() {
     }
   }, [search, statusFilter, page, activeClinicId])
 
+  const fetchDoctors = useCallback(async () => {
+    try {
+      const res = await api.get('/master/doctors')
+      // Filter hanya dokter gigi (Dokter Gigi / Sp.KG / Sp.BM dll)
+      const allDocs = Array.isArray(res.data) ? res.data : (res.data?.data || [])
+      const dentistDocs = allDocs.filter((d: any) => 
+        d.specialization?.toLowerCase().includes('gigi') || 
+        d.specialization?.toLowerCase().includes('sp.kg') || 
+        d.specialization?.toLowerCase().includes('sp.bm') ||
+        d.specialization?.toLowerCase().includes('sp.ort') ||
+        d.specialization?.toLowerCase().includes('dent')
+      )
+      
+      setDoctors(dentistDocs)
+      
+      // Auto-fill for doctor
+      if (user?.role === 'DOCTOR') {
+        const myDoc = dentistDocs.find((d: any) => d.userId === user.id)
+        if (myDoc) {
+          setWoForm(f => ({ ...f, doctorId: myDoc.id }))
+          setCreateForm(f => ({ ...f, doctorId: myDoc.id }))
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [user])
+
   useEffect(() => { setPage(1) }, [search, statusFilter])
-  useEffect(() => { fetchPlans() }, [fetchPlans])
+  useEffect(() => { 
+    fetchPlans() 
+    fetchDoctors()
+  }, [fetchPlans, fetchDoctors])
 
   // ── Fetch detail ──
   const fetchDetail = async (id: string) => {
@@ -271,12 +338,13 @@ export default function TreatmentPlansPage() {
       setProcessing(true)
       await api.post('/treatment-plans', {
         patientId: createForm.patientId,
+        doctorId: createForm.doctorId || undefined,
         description: createForm.description,
         items: createForm.items
       })
       toast.success('Rangkaian Perawatan berhasil dibuat!')
       setShowCreateModal(false)
-      setCreateForm({ patientSearch: '', patientId: '', description: '', items: [] })
+      setCreateForm(f => ({ ...f, patientSearch: '', patientId: '', description: '', items: [] }))
       fetchPlans()
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Gagal membuat rangkaian perawatan')
@@ -287,19 +355,36 @@ export default function TreatmentPlansPage() {
 
   // ── Create Work Order (SPK Lab) ──
   const handleCreateWorkOrder = async () => {
-    if (!selectedPlan || !woForm.labName || !woForm.itemDescription) {
-      return toast.error('Nama Lab dan Deskripsi Item wajib diisi')
+    if (!selectedPlan || !woForm.labName) {
+      return toast.error('Nama Lab wajib diisi')
+    }
+    if (!woForm.itemDescription && (!woForm.jobType || !woForm.material)) {
+      return toast.error('Deskripsi Item atau Jenis Pekerjaan & Material wajib diisi')
     }
     try {
       setProcessing(true)
-      await api.post('/dental-lab/work-orders', {
-        treatmentPlanId: selectedPlan.id,
-        ...woForm,
-        labFee: parseFloat(String(woForm.labFee)) || 0
+      
+      const formData = new FormData()
+      formData.append('treatmentPlanId', selectedPlan.id)
+      Object.entries(woForm).forEach(([key, val]) => {
+        if (key === 'labFee') {
+          formData.append(key, String(parseFloat(String(val)) || 0))
+        } else if (val) {
+          formData.append(key, String(val))
+        }
+      })
+      
+      woAttachments.forEach(file => {
+        formData.append('attachments', file)
+      })
+
+      await api.post('/dental-lab/work-orders', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       })
       toast.success('🧪 SPK Lab berhasil dibuat!')
       setShowWorkOrderModal(false)
-      setWoForm({ labName: '', labContact: '', labAddress: '', itemDescription: '', shade: '', size: '', toothNumber: '', estimatedDate: '', labFee: 0, notes: '' })
+      setWoForm({ labName: '', labContact: '', labAddress: '', itemDescription: '', jobType: '', material: '', stage: '', doctorId: '', shade: '', size: '', toothNumber: '', estimatedDate: '', labFee: 0, notes: '' })
+      setWoAttachments([])
       fetchWorkOrders(selectedPlan.id)
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Gagal membuat SPK Lab'
@@ -352,23 +437,7 @@ export default function TreatmentPlansPage() {
     }
   }
 
-  // ── Add visit ──
-  const handleAddVisit = async () => {
-    if (!selectedPlan) return
-    try {
-      setProcessing(true)
-      await api.post(`/treatment-plans/${selectedPlan.id}/visits`, visitForm)
-      toast.success('Kunjungan berhasil ditambahkan')
-      setShowVisitModal(false)
-      setVisitForm({ notes: '', visitDate: '' })
-      fetchDetail(selectedPlan.id)
-      fetchPlans()
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Gagal menambah kunjungan')
-    } finally {
-      setProcessing(false)
-    }
-  }
+  // ── Add visit — now handled by TreatmentStepModal ──
 
   // ── Create Invoice ──
   const handleCreateInvoice = async () => {
@@ -378,11 +447,12 @@ export default function TreatmentPlansPage() {
     try {
       setProcessing(true)
       await api.post(`/treatment-plans/${selectedPlan.id}/invoices`, {
-        items: [{ description: invoiceForm.description, price: invoiceForm.price }]
+        items: [{ description: invoiceForm.description, price: invoiceForm.price }],
+        isLabDeposit: invoiceForm.isLabDeposit
       })
       toast.success('Tagihan berhasil dibuat! Silakan selesaikan di modul Finance.')
       setShowInvoiceModal(false)
-      setInvoiceForm({ description: 'DP / Termin', price: 0 })
+      setInvoiceForm({ description: 'DP / Termin', price: 0, isLabDeposit: false })
       fetchDetail(selectedPlan.id)
       fetchPlans()
     } catch (err: any) {
@@ -392,14 +462,14 @@ export default function TreatmentPlansPage() {
     }
   }
 
-  // ── Computed ──
-  const totalPlanAmount = useMemo(() => selectedPlan?.totalAmount || 0, [selectedPlan])
+  // ⚡ Computed ⚡
+  const totalPlanAmount = useMemo(() => selectedPlan?.calculatedTotalAmount || selectedPlan?.totalAmount || 0, [selectedPlan])
   const totalInvoiced = useMemo(() => selectedPlan?.invoices?.reduce((sum, inv) => sum + inv.total, 0) || 0, [selectedPlan])
   const totalPaid = useMemo(() => selectedPlan?.invoices?.reduce((sum, inv) => sum + inv.amountPaid, 0) || 0, [selectedPlan])
   const remainingToInvoice = useMemo(() => Math.max(0, totalPlanAmount - totalInvoiced), [totalPlanAmount, totalInvoiced])
   
   // Backward compatibility variables for existing UI, or update the UI
-  const totalBilled = totalInvoiced
+  const totalBilled = totalPlanAmount
   const remaining = useMemo(() => totalBilled - totalPaid, [totalBilled, totalPaid])
 
   const pageNumbers = useMemo(() => {
@@ -436,13 +506,15 @@ export default function TreatmentPlansPage() {
             <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Multi-Visit Treatment Plans &amp; Down Payment</p>
           </div>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-6 py-4 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-        >
-          <FiPlus className="w-4 h-4" />
-          <span>Buat Rangkaian Baru</span>
-        </button>
+        {user?.role === 'DOCTOR' && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-6 py-4 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+          >
+            <FiPlus className="w-4 h-4" />
+            <span>Buat Rangkaian Baru</span>
+          </button>
+        )}
       </div>
 
       {/* ── Main Layout ── */}
@@ -497,7 +569,7 @@ export default function TreatmentPlansPage() {
                 {plans.map((plan, idx) => {
                   const isSelected = selectedPlan?.id === plan.id
                   const invs = plan.invoices || []
-                  const total = plan.totalAmount || invs.reduce((sum, inv) => sum + inv.total, 0)
+                  const total = plan.calculatedTotalAmount || plan.totalAmount || invs.reduce((sum, inv) => sum + inv.total, 0)
                   const paid = invs.reduce((sum, inv) => sum + inv.amountPaid, 0)
                   const paidPercent = total > 0 ? Math.round((paid / total) * 100) : 0
                   
@@ -524,7 +596,10 @@ export default function TreatmentPlansPage() {
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-black text-gray-900 uppercase truncate">{plan.patient.name}</p>
-                            <p className="text-[10px] font-bold text-gray-400 tracking-widest font-mono">{plan.patient.medicalRecordNo}</p>
+                            <p className="text-[10px] font-bold text-gray-400 tracking-widest font-mono">
+                              {plan.patient.medicalRecordNo} 
+                              {plan.doctor && ` • dr. ${plan.doctor.name}`}
+                            </p>
                           </div>
                         </div>
                         <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border shrink-0 ${
@@ -624,6 +699,11 @@ export default function TreatmentPlansPage() {
                         <div>
                           <h2 className="text-lg md:text-xl font-black text-gray-900 uppercase tracking-tight">{selectedPlan.patient.name}</h2>
                           <p className="text-[10px] font-bold text-gray-400 tracking-widest font-mono">{selectedPlan.patient.medicalRecordNo} {selectedPlan.patient.phone && `• ${selectedPlan.patient.phone}`}</p>
+                          {selectedPlan.doctor && (
+                            <p className="text-[10px] font-black text-primary mt-1 flex items-center gap-1 uppercase tracking-widest">
+                              <FiUserCheck className="w-3 h-3" /> Ditangani oleh: dr. {selectedPlan.doctor.name}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -688,8 +768,14 @@ export default function TreatmentPlansPage() {
                       </div>
                       {selectedPlan.status === 'ACTIVE' && (
                         <button
-                          onClick={() => setShowVisitModal(true)}
-                          className="px-4 py-2.5 bg-violet-50 text-violet-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-violet-100 transition-all flex items-center gap-1.5"
+                          onClick={() => setShowStepModal(true)}
+                          disabled={user?.role !== 'DOCTOR'}
+                          title={user?.role !== 'DOCTOR' ? 'Hanya Dokter yang dapat menambah kunjungan' : ''}
+                          className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${
+                            user?.role === 'DOCTOR' 
+                              ? 'bg-violet-50 text-violet-600 hover:bg-violet-100'
+                              : 'bg-gray-50 text-gray-400 cursor-not-allowed opacity-60'
+                          }`}
                         >
                           <FiPlus className="w-3.5 h-3.5" /> Visit
                         </button>
@@ -711,14 +797,67 @@ export default function TreatmentPlansPage() {
                                   ? 'bg-primary text-white shadow-lg shadow-primary/20'
                                   : 'bg-gray-100 text-gray-500'
                               }`}>
-                                {visit.visitNumber}
+                                {visit.order || idx + 1}
                               </div>
                               <div className="flex-1 bg-gray-50 rounded-xl p-3.5 min-w-0">
                                 <div className="flex items-center justify-between gap-2 mb-1">
-                                  <p className="text-[10px] font-black text-gray-700 uppercase tracking-widest">Kunjungan #{visit.visitNumber}</p>
-                                  <p className="text-[9px] font-bold text-gray-400 tracking-widest">{formatDate(visit.visitDate)}</p>
+                                  <p className="text-[10px] font-black text-gray-700 uppercase tracking-widest">Kunjungan #{visit.order || idx + 1}</p>
+                                  {/* #11: Inline schedule edit for admin/receptionist */}
+                                  <div className="flex items-center gap-1.5">
+                                    {editingScheduleVisitId === visit.id ? (
+                                      <div className="flex items-center gap-1">
+                                        <input
+                                          type="date"
+                                          value={editScheduleDate}
+                                          onChange={e => setEditScheduleDate(e.target.value)}
+                                          className="border border-gray-200 rounded-lg px-2 py-1 text-[9px] font-bold text-gray-700 focus:outline-none focus:border-primary/40"
+                                        />
+                                        <button onClick={() => handleUpdateVisitSchedule(visit.id)} disabled={processing} className="p-1 text-emerald-600 hover:bg-emerald-50 rounded-lg"><FiCheckCircle className="w-3.5 h-3.5" /></button>
+                                        <button onClick={() => setEditingScheduleVisitId(null)} className="p-1 text-gray-400 hover:bg-gray-100 rounded-lg"><FiX className="w-3.5 h-3.5" /></button>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <p className="text-[9px] font-bold text-gray-400 tracking-widest">
+                                          {visit.visitDate ? formatDate(visit.visitDate) : <span className="text-amber-500">Belum dijadwalkan</span>}
+                                        </p>
+                                        {selectedPlan.status === 'ACTIVE' && visit.status !== 'SELESAI' && (
+                                          <button
+                                            onClick={() => { setEditingScheduleVisitId(visit.id); setEditScheduleDate(visit.visitDate ? new Date(visit.visitDate).toISOString().slice(0,10) : '') }}
+                                            className="p-1 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                            title="Ubah Jadwal"
+                                          >
+                                            <FiCalendar className="w-3 h-3" />
+                                          </button>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
-                                {visit.notes && <p className="text-xs text-gray-600">{visit.notes}</p>}
+                                {/* Status badge */}
+                                {visit.status && (
+                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest mb-1.5 ${
+                                    visit.status === 'SELESAI' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                                    visit.status === 'BERJALAN' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
+                                    'bg-gray-100 text-gray-500 border border-gray-200'
+                                  }`}>
+                                    {visit.status === 'SELESAI' ? 'Selesai' : visit.status === 'BERJALAN' ? 'Berjalan' : 'Belum'}
+                                  </span>
+                                )}
+                                {visit.notes && <p className="text-xs text-gray-600 mb-2">{visit.notes}</p>}
+                                {visit.services && visit.services.length > 0 && (
+                                  <div className="mt-2 space-y-1">
+                                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-200 pb-1 mb-1">Tindakan / Layanan</p>
+                                    {visit.services.map((svc: any) => (
+                                      <div key={svc.id} className="flex items-center justify-between text-xs py-0.5">
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-medium text-gray-700">{svc.service?.serviceName || svc.service?.name || 'Layanan Medis'}</span>
+                                          {svc.quantity > 1 && <span className="text-[10px] font-black text-gray-400 bg-white px-1.5 py-0.5 rounded-md border">{svc.quantity}x</span>}
+                                        </div>
+                                        <span className="font-black text-gray-900">{formatCurrency(svc.adjustedPrice || svc.subtotal || (svc.price * (svc.quantity || 1)))}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -750,9 +889,21 @@ export default function TreatmentPlansPage() {
                           </div>
                         ))}
                       </div>
-                      <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
-                        <p className="text-sm font-black text-gray-400 uppercase tracking-widest">Total Biaya Perawatan</p>
-                        <p className="text-lg font-black text-primary">{formatCurrency(totalPlanAmount)}</p>
+                      <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+                        {selectedPlan.totalAmount > 0 && selectedPlan.calculatedTotalAmount !== undefined && selectedPlan.calculatedTotalAmount !== selectedPlan.totalAmount && (
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Total Estimasi (Item)</p>
+                            <p className="text-sm font-bold text-gray-500 line-through">{formatCurrency(selectedPlan.totalAmount)}</p>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-black text-gray-400 uppercase tracking-widest">
+                            {selectedPlan.calculatedTotalAmount !== undefined && selectedPlan.calculatedTotalAmount !== selectedPlan.totalAmount
+                              ? 'Total Aktual (Kunjungan)'
+                              : 'Total Biaya Perawatan'}
+                          </p>
+                          <p className="text-lg font-black text-primary">{formatCurrency(totalPlanAmount)}</p>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -772,7 +923,7 @@ export default function TreatmentPlansPage() {
                         <div className="flex gap-2">
                           <button
                             onClick={() => {
-                              setInvoiceForm({ description: 'DP Perawatan', price: 0 })
+                              setInvoiceForm({ description: 'DP Perawatan', price: 0, isLabDeposit: true })
                               setShowInvoiceModal(true)
                             }}
                             className="px-4 py-2.5 bg-amber-50 text-amber-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-amber-100 transition-all flex items-center gap-1.5"
@@ -781,7 +932,7 @@ export default function TreatmentPlansPage() {
                           </button>
                           <button
                             onClick={() => {
-                              setInvoiceForm({ description: 'Pelunasan Perawatan', price: remainingToInvoice })
+                              setInvoiceForm({ description: 'Pelunasan Perawatan', price: remainingToInvoice, isLabDeposit: false })
                               setShowInvoiceModal(true)
                             }}
                             className="px-4 py-2.5 bg-emerald-50 text-emerald-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-all flex items-center gap-1.5"
@@ -836,8 +987,16 @@ export default function TreatmentPlansPage() {
                         </div>
 
                         {remaining > 0 && (
-                          <div className="mt-5 p-4 bg-primary/5 border border-primary/20 rounded-xl text-center">
-                            <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Pembayaran dapat dilakukan melalui menu Kasir (Finance)</p>
+                          <div className="mt-5 p-4 bg-primary/5 border border-primary/20 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <p className="text-[10px] font-bold text-primary uppercase tracking-widest text-center sm:text-left">
+                              Pembayaran dapat dilakukan melalui menu Kasir (Finance)
+                            </p>
+                            <Link 
+                              href="/admin/finance" 
+                              className="shrink-0 px-5 py-2.5 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 hover:shadow-lg transition-all flex items-center gap-2"
+                            >
+                              Bayar di Kasir <FiArrowRight className="w-3.5 h-3.5" />
+                            </Link>
                           </div>
                         )}
                       </>
@@ -856,22 +1015,20 @@ export default function TreatmentPlansPage() {
                           <p className="text-[9px] font-bold text-gray-400 tracking-widest mt-0.5">Surat Perintah Kerja Dental Lab</p>
                         </div>
                       </div>
-                      {selectedPlan.status === 'ACTIVE' && (() => {
-                        const hasDp = (selectedPlan.invoices || []).some(inv => inv.status === 'partial' || inv.status === 'paid')
-                        return hasDp ? (
-                          <button
-                            onClick={() => setShowWorkOrderModal(true)}
-                            className="px-4 py-2.5 bg-blue-50 text-blue-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-100 transition-all flex items-center gap-1.5 shadow-sm hover:shadow-md"
-                          >
-                            <FiPlus className="w-3.5 h-3.5" /> Buat SPK
-                          </button>
-                        ) : (
-                          <div className="flex items-center gap-2 px-4 py-2.5 bg-orange-50 text-orange-500 rounded-xl border border-orange-200">
-                            <FiAlertCircle className="w-3.5 h-3.5" />
-                            <span className="text-[9px] font-black uppercase tracking-widest">Butuh DP dulu</span>
-                          </div>
-                        )
-                      })()}
+                      {selectedPlan.status === 'ACTIVE' && (
+                        <button
+                          onClick={() => setShowWorkOrderModal(true)}
+                          disabled={user?.role !== 'DOCTOR'}
+                          title={user?.role !== 'DOCTOR' ? 'Hanya Dokter yang dapat membuat SPK' : ''}
+                          className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-sm ${
+                            user?.role === 'DOCTOR'
+                              ? 'bg-blue-50 text-blue-600 hover:bg-blue-100 hover:shadow-md'
+                              : 'bg-gray-50 text-gray-400 cursor-not-allowed opacity-60'
+                          }`}
+                        >
+                          <FiPlus className="w-3.5 h-3.5" /> Buat SPK
+                        </button>
+                      )}
                     </div>
 
                     {/* DP Status Banner */}
@@ -883,8 +1040,8 @@ export default function TreatmentPlansPage() {
                           <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-2xl flex items-start gap-3">
                             <FiAlertCircle className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
                             <div>
-                              <p className="text-xs font-black text-orange-700">SPK Belum Bisa Dibuat</p>
-                              <p className="text-[10px] text-orange-600 mt-0.5">Pasien belum membayar Down Payment. Arahkan ke Kasir untuk proses DP terlebih dahulu sebelum membuat SPK ke Dental Lab.</p>
+                              <p className="text-xs font-black text-orange-700">Pasien Belum DP</p>
+                              <p className="text-[10px] text-orange-600 mt-0.5">SPK tetap bisa dibuat, namun akan disimpan dengan status <b>DRAFT</b>. SPK baru bisa dikirim ke Lab setelah Kasir menerima pembayaran DP.</p>
                             </div>
                           </div>
                         )
@@ -893,7 +1050,7 @@ export default function TreatmentPlansPage() {
                         return (
                           <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-2">
                             <FiCheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
-                            <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">DP Sudah Dibayar — SPK Dapat Dibuat</p>
+                            <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">DP Sudah Dibayar — SPK Dapat Langsung Dikirim</p>
                           </div>
                         )
                       }
@@ -917,23 +1074,30 @@ export default function TreatmentPlansPage() {
                           const cfg = WO_STATUS_CONFIG[wo.status]
                           const WOIcon = cfg.icon
                           return (
-                            <div key={wo.id} className={`border rounded-2xl p-4 ${cfg.bg} ${cfg.border}`}>
+                            <div key={wo.id} className={`border rounded-2xl p-4 ${cfg.bg} ${cfg.border} hover:shadow-sm transition-shadow`}>
                               <div className="flex items-start justify-between gap-2 mb-2">
                                 <div className="min-w-0">
                                   <p className="text-xs font-black text-gray-800 uppercase truncate">{wo.itemDescription}</p>
-                                  <p className="text-[9px] font-mono text-gray-400 mt-0.5">{wo.workOrderNo}</p>
+                                  <p className="text-[9px] font-mono text-gray-500 mt-0.5">
+                                    {wo.workOrderNo} {wo.jobType && `• ${wo.jobType}`} {wo.material && `• ${wo.material}`} {wo.stage && `• ${wo.stage}`}
+                                  </p>
                                 </div>
                                 <span className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border flex items-center gap-1 shrink-0 ${cfg.color} ${cfg.bg} ${cfg.border}`}>
                                   <WOIcon className="w-3 h-3" />{cfg.label}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-4 text-[9px] font-bold text-gray-500">
-                                <span className="flex items-center gap-1"><FiDroplet className="w-3 h-3" />{wo.labName}</span>
-                                {wo.toothNumber && <span className="flex items-center gap-1"><FiHash className="w-3 h-3" />Gigi {wo.toothNumber}</span>}
-                                {wo.estimatedDate && <span className="flex items-center gap-1"><FiCalendar className="w-3 h-3" />{new Date(wo.estimatedDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>}
+                              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[9px] font-bold text-gray-600 mt-3 bg-white/50 p-2.5 rounded-xl border border-gray-100/50">
+                                <span className="flex items-center gap-1"><FiDroplet className="w-3 h-3 text-blue-400" />{wo.labName}</span>
+                                {wo.toothNumber && <span className="flex items-center gap-1"><FiHash className="w-3 h-3 text-emerald-400" />Gigi {wo.toothNumber}</span>}
+                                {wo.shade && <span className="flex items-center gap-1"><FiActivity className="w-3 h-3 text-amber-400" />Shade: {wo.shade}</span>}
+                                {wo.size && <span className="flex items-center gap-1"><FiPackage className="w-3 h-3 text-violet-400" />Ukuran: {wo.size}</span>}
+                                {wo.estimatedDate && <span className="flex items-center gap-1"><FiCalendar className="w-3 h-3 text-rose-400" />Est. Selesai: {new Date(wo.estimatedDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>}
                               </div>
-                              {wo.shade && (
-                                <p className="text-[9px] font-bold text-gray-400 mt-1">Shade: {wo.shade}</p>
+                              {wo.notes && (
+                                <div className="mt-2.5 p-2 bg-white/40 rounded-lg border border-gray-100/50">
+                                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Catatan Dokter</p>
+                                  <p className="text-[10px] text-gray-700 font-medium leading-relaxed">{wo.notes}</p>
+                                </div>
                               )}
                             </div>
                           )
@@ -1128,55 +1292,17 @@ export default function TreatmentPlansPage() {
         )}
       </AnimatePresence>
 
-      {/* ── Add Visit Modal ── */}
-      <AnimatePresence>
-        {showVisitModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => !processing && setShowVisitModal(false)} className="absolute inset-0 bg-gray-950/80 backdrop-blur-md" />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl">
-              <div className="p-6 md:p-8">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center text-violet-500"><FiActivity className="w-5 h-5" /></div>
-                    <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">Tambah Kunjungan</h3>
-                  </div>
-                  <button onClick={() => !processing && setShowVisitModal(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-50"><FiX className="w-5 h-5" /></button>
-                </div>
-
-                <div className="mb-4">
-                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Tanggal Kunjungan</label>
-                  <input
-                    type="date"
-                    value={visitForm.visitDate}
-                    onChange={(e) => setVisitForm(f => ({ ...f, visitDate: e.target.value }))}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10"
-                  />
-                </div>
-
-                <div className="mb-6">
-                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Catatan</label>
-                  <textarea
-                    value={visitForm.notes}
-                    onChange={(e) => setVisitForm(f => ({ ...f, notes: e.target.value }))}
-                    placeholder="Catatan kunjungan..."
-                    rows={3}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 resize-none"
-                  />
-                </div>
-
-                <button
-                  onClick={handleAddVisit}
-                  disabled={processing}
-                  className="w-full px-6 py-4 bg-violet-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-violet-200 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {processing ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiPlus className="w-4 h-4" />}
-                  {processing ? 'Memproses...' : 'Tambah Kunjungan'}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {/* ── Add Visit — #12: TreatmentStepModal with service selection ── */}
+      {selectedPlan && (
+        <TreatmentStepModal
+          isOpen={showStepModal}
+          onClose={() => setShowStepModal(false)}
+          onSuccess={() => { fetchDetail(selectedPlan.id); fetchPlans(); }}
+          planId={selectedPlan.id}
+          userRole={user?.role || ''}
+          nextOrder={(selectedPlan.visits?.length || 0) + 1}
+        />
+      )}
 
       {/* ── Create Invoice Modal ── */}
       <AnimatePresence>
@@ -1201,6 +1327,20 @@ export default function TreatmentPlansPage() {
                   <div>
                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Jumlah Tagihan (Rp) *</label>
                     <input type="number" value={invoiceForm.price || ''} onChange={(e) => setInvoiceForm(f => ({ ...f, price: parseInt(e.target.value) || 0 }))} placeholder="0" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10" />
+                    {remainingToInvoice > 0 && (
+                      <div className="mt-2 flex items-center justify-between">
+                        <p className="text-[10px] text-gray-500">
+                          Sisa belum ditagih: <span className="font-bold text-amber-600">{formatCurrency(remainingToInvoice)}</span>
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setInvoiceForm(f => ({ ...f, price: remainingToInvoice }))}
+                          className="text-[9px] font-bold text-primary hover:underline"
+                        >
+                          Gunakan sisa
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1249,7 +1389,12 @@ export default function TreatmentPlansPage() {
                 <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-6">
                   <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mb-1">Pasien</p>
                   <p className="text-sm font-black text-gray-800">{selectedPlan.patient.name}</p>
-                  <p className="text-[10px] font-mono text-gray-500">{selectedPlan.patient.medicalRecordNo} • {selectedPlan.description}</p>
+                  <p className="text-[10px] font-mono text-gray-500">
+                    {selectedPlan.patient.medicalRecordNo} • {selectedPlan.description}
+                  </p>
+                  <p className="text-[10px] font-mono text-gray-500 mt-1">
+                    Umur: {selectedPlan.patient.dateOfBirth ? new Date().getFullYear() - new Date(selectedPlan.patient.dateOfBirth).getFullYear() : '-'} tahun • {selectedPlan.patient.gender || '-'}
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -1286,14 +1431,82 @@ export default function TreatmentPlansPage() {
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
                   </div>
 
-                  {/* Deskripsi Item */}
+                  {/* Jenis Pekerjaan (jobType) */}
+                  <div>
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block">
+                      Jenis Pekerjaan *
+                    </label>
+                    <select value={woForm.jobType}
+                      onChange={e => setWoForm(f => ({ ...f, jobType: e.target.value }))}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all">
+                      <option value="">Pilih Pekerjaan</option>
+                      <option value="Crown">Crown</option>
+                      <option value="Bridge">Bridge</option>
+                      <option value="Inlay">Inlay</option>
+                      <option value="Onlay">Onlay</option>
+                      <option value="Gigi Tiruan Sebagian (GTSL)">Gigi Tiruan Sebagian (GTSL)</option>
+                      <option value="Gigi Tiruan Lengkap (GTL)">Gigi Tiruan Lengkap (GTL)</option>
+                    </select>
+                  </div>
+
+                  {/* Material */}
+                  <div>
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block">
+                      Material *
+                    </label>
+                    <select value={woForm.material}
+                      onChange={e => setWoForm(f => ({ ...f, material: e.target.value }))}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all">
+                      <option value="">Pilih Material</option>
+                      <option value="Zirconia">Zirconia</option>
+                      <option value="E-Max">E-Max</option>
+                      <option value="PFM">PFM (Porcelain Fused to Metal)</option>
+                      <option value="Full Metal">Full Metal</option>
+                      <option value="Akrilik">Akrilik</option>
+                      <option value="Valplast">Valplast (Flexi)</option>
+                    </select>
+                  </div>
+
+                  {/* Tahapan Pekerjaan (Stage) */}
                   <div className="md:col-span-2">
                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block">
-                      Jenis Pekerjaan Lab *
+                      Tahapan Pekerjaan (Stage) *
+                    </label>
+                    <select value={woForm.stage}
+                      onChange={e => setWoForm(f => ({ ...f, stage: e.target.value }))}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all">
+                      <option value="">Pilih Tahapan</option>
+                      <option value="Bite Registration">Bite Registration (Gigitan)</option>
+                      <option value="Try-in Coping">Try-in Coping / Rangka</option>
+                      <option value="Try-in Gigi">Try-in Gigi (Penyusunan gigi)</option>
+                      <option value="Finish / Pasang">Finish / Pasang</option>
+                      <option value="Reparasi">Reparasi</option>
+                    </select>
+                  </div>
+
+                  {/* DPJP / Dokter */}
+                  <div className="md:col-span-2">
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block">
+                      DPJP / Dokter *
+                    </label>
+                    <select value={woForm.doctorId}
+                      onChange={e => setWoForm(f => ({ ...f, doctorId: e.target.value }))}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all">
+                      <option value="">Pilih Dokter</option>
+                      {doctors.map(d => (
+                        <option key={d.id} value={d.id}>{d.name} - {d.specialization}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Deskripsi Item (Opsional) */}
+                  <div className="md:col-span-2">
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block">
+                      Deskripsi / Informasi Tambahan (Opsional)
                     </label>
                     <input type="text" value={woForm.itemDescription}
                       onChange={e => setWoForm(f => ({ ...f, itemDescription: e.target.value }))}
-                      placeholder="Misal: Crown Porselen / Gigi Palsu Sebagian / Veneer Komposit"
+                      placeholder="Informasi tambahan jika perlu..."
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
                   </div>
 
@@ -1350,6 +1563,23 @@ export default function TreatmentPlansPage() {
                       placeholder="Instruksi khusus untuk lab, preferensi bahan, dll..."
                       rows={3}
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all resize-none" />
+                  </div>
+
+                  {/* File Upload / Attachments */}
+                  <div className="md:col-span-2">
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 block flex items-center gap-1">
+                      <FiUploadCloud className="w-3 h-3" /> Lampiran File (Foto 2D / 3D Scan .stl/.obj)
+                    </label>
+                    <input type="file" multiple
+                      onChange={e => {
+                        if (e.target.files) {
+                          setWoAttachments(Array.from(e.target.files))
+                        }
+                      }}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                    {woAttachments.length > 0 && (
+                      <p className="text-xs text-gray-500 mt-2">{woAttachments.length} file terpilih.</p>
+                    )}
                   </div>
                 </div>
 

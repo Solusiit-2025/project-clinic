@@ -1,14 +1,19 @@
 import { Router } from 'express'
-import { authMiddleware } from '../middleware/auth.middleware'
+import { authMiddleware, roleMiddleware } from '../middleware/auth.middleware'
 import {
   getTreatmentPlans,
   getTreatmentPlanById,
   createTreatmentPlan,
-  addVisit,
   createInvoice,
   updateStatus,
   updateTreatmentPlan,
   deleteTreatmentPlan,
+  addVisit,
+  updateVisitServices,
+  updateVisitSchedule,
+  updateVisitStatus,
+  updateVisitAdjustment,
+  deleteVisit
 } from '../controllers/treatmentPlan.controller'
 
 const router = Router()
@@ -19,13 +24,18 @@ router.use(authMiddleware)
 // CRUD Treatment Plans
 router.get('/', getTreatmentPlans)
 router.get('/:id', getTreatmentPlanById)
-router.post('/', createTreatmentPlan)
-router.put('/:id', updateTreatmentPlan)
-router.delete('/:id', deleteTreatmentPlan)
-router.patch('/:id/status', updateStatus)
+router.post('/', roleMiddleware(['DOCTOR']), createTreatmentPlan)
+router.put('/:id', roleMiddleware(['DOCTOR']), updateTreatmentPlan)
+router.delete('/:id', roleMiddleware(['DOCTOR']), deleteTreatmentPlan)
+router.patch('/:id/status', roleMiddleware(['DOCTOR']), updateStatus)
 
-// Visit Management
-router.post('/:id/visits', addVisit)
+// Visit Management (Tahapan Rangkaian)
+router.post('/:id/visits', roleMiddleware(['DOCTOR']), addVisit)
+router.put('/:id/visits/:visitId/services', roleMiddleware(['DOCTOR']), updateVisitServices)
+router.put('/:id/visits/:visitId/schedule', roleMiddleware(['ADMIN', 'SUPER_ADMIN', 'RECEPTIONIST', 'DOCTOR']), updateVisitSchedule)
+router.put('/:id/visits/:visitId/status', roleMiddleware(['DOCTOR', 'NURSE']), updateVisitStatus)
+router.put('/:id/visits/:visitId/adjustment', roleMiddleware(['ADMIN', 'SUPER_ADMIN', 'RECEPTIONIST']), updateVisitAdjustment)
+router.delete('/:id/visits/:visitId', roleMiddleware(['DOCTOR']), deleteVisit)
 
 // Invoice Management (Creates specific billing termin/DP)
 router.post('/:id/invoices', createInvoice)

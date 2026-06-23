@@ -667,6 +667,9 @@ export default function FinanceDashboard() {
                          </div>
                          <div className="col-span-2 flex flex-col items-center gap-1.5">
                             {getStatusBadge(inv.status)}
+                            {inv.isLabDeposit && (
+                                 <span className="px-3 py-1 bg-amber-50 text-amber-600 border border-amber-200 rounded-lg text-[9px] font-black uppercase tracking-widest whitespace-nowrap">Titipan DP Lab</span>
+                              )}
                             {getExamStatusBadge(inv.registration?.queueNumbers?.[0]?.status)}
                          </div>
                          <div className="col-span-1 flex justify-center">
@@ -709,7 +712,7 @@ export default function FinanceDashboard() {
                                 </button>
                              )}
 
-                             {['unpaid', 'partial'].includes(inv.status) ? (
+                             {['unpaid', 'partial', 'pending'].includes(inv.status) ? (
                                 <button 
                                    disabled={['waiting', 'ongoing', 'triage', 'ready', 'called'].includes(inv.registration?.queueNumbers?.[0]?.status || '')}
                                    onClick={() => { 

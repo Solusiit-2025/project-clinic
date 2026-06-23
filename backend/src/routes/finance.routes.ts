@@ -4,7 +4,7 @@ import {
   getInvoices, processPayment, getFinancialSummary, postInvoice, 
   resetInvoicePayment, updateInvoiceBank, getExpenses, createExpense, deleteExpense,
   getCashTransfers, createCashTransfer, updateCashTransfer, deleteCashTransfer, postCashTransfer,
-  deleteInvoice
+  deleteInvoice, releaseDeposit
 } from '../controllers/finance.controller'
 import { uploadBon } from '../middleware/procurementUpload.middleware'
 
@@ -30,6 +30,7 @@ financeRoutes.delete('/invoices/:id', deleteInvoice)
 financeRoutes.post('/payments', processPayment)
 financeRoutes.post('/invoices/post-to-ledger', postInvoice)
 financeRoutes.post('/invoices/:id/reset-payment', resetInvoicePayment)
+financeRoutes.post('/invoices/:id/release-deposit', releaseDeposit)
 financeRoutes.put('/invoices/bank', updateInvoiceBank)
 financeRoutes.get('/summary', getFinancialSummary)
 

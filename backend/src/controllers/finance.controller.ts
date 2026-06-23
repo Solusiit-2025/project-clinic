@@ -251,6 +251,36 @@ export const processPayment = async (req: Request, res: Response) => {
         }
       })
 
+      // 8. UPDATE WORK ORDERS (SPK) STATUS if DP is received
+      if (updatedInvoice.treatmentPlanId && (newStatus === 'partial' || newStatus === 'paid' || newStatus === 'pending_corporate')) {
+        await tx.dentalLabWorkOrder.updateMany({
+          where: {
+            treatmentPlanId: updatedInvoice.treatmentPlanId,
+            status: { in: ['PENDING_DP'] }
+          },
+          data: {
+            status: 'DRAFT'
+          }
+        })
+      }
+
+      // 9. AUTOMATIC DP RELEASE
+      // Jika invoice yang dibayar BUKAN DP (Pelunasan), maka rilis semua DP yang ditahan untuk Treatment Plan ini
+      if (updatedInvoice.treatmentPlanId && updatedInvoice.isLabDeposit === false && (newStatus === 'partial' || newStatus === 'paid' || newStatus === 'pending_corporate')) {
+        const { getJakartaDateString } = require('../utils/date')
+        const today = new Date(`${getJakartaDateString()}T00:00:00+07:00`)
+        await tx.invoice.updateMany({
+          where: {
+            treatmentPlanId: updatedInvoice.treatmentPlanId,
+            isLabDeposit: true
+          },
+          data: {
+            isLabDeposit: false,
+            depositReleasedAt: today
+          }
+        })
+      }
+
       return { payment, invoice: updatedInvoice }
     }, {
       timeout: 30000
@@ -307,6 +337,10 @@ export const postInvoice = async (req: Request, res: Response) => {
       // 2. VALIDATION: Check if at least one payment exists or it is fully covered by corporate
       if (invoice.amountPaid <= 0 && (invoice.corporateCoverageAmount || 0) <= 0 && invoice.total > 0) {
         throw new Error('Invoice belum dibayar. Mohon lakukan pembayaran atau tentukan plafon perusahaan terlebih dahulu sebelum posting ke Buku Besar.')
+      }
+
+      if (invoice.isLabDeposit) {
+        throw new Error('Invoice merupakan Titipan DP Lab Eksternal dan tidak dapat di-posting ke Buku Besar sebelum dilakukan pelunasan akhir.')
       }
 
       const commissionRecords: any[] = []
@@ -647,13 +681,17 @@ export const getFinancialSummary = async (req: Request, res: Response) => {
       prisma.payment.aggregate({
         where: {
           paymentDate: { gte: today },
-          invoice: !isAdminView ? { clinicId: currentClinicId } : {}
+          invoice: {
+            ...(!isAdminView ? { clinicId: currentClinicId } : {}),
+            isLabDeposit: false
+          }
         },
         _sum: { amount: true }
       }),
       prisma.invoice.aggregate({
         where: {
           status: { in: ['unpaid', 'partial'] },
+          isLabDeposit: false,
           ...(!isAdminView ? { clinicId: currentClinicId } : {}),
         },
         _sum: { total: true }
@@ -662,6 +700,7 @@ export const getFinancialSummary = async (req: Request, res: Response) => {
         where: {
           amountPaid: { gt: 0 },
           isPosted: false,
+          isLabDeposit: false,
           ...(!isAdminView ? { clinicId: currentClinicId } : {})
         }
       })
@@ -1181,5 +1220,37 @@ export const deleteInvoice = async (req: Request, res: Response) => {
     res.json({ message: 'Invoice berhasil dihapus' })
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+/**
+ * Release a Lab Deposit invoice so it appears in financial reports
+ */
+export const releaseDeposit = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const invoice = await prisma.invoice.findUnique({ where: { id } });
+    if (!invoice) return res.status(404).json({ message: 'Invoice tidak ditemukan' });
+    
+    if (!invoice.isLabDeposit) {
+      return res.status(400).json({ message: 'Invoice ini bukan merupakan Titipan DP Lab.' });
+    }
+
+    const { getJakartaDateString } = require('../utils/date')
+    const jakartaTodayStr = getJakartaDateString()
+    const today = new Date(`${jakartaTodayStr}T00:00:00+07:00`)
+
+    const updated = await prisma.invoice.update({
+      where: { id },
+      data: {
+        isLabDeposit: false,
+        depositReleasedAt: today
+      }
+    });
+
+    res.json({ message: 'DP Lab berhasil dirilis dan kini masuk ke laporan keuangan.', data: updated });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message });
   }
 }

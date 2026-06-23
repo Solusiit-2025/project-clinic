@@ -24,7 +24,7 @@ const WO_STATUS_LABELS: Record<string, string> = {
  */
 export const getWorkOrders = async (req: Request, res: Response) => {
   try {
-    const { status, search, startDate, endDate, page = '1', limit = '20' } = req.query
+    const { status, search, startDate, endDate, treatmentPlanId, doctorId, page = '1', limit = '20' } = req.query
     const clinicId = (req as any).clinicId
 
     const pageNum = parseInt(page as string) || 1
@@ -33,6 +33,8 @@ export const getWorkOrders = async (req: Request, res: Response) => {
 
     const where: any = {
       ...(status ? { status: String(status) } : {}),
+      ...(treatmentPlanId ? { treatmentPlanId: String(treatmentPlanId) } : {}),
+      ...(doctorId ? { doctorId: String(doctorId) } : {}),
       ...(search ? {
         OR: [
           { workOrderNo: { contains: String(search), mode: 'insensitive' } },
@@ -63,9 +65,32 @@ export const getWorkOrders = async (req: Request, res: Response) => {
               status: true,
               invoices: {
                 select: { id: true, status: true, total: true, amountPaid: true }
+              },
+              visits: {
+                orderBy: { visitDate: 'asc' },
+                select: {
+                  id: true,
+                  visitDate: true,
+                  status: true,
+                  order: true,
+                  services: {
+                    select: {
+                      id: true,
+                      quantity: true,
+                      price: true,
+                      subtotal: true,
+                      adjustedPrice: true,
+                      service: { select: { id: true, serviceName: true, category: true } }
+                    }
+                  }
+                }
               }
             }
-          }
+          },
+          doctor: {
+            select: { id: true, name: true, specialization: true }
+          },
+          attachments: true
         },
         orderBy: { createdAt: 'desc' }
       })
@@ -109,9 +134,20 @@ export const getWorkOrderById = async (req: Request, res: Response) => {
               }
             },
             items: true,
-            visits: { orderBy: { visitNumber: 'asc' } }
+            visits: {
+              orderBy: { order: 'asc' },
+              include: {
+                services: {
+                  include: {
+                    service: { select: { id: true, serviceName: true, category: true } }
+                  }
+                }
+              }
+            }
           }
-        }
+        },
+        doctor: true,
+        attachments: true
       }
     })
 
@@ -144,11 +180,18 @@ export const createWorkOrder = async (req: Request, res: Response) => {
       estimatedDate,
       labFee,
       notes,
+      jobType,
+      material,
+      stage,
+      doctorId
     } = req.body
+
+    // if itemDescription is not provided, combine jobType and material
+    const finalItemDescription = itemDescription || `${jobType || ''} - ${material || ''}`.trim()
 
     const createdBy = (req as any).user?.id
 
-    if (!treatmentPlanId || !labName || !itemDescription) {
+    if (!treatmentPlanId || !labName || !finalItemDescription) {
       return res.status(400).json({ message: 'Treatment Plan, Nama Lab, dan Deskripsi Item wajib diisi' })
     }
 
@@ -170,19 +213,18 @@ export const createWorkOrder = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Treatment Plan sudah selesai. Tidak dapat membuat Work Order baru.' })
     }
 
-    // 2. DP GUARD — Cek apakah sudah ada pembayaran (DP)
+    // 2. Tentukan Status Awal SPK berdasarkan Pembayaran DP
     const totalPaid = plan.invoices.reduce((sum, inv) => sum + (inv.amountPaid || 0), 0)
     const hasPayment = totalPaid > 0
     const hasPartialOrPaidInvoice = plan.invoices.some(inv =>
       inv.status === 'partial' || inv.status === 'paid'
     )
 
-    if (!hasPayment && !hasPartialOrPaidInvoice) {
-      return res.status(403).json({
-        message: 'SPK Lab tidak dapat dibuat. Pasien belum melakukan Down Payment (DP). Arahkan pasien ke Kasir untuk membayar DP terlebih dahulu.',
-        errorCode: 'NO_DP_FOUND',
-        totalPaid: 0
-      })
+    // Jika belum bayar DP, SPK tetap bisa dibuat tapi statusnya 'DRAFT' (atau 'PENDING_DP')
+    // Jika sudah bayar DP, status langsung 'SENT_TO_LAB'
+    let initialStatus = 'PENDING_DP'
+    if (hasPayment || hasPartialOrPaidInvoice) {
+      initialStatus = 'SENT_TO_LAB'
     }
 
     // 3. Generate Work Order Number
@@ -207,7 +249,15 @@ export const createWorkOrder = async (req: Request, res: Response) => {
       else nextNum++
     }
 
-    // 4. Buat Work Order
+    // 4. Proses Attachments jika ada
+    const attachments = (req.files as Express.Multer.File[]) || []
+    const attachmentData = attachments.map(file => ({
+      fileUrl: `/uploads/dental-lab/${file.filename}`,
+      fileName: file.originalname,
+      fileType: file.mimetype
+    }))
+
+    // 5. Buat Work Order
     const workOrder = await prisma.dentalLabWorkOrder.create({
       data: {
         workOrderNo,
@@ -216,15 +266,22 @@ export const createWorkOrder = async (req: Request, res: Response) => {
         labName,
         labContact: labContact || null,
         labAddress: labAddress || null,
-        itemDescription,
+        itemDescription: finalItemDescription,
+        jobType: jobType || null,
+        material: material || null,
+        stage: stage || null,
+        doctorId: doctorId || null,
         shade: shade || null,
         size: size || null,
         toothNumber: toothNumber || null,
         estimatedDate: estimatedDate ? new Date(estimatedDate) : null,
         labFee: parseFloat(labFee) || 0,
         notes: notes || null,
-        status: 'DRAFT',
+        status: initialStatus as any,
         createdBy: createdBy || null,
+        attachments: {
+          create: attachmentData
+        }
       },
       include: {
         patient: {
@@ -232,7 +289,11 @@ export const createWorkOrder = async (req: Request, res: Response) => {
         },
         treatmentPlan: {
           select: { description: true }
-        }
+        },
+        doctor: {
+          select: { id: true, name: true, specialization: true }
+        },
+        attachments: true
       }
     })
 
@@ -240,6 +301,47 @@ export const createWorkOrder = async (req: Request, res: Response) => {
     res.status(201).json(workOrder)
   } catch (e) {
     console.error('[createWorkOrder] Error:', e)
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+/**
+ * PUT /api/dental-lab/work-orders/:id
+ * Update Work Order. Hanya bisa jika status DRAFT atau PENDING_DP
+ */
+export const updateWorkOrder = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { labName, labContact, labAddress, itemDescription, shade, size, toothNumber, estimatedDate, labFee, notes, jobType, material, stage } = req.body
+
+    const wo = await prisma.dentalLabWorkOrder.findUnique({ where: { id } })
+    if (!wo) return res.status(404).json({ message: 'Work Order tidak ditemukan' })
+
+    if (wo.status !== 'DRAFT' && wo.status !== 'PENDING_DP') {
+       return res.status(400).json({ message: `Hanya SPK berstatus DRAFT atau Menunggu DP yang bisa diubah. Status saat ini: ${wo.status}` })
+    }
+
+    const updated = await prisma.dentalLabWorkOrder.update({
+      where: { id },
+      data: {
+        labName,
+        labContact: labContact || null,
+        labAddress: labAddress || null,
+        itemDescription,
+        jobType: jobType || null,
+        material: material || null,
+        stage: stage || null,
+        shade: shade || null,
+        size: size || null,
+        toothNumber: toothNumber || null,
+        estimatedDate: estimatedDate ? new Date(estimatedDate) : null,
+        labFee: parseFloat(labFee) || 0,
+        notes: notes || null,
+      }
+    })
+    res.json(updated)
+  } catch (e) {
+    console.error('[updateWorkOrder] Error:', e)
     res.status(500).json({ message: (e as Error).message })
   }
 }
@@ -385,7 +487,9 @@ export const getWorkOrderPrintData = async (req: Request, res: Response) => {
                 select: { invoiceNo: true, status: true, total: true, amountPaid: true }
               }
             }
-          }
+          },
+          doctor: true,
+          attachments: true
         }
       }),
       clinicId ? prisma.clinic.findUnique({ where: { id: clinicId } }) : null
@@ -406,13 +510,16 @@ export const getWorkOrderPrintData = async (req: Request, res: Response) => {
  */
 export const getWorkOrderStats = async (req: Request, res: Response) => {
   try {
+    const { doctorId } = req.query
+    const baseWhere: any = doctorId ? { doctorId: String(doctorId) } : {}
+
     const [draft, pending, sent, received, fitted, total] = await Promise.all([
-      prisma.dentalLabWorkOrder.count({ where: { status: 'DRAFT' } }),
-      prisma.dentalLabWorkOrder.count({ where: { status: 'PENDING_DP' } }),
-      prisma.dentalLabWorkOrder.count({ where: { status: 'SENT_TO_LAB' } }),
-      prisma.dentalLabWorkOrder.count({ where: { status: 'RECEIVED' } }),
-      prisma.dentalLabWorkOrder.count({ where: { status: 'FITTED' } }),
-      prisma.dentalLabWorkOrder.count(),
+      prisma.dentalLabWorkOrder.count({ where: { ...baseWhere, status: 'DRAFT' } }),
+      prisma.dentalLabWorkOrder.count({ where: { ...baseWhere, status: 'PENDING_DP' } }),
+      prisma.dentalLabWorkOrder.count({ where: { ...baseWhere, status: 'SENT_TO_LAB' } }),
+      prisma.dentalLabWorkOrder.count({ where: { ...baseWhere, status: 'RECEIVED' } }),
+      prisma.dentalLabWorkOrder.count({ where: { ...baseWhere, status: 'FITTED' } }),
+      prisma.dentalLabWorkOrder.count({ where: baseWhere }),
     ])
 
     res.json({ draft, pending, sent, received, fitted, total })

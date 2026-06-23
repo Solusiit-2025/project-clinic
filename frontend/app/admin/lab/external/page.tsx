@@ -91,11 +91,10 @@ const formatDateTime = (date?: string) => date
 
 // ──────────────────────── Print Function ────────────────────────
 
-const printWorkOrder = async (wo: WorkOrder, clinicName: string) => {
+const printWorkOrder = async (wo: WorkOrder) => {
   const printWindow = window.open('', '_blank', 'width=794,height=1123')
   if (!printWindow) return
 
-  const totalPaid = wo.treatmentPlan?.invoices?.reduce((s, i) => s + i.amountPaid, 0) || 0
   const statusLabel = STATUS_CONFIG[wo.status]?.label || wo.status
 
   printWindow.document.write(`
@@ -106,49 +105,58 @@ const printWorkOrder = async (wo: WorkOrder, clinicName: string) => {
   <title>SPK Lab - ${wo.workOrderNo}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Arial, sans-serif; font-size: 11px; color: #1a1a1a; background: #fff; padding: 24px 32px; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1d4ed8; padding-bottom: 14px; margin-bottom: 18px; }
-    .clinic-name { font-size: 18px; font-weight: 900; color: #1d4ed8; text-transform: uppercase; letter-spacing: 1px; }
-    .clinic-sub { font-size: 10px; color: #6b7280; margin-top: 3px; }
-    .doc-title { text-align: right; }
-    .doc-title h2 { font-size: 15px; font-weight: 900; color: #1a1a1a; text-transform: uppercase; letter-spacing: 2px; }
-    .doc-title .no { font-size: 11px; font-weight: bold; color: #1d4ed8; background: #eff6ff; padding: 3px 8px; border-radius: 4px; margin-top: 4px; display: inline-block; }
-    .doc-title .date { font-size: 10px; color: #6b7280; margin-top: 3px; }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
-    .section { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; }
-    .section-title { font-size: 9px; font-weight: 900; color: #6b7280; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; display: flex; align-items: center; gap: 5px; }
-    .section-title::before { content: ''; display: block; width: 3px; height: 12px; background: #1d4ed8; border-radius: 2px; }
-    .field { margin-bottom: 7px; }
-    .field label { font-size: 9px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 2px; }
-    .field span { font-size: 12px; font-weight: bold; color: #1a1a1a; }
-    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; background: #dbeafe; color: #1d4ed8; text-transform: uppercase; letter-spacing: 0.5px; }
-    .item-row { display: flex; justify-content: space-between; padding: 8px 10px; background: #f8fafc; border-radius: 6px; margin-bottom: 5px; }
+    body { font-family: Arial, sans-serif; font-size: 11px; color: #1a1a1a; background: #fff; padding: 24px 32px; max-width: 210mm; margin: 0 auto; }
+    .header { display: flex; align-items: center; justify-content: flex-start; gap: 16px; border-bottom: 2px solid #1a1a1a; padding-bottom: 16px; margin-bottom: 16px; }
+    .clinic-logo { width: 200px; height: auto; object-fit: contain; margin-left: -35px; margin-right: -65px; }
+    .clinic-text { display: flex; flex-direction: column; text-align: left; gap: 5px; }
+    .clinic-name { font-size: 22px; font-weight: bold; color: #008a45; text-transform: uppercase; white-space: nowrap; font-family: Arial, sans-serif; }
+    .clinic-address { font-size: 11px; color: #4b5563; line-height: 1.5; }
+    
+    .doc-title-centered { text-align: center; margin-bottom: 16px; }
+    .doc-title-centered h2 { font-size: 16px; font-weight: 900; color: #1a1a1a; text-transform: uppercase; letter-spacing: 2px; }
+    .doc-title-centered .no { font-size: 11px; font-weight: bold; color: #008a45; background: #eaf4f0; padding: 4px 12px; border-radius: 6px; margin-top: 6px; display: inline-block; border: 1px solid #bbf7d0; }
+    .doc-title-centered .date { font-size: 10px; color: #6b7280; margin-top: 6px; font-weight: bold; }
+    
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .section { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
+    .section-title { font-size: 9px; font-weight: 900; color: #6b7280; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+    .section-title::before { content: ''; display: block; width: 3px; height: 12px; background: #008a45; border-radius: 2px; }
+    .field { margin-bottom: 5px; }
+    .field label { font-size: 8px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 2px; }
+    .field span { font-size: 11px; font-weight: bold; color: #1a1a1a; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 9px; font-weight: 700; background: #eaf4f0; color: #008a45; text-transform: uppercase; letter-spacing: 0.5px; }
+    .item-row { display: flex; justify-content: space-between; padding: 6px 10px; background: #f8fafc; border-radius: 6px; margin-bottom: 4px; }
     .item-row label { font-size: 9px; color: #6b7280; text-transform: uppercase; }
     .item-row span { font-size: 12px; font-weight: bold; }
-    .financial-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px dashed #e5e7eb; }
-    .financial-row:last-child { border: none; border-top: 2px solid #1d4ed8; padding-top: 10px; }
-    .financial-row .label { font-size: 10px; color: #6b7280; }
-    .financial-row .value { font-size: 13px; font-weight: 900; }
-    .footer { margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+    .footer { margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
     .sign-box { text-align: center; }
     .sign-box .role { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; font-weight: bold; margin-bottom: 3px; }
-    .sign-space { height: 60px; border-bottom: 1px solid #374151; margin-bottom: 5px; }
+    .sign-space { height: 50px; border-bottom: 1px solid #374151; margin-bottom: 4px; }
     .sign-box .name { font-size: 10px; font-weight: bold; }
-    .watermark { text-align: center; margin-top: 20px; font-size: 9px; color: #d1d5db; }
-    @media print { body { padding: 16px 24px; } button { display: none; } }
+    .watermark { text-align: center; margin-top: 24px; font-size: 9px; color: #d1d5db; }
+    @page { size: A4; margin: 0; }
+    @media print { 
+      body { padding: 15mm 20mm; width: 100%; max-width: 210mm; margin: 0 auto; }
+      button { display: none; }
+    }
   </style>
 </head>
 <body>
   <div class="header">
-    <div>
-      <div class="clinic-name">${clinicName}</div>
-      <div class="clinic-sub">Surat Perintah Kerja (SPK) Dental Lab</div>
+    <img src="/logo-yasfina_web.png" alt="Logo" class="clinic-logo" />
+    <div class="clinic-text">
+      <div class="clinic-name">LABORATORIUM KLINIK PRATAMA YASFINA</div>
+      <div class="clinic-address">
+        Villa Bogor Indah Blok BB 2 No. 1 Kedung Halang - Bogor<br/>
+        Telp. : 0251-8666169
+      </div>
     </div>
-    <div class="doc-title">
-      <h2>SPK Lab Eksternal</h2>
-      <div class="no">${wo.workOrderNo}</div>
-      <div class="date">Tanggal: ${formatDate(wo.createdAt)}</div>
-    </div>
+  </div>
+
+  <div class="doc-title-centered">
+    <h2>SPK Lab Eksternal</h2>
+    <div class="no">${wo.workOrderNo}</div>
+    <div class="date">Tanggal: ${formatDate(wo.createdAt)}</div>
   </div>
 
   <div class="grid-2">
@@ -156,7 +164,6 @@ const printWorkOrder = async (wo: WorkOrder, clinicName: string) => {
       <div class="section-title">Data Pasien</div>
       <div class="field"><label>Nama Pasien</label><span>${wo.patient.name}</span></div>
       <div class="field"><label>No. Rekam Medis</label><span>${wo.patient.medicalRecordNo}</span></div>
-      <div class="field"><label>No. Telepon</label><span>${wo.patient.phone || '—'}</span></div>
       <div class="field"><label>Rangkaian Perawatan</label><span>${wo.treatmentPlan?.description || '—'}</span></div>
     </div>
     <div class="section">
@@ -179,23 +186,7 @@ const printWorkOrder = async (wo: WorkOrder, clinicName: string) => {
       <div class="item-row" style="flex-direction:column;"><label>Ukuran / Cetakan</label><span>${wo.size || '—'}</span></div>
       <div class="item-row" style="flex-direction:column;"><label>Target Selesai</label><span>${formatDate(wo.estimatedDate)}</span></div>
     </div>
-    ${wo.notes ? `<div style="margin-top:10px; padding:10px; background:#fffbeb; border-radius:6px; border-left:3px solid #f59e0b;"><label style="font-size:9px;color:#92400e;font-weight:700;display:block;margin-bottom:4px;">CATATAN DOKTER</label><span style="font-size:11px;">${wo.notes}</span></div>` : ''}
-  </div>
-
-  <div class="section" style="margin-bottom:20px;">
-    <div class="section-title">Informasi Pembayaran</div>
-    <div class="financial-row">
-      <span class="label">Total Biaya Perawatan</span>
-      <span class="value">${formatCurrency(wo.treatmentPlan?.totalAmount || 0)}</span>
-    </div>
-    <div class="financial-row">
-      <span class="label">Sudah Dibayar (DP)</span>
-      <span class="value" style="color:#10b981;">${formatCurrency(totalPaid)}</span>
-    </div>
-    <div class="financial-row">
-      <span class="label">Biaya Lab Eksternal</span>
-      <span class="value" style="color:#1d4ed8;">${formatCurrency(wo.labFee)}</span>
-    </div>
+    ${wo.notes ? `<div style="margin-top:10px; padding:10px; background:#f0fdf4; border-radius:6px; border-left:3px solid #166534;"><label style="font-size:9px;color:#166534;font-weight:700;display:block;margin-bottom:4px;">CATATAN DOKTER</label><span style="font-size:11px;">${wo.notes}</span></div>` : ''}
   </div>
 
   <div class="footer">
@@ -464,8 +455,16 @@ export default function DentalLabExternalPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => printWorkOrder(selectedWO, clinicName)}
-                      className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl transition-all" title="Cetak SPK">
+                    <button 
+                      onClick={() => printWorkOrder(selectedWO)}
+                      disabled={selectedWO.status === 'PENDING_DP' || selectedWO.status === 'DRAFT'}
+                      className={`p-2.5 rounded-xl transition-all ${
+                        selectedWO.status === 'PENDING_DP' || selectedWO.status === 'DRAFT'
+                          ? 'bg-gray-50 text-gray-300 cursor-not-allowed'
+                          : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                      }`} 
+                      title={selectedWO.status === 'PENDING_DP' || selectedWO.status === 'DRAFT' ? 'Tidak dapat mencetak SPK berstatus Draft / Menunggu DP' : 'Cetak SPK'}
+                    >
                       <FiPrinter className="w-5 h-5" />
                     </button>
                     {selectedWO.status === 'DRAFT' && (
@@ -490,6 +489,16 @@ export default function DentalLabExternalPage() {
                   )})()}
                   <span className="text-[10px] font-bold text-gray-400 font-mono">{selectedWO.workOrderNo}</span>
                 </div>
+
+                {(selectedWO.status === 'DRAFT' || selectedWO.status === 'PENDING_DP') && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 mb-4 flex items-start gap-3">
+                    <FiAlertCircle className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-black text-orange-700">Tertunda: Menunggu DP Kasir</p>
+                      <p className="text-[10px] text-orange-600 mt-0.5">SPK ini masih berstatus <b>Draft</b> karena pasien belum membayar DP di Kasir. SPK ini tidak boleh diproses atau dikirim ke Lab Eksternal sampai pembayaran DP diterima.</p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Treatment Plan Info */}
                 {selectedWO.treatmentPlan && (
