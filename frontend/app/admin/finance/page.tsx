@@ -156,7 +156,7 @@ export default function FinanceDashboard() {
       notes: '',
       discount: 0,
       discountType: 'amount' as 'amount' | 'percent',
-      discountInput: 0,
+      discountInput: 0 as number | string,
       corporateCoverageAmount: 0
    })
   const [processing, setProcessing] = useState(false)
