@@ -11,6 +11,7 @@ import {
 } from 'react-icons/fi'
 import { toast } from 'react-hot-toast'
 import api from '@/lib/api'
+import Link from 'next/link'
 
 // ──────────────────────── Types ────────────────────────
 
@@ -229,6 +230,8 @@ export default function DentalLabExternalPage() {
   const [processing, setProcessing] = useState(false)
   const [showStatusModal, setShowStatusModal] = useState(false)
   const [pendingStatus, setPendingStatus] = useState<WorkOrderStatus | null>(null)
+  const [invoiceItems, setInvoiceItems] = useState<{ id?: string; description: string; amount: string }[]>([])
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const clinicName = 'Klinik Anda' // Bisa diambil dari store
 
   const fetchAll = useCallback(async () => {
@@ -265,14 +268,39 @@ export default function DentalLabExternalPage() {
     if (!selectedWO || !pendingStatus) return
     try {
       setProcessing(true)
-      await api.patch(`/dental-lab/work-orders/${selectedWO.id}/status`, { status: pendingStatus })
+      const payload: any = { status: pendingStatus }
+      if (pendingStatus === 'RECEIVED') {
+        payload.invoiceItems = invoiceItems.filter(item => item.description.trim() !== '' && item.amount !== '')
+      }
+      await api.patch(`/dental-lab/work-orders/${selectedWO.id}/status`, payload)
       toast.success(`Status berhasil diubah ke: ${STATUS_CONFIG[pendingStatus]?.label}`)
       setShowStatusModal(false)
       setPendingStatus(null)
       setSelectedWO(null)
+      setInvoiceItems([])
       fetchAll()
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Gagal update status')
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  const handleUpdateInvoice = async () => {
+    if (!selectedWO) return
+    try {
+      setProcessing(true)
+      const payload = {
+        invoiceItems: invoiceItems.filter(item => item.description.trim() !== '' && item.amount !== '')
+      }
+      await api.patch(`/dental-lab/work-orders/${selectedWO.id}/invoice`, payload)
+      toast.success('Rincian biaya lab berhasil diperbarui')
+      setShowInvoiceModal(false)
+      setSelectedWO(null)
+      setInvoiceItems([])
+      fetchAll()
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Gagal memperbarui rincian biaya lab')
     } finally {
       setProcessing(false)
     }
@@ -322,6 +350,15 @@ export default function DentalLabExternalPage() {
             </div>
             <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Monitoring SPK Dental Lab Eksternal</p>
           </div>
+        </div>
+
+        <div>
+          <Link href="/admin/transactions/treatment-plans"
+            className="flex items-center justify-center gap-2 px-6 py-3.5 bg-white border-2 border-gray-100 text-gray-600 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50/50 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-sm hover:shadow-md transition-all active:scale-95"
+          >
+            <FiArrowRight className="w-4 h-4 rotate-180" />
+            Ke Rangkaian Perawatan
+          </Link>
         </div>
       </div>
 
@@ -467,7 +504,7 @@ export default function DentalLabExternalPage() {
                     >
                       <FiPrinter className="w-5 h-5" />
                     </button>
-                    {selectedWO.status === 'DRAFT' && (
+                    {(selectedWO.status === 'DRAFT' || selectedWO.status === 'PENDING_DP') && (
                       <button onClick={() => handleDelete(selectedWO)} disabled={processing}
                         className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
                         <FiTrash2 className="w-5 h-5" />
@@ -511,7 +548,13 @@ export default function DentalLabExternalPage() {
                 {/* Next Action Button */}
                 {NEXT_STATUS[selectedWO.status] && (
                   <button
-                    onClick={() => { setPendingStatus(NEXT_STATUS[selectedWO.status]!.status); setShowStatusModal(true) }}
+                    onClick={() => {
+                      setPendingStatus(NEXT_STATUS[selectedWO.status]!.status);
+                      if (NEXT_STATUS[selectedWO.status]!.status === 'RECEIVED') {
+                        setInvoiceItems([{ description: '', amount: '' }]);
+                      }
+                      setShowStatusModal(true)
+                    }}
                     className={`w-full py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 ${NEXT_STATUS[selectedWO.status]!.color}`}
                   >
                     <FiArrowRight className="w-4 h-4" />
@@ -547,6 +590,40 @@ export default function DentalLabExternalPage() {
                   <div className="mt-4 bg-amber-50 border border-amber-100 rounded-xl p-4">
                     <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1">Catatan Dokter</p>
                     <p className="text-sm text-gray-700">{selectedWO.notes}</p>
+                  </div>
+                )}
+                {/* Tampilkan Invoice Items Jika Statusnya Diterima atau Selesai (Bisa Diedit walau kosong) */}
+                {(selectedWO.status === 'RECEIVED' || selectedWO.status === 'FITTED') && (
+                  <div className="mt-4 border border-gray-100 rounded-xl overflow-hidden">
+                    <div className="bg-gray-50 px-4 py-2 border-b border-gray-100 flex items-center justify-between">
+                      <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Rincian Biaya Lab</p>
+                      <button
+                        onClick={() => {
+                          const currentItems = (selectedWO as any).invoiceItems || [];
+                          setInvoiceItems(currentItems.length > 0 ? currentItems.map((i: any) => ({ description: i.description, amount: String(i.amount) })) : [{ description: '', amount: '' }]);
+                          setShowInvoiceModal(true);
+                        }}
+                        className="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-md uppercase tracking-widest hover:bg-blue-100 transition-all flex items-center gap-1"
+                      >
+                        <FiEdit3 className="w-3 h-3" /> Edit
+                      </button>
+                    </div>
+                    <div className="p-3 bg-white space-y-2">
+                      {((selectedWO as any).invoiceItems || []).length > 0 ? (
+                        (selectedWO as any).invoiceItems.map((item: any, i: number) => (
+                          <div key={item.id || i} className="flex justify-between items-center text-xs">
+                            <span className="text-gray-600">{item.description}</span>
+                            <span className="font-bold text-gray-900">{formatCurrency(item.amount)}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-gray-400 italic text-center py-2">Belum ada rincian biaya, silakan klik Edit.</p>
+                      )}
+                      <div className="flex justify-between items-center text-xs font-black border-t border-gray-100 pt-2 mt-2">
+                        <span className="text-gray-800">TOTAL BIAYA LAB</span>
+                        <span className="text-emerald-600">{formatCurrency(selectedWO.labFee || 0)}</span>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -622,11 +699,70 @@ export default function DentalLabExternalPage() {
                     <span className={`font-black ${cfg.color}`}>{cfg.label}</span>?
                   </p>
                   {pendingStatus === 'RECEIVED' && (
-                    <div className="bg-violet-50 border border-violet-200 rounded-2xl p-4 mb-5">
-                      <p className="text-[10px] font-black text-violet-700 uppercase tracking-widest flex items-center gap-1.5 mb-1">
-                        <FiInfo className="w-3.5 h-3.5" /> Notifikasi Otomatis
-                      </p>
-                      <p className="text-xs text-violet-600">Sistem akan mengirim notifikasi ke Perawat/Admin untuk segera menghubungi pasien dan menjadwalkan pemasangan.</p>
+                    <div className="text-left mb-6">
+                      <div className="bg-violet-50 border border-violet-200 rounded-2xl p-4 mb-5">
+                        <p className="text-[10px] font-black text-violet-700 uppercase tracking-widest flex items-center gap-1.5 mb-1">
+                          <FiInfo className="w-3.5 h-3.5" /> Notifikasi Otomatis
+                        </p>
+                        <p className="text-xs text-violet-600">Sistem akan mengirim notifikasi ke Perawat/Admin untuk segera menghubungi pasien dan menjadwalkan pemasangan.</p>
+                      </div>
+
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-widest flex items-center gap-1.5">
+                            <FiDollarSign className="w-3.5 h-3.5 text-emerald-500" /> Rincian Biaya Invoice Lab
+                          </h4>
+                        </div>
+                        <div className="space-y-3">
+                          {invoiceItems.map((item, index) => (
+                            <div key={index} className="flex items-start gap-2">
+                              <input
+                                type="text"
+                                placeholder="Jasa Lab, Material, Ongkir..."
+                                value={item.description}
+                                onChange={e => {
+                                  const newItems = [...invoiceItems];
+                                  newItems[index].description = e.target.value;
+                                  setInvoiceItems(newItems);
+                                }}
+                                className="w-[55%] text-xs font-semibold px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:bg-white focus:border-emerald-300 transition-all"
+                              />
+                              <input
+                                type="number"
+                                placeholder="Nominal"
+                                value={item.amount}
+                                onChange={e => {
+                                  const newItems = [...invoiceItems];
+                                  newItems[index].amount = e.target.value;
+                                  setInvoiceItems(newItems);
+                                }}
+                                className="w-[35%] text-xs font-black text-right px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:bg-white focus:border-emerald-300 transition-all"
+                              />
+                              <button
+                                onClick={() => {
+                                  const newItems = invoiceItems.filter((_, i) => i !== index);
+                                  setInvoiceItems(newItems);
+                                }}
+                                className="w-[10%] h-[34px] flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                              >
+                                <FiX className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            onClick={() => setInvoiceItems([...invoiceItems, { description: '', amount: '' }])}
+                            className="w-full text-[10px] font-black text-blue-600 uppercase tracking-widest py-2 bg-blue-50 border border-blue-100 rounded-lg border-dashed hover:bg-blue-100 transition-all mt-1"
+                          >
+                            + Tambah Baris Biaya
+                          </button>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center">
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Biaya Lab</span>
+                          <span className="text-sm font-black text-emerald-600">
+                            {formatCurrency(invoiceItems.reduce((acc, item) => acc + (Number(item.amount) || 0), 0))}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   )}
                   <div className="flex gap-3">
@@ -641,7 +777,95 @@ export default function DentalLabExternalPage() {
                     </button>
                   </div>
                 </>
-              )})()}
+              ) })()}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Edit Invoice Modal ── */}
+      <AnimatePresence>
+        {showInvoiceModal && selectedWO && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => !processing && setShowInvoiceModal(false)}
+              className="absolute inset-0 bg-gray-950/80 backdrop-blur-md" />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl p-8">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 bg-blue-50 text-blue-500">
+                <FiDollarSign className="w-7 h-7" />
+              </div>
+              <h3 className="text-lg font-black text-gray-900 text-center uppercase tracking-tight mb-2">
+                Edit Biaya Lab
+              </h3>
+              <p className="text-sm text-gray-500 text-center mb-6">
+                Sesuaikan rincian biaya invoice untuk SPK <span className="font-bold text-gray-700">{selectedWO.workOrderNo}</span>.
+              </p>
+
+              <div className="text-left mb-6">
+                <div className="space-y-3">
+                  {invoiceItems.map((item, index) => (
+                    <div key={index} className="flex items-start gap-2">
+                      <input
+                        type="text"
+                        placeholder="Jasa Lab, Material, Ongkir..."
+                        value={item.description}
+                        onChange={e => {
+                          const newItems = [...invoiceItems];
+                          newItems[index].description = e.target.value;
+                          setInvoiceItems(newItems);
+                        }}
+                        className="w-[55%] text-xs font-semibold px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:bg-white focus:border-blue-300 transition-all"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Nominal"
+                        value={item.amount}
+                        onChange={e => {
+                          const newItems = [...invoiceItems];
+                          newItems[index].amount = e.target.value;
+                          setInvoiceItems(newItems);
+                        }}
+                        className="w-[35%] text-xs font-black text-right px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:bg-white focus:border-blue-300 transition-all"
+                      />
+                      <button
+                        onClick={() => {
+                          const newItems = invoiceItems.filter((_, i) => i !== index);
+                          setInvoiceItems(newItems);
+                        }}
+                        className="w-[10%] h-[34px] flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                      >
+                        <FiX className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setInvoiceItems([...invoiceItems, { description: '', amount: '' }])}
+                    className="w-full text-[10px] font-black text-blue-600 uppercase tracking-widest py-2 bg-blue-50 border border-blue-100 rounded-lg border-dashed hover:bg-blue-100 transition-all mt-1"
+                  >
+                    + Tambah Baris Biaya
+                  </button>
+                </div>
+                <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center">
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Biaya Lab Baru</span>
+                  <span className="text-sm font-black text-blue-600">
+                    {formatCurrency(invoiceItems.reduce((acc, item) => acc + (Number(item.amount) || 0), 0))}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => !processing && setShowInvoiceModal(false)}
+                  className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 transition-all">
+                  Batal
+                </button>
+                <button onClick={handleUpdateInvoice} disabled={processing}
+                  className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2 bg-blue-500 text-white`}>
+                  {processing ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiCheck className="w-4 h-4" />}
+                  {processing ? 'Menyimpan...' : 'Simpan Biaya'}
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

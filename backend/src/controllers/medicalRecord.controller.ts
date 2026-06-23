@@ -550,7 +550,18 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
           where: { id: mr.registrationId || undefined }
         })
         const visitType = registration?.visitType || 'BARU'
-        const consultPrice = await getConsultationPrice(tx, new Date(), visitType)
+        let consultPrice = await getConsultationPrice(tx, new Date(), visitType)
+
+        // Jika ada rangkaian perawatan aktif, harga jasa pemeriksaan menjadi 0
+        const activeTreatmentPlan = await tx.treatmentPlan.findFirst({
+          where: {
+            patientId: mr.patientId,
+            status: 'ACTIVE'
+          }
+        })
+        if (activeTreatmentPlan) {
+          consultPrice = 0;
+        }
 
         // PREVENT DUPLICATE ITEMS ON REOPEN: Remove existing items added by this medical record
         // We do this by checking if invoice items already exist for this mr's services
@@ -627,7 +638,8 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
             where: {
               OR: [
                 { serviceCode: 'CONS-DOC' },
-                { serviceName: { contains: 'Konsultasi Dokter', mode: 'insensitive' } }
+                { serviceName: { contains: 'Konsultasi Dokter', mode: 'insensitive' } },
+                { serviceName: { contains: 'Jasa Pemeriksaan', mode: 'insensitive' } }
               ],
               AND: {
                 OR: [{ clinicId: mr.clinicId }, { clinic: { isMain: true } }]

@@ -996,12 +996,29 @@ export default function FinanceDashboard() {
                                )}
                             </div>
 
-                            <div className="pt-4 border-t border-dashed border-gray-200">
-                               <div className="flex justify-between items-center">
-                                  <span className="text-xs font-black text-gray-900 uppercase">Total Bayar</span>
-                                  <span className="text-xl font-black text-primary">{formatCurrency(paymentData.amount)}</span>
-                               </div>
-                            </div>
+                             <div className="pt-4 border-t border-dashed border-gray-200">
+                                <div className="flex flex-col gap-2">
+                                   <label className="text-xs font-black text-gray-900 uppercase">Jumlah Yang Dibayar (Partial Payment)</label>
+                                   <div className="relative">
+                                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-primary">Rp</span>
+                                      <input 
+                                         type="text" 
+                                         value={paymentData.amount ? new Intl.NumberFormat('id-ID').format(paymentData.amount) : ''}
+                                         onChange={(e) => {
+                                            const val = parseInt(e.target.value.replace(/\D/g, ''), 10) || 0;
+                                            const baseRemaining = selectedInvoice.total - (selectedInvoice.amountPaid || 0) - paymentData.discount - (paymentData.corporateCoverageAmount || 0);
+                                            const finalAmount = Math.min(val, baseRemaining);
+                                            setPaymentData({ ...paymentData, amount: finalAmount });
+                                            setReceivedAmount(finalAmount);
+                                         }}
+                                         className="w-full pl-12 pr-4 py-3 bg-primary/5 border border-primary/20 rounded-xl text-xl font-black text-primary focus:border-primary outline-none transition-all"
+                                         placeholder="0"
+                                         onFocus={(e) => e.target.select()}
+                                      />
+                                   </div>
+                                   <p className="text-[9px] font-bold text-gray-500 uppercase">Ubah nominal di atas jika pasien hanya membayar sebagian (dicicil)</p>
+                                </div>
+                             </div>
                         </div>
                      </div>
                   </div>

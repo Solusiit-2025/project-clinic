@@ -56,6 +56,7 @@ export const getTreatmentPlans = async (req: Request, res: Response) => {
           items: true,
           // #15: Include workOrders to avoid N+1 API calls from frontend
           workOrders: {
+            include: { invoiceItems: true },
             orderBy: { createdAt: 'desc' }
           }
         },
@@ -120,7 +121,11 @@ export const getTreatmentPlanById = async (req: Request, res: Response) => {
           },
           orderBy: { createdAt: 'desc' }
         },
-        items: true
+        items: true,
+        workOrders: {
+          include: { invoiceItems: true },
+          orderBy: { createdAt: 'desc' }
+        }
       }
     })
 
@@ -550,6 +555,162 @@ export const createInvoice = async (req: Request, res: Response) => {
     res.status(201).json(result)
   } catch (e) {
     console.error('[createInvoice] Error:', e)
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+export const updateVisitServicePrice = async (req: Request, res: Response) => {
+  try {
+    const { id, visitId, serviceId } = req.params
+    const { price, quantity } = req.body
+    const userId = (req as any).user?.id
+
+    if (price === undefined || isNaN(Number(price))) {
+      return res.status(400).json({ message: 'Harga baru tidak valid' })
+    }
+
+    const qty = quantity !== undefined ? Number(quantity) : 1;
+    if (isNaN(qty) || qty <= 0) {
+      return res.status(400).json({ message: 'Kuantitas tidak valid' })
+    }
+
+    const plan = await prisma.treatmentPlan.findUnique({
+      where: { id },
+      include: {
+        visits: {
+          where: { id: visitId },
+          include: { services: { where: { id: serviceId } } }
+        }
+      }
+    })
+
+    if (!plan) return res.status(404).json({ message: 'Treatment Plan tidak ditemukan' })
+    if (plan.status === 'COMPLETED') return res.status(400).json({ message: 'Rangkaian Perawatan sudah selesai' })
+
+    const visit = plan.visits[0]
+    if (!visit) return res.status(404).json({ message: 'Kunjungan tidak ditemukan' })
+    if (visit.status === 'SELESAI') return res.status(400).json({ message: 'Tidak dapat mengubah harga pada kunjungan yang sudah Selesai' })
+
+    const service = visit.services[0]
+    if (!service) return res.status(404).json({ message: 'Layanan tidak ditemukan' })
+
+    const newPrice = Number(price)
+    const newSubtotal = newPrice * qty;
+
+    await prisma.visitService.update({
+      where: { id: serviceId },
+      data: {
+        price: newPrice,
+        quantity: qty,
+        subtotal: newSubtotal,
+        adjustedPrice: null,
+        adjustedBy: userId || 'SYSTEM',
+        adjustedAt: new Date()
+      }
+    })
+
+    res.json({ message: 'Harga dan kuantitas berhasil diperbarui' })
+  } catch (e) {
+    console.error('[updateVisitServicePrice] Error:', e)
+    res.status(500).json({ message: (e as Error).message })
+  }
+}
+
+export const postProfitShare = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { percent } = req.body
+    const clinicId = (req as any).clinicId
+
+    const plan = await prisma.treatmentPlan.findUnique({
+      where: { id },
+      include: {
+        visits: {
+          include: { services: true }
+        },
+        workOrders: true
+      }
+    })
+
+    if (!plan) return res.status(404).json({ message: 'Treatment Plan tidak ditemukan' })
+    if (!plan.doctorId) return res.status(400).json({ message: 'Treatment Plan tidak memiliki Dokter penanggung jawab' })
+    if (plan.isProfitSharePosted) return res.status(400).json({ message: 'Profit Sharing sudah di-posting sebelumnya' })
+
+    const sharePercent = percent !== undefined ? Number(percent) : plan.doctorProfitSharePercent
+
+    // Hitung total layanan
+    const totalServices = plan.visits.reduce((acc, visit) => {
+      const visitTotal = visit.services.reduce((sum, s) => sum + s.subtotal, 0)
+      return acc + visitTotal
+    }, 0)
+
+    // Hitung biaya lab eksternal
+    const totalLabFees = plan.workOrders.reduce((acc, wo) => acc + wo.labFee, 0)
+
+    // Margin = Pendapatan - Biaya Lab
+    const netMargin = totalServices - totalLabFees
+    const profitShareAmount = netMargin > 0 ? (netMargin * sharePercent) / 100 : 0
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Update Treatment Plan
+      await tx.treatmentPlan.update({
+        where: { id },
+        data: {
+          doctorProfitSharePercent: sharePercent,
+          doctorProfitShareAmount: profitShareAmount,
+          isProfitSharePosted: true
+        }
+      })
+
+      // 2. Create Doctor Commission
+      const commission = await tx.doctorCommission.create({
+        data: {
+          clinicId: clinicId,
+          doctorId: plan.doctorId!,
+          description: `Profit Sharing Rangkaian Perawatan: ${plan.description}`,
+          amount: profitShareAmount,
+          type: 'TREATMENT_PLAN',
+          status: 'unpaid',
+          sourceId: plan.id,
+          date: new Date()
+        },
+        include: { doctor: true }
+      })
+
+      // 3. Create Journal Entry (Accrual: Beban Jasa Dokter pada Hutang Jasa Dokter)
+      if (profitShareAmount > 0) {
+        const sysAccountKeys = ['DOCTOR_FEE_PAYABLE', 'DOCTOR_FEE_EXPENSE']
+        const sysAccounts = await tx.systemAccount.findMany({
+          where: { key: { in: sysAccountKeys }, OR: [{ clinicId }, { clinicId: null }] },
+          include: { coa: true }
+        })
+
+        const getSysAcc = (key: string) => sysAccounts.find(a => a.key === key)
+        const payableAcc = getSysAcc('DOCTOR_FEE_PAYABLE')?.coa || await tx.chartOfAccount.findFirst({ where: { code: '2-1102' } })
+        const expenseAcc = getSysAcc('DOCTOR_FEE_EXPENSE')?.coa || await tx.chartOfAccount.findFirst({ where: { code: '6-1102' } })
+
+        if (payableAcc && expenseAcc) {
+          await tx.journalEntry.create({
+            data: {
+              date: new Date(),
+              description: `Akrual Profit Sharing Dokter: ${commission.doctor.name} - ${plan.description}`,
+              referenceNo: `PS-${plan.id.slice(0, 8).toUpperCase()}`,
+              entryType: 'SYSTEM',
+              clinicId,
+              details: {
+                create: [
+                  { coaId: expenseAcc.id, debit: profitShareAmount, credit: 0, description: `Beban Jasa Dokter: ${plan.description}` },
+                  { coaId: payableAcc.id, debit: 0, credit: profitShareAmount, description: `Hutang Jasa Dokter: ${commission.doctor.name}` }
+                ]
+              }
+            }
+          })
+        }
+      }
+    })
+
+    res.json({ message: 'Profit Sharing berhasil di-posting', amount: profitShareAmount })
+  } catch (e) {
+    console.error('[postProfitShare] Error:', e)
     res.status(500).json({ message: (e as Error).message })
   }
 }

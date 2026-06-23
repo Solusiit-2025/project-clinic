@@ -90,7 +90,8 @@ export const getWorkOrders = async (req: Request, res: Response) => {
           doctor: {
             select: { id: true, name: true, specialization: true }
           },
-          attachments: true
+          attachments: true,
+          invoiceItems: true
         },
         orderBy: { createdAt: 'desc' }
       })
@@ -380,13 +381,35 @@ export const updateWorkOrderStatus = async (req: Request, res: Response) => {
     }
 
     if (status === 'SENT_TO_LAB') {
-      updateData.sentDate = sentDate ? new Date(sentDate) : new Date()
+      updateData.sentDate = sentDate ? new Date(sentDate) : (wo.status === 'SENT_TO_LAB' ? wo.sentDate : new Date())
     }
     if (status === 'RECEIVED') {
-      updateData.receivedDate = receivedDate ? new Date(receivedDate) : new Date()
+      updateData.receivedDate = receivedDate ? new Date(receivedDate) : (wo.status === 'RECEIVED' ? wo.receivedDate : new Date())
     }
     if (status === 'FITTED') {
-      updateData.fittedDate = fittedDate ? new Date(fittedDate) : new Date()
+      updateData.fittedDate = fittedDate ? new Date(fittedDate) : (wo.status === 'FITTED' ? wo.fittedDate : new Date())
+    }
+
+    // Handle invoiceItems for labFee
+    const invoiceItems = req.body.invoiceItems as Array<{ description: string, amount: number }> | undefined;
+    if (invoiceItems && Array.isArray(invoiceItems)) {
+      const totalLabFee = invoiceItems.reduce((acc, item) => acc + Number(item.amount), 0);
+      updateData.labFee = totalLabFee;
+
+      // Hapus invoice item lama jika ada
+      await prisma.dentalLabWorkOrderInvoiceItem.deleteMany({
+        where: { workOrderId: id }
+      });
+      // Insert yang baru
+      if (invoiceItems.length > 0) {
+        await prisma.dentalLabWorkOrderInvoiceItem.createMany({
+          data: invoiceItems.map(i => ({
+            workOrderId: id,
+            description: i.description,
+            amount: Number(i.amount)
+          }))
+        });
+      }
     }
 
     const updated = await prisma.dentalLabWorkOrder.update({
@@ -394,12 +417,13 @@ export const updateWorkOrderStatus = async (req: Request, res: Response) => {
       data: updateData,
       include: {
         patient: { select: { name: true, medicalRecordNo: true } },
-        treatmentPlan: { select: { description: true } }
+        treatmentPlan: { select: { description: true } },
+        invoiceItems: true
       }
     })
 
     // 🔔 TRIGGER NOTIFIKASI — Saat barang diterima dari lab
-    if (status === 'RECEIVED' && clinicId) {
+    if (status === 'RECEIVED' && wo.status !== 'RECEIVED' && clinicId) {
       try {
         // Simpan notifikasi ke database
         await prisma.notification.create({
@@ -441,6 +465,49 @@ export const updateWorkOrderStatus = async (req: Request, res: Response) => {
   }
 }
 
+export const updateWorkOrderInvoice = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { invoiceItems } = req.body;
+
+    if (!Array.isArray(invoiceItems)) {
+      return res.status(400).json({ message: 'invoiceItems harus berupa array' });
+    }
+
+    const wo = await prisma.dentalLabWorkOrder.findUnique({ where: { id } });
+    if (!wo) return res.status(404).json({ message: 'Work Order tidak ditemukan' });
+
+    const totalLabFee = invoiceItems.reduce((acc, item) => acc + Number(item.amount), 0);
+
+    await prisma.dentalLabWorkOrderInvoiceItem.deleteMany({
+      where: { workOrderId: id }
+    });
+
+    if (invoiceItems.length > 0) {
+      await prisma.dentalLabWorkOrderInvoiceItem.createMany({
+        data: invoiceItems.map(i => ({
+          workOrderId: id,
+          description: i.description,
+          amount: Number(i.amount)
+        }))
+      });
+    }
+
+    const updated = await prisma.dentalLabWorkOrder.update({
+      where: { id },
+      data: { labFee: totalLabFee },
+      include: {
+        invoiceItems: true
+      }
+    });
+
+    res.json(updated);
+  } catch (e) {
+    console.error('[updateWorkOrderInvoice] Error:', e);
+    res.status(500).json({ message: (e as Error).message });
+  }
+}
+
 /**
  * DELETE /api/dental-lab/work-orders/:id
  * Hapus Work Order. Hanya bisa jika status DRAFT.
@@ -452,9 +519,9 @@ export const deleteWorkOrder = async (req: Request, res: Response) => {
     const wo = await prisma.dentalLabWorkOrder.findUnique({ where: { id } })
     if (!wo) return res.status(404).json({ message: 'Work Order tidak ditemukan' })
 
-    if (wo.status !== 'DRAFT') {
+    if (wo.status !== 'DRAFT' && wo.status !== 'PENDING_DP') {
       return res.status(400).json({
-        message: `Work Order tidak bisa dihapus karena status sudah "${WO_STATUS_LABELS[wo.status]}". Hanya Work Order berstatus DRAFT yang bisa dihapus.`
+        message: `Work Order tidak bisa dihapus karena status sudah "${WO_STATUS_LABELS[wo.status]}". Hanya Work Order berstatus DRAFT atau Menunggu DP yang bisa dihapus.`
       })
     }
 

@@ -64,6 +64,10 @@ export default function TreatmentStepModal({ isOpen, onClose, onSuccess, planId,
     setSelectedServices(selectedServices.filter(s => s.serviceId !== serviceId))
   }
 
+  const handleUpdateService = (serviceId: string, field: 'quantity' | 'price', value: number) => {
+    setSelectedServices(selectedServices.map(s => s.serviceId === serviceId ? { ...s, [field]: value } : s))
+  }
+
   const handleSubmit = async () => {
     if (selectedServices.length === 0) return toast.error('Pilih minimal satu tindakan')
     
@@ -169,7 +173,7 @@ export default function TreatmentStepModal({ isOpen, onClose, onSuccess, planId,
                      filteredServices.map(svc => (
                        <div key={svc.id} className="flex items-center justify-between p-3 hover:bg-gray-50 border-b border-gray-50 last:border-0 relative z-20">
                          <div>
-                           <p className="text-xs font-bold text-gray-800">{svc.serviceName}</p>
+                           <p className="text-sm font-bold text-gray-800">{svc.serviceName}</p>
                            <p className="text-[10px] text-gray-500">Rp {svc.price.toLocaleString('id-ID')}</p>
                          </div>
                          <button 
@@ -198,12 +202,27 @@ export default function TreatmentStepModal({ isOpen, onClose, onSuccess, planId,
              ) : (
                <div className="space-y-2">
                  {selectedServices.map(svc => (
-                   <div key={svc.serviceId} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-xl">
-                      <div>
-                        <p className="text-xs font-bold text-gray-800">{svc.name}</p>
-                        <p className="text-[10px] text-gray-500">Rp {svc.price.toLocaleString('id-ID')} x {svc.quantity}</p>
+                   <div key={svc.serviceId} className="flex flex-col p-3 bg-gray-50 border border-gray-100 rounded-xl gap-2">
+                      <div className="flex justify-between items-start">
+                        <p className="text-sm font-black text-gray-800 mb-1">{svc.name}</p>
+                        <button onClick={() => handleRemoveService(svc.serviceId)} className="text-red-500 p-1 hover:bg-red-50 rounded-lg"><FiTrash2 className="w-4 h-4" /></button>
                       </div>
-                      <button onClick={() => handleRemoveService(svc.serviceId)} className="text-red-500 p-2 hover:bg-red-50 rounded-lg"><FiTrash2 className="w-4 h-4" /></button>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest block mb-1">Harga Satuan (Rp)</label>
+                          <input type="number" value={svc.price} onChange={(e) => handleUpdateService(svc.serviceId, 'price', Number(e.target.value))} className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:border-blue-400" />
+                        </div>
+                        <div>
+                          <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest block mb-1">Qty</label>
+                          <input type="number" value={svc.quantity} onChange={(e) => handleUpdateService(svc.serviceId, 'quantity', Number(e.target.value))} min={1} className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:border-blue-400" />
+                        </div>
+                        <div>
+                          <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest block mb-1">Total (Rp)</label>
+                          <div className="w-full bg-gray-100 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 font-bold whitespace-nowrap overflow-hidden text-ellipsis h-[30px] flex items-center">
+                            {(svc.price * svc.quantity).toLocaleString('id-ID')}
+                          </div>
+                        </div>
+                      </div>
                    </div>
                  ))}
                </div>

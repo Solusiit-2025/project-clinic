@@ -10,6 +10,7 @@ import {
   deleteWorkOrder,
   getWorkOrderPrintData,
   getWorkOrderStats,
+  updateWorkOrderInvoice
 } from '../controllers/dentalLab.controller'
 
 const router = Router()
@@ -29,6 +30,7 @@ router.delete('/work-orders/:id', deleteWorkOrder)
 
 // Status Management
 router.patch('/work-orders/:id/status', updateWorkOrderStatus)
+router.patch('/work-orders/:id/invoice', updateWorkOrderInvoice)
 
 // Print Data (untuk generate PDF di frontend)
 router.get('/work-orders/:id/print', getWorkOrderPrintData)

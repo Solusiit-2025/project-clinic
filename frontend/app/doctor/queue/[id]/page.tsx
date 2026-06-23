@@ -137,6 +137,7 @@ export default function DoctorConsultationPage() {
   const [labResults, setLabResults] = useState('')
   const [notes, setNotes] = useState('')
   const [hasInformedConsent, setHasInformedConsent] = useState(false)
+  const [hasPlanWithoutSPK, setHasPlanWithoutSPK] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [isDrawing, setIsDrawing] = useState(false)
@@ -396,6 +397,7 @@ export default function DoctorConsultationPage() {
   }
 
   const isReadOnly = useMemo(() => queue?.status === 'completed', [queue])
+  const isDentalQueue = useMemo(() => queue?.department?.name?.toLowerCase().includes('gigi') || queue?.department?.name?.toLowerCase().includes('dental'), [queue])
 
   const latestVitals = useMemo(() => {
     return medicalRecord?.vitals?.[0] || null
@@ -866,6 +868,23 @@ export default function DoctorConsultationPage() {
 
     // Confirmation dialog for final saving
     if (isFinal) {
+      // VALIDASI KHUSUS POLI GIGI: Cek status SPK Lab untuk ditampilkan di modal
+      let withoutSPK = false;
+      if (isDentalQueue) {
+        try {
+          const plansRes = await api.get('/treatment-plans', {
+            params: { patientId: queue.patientId, status: 'ACTIVE', clinicId: queue.clinicId }
+          });
+          const activePlans = plansRes.data?.data || [];
+          if (activePlans.length > 0) {
+            withoutSPK = activePlans.some((p: any) => !p.workOrders || p.workOrders.length === 0);
+          }
+        } catch (e) {
+          console.error('Failed to validate treatment plans SPK', e);
+        }
+      }
+      setHasPlanWithoutSPK(withoutSPK);
+
       setIsPrescriptionRedirect(goToPrescription)
       setShowFinalConfirm(true)
       return
@@ -875,6 +894,11 @@ export default function DoctorConsultationPage() {
   }
 
   const executeSave = async (isFinal: boolean, goToPrescription: boolean) => {
+    if (isFinal && isDentalQueue && hasPlanWithoutSPK) {
+      toast.error('Tidak bisa menyelesaikan: Ada Rangkaian Perawatan Aktif yang belum memiliki SPK Lab.');
+      return;
+    }
+
     setSaving(true)
     const toastId = toast.loading(isFinal ? 'Menyimpan hasil konsultasi...' : 'Menyimpan draft...')
     try {
@@ -5426,6 +5450,12 @@ export default function DoctorConsultationPage() {
                       icon: <HiOutlineBeaker />,
                       isFilled: labItems.length > 0
                     },
+                    ...(isDentalQueue ? [{
+                      id: 'spk_lab',
+                      label: 'SPK Lab (Rangkaian Perawatan)',
+                      icon: <FiLayers />,
+                      isFilled: !hasPlanWithoutSPK
+                    }] : []),
                     {
                       id: 'consent',
                       label: 'Persetujuan Tindakan',

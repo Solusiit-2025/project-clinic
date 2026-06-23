@@ -1746,6 +1746,9 @@ model TreatmentPlan {
   description    String
   totalAmount    Float                @default(0)
   status         TreatmentPlanStatus  @default(ACTIVE)
+  doctorProfitSharePercent Float @default(40)
+  doctorProfitShareAmount  Float @default(0)
+  isProfitSharePosted      Boolean @default(false)
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
   invoices       Invoice[]
@@ -1983,11 +1986,25 @@ model DentalLabWorkOrder {
   patient       Patient                        @relation(fields: [patientId], references: [id])
   doctor        Doctor?                        @relation(fields: [doctorId], references: [id])
   attachments   DentalLabWorkOrderAttachment[]
+  invoiceItems  DentalLabWorkOrderInvoiceItem[]
 
   @@index([treatmentPlanId])
   @@index([patientId])
   @@index([status])
   @@map("dental_lab_work_orders")
+}
+
+model DentalLabWorkOrderInvoiceItem {
+  id          String   @id @default(uuid())
+  workOrderId String
+  description String
+  amount      Float
+  createdAt   DateTime @default(now())
+
+  workOrder   DentalLabWorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
+  @@map("dental_lab_work_order_invoice_items")
 }
 
 model DentalLabWorkOrderAttachment {

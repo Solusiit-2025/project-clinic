@@ -141,6 +141,15 @@ export default function PatientsPage() {
     } catch (e) { console.error('Failed to fetch next MR No', e) }
   }, [])
 
+  const handleDateChange = (val: string) => {
+    let cleaned = val.replace(/\D/g, '');
+    let formatted = '';
+    if (cleaned.length > 0) formatted = cleaned.substring(0, 2);
+    if (cleaned.length > 2) formatted += '-' + cleaned.substring(2, 4);
+    if (cleaned.length > 4) formatted += '-' + cleaned.substring(4, 8);
+    setForm(p => ({ ...p, dateOfBirth: formatted }));
+  }
+
   const openAdd = () => { 
     setEditing(null); 
     setForm(EMPTY); 
@@ -151,9 +160,22 @@ export default function PatientsPage() {
 
   const openEdit = (r: Patient) => {
     setEditing(r)
+    let dob = '';
+    if (r.dateOfBirth) {
+       const datePart = r.dateOfBirth.substring(0, 10);
+       const parts = datePart.split('-');
+       if (parts.length === 3) {
+          if (parts[0].length === 4) {
+             // YYYY-MM-DD -> DD-MM-YYYY
+             dob = `${parts[2]}-${parts[1]}-${parts[0]}`;
+          } else {
+             dob = datePart;
+          }
+       }
+    }
     setForm({ 
       ...r, 
-      dateOfBirth: r.dateOfBirth ? r.dateOfBirth.substring(0, 10) : '',
+      dateOfBirth: dob,
       allergies: r.allergies || '',
       emergencyContact: r.emergencyContact || '',
       emergencyPhone: r.emergencyPhone || '',
@@ -184,14 +206,26 @@ export default function PatientsPage() {
       setError('No. RM, Nama, dan No. HP wajib diisi')
       return 
     }
+
+    let finalForm = { ...form };
+    if (finalForm.dateOfBirth) {
+      if (/^\d{2}-\d{2}-\d{4}$/.test(finalForm.dateOfBirth)) {
+         const [d, m, y] = finalForm.dateOfBirth.split('-');
+         finalForm.dateOfBirth = `${y}-${m}-${d}`;
+      } else {
+         setError('Format Tanggal Lahir tidak valid. Gunakan format DD-MM-YYYY');
+         return;
+      }
+    }
+
     setSaving(true); setError('')
     try {
       if (editing) {
-        await api.put(`/master/patients/${editing.id}`, form)
+        await api.put(`/master/patients/${editing.id}`, finalForm)
         setUpdatedId(editing.id)
         setTimeout(() => setUpdatedId(null), 8000) // Highlight for 8 seconds
       } else {
-        await api.post('/master/patients', form)
+        await api.post('/master/patients', finalForm)
         setSearch('')
         setPage(1)
       }
@@ -445,12 +479,14 @@ export default function PatientsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[11px] font-medium text-slate-500">Tanggal Lahir</label>
+                    <label className="text-[11px] font-medium text-slate-500">Tanggal Lahir (Hari-Bulan-Tahun)</label>
                     <input 
-                      type="date" 
+                      type="text" 
                       value={form.dateOfBirth || ''} 
-                      onChange={(e) => setForm(p => ({...p, dateOfBirth: e.target.value}))}
-                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all" 
+                      onChange={(e) => handleDateChange(e.target.value)}
+                      placeholder="DD-MM-YYYY"
+                      maxLength={10}
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all font-mono" 
                     />
                   </div>
 

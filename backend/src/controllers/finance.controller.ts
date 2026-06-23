@@ -256,10 +256,11 @@ export const processPayment = async (req: Request, res: Response) => {
         await tx.dentalLabWorkOrder.updateMany({
           where: {
             treatmentPlanId: updatedInvoice.treatmentPlanId,
-            status: { in: ['PENDING_DP'] }
+            status: { in: ['PENDING_DP', 'DRAFT'] }
           },
           data: {
-            status: 'DRAFT'
+            status: 'SENT_TO_LAB',
+            sentDate: new Date()
           }
         })
       }

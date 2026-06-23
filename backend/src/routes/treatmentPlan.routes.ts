@@ -13,7 +13,9 @@ import {
   updateVisitSchedule,
   updateVisitStatus,
   updateVisitAdjustment,
-  deleteVisit
+  deleteVisit,
+  updateVisitServicePrice,
+  postProfitShare
 } from '../controllers/treatmentPlan.controller'
 
 const router = Router()
@@ -29,9 +31,13 @@ router.put('/:id', roleMiddleware(['DOCTOR']), updateTreatmentPlan)
 router.delete('/:id', roleMiddleware(['DOCTOR']), deleteTreatmentPlan)
 router.patch('/:id/status', roleMiddleware(['DOCTOR']), updateStatus)
 
+// Profit Sharing
+router.post('/:id/post-profit-share', roleMiddleware(['ADMIN', 'SUPER_ADMIN', 'DOCTOR']), postProfitShare)
+
 // Visit Management (Tahapan Rangkaian)
 router.post('/:id/visits', roleMiddleware(['DOCTOR']), addVisit)
 router.put('/:id/visits/:visitId/services', roleMiddleware(['DOCTOR']), updateVisitServices)
+router.patch('/:id/visits/:visitId/services/:serviceId/price', roleMiddleware(['ADMIN', 'NURSE', 'DOCTOR']), updateVisitServicePrice)
 router.put('/:id/visits/:visitId/schedule', roleMiddleware(['ADMIN', 'SUPER_ADMIN', 'RECEPTIONIST', 'DOCTOR']), updateVisitSchedule)
 router.put('/:id/visits/:visitId/status', roleMiddleware(['DOCTOR', 'NURSE']), updateVisitStatus)
 router.put('/:id/visits/:visitId/adjustment', roleMiddleware(['ADMIN', 'SUPER_ADMIN', 'RECEPTIONIST']), updateVisitAdjustment)

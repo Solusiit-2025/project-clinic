@@ -123,6 +123,9 @@ interface TreatmentPlan {
   items?: TreatmentPlanItem[]
   workOrders?: WorkOrder[]
   doctor?: { id: string; name: string }
+  doctorProfitSharePercent?: number
+  doctorProfitShareAmount?: number
+  isProfitSharePosted?: boolean
 }
 
 // ──────────────────────── Helpers ────────────────────────
@@ -179,9 +182,11 @@ export default function TreatmentPlansPage() {
   // Visit form — #12: now uses TreatmentStepModal for service selection
   const [showStepModal, setShowStepModal] = useState(false)
 
-  // #11: Inline schedule edit state
   const [editingScheduleVisitId, setEditingScheduleVisitId] = useState<string | null>(null)
   const [editScheduleDate, setEditScheduleDate] = useState('')
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null)
+  const [editServicePrice, setEditServicePrice] = useState<number>(0)
+  const [editServiceQty, setEditServiceQty] = useState<number>(1)
 
   const handleUpdateVisitSchedule = async (visitId: string) => {
     if (!selectedPlan) return
@@ -196,6 +201,41 @@ export default function TreatmentPlansPage() {
       toast.error(err?.response?.data?.message || 'Gagal mengubah jadwal')
     } finally {
       setProcessing(false)
+    }
+  }
+
+  const handleUpdateServicePrice = async (visitId: string, serviceId: string) => {
+    if (!selectedPlan) return
+    try {
+      setProcessing(true)
+      await api.patch(`/treatment-plans/${selectedPlan.id}/visits/${visitId}/services/${serviceId}/price`, { price: editServicePrice, quantity: editServiceQty })
+      toast.success('Harga dan kuantitas berhasil diperbarui')
+      setEditingServiceId(null)
+      fetchDetail(selectedPlan.id)
+      fetchPlans()
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Gagal mengubah harga layanan')
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  const [profitSharePercent, setProfitSharePercent] = useState<number>(40)
+  const [isPostingProfit, setIsPostingProfit] = useState(false)
+
+  const handlePostProfitShare = async () => {
+    if (!selectedPlan) return
+    if (!window.confirm('Apakah Anda yakin ingin mem-posting Profit Sharing ini ke Laporan Keuangan?\nJurnal Akrual akan otomatis dibuat dan tidak dapat dibatalkan melalui halaman ini.')) return
+    try {
+      setIsPostingProfit(true)
+      await api.post(`/treatment-plans/${selectedPlan.id}/post-profit-share`, { percent: profitSharePercent })
+      toast.success('Profit Sharing berhasil di-posting ke laporan keuangan')
+      fetchDetail(selectedPlan.id)
+      fetchPlans()
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Gagal mem-posting profit sharing')
+    } finally {
+      setIsPostingProfit(false)
     }
   }
 
@@ -306,6 +346,11 @@ export default function TreatmentPlansPage() {
       setDetailLoading(true)
       const res = await api.get(`/treatment-plans/${id}`)
       setSelectedPlan(res.data)
+      if (res.data?.doctorProfitSharePercent !== undefined) {
+        setProfitSharePercent(res.data.doctorProfitSharePercent)
+      } else {
+        setProfitSharePercent(40)
+      }
       fetchWorkOrders(id) // Load WOs for this plan
     } catch {
       toast.error('Gagal mengambil detail')
@@ -464,6 +509,10 @@ export default function TreatmentPlansPage() {
 
   // ⚡ Computed ⚡
   const totalPlanAmount = useMemo(() => selectedPlan?.calculatedTotalAmount || selectedPlan?.totalAmount || 0, [selectedPlan])
+  const totalLabFee = useMemo(() => {
+    if (!selectedPlan?.workOrders) return 0;
+    return selectedPlan.workOrders.reduce((sum: number, wo: any) => sum + (Number(wo.labFee) || 0), 0);
+  }, [selectedPlan])
   const totalInvoiced = useMemo(() => selectedPlan?.invoices?.reduce((sum, inv) => sum + inv.total, 0) || 0, [selectedPlan])
   const totalPaid = useMemo(() => selectedPlan?.invoices?.reduce((sum, inv) => sum + inv.amountPaid, 0) || 0, [selectedPlan])
   const remainingToInvoice = useMemo(() => Math.max(0, totalPlanAmount - totalInvoiced), [totalPlanAmount, totalInvoiced])
@@ -847,15 +896,68 @@ export default function TreatmentPlansPage() {
                                 {visit.services && visit.services.length > 0 && (
                                   <div className="mt-2 space-y-1">
                                     <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-200 pb-1 mb-1">Tindakan / Layanan</p>
-                                    {visit.services.map((svc: any) => (
-                                      <div key={svc.id} className="flex items-center justify-between text-xs py-0.5">
-                                        <div className="flex items-center gap-2">
-                                          <span className="font-medium text-gray-700">{svc.service?.serviceName || svc.service?.name || 'Layanan Medis'}</span>
-                                          {svc.quantity > 1 && <span className="text-[10px] font-black text-gray-400 bg-white px-1.5 py-0.5 rounded-md border">{svc.quantity}x</span>}
+                                    {visit.services.map((svc: any) => {
+                                      const currentPrice = svc.adjustedPrice || svc.subtotal || (svc.price * (svc.quantity || 1))
+                                      return (
+                                        <div key={svc.id} className="flex items-center justify-between text-xs py-0.5">
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-medium text-gray-700">{svc.service?.serviceName || svc.service?.name || 'Layanan Medis'}</span>
+                                            {svc.quantity > 1 && <span className="text-[10px] font-black text-gray-400 bg-white px-1.5 py-0.5 rounded-md border">{svc.quantity}x</span>}
+                                          </div>
+                                          
+                                          {editingServiceId === svc.id ? (
+                                            <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border-2 border-primary/20 shadow-md">
+                                              <div className="flex items-center gap-1 bg-gray-50 px-2 rounded border border-gray-200 focus-within:border-primary/50 focus-within:bg-white transition-all">
+                                                <input
+                                                  type="number"
+                                                  value={editServiceQty}
+                                                  onChange={e => setEditServiceQty(Number(e.target.value))}
+                                                  className="w-12 text-center bg-transparent border-0 py-1 text-sm font-black text-gray-800 focus:outline-none"
+                                                  min="1"
+                                                  title="Kuantitas (Qty)"
+                                                />
+                                                <span className="text-[10px] font-bold text-gray-400">x</span>
+                                              </div>
+                                              <span className="text-[10px] font-bold text-gray-400 pl-1">Rp</span>
+                                              <input
+                                                type="number"
+                                                value={editServicePrice}
+                                                onChange={e => setEditServicePrice(Number(e.target.value))}
+                                                className="w-32 text-right border-0 border-b-2 border-gray-200 bg-gray-50 rounded px-2 py-1.5 text-sm font-black text-gray-800 focus:outline-none focus:border-primary/50 focus:bg-white transition-all"
+                                                autoFocus
+                                                title="Harga Satuan"
+                                              />
+                                              <button onClick={() => handleUpdateServicePrice(visit.id, svc.id)} disabled={processing} className="px-3 py-1.5 bg-emerald-500 text-white hover:bg-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1 shadow-sm active:scale-95 transition-all">
+                                                <FiCheckCircle className="w-3.5 h-3.5" /> Simpan
+                                              </button>
+                                              <button onClick={() => setEditingServiceId(null)} className="px-3 py-1.5 bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1 active:scale-95 transition-all">
+                                                <FiX className="w-3.5 h-3.5" /> Batal
+                                              </button>
+                                            </div>
+                                          ) : (
+                                            <div className="flex items-center gap-3">
+                                              <div className="flex flex-col items-end justify-center">
+                                                <span className="font-black text-gray-900 text-sm">{formatCurrency(currentPrice)}</span>
+                                                <span className="text-[9px] font-bold text-gray-400 bg-gray-50 px-1 rounded border border-gray-100 mt-0.5">{svc.quantity || 1} x {formatCurrency(svc.price)}</span>
+                                              </div>
+                                              {remaining > 0 && selectedPlan.status !== 'COMPLETED' && visit.status !== 'SELESAI' && (
+                                                <button
+                                                  onClick={() => {
+                                                    setEditingServiceId(svc.id)
+                                                    setEditServicePrice(svc.price)
+                                                    setEditServiceQty(svc.quantity || 1)
+                                                  }}
+                                                  className="px-2.5 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 border border-blue-200 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                                                  title="Ubah Harga"
+                                                >
+                                                  <FiEdit3 className="w-3.5 h-3.5" /> Ubah Harga
+                                                </button>
+                                              )}
+                                            </div>
+                                          )}
                                         </div>
-                                        <span className="font-black text-gray-900">{formatCurrency(svc.adjustedPrice || svc.subtotal || (svc.price * (svc.quantity || 1)))}</span>
-                                      </div>
-                                    ))}
+                                      )
+                                    })}
                                   </div>
                                 )}
                               </div>
@@ -1002,6 +1104,92 @@ export default function TreatmentPlansPage() {
                       </>
                     )}
                   </div>
+                  {/* ── Ringkasan Margin / Profitabilitas ── */}
+                  {totalLabFee > 0 && (
+                    <div className="bg-emerald-50/30 rounded-[2.5rem] border border-emerald-100 shadow-sm p-6 md:p-8 mb-6">
+                      <div className="flex items-center gap-3 mb-5">
+                        <div className="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
+                          <FiDollarSign className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-black text-emerald-900 uppercase tracking-widest">Ringkasan Margin & Pendapatan</h3>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-black text-gray-500 uppercase tracking-widest">Total Pendapatan Rangkaian</p>
+                          <p className="text-sm font-black text-gray-800">{formatCurrency(totalPlanAmount)}</p>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold text-rose-500 uppercase tracking-widest flex items-center gap-1">
+                            <FiDroplet className="w-3.5 h-3.5" /> Biaya Pengeluaran Lab Eksternal
+                          </p>
+                          <p className="text-sm font-black text-rose-600">- {formatCurrency(totalLabFee)}</p>
+                        </div>
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-dashed border-emerald-200">
+                          <p className="text-sm font-black text-emerald-600 uppercase tracking-widest">Pendapatan Bersih / Margin</p>
+                          <p className="text-xl font-black text-emerald-600">{formatCurrency(totalPlanAmount - totalLabFee)}</p>
+                        </div>
+                        
+                        {/* Profit Sharing */}
+                        <div className="mt-4 pt-4 border-t border-emerald-200/60">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-black text-emerald-900 uppercase tracking-widest">Profit Sharing Dokter</p>
+                            {selectedPlan.isProfitSharePosted ? (
+                              <span className="px-2 py-0.5 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest rounded-md">Posted</span>
+                            ) : (
+                              <span className="px-2 py-0.5 bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest rounded-md">Pending</span>
+                            )}
+                          </div>
+                          
+                          {totalPaid < totalPlanAmount && !selectedPlan.isProfitSharePosted ? (
+                             <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl">
+                               <p className="text-[10px] font-bold text-amber-700">⚠️ Menunggu Pelunasan</p>
+                               <p className="text-[9px] text-amber-600 mt-0.5">Sistem akan membuka form Profit Sharing setelah pasien melunasi pembayaran Rangkaian Perawatan ini.</p>
+                             </div>
+                          ) : selectedPlan.isProfitSharePosted ? (
+                            <div className="flex justify-between items-center bg-emerald-100/50 p-3 rounded-xl">
+                              <div>
+                                <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-widest">Komisi Dokter ({selectedPlan.doctorProfitSharePercent}%)</p>
+                              </div>
+                              <p className="text-sm font-black text-emerald-700">{formatCurrency(selectedPlan.doctorProfitShareAmount || 0)}</p>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3 bg-white p-3 rounded-xl border border-emerald-100 shadow-sm">
+                              <div className="flex-1">
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Persentase Dokter</label>
+                                <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all">
+                                  <input 
+                                    type="number" 
+                                    min="0" 
+                                    max="100" 
+                                    value={profitSharePercent}
+                                    onChange={(e) => setProfitSharePercent(Number(e.target.value))}
+                                    className="w-full px-3 py-1.5 text-sm font-bold text-gray-900 outline-none"
+                                  />
+                                  <div className="px-3 py-1.5 bg-gray-50 text-gray-500 text-xs font-bold border-l border-gray-200">%</div>
+                                </div>
+                              </div>
+                              <div className="flex-1">
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Estimasi Komisi</label>
+                                <p className="text-sm font-black text-emerald-600 px-1 py-1.5">
+                                  {formatCurrency(((totalPlanAmount - totalLabFee) * profitSharePercent) / 100)}
+                                </p>
+                              </div>
+                              <button
+                                onClick={handlePostProfitShare}
+                                disabled={isPostingProfit || (totalPlanAmount - totalLabFee) <= 0}
+                                className="mt-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md hover:shadow-lg"
+                              >
+                                {isPostingProfit ? 'Posting...' : 'Posting'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* ── SPK Lab Eksternal Section ── */}
                   <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm p-6 md:p-8">
@@ -1097,6 +1285,23 @@ export default function TreatmentPlansPage() {
                                 <div className="mt-2.5 p-2 bg-white/40 rounded-lg border border-gray-100/50">
                                   <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Catatan Dokter</p>
                                   <p className="text-[10px] text-gray-700 font-medium leading-relaxed">{wo.notes}</p>
+                                </div>
+                              )}
+                              {(wo as any).invoiceItems && (wo as any).invoiceItems.length > 0 && (
+                                <div className="mt-2.5 p-2 bg-emerald-50/50 rounded-lg border border-emerald-100/50">
+                                  <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest mb-1.5 flex items-center gap-1"><FiDollarSign className="w-3 h-3"/> Rincian Biaya Lab</p>
+                                  <div className="space-y-1">
+                                    {(wo as any).invoiceItems.map((item: any, i: number) => (
+                                      <div key={item.id || i} className="flex justify-between items-center text-[10px]">
+                                        <span className="text-emerald-700">{item.description}</span>
+                                        <span className="font-bold text-emerald-800">{formatCurrency(item.amount)}</span>
+                                      </div>
+                                    ))}
+                                    <div className="flex justify-between items-center text-[10px] font-black border-t border-emerald-100/50 pt-1 mt-1">
+                                      <span className="text-emerald-800">TOTAL BIAYA LAB</span>
+                                      <span className="text-emerald-600">{formatCurrency(wo.labFee)}</span>
+                                    </div>
+                                  </div>
                                 </div>
                               )}
                             </div>
