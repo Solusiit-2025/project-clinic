@@ -77,6 +77,30 @@ export default function PatientsPage() {
   }, [fetchCorporatePartners])
 
   // Debounce logic
+  const calculateAge = (dob: string) => {
+    if (!dob) return '-';
+    const birthDate = new Date(dob);
+    const today = new Date();
+    
+    let ageY = today.getFullYear() - birthDate.getFullYear();
+    let ageM = today.getMonth() - birthDate.getMonth();
+    
+    if (today.getDate() < birthDate.getDate()) {
+        ageM--;
+    }
+    
+    if (ageM < 0) {
+        ageY--;
+        ageM += 12;
+    }
+    
+    if (ageY === 0 && ageM === 0) return '< 1 Bln';
+    if (ageY === 0) return `${ageM} Bln`;
+    if (ageM === 0) return `${ageY} Thn`;
+    
+    return `${ageY} Thn ${ageM} Bln`;
+  }
+
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(search)
@@ -219,7 +243,7 @@ export default function PatientsPage() {
             )}
           </div>
           <div className="flex items-center gap-2 mt-0.5">
-             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{r.gender === 'M' ? 'L' : 'P'} • {r.age || (r.dateOfBirth ? `${new Date().getFullYear() - new Date(r.dateOfBirth).getFullYear()} Thn` : '-')}</span>
+             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{r.gender === 'M' ? 'L' : 'P'} • {r.age || (r.dateOfBirth ? calculateAge(r.dateOfBirth) : '-')}</span>
              {r.identityNumber && (
                <span className="text-[9px] font-black text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-md flex items-center gap-1">
                  NIK: {r.identityNumber}

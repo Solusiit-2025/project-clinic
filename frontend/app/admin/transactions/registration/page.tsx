@@ -103,6 +103,30 @@ export default function RegistrationPage() {
   const fetchedSelectablesRef = useRef<string | null>(null)
   const [isMounted, setIsMounted] = useState(false) // Buat handle Hydration
 
+  const calculateAge = (dob: string) => {
+    if (!dob) return '-';
+    const birthDate = new Date(dob);
+    const today = new Date();
+    
+    let ageY = today.getFullYear() - birthDate.getFullYear();
+    let ageM = today.getMonth() - birthDate.getMonth();
+    
+    if (today.getDate() < birthDate.getDate()) {
+        ageM--;
+    }
+    
+    if (ageM < 0) {
+        ageY--;
+        ageM += 12;
+    }
+    
+    if (ageY === 0 && ageM === 0) return '< 1 Bln';
+    if (ageY === 0) return `${ageM} Bln`;
+    if (ageM === 0) return `${ageY} Thn`;
+    
+    return `${ageY} Thn ${ageM} Bln`;
+  }
+
 
   // Fetch initial data
   useEffect(() => {
@@ -353,7 +377,7 @@ export default function RegistrationPage() {
                         <div className="flex flex-wrap items-center gap-2">
                            <p className="text-[10px] md:text-xs text-gray-500 font-bold flex items-center gap-1.5">
                             <FiUser className="w-3 h-3 text-gray-400" />
-                            {p.gender === 'M' ? 'Pria' : 'Wanita'} • {p.age || (p.dateOfBirth ? `${new Date().getFullYear() - new Date(p.dateOfBirth).getFullYear()} Thn` : '-')}
+                            {p.gender === 'M' ? 'Pria' : 'Wanita'} • {p.age || (p.dateOfBirth ? calculateAge(p.dateOfBirth) : '-')}
                           </p>
                           {p.familyHeadName && (
                             <span className="text-[9px] font-black text-slate-500 bg-slate-100 px-2 py-0.5 rounded flex items-center gap-1">
