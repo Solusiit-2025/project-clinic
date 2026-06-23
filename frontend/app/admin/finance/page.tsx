@@ -956,42 +956,52 @@ export default function FinanceDashboard() {
                                <div className="relative">
                                   <input 
                                      type="text" 
-                                     value={paymentData.discountInput ? (paymentData.discountType === 'percent' ? paymentData.discountInput : new Intl.NumberFormat('id-ID').format(paymentData.discountInput)) : ''}
+                                     value={paymentData.discountInput === '-' ? '-' : (paymentData.discountInput ? (paymentData.discountType === 'percent' ? paymentData.discountInput : new Intl.NumberFormat('id-ID').format(Number(paymentData.discountInput))) : '')}
                                      onChange={(e) => {
                                         let valStr = e.target.value;
-                                        let val = 0;
+                                        let val: any = 0;
                                         if (paymentData.discountType === 'percent') {
-                                           valStr = valStr.replace(/[^\d.]/g, '');
+                                           valStr = valStr.replace(/[^\d.-]/g, '');
                                            val = parseFloat(valStr) || 0;
                                         } else {
-                                           valStr = valStr.replace(/\D/g, '');
-                                           val = parseInt(valStr, 10) || 0;
+                                           // Allow negative sign for Pembulatan
+                                           if (valStr === '-') {
+                                              val = '-';
+                                           } else {
+                                              valStr = valStr.replace(/[^\d.-]/g, '');
+                                              val = parseInt(valStr.replace(/\./g, ''), 10) || 0;
+                                           }
                                         }
                                         
                                         const baseRemaining = selectedInvoice.total - (selectedInvoice.amountPaid || 0) - (selectedInvoice.corporateCoverageAmount || 0);
                                         let discAmount = 0;
                                         if (paymentData.discountType === 'percent') {
-                                           val = Math.min(val, 100);
-                                           discAmount = (val / 100) * baseRemaining;
+                                           let numVal = typeof val === 'number' ? val : 0;
+                                           numVal = Math.min(numVal, 100);
+                                           if (typeof val === 'number') val = numVal;
+                                           discAmount = (numVal / 100) * baseRemaining;
                                         } else {
-                                           val = Math.min(val, baseRemaining);
-                                           discAmount = val;
+                                           // We don't cap negative discount (rounding up)
+                                           let numVal = typeof val === 'number' ? val : 0;
+                                           if (numVal > 0) numVal = Math.min(numVal, baseRemaining);
+                                           if (typeof val === 'number') val = numVal;
+                                           discAmount = numVal;
                                         }
                                         const corpCov = paymentData.corporateCoverageAmount || 0;
                                         const finalAmount = Math.max(0, baseRemaining - discAmount - corpCov);
                                         setPaymentData({ ...paymentData, discountInput: val, discount: discAmount, amount: finalAmount });
                                         setReceivedAmount(finalAmount);
                                      }}
-                                     placeholder={paymentData.discountType === 'percent' ? "0%" : "0"}
+                                     placeholder={paymentData.discountType === 'percent' ? "0%" : "0 (Gunakan - untuk Pembulatan Naik)"}
                                      className="w-full px-4 py-3 bg-white border border-gray-100 rounded-xl text-xs font-black focus:border-primary outline-none transition-all"
                                      onFocus={(e) => e.target.select()}
                                   />
                                </div>
 
-                               {paymentData.discount > 0 && (
-                                  <div className="flex justify-between text-[10px] font-bold text-rose-500 uppercase">
-                                     <span>Potongan</span>
-                                     <span>-{formatCurrency(paymentData.discount)}</span>
+                               {paymentData.discount !== 0 && (
+                                  <div className={`flex justify-between text-[10px] font-bold uppercase ${paymentData.discount > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                     <span>{paymentData.discount > 0 ? 'Potongan / Diskon' : 'Pembulatan Ke Atas'}</span>
+                                     <span>{paymentData.discount > 0 ? '-' : '+'}{formatCurrency(Math.abs(paymentData.discount))}</span>
                                   </div>
                                )}
                             </div>

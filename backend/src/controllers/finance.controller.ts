@@ -115,7 +115,7 @@ export const processPayment = async (req: Request, res: Response) => {
       // --- NEW: Apply Discount to Invoice ---
       let currentTotal = invoice.total
       let updatedDiscount = invoice.discount || 0
-      if (discountValue > 0) {
+      if (discountValue !== 0) {
         updatedDiscount += discountValue
         currentTotal = Math.max(0, invoice.subtotal - updatedDiscount + (invoice.tax || 0))
       }
@@ -381,9 +381,14 @@ export const postInvoice = async (req: Request, res: Response) => {
       }
 
       const getCoaByCode = async (code: string) => {
-        const coa = await tx.chartOfAccount.findFirst({
+        let coa = await tx.chartOfAccount.findFirst({
           where: { code, OR: [{ clinicId: targetClinicId }, { clinicId: null }] }
         })
+        if (!coa) {
+          coa = await tx.chartOfAccount.findFirst({
+            where: { code: { startsWith: code }, OR: [{ clinicId: targetClinicId }, { clinicId: null }] }
+          })
+        }
         return await resolveSpecificCoa(coa, targetClinicId)
       }
 
@@ -492,6 +497,7 @@ export const postInvoice = async (req: Request, res: Response) => {
         if (!arAccount) throw new Error('Akun Piutang (ACCOUNTS_RECEIVABLE) tidak tersedia.')
 
         const discountAccount = await getSysAcc('SALES_DISCOUNT') || await getCoaByCode('4-1199')
+        const otherRevenueAccount = await getSysAcc('OTHER_REVENUE') || await getCoaByCode('8-1201') || await getCoaByCode('8-1100') || discountAccount
 
         const doctorPayableAccount = await getSysAcc('DOCTOR_FEE_PAYABLE') || await getCoaByCode('2-1102')
 
@@ -529,6 +535,9 @@ export const postInvoice = async (req: Request, res: Response) => {
                 ] : []),
                 ...(invoice.discount > 0 ? [
                   { coaId: discountAccount?.id || arAccount.id, debit: invoice.discount, credit: 0, description: `Potongan Harga - Inv ${invoice.invoiceNo}` }
+                ] : []),
+                ...(invoice.discount < 0 ? [
+                  { coaId: otherRevenueAccount?.id || arAccount.id, debit: 0, credit: Math.abs(invoice.discount), description: `Pembulatan (Pendapatan Lain) - Inv ${invoice.invoiceNo}` }
                 ] : []),
                 ...Array.from(revenueMap.entries()).map(([coaId, data]) => ({
                   coaId, debit: 0, credit: data.amount, description: `Pendapatan ${data.coaName} - Inv ${invoice.invoiceNo}`

@@ -737,9 +737,18 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
         //   SKIP seluruhnya — tidak dihapus, tidak dibuat ulang.
         //   Ini mencegah double-counting saat dokter buka kunci dan simpan ulang.
         if (commissionDoctorId && finalClinicId && isFinal) {
+          // Cek apakah dokter adalah dokter gigi / poli gigi
+          const doctorData = await tx.doctor.findUnique({
+            where: { id: commissionDoctorId },
+            select: { specialization: true }
+          })
+          const isDentist = doctorData?.specialization?.toLowerCase().includes('gigi')
 
-          // GUARD: Cek apakah VOLUME_BONUS sudah pernah dibuat untuk rekam medis ini
-          const existingVolumeBonus = await tx.doctorCommission.findFirst({
+          if (isDentist) {
+            console.log(`[VolumeBonus] Dokter ${commissionDoctorId} adalah Dokter Gigi. Fitur Volume Bonus 8750 tidak berlaku.`)
+          } else {
+            // GUARD: Cek apakah VOLUME_BONUS sudah pernah dibuat untuk rekam medis ini
+            const existingVolumeBonus = await tx.doctorCommission.findFirst({
             where: { sourceId: mr.id, type: 'VOLUME_BONUS' }
           })
 
@@ -813,9 +822,10 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
             } else {
               console.log(`[VolumeBonus] Pasien ke-${patientPositionToday} — belum mencapai threshold (min. ke-${volumeBonusThreshold}). Tidak ada bonus.`)
             }
+            }
           }
         }
-
+        
         // Add Services (non-lab)
         if (services && Array.isArray(services)) {
           for (const s of services) {
