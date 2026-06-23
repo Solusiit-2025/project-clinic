@@ -77,6 +77,7 @@ interface Invoice {
   bank?: Bank | null
   isPosted: boolean
   postedAt?: string
+  isLabDeposit?: boolean
   registration?: {
     coverageType?: string
     queueNumbers: Array<{
