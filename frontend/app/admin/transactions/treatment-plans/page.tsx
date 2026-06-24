@@ -468,7 +468,7 @@ export default function TreatmentPlansPage() {
   // ── Delete treatment plan ──
   const handleDeletePlan = async () => {
     if (!selectedPlan) return
-    if (!confirm('Apakah Anda yakin ingin menghapus rangkaian perawatan ini?')) return
+    if (!window.confirm('Apakah Anda yakin ingin menghapus Rangkaian Perawatan ini?\n\nPERINGATAN: Jika sudah ada Tahapan Kunjungan yang berjalan di dalam rangkaian ini, maka data kunjungan tersebut juga akan ikut terhapus.')) return
     try {
       setProcessing(true)
       await api.delete(`/treatment-plans/${selectedPlan.id}`)
@@ -694,6 +694,87 @@ export default function TreatmentPlansPage() {
                           />
                         </div>
                       )}
+
+                      {/* Mini Timeline Kunjungan */}
+                      {plan.visits && plan.visits.length > 0 && (
+                        <div className="mt-4 pt-3 border-t border-gray-100/60">
+                          <div className="flex items-center gap-1.5 mb-2.5">
+                            <FiActivity className="w-3 h-3 text-violet-400" />
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Timeline Kunjungan</p>
+                          </div>
+                          <div className="flex items-start gap-1 overflow-x-auto no-scrollbar pb-1">
+                            {plan.visits.map((visit, vIdx) => {
+                              const isSelesai = visit.status === 'SELESAI';
+                              const isBerjalan = visit.status === 'BERJALAN';
+                              const dotColor = isSelesai ? 'bg-emerald-500' : isBerjalan ? 'bg-blue-500' : 'bg-gray-200 text-gray-500';
+                              const lineColor = isSelesai ? 'bg-emerald-200' : 'bg-gray-100';
+                              const textColor = isSelesai || isBerjalan ? 'text-white' : 'text-gray-500';
+                              
+                              return (
+                                <div key={visit.id} className="flex items-start shrink-0">
+                                  <div className="flex flex-col items-center gap-1.5 w-12">
+                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-black shadow-sm ring-2 ring-white ${dotColor} ${textColor}`} title={visit.notes || ''}>
+                                      {visit.order || vIdx + 1}
+                                    </div>
+                                    <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest text-center leading-tight">
+                                      {visit.visitDate ? new Date(visit.visitDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : 'TBD'}
+                                    </span>
+                                  </div>
+                                  {vIdx < plan.visits.length - 1 && (
+                                    <div className={`w-6 h-0.5 mt-3 shrink-0 ${lineColor}`} />
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Mini Timeline SPK Lab */}
+                      {plan.workOrders && plan.workOrders.length > 0 && (
+                        <div className="mt-4 pt-3 border-t border-gray-100/60">
+                          <div className="flex items-center gap-1.5 mb-2.5">
+                            <FiDroplet className="w-3 h-3 text-blue-400" />
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Status SPK Lab</p>
+                          </div>
+                          <div className="space-y-2">
+                            {plan.workOrders.map((wo, woIdx) => (
+                              <div key={wo.id} className="bg-gray-50/50 rounded-xl p-3 border border-gray-100/50">
+                                <p className="text-[9px] font-black text-gray-700 uppercase mb-2 truncate">
+                                  {wo.itemDescription}
+                                </p>
+                                <div className="space-y-0 text-[10px]">
+                                  {[
+                                    { label: 'SPK Dibuat', date: wo.createdAt, isDone: !!wo.createdAt, num: 1 },
+                                    { label: 'Dikirim ke Lab', date: wo.sentDate, isDone: !!wo.sentDate || wo.status === 'SENT_TO_LAB' || wo.status === 'RECEIVED' || wo.status === 'FITTED', num: 2 },
+                                    { label: 'Diterima', date: wo.receivedDate, isDone: !!wo.receivedDate || wo.status === 'RECEIVED' || wo.status === 'FITTED', num: 3 },
+                                    { label: 'Dipasang', date: wo.fittedDate, isDone: !!wo.fittedDate || wo.status === 'FITTED', num: 4 },
+                                  ].map((step, idx, arr) => (
+                                    <div key={idx} className="flex items-start gap-2">
+                                      <div className="flex flex-col items-center">
+                                        <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black shrink-0 ${step.isDone ? 'bg-blue-500 text-white' : 'bg-white border border-gray-200 text-gray-300'}`}>
+                                          {step.num}
+                                        </div>
+                                        {idx < arr.length - 1 && (
+                                          <div className={`w-px h-4 my-0.5 ${step.isDone && arr[idx+1].isDone ? 'bg-blue-200' : 'bg-gray-100'}`} />
+                                        )}
+                                      </div>
+                                      <div className="flex-1 flex justify-between gap-2">
+                                        <p className={`font-black uppercase tracking-widest text-[8px] leading-4 ${step.isDone ? 'text-gray-800' : 'text-gray-400'}`}>{step.label}</p>
+                                        {step.date ? (
+                                          <p className="text-[8px] text-gray-500 shrink-0 leading-4">{new Date(step.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</p>
+                                        ) : (
+                                          <p className="text-[8px] text-gray-400 shrink-0 leading-4">-</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </motion.div>
                   )
                 })}
@@ -756,7 +837,7 @@ export default function TreatmentPlansPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {selectedPlan.status === 'ACTIVE' && selectedPlan.visits.length === 0 && (!selectedPlan.invoices || selectedPlan.invoices.every(inv => !inv.payments || inv.payments.length === 0)) && (
+                        {selectedPlan.status === 'ACTIVE' && (!selectedPlan.invoices || selectedPlan.invoices.every(inv => !inv.payments || inv.payments.length === 0)) && (
                           <button onClick={handleDeletePlan} disabled={processing} className="p-2 text-gray-400 hover:text-rose-500 rounded-xl hover:bg-rose-50 transition-all">
                             <FiTrash2 className="w-5 h-5" />
                           </button>
@@ -1304,6 +1385,38 @@ export default function TreatmentPlansPage() {
                                   </div>
                                 </div>
                               )}
+
+                              {/* Timeline SPK Lab */}
+                              <div className="mt-4 pt-4 border-t border-gray-100/60">
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Timeline Status SPK</p>
+                                <div className="space-y-0 text-[10px]">
+                                  {[
+                                    { label: 'SPK Dibuat', date: wo.createdAt, isDone: !!wo.createdAt, num: 1 },
+                                    { label: 'Dikirim ke Lab', date: wo.sentDate, isDone: !!wo.sentDate || wo.status === 'SENT_TO_LAB' || wo.status === 'RECEIVED' || wo.status === 'FITTED', num: 2 },
+                                    { label: 'Diterima dari Lab', date: wo.receivedDate, isDone: !!wo.receivedDate || wo.status === 'RECEIVED' || wo.status === 'FITTED', num: 3 },
+                                    { label: 'Dipasang ke Pasien', date: wo.fittedDate, isDone: !!wo.fittedDate || wo.status === 'FITTED', num: 4 },
+                                  ].map((step, idx, arr) => (
+                                    <div key={idx} className="flex items-start gap-3">
+                                      <div className="flex flex-col items-center">
+                                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black shrink-0 ${step.isDone ? 'bg-blue-500 text-white' : 'bg-white border-2 border-gray-200 text-gray-300'}`}>
+                                          {step.num}
+                                        </div>
+                                        {idx < arr.length - 1 && (
+                                          <div className={`w-0.5 h-6 my-1 ${step.isDone && arr[idx+1].isDone ? 'bg-blue-200' : 'bg-gray-100'}`} />
+                                        )}
+                                      </div>
+                                      <div className="pt-0.5">
+                                        <p className={`font-black uppercase tracking-widest ${step.isDone ? 'text-gray-800' : 'text-gray-400'}`}>{step.label}</p>
+                                        {step.date ? (
+                                          <p className="text-[9px] text-gray-500 mt-0.5">{formatDateTime(step.date)}</p>
+                                        ) : (
+                                          <p className="text-[9px] text-gray-400 mt-0.5">-</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
                             </div>
                           )
                         })}

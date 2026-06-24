@@ -223,10 +223,6 @@ export const deleteTreatmentPlan = async (req: Request, res: Response) => {
 
     if (!plan) return res.status(404).json({ message: 'Treatment Plan tidak ditemukan' })
 
-    if (plan.visits.length > 0) {
-      return res.status(400).json({ message: 'Tidak dapat menghapus, karena sudah ada tahapan kunjungan' })
-    }
-
     const hasPayments = plan.invoices.some(inv => inv.payments.length > 0)
     if (hasPayments) {
       return res.status(400).json({ message: 'Tidak dapat menghapus, karena sudah ada pembayaran' })
@@ -242,6 +238,14 @@ export const deleteTreatmentPlan = async (req: Request, res: Response) => {
         await tx.invoiceItem.deleteMany({ where: { invoiceId: inv.id } })
         await tx.invoice.delete({ where: { id: inv.id } })
       }
+      
+      // Hapus data kunjungan (beserta relasinya)
+      for (const visit of plan.visits) {
+        await tx.visitService.deleteMany({ where: { visitId: visit.id } })
+        await tx.visitStatusLog.deleteMany({ where: { visitId: visit.id } })
+        await tx.visit.delete({ where: { id: visit.id } })
+      }
+
       await tx.treatmentPlanItem.deleteMany({ where: { treatmentPlanId: id } })
       await tx.treatmentPlan.delete({ where: { id } })
     })
