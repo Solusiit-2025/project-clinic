@@ -377,7 +377,7 @@ export default function RegistrationPage() {
                         <div className="flex flex-wrap items-center gap-2">
                            <p className="text-[10px] md:text-xs text-gray-500 font-bold flex items-center gap-1.5">
                             <FiUser className="w-3 h-3 text-gray-400" />
-                            {p.gender === 'M' ? 'Pria' : 'Wanita'} • {p.age || (p.dateOfBirth ? calculateAge(p.dateOfBirth) : '-')}
+                            {p.gender === 'M' ? 'Pria' : 'Wanita'} • {p.dateOfBirth ? calculateAge(p.dateOfBirth) : (p.age ? `${p.age} Thn` : '-')}
                           </p>
                           {p.familyHeadName && (
                             <span className="text-[9px] font-black text-slate-500 bg-slate-100 px-2 py-0.5 rounded flex items-center gap-1">

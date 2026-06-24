@@ -322,9 +322,9 @@ export default function PharmacyDetailPage({ params }: { params: Promise<{ id: s
                                            {item.components.map((c: any) => (
                                              <div key={c.id} className="flex items-center gap-3 text-[10px] font-bold text-gray-500 bg-gray-50/50 p-2 rounded-xl border border-gray-100 border-dashed">
                                                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-300" />
-                                                <span className="w-12 text-indigo-600">{c.quantity} {c.usedUnit || 'Unit'}</span>
+                                                <span className="w-12 text-indigo-600">{Number(c.quantity).toLocaleString('id-ID', { maximumFractionDigits: 2 })} {c.usedUnit || 'Unit'}</span>
                                                 <span className="flex-1 truncate">{c.medicine?.medicineName}</span>
-                                                <span className="text-gray-300">[{c.availableStock || 0} {c.storageUnit || 'Stock'}]</span>
+                                                <span className="text-gray-300">[{Number(c.availableStock || 0).toLocaleString('id-ID', { maximumFractionDigits: 2 })} {c.storageUnit || 'Stock'}]</span>
                                              </div>
                                            ))}
                                         </div>
@@ -337,7 +337,7 @@ export default function PharmacyDetailPage({ params }: { params: Promise<{ id: s
                                         <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Multi-Batch</span>
                                       ) : (
                                         <div className={`inline-flex flex-col items-center p-2 rounded-2xl min-w-[80px] border ${isShort ? 'bg-rose-50 border-rose-100 animate-pulse' : 'bg-emerald-50/50 border-emerald-100'}`}>
-                                           <span className={`text-lg font-black leading-none ${isShort ? 'text-rose-600' : 'text-emerald-600'}`}>{item.availableStock || 0}</span>
+                                           <span className={`text-lg font-black leading-none ${isShort ? 'text-rose-600' : 'text-emerald-600'}`}>{Number(item.availableStock || 0).toLocaleString('id-ID', { maximumFractionDigits: 2 })}</span>
                                            <span className="text-[8px] font-black text-gray-400 uppercase mt-1 tracking-tighter">{item.storageUnit || 'Stock'}</span>
                                         </div>
                                       )}
@@ -345,9 +345,9 @@ export default function PharmacyDetailPage({ params }: { params: Promise<{ id: s
                                    <td className="px-8 py-6 text-center">
                                       <div className="flex items-center justify-center gap-2">
                                          {isEditing ? (
-                                           <input type="number" value={item.quantity} onChange={(e) => updateItemQty(idx, parseInt(e.target.value) || 0)} className="w-16 p-2 bg-gray-50 border border-gray-200 rounded-xl text-center text-sm font-black outline-none focus:border-primary" />
+                                           <input type="number" value={item.quantity} onChange={(e) => updateItemQty(idx, parseFloat(e.target.value) || 0)} className="w-16 p-2 bg-gray-50 border border-gray-200 rounded-xl text-center text-sm font-black outline-none focus:border-primary" />
                                          ) : (
-                                           <span className="text-xl font-black text-primary">{item.quantity}</span>
+                                           <span className="text-xl font-black text-primary">{Number(item.quantity).toLocaleString('id-ID', { maximumFractionDigits: 2 })}</span>
                                          )}
                                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{item.usedUnit || 'Unit'}</span>
                                       </div>

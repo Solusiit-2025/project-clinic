@@ -277,7 +277,7 @@ export default function PatientsPage() {
             )}
           </div>
           <div className="flex items-center gap-2 mt-0.5">
-             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{r.gender === 'M' ? 'L' : 'P'} • {r.age || (r.dateOfBirth ? calculateAge(r.dateOfBirth) : '-')}</span>
+             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{r.gender === 'M' ? 'L' : 'P'} • {r.dateOfBirth ? calculateAge(r.dateOfBirth) : (r.age ? `${r.age} Thn` : '-')}</span>
              {r.identityNumber && (
                <span className="text-[9px] font-black text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-md flex items-center gap-1">
                  NIK: {r.identityNumber}
