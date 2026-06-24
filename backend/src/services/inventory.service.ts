@@ -174,17 +174,16 @@ export class InventoryService {
 
     // 4. Update Reserved Quantity if needed
     if (data.fromReserved) {
-      await tx.inventoryStock.updateMany({
-        where: {
-          productId: data.productId,
-          branchId: data.branchId,
-          batchId: null, // Reservations are stored in the global record
-          reservedQty: { gte: data.quantity }
-        },
-        data: {
-          reservedQty: { decrement: data.quantity }
-        }
+      const stock = await tx.inventoryStock.findFirst({
+        where: { productId: data.productId, branchId: data.branchId, batchId: null },
+        select: { id: true, reservedQty: true }
       });
+      if (stock) {
+        await tx.inventoryStock.update({
+          where: { id: stock.id },
+          data: { reservedQty: Math.max(0, stock.reservedQty - data.quantity) }
+        });
+      }
     }
 
     // 5. Sycnronize total quantity back to Product table (if not skipped)
@@ -334,10 +333,16 @@ export class InventoryService {
     referenceId?: string,
     notes?: string
   ) {
-    await tx.inventoryStock.updateMany({
+    const stock = await tx.inventoryStock.findFirst({
       where: { productId, branchId, batchId: null },
-      data: { reservedQty: { decrement: quantity } }
+      select: { id: true, reservedQty: true }
     });
+    if (stock) {
+      await tx.inventoryStock.update({
+        where: { id: stock.id },
+        data: { reservedQty: Math.max(0, stock.reservedQty - quantity) }
+      });
+    }
     
     const product = await tx.product.findUnique({
       where: { id: productId },

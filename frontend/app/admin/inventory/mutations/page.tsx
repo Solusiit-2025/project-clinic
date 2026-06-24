@@ -264,7 +264,7 @@ export default function StockMutationPage() {
                     </div>
                     <div className="col-span-2 text-center">
                        <span className={`inline-flex items-center justify-center min-w-[3rem] px-3 py-1.5 rounded-xl text-sm font-black border ${m.quantity > 0 ? 'bg-green-50 text-green-700 border-green-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
-                          {m.quantity > 0 ? `+${m.quantity}` : m.quantity} <span className="text-[10px] ml-1 opacity-60">pcs</span>
+                          {m.quantity > 0 ? `+${Number(m.quantity).toLocaleString('id-ID', { maximumFractionDigits: 2 })}` : Number(m.quantity).toLocaleString('id-ID', { maximumFractionDigits: 2 })} <span className="text-[10px] ml-1 opacity-60">pcs</span>
                        </span>
                     </div>
                     <div className="col-span-2 flex flex-col items-end justify-center gap-1.5">
@@ -318,7 +318,7 @@ export default function StockMutationPage() {
                        <div className="p-3 bg-gray-50/80 border border-gray-100 rounded-2xl">
                           <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Perubahan Stok</p>
                           <p className={`text-xl font-black ${m.quantity > 0 ? 'text-green-600' : 'text-rose-600'}`}>
-                             {m.quantity > 0 ? `+${m.quantity}` : m.quantity} <span className="text-[10px] font-bold text-gray-400 ml-1">Pcs</span>
+                             {m.quantity > 0 ? `+${Number(m.quantity).toLocaleString('id-ID', { maximumFractionDigits: 2 })}` : Number(m.quantity).toLocaleString('id-ID', { maximumFractionDigits: 2 })} <span className="text-[10px] font-bold text-gray-400 ml-1">Pcs</span>
                           </p>
                        </div>
                        <div className="p-3 bg-gray-50/80 border border-gray-100 rounded-2xl flex flex-col justify-center gap-1.5">

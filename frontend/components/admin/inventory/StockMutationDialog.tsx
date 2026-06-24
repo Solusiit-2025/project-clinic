@@ -223,7 +223,7 @@ export default function StockMutationDialog({ isOpen, onClose, stock }: StockMut
 
                             <div className="pl-4 border-l border-gray-50 text-right shrink-0">
                               <p className={`text-xl font-black ${mutation.type === 'IN' ? 'text-green-600' : mutation.type === 'OUT' ? 'text-red-600' : 'text-primary'}`}>
-                                {mutation.type === 'IN' ? '+' : ''}{mutation.quantity}
+                                {mutation.type === 'IN' ? '+' : ''}{Number(mutation.quantity).toLocaleString('id-ID', { maximumFractionDigits: 2 })}
                               </p>
                               <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Unit</p>
                             </div>
