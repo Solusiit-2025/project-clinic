@@ -568,6 +568,7 @@ export default function AdminDashboard() {
           {
             label: 'Pendapatan Hari Ini',
             value: `Rp ${(todayData.revenue ?? 0).toLocaleString()}`,
+            subValue: 'Dari Invoice Lunas',
             trend: todayData.revenueTrend,
             icon: FiDollarSign,
             color: 'text-emerald-500', bg: 'bg-emerald-50',
@@ -778,7 +779,7 @@ export default function AdminDashboard() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
             <div>
               <h3 className="text-xs font-black text-gray-900 tracking-tight">Performa Keuangan</h3>
-              <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-widest mt-0.5">Pendapatan vs Pengeluaran</p>
+              <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-widest mt-0.5">Berdasarkan Jurnal Akuntansi</p>
             </div>
             <div className="flex p-0.5 bg-gray-50 rounded-lg border border-gray-100 gap-0.5">
               {[{ id: 'week', label: 'Minggu' }, { id: 'month', label: 'Bulan' }, { id: 'year', label: 'Tahun' }].map((btn) => (
