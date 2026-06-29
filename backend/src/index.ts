@@ -31,6 +31,9 @@ import treatmentPlanRoutes from './routes/treatmentPlan.routes';
 import notificationRoutes from './routes/notification.routes';
 import dentalLabRoutes from './routes/dentalLab.routes';
 import odontogramRoutes from './routes/odontogram.routes';
+import executiveSummaryRoutes from './routes/executiveSummary.routes';
+
+import { apiLimiter } from './middleware/rateLimiter';
 
 // Load environment variables
 dotenv.config();
@@ -43,7 +46,14 @@ const httpServer = createServer(app);
 // Initialize Socket.io
 const io = new Server(httpServer, {
   cors: {
-    origin: "*", // Adjust for production
+    origin: [
+      process.env.FRONTEND_URL || 'http://localhost:3004',
+      'https://yasfina-app.com',
+      'http://localhost:3000',
+      'http://127.0.0.1:3004',
+      'http://localhost:3006',
+      'http://127.0.0.1:3006',
+    ],
     methods: ["GET", "POST"]
   }
 });
@@ -76,6 +86,10 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'x-clinic-id'],
 }));
 app.use(cookieParser());
+// Global rate limiter — production only (disabled in dev to allow polling/HMR)
+if (process.env.NODE_ENV === 'production') {
+  app.use(apiLimiter);
+}
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -117,6 +131,7 @@ app.use('/api/treatment-plans', treatmentPlanRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/dental-lab', dentalLabRoutes);
 app.use('/api/odontograms', odontogramRoutes);
+app.use('/api/executive', executiveSummaryRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

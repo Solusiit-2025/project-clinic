@@ -82,6 +82,7 @@ export const FINANCE_GROUPS = [
     icon: FiTrendingUp,
     moduleId: 'REPORTS_ACCOUNTING',
     items: [
+      { icon: FiBarChart2, label: 'Executive Summary (Owner)', href: '/admin/finance/reports/executive-summary', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTING'] },
       { icon: FiBookOpen, label: 'Buku Besar (Ledger)', href: '/admin/finance/reports/general-ledger' },
       { icon: FiActivity, label: 'Neraca Saldo (Trial Balance)', href: '/admin/finance/reports/trial-balance' },
       { icon: FiTrendingUp, label: 'Laba Rugi (P&L)', href: '/admin/finance/reports/profit-loss' },
