@@ -140,6 +140,7 @@ export const getExecutiveSummary = async (req: Request, res: Response) => {
         amountPaid: true,
         corporateInvoiceId: true,
         patient: { select: { name: true } },
+        corporateInvoice: { select: { corporatePartner: { select: { name: true } } } },
       },
       orderBy: { invoiceDate: 'asc' },
     })
@@ -147,6 +148,7 @@ export const getExecutiveSummary = async (req: Request, res: Response) => {
     const now = today.getTime()
     const agingBuckets = { '0-30': 0, '31-60': 0, '61-90': 0, '>90': 0 }
     const agingCount  = { '0-30': 0, '31-60': 0, '61-90': 0, '>90': 0 }
+    const agingDetails: Record<string, any[]> = { '0-30': [], '31-60': [], '61-90': [], '>90': [] }
 
     let totalReceivableB2B = 0  // Invoice linked to CorporateInvoice
     let totalReceivableReg = 0  // Regular patient invoice
@@ -159,11 +161,22 @@ export const getExecutiveSummary = async (req: Request, res: Response) => {
       const days = Math.floor((now - new Date(inv.invoiceDate).getTime()) / (1000 * 60 * 60 * 24))
       const safeDays = Math.max(0, days) // guard against future dates
 
+      const detailItem = {
+        id: inv.id,
+        invoiceDate: inv.invoiceDate,
+        total: inv.total,
+        amountPaid: inv.amountPaid,
+        outstanding,
+        days: safeDays,
+        type: inv.corporateInvoiceId ? 'B2B/Asuransi' : 'Reguler',
+        name: inv.corporateInvoice?.corporatePartner?.name || inv.patient?.name || 'Unknown',
+      }
+
       // Accumulate into bucket regardless of B2B or regular
-      if (safeDays <= 30)       { agingBuckets['0-30']  += outstanding; agingCount['0-30']++ }
-      else if (safeDays <= 60)  { agingBuckets['31-60'] += outstanding; agingCount['31-60']++ }
-      else if (safeDays <= 90)  { agingBuckets['61-90'] += outstanding; agingCount['61-90']++ }
-      else                      { agingBuckets['>90']   += outstanding; agingCount['>90']++ }
+      if (safeDays <= 30)       { agingBuckets['0-30']  += outstanding; agingCount['0-30']++; agingDetails['0-30'].push(detailItem) }
+      else if (safeDays <= 60)  { agingBuckets['31-60'] += outstanding; agingCount['31-60']++; agingDetails['31-60'].push(detailItem) }
+      else if (safeDays <= 90)  { agingBuckets['61-90'] += outstanding; agingCount['61-90']++; agingDetails['61-90'].push(detailItem) }
+      else                      { agingBuckets['>90']   += outstanding; agingCount['>90']++; agingDetails['>90'].push(detailItem) }
 
       if (inv.corporateInvoiceId) {
         totalReceivableB2B += outstanding
@@ -449,10 +462,10 @@ export const getExecutiveSummary = async (req: Request, res: Response) => {
         unpaidRegular: Math.round(totalReceivableReg),
         unpaidRegularCount: totalReceivableRegCount,
         buckets: [
-          { label: '0-30 hari', value: Math.round(agingBuckets['0-30']), count: agingCount['0-30'], pct: totalReceivable > 0 ? Math.round((agingBuckets['0-30'] / totalReceivable) * 100) : 0, color: 'emerald' },
-          { label: '31-60 hari', value: Math.round(agingBuckets['31-60']), count: agingCount['31-60'], pct: totalReceivable > 0 ? Math.round((agingBuckets['31-60'] / totalReceivable) * 100) : 0, color: 'amber' },
-          { label: '61-90 hari', value: Math.round(agingBuckets['61-90']), count: agingCount['61-90'], pct: totalReceivable > 0 ? Math.round((agingBuckets['61-90'] / totalReceivable) * 100) : 0, color: 'orange' },
-          { label: '>90 hari', value: Math.round(agingBuckets['>90']), count: agingCount['>90'], pct: totalReceivable > 0 ? Math.round((agingBuckets['>90'] / totalReceivable) * 100) : 0, color: 'rose' },
+          { label: '0-30 hari', value: Math.round(agingBuckets['0-30']), count: agingCount['0-30'], pct: totalReceivable > 0 ? Math.round((agingBuckets['0-30'] / totalReceivable) * 100) : 0, color: 'emerald', details: agingDetails['0-30'] },
+          { label: '31-60 hari', value: Math.round(agingBuckets['31-60']), count: agingCount['31-60'], pct: totalReceivable > 0 ? Math.round((agingBuckets['31-60'] / totalReceivable) * 100) : 0, color: 'amber', details: agingDetails['31-60'] },
+          { label: '61-90 hari', value: Math.round(agingBuckets['61-90']), count: agingCount['61-90'], pct: totalReceivable > 0 ? Math.round((agingBuckets['61-90'] / totalReceivable) * 100) : 0, color: 'orange', details: agingDetails['61-90'] },
+          { label: '>90 hari', value: Math.round(agingBuckets['>90']), count: agingCount['>90'], pct: totalReceivable > 0 ? Math.round((agingBuckets['>90'] / totalReceivable) * 100) : 0, color: 'rose', details: agingDetails['>90'] },
         ],
         topDebtors: unpaidCorporateInvoices.slice(0, 5).map((inv) => ({
           partner: inv.corporatePartner.name,

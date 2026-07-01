@@ -186,6 +186,7 @@ export default function ExecutiveSummaryPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [isClient, setIsClient] = useState(false)
   const [activeTab, setActiveTab] = useState<'profitability' | 'cash' | 'receivable' | 'doctor' | 'inventory' | 'kpi' | 'trend' | 'branch'>('profitability')
+  const [selectedBucket, setSelectedBucket] = useState<any>(null)
 
   useEffect(() => { setIsClient(true) }, [])
 
@@ -526,7 +527,7 @@ export default function ExecutiveSummaryPage() {
                 const textMap: Record<string, string> = { emerald: 'text-emerald-600', amber: 'text-amber-600', orange: 'text-orange-600', rose: 'text-rose-500' }
                 return (
                   <div key={i}>
-                    <div className="flex justify-between items-center mb-1.5">
+                    <div className="flex justify-between items-center mb-1.5 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setSelectedBucket(selectedBucket?.label === bucket.label ? null : bucket)}>
                       <div className="flex items-center gap-2">
                         <div className={`w-2 h-2 rounded-full ${colorMap[bucket.color]}`} />
                         <span className="text-xs font-bold text-gray-700">{bucket.label}</span>
@@ -537,9 +538,54 @@ export default function ExecutiveSummaryPage() {
                         <span className="text-[10px] text-gray-400 ml-2">({bucket.pct}%)</span>
                       </div>
                     </div>
-                    <div className="h-2.5 bg-gray-50 rounded-full overflow-hidden">
+                    <div className="h-2.5 bg-gray-50 rounded-full overflow-hidden cursor-pointer" onClick={() => setSelectedBucket(selectedBucket?.label === bucket.label ? null : bucket)}>
                       <div className={`h-full ${colorMap[bucket.color]} rounded-full transition-all`} style={{ width: `${bucket.pct}%` }} />
                     </div>
+                    
+                    {/* DETAILS LIST EXPANDED */}
+                    {selectedBucket?.label === bucket.label && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-4 bg-gray-50 border border-gray-100 rounded-xl overflow-hidden">
+                        {(bucket.details || []).length === 0 ? (
+                          <div className="p-4 text-center text-xs text-gray-400 font-bold uppercase tracking-wider">Tidak ada data invoice</div>
+                        ) : (
+                          <div className="overflow-x-auto max-h-64 overflow-y-auto custom-scrollbar">
+                            <table className="w-full text-left text-xs">
+                              <thead className="bg-gray-100/80 sticky top-0 backdrop-blur-md">
+                                <tr>
+                                  <th className="px-4 py-2 font-black text-[9px] uppercase tracking-widest text-gray-500">Tanggal</th>
+                                  <th className="px-4 py-2 font-black text-[9px] uppercase tracking-widest text-gray-500">Mitra / Pasien</th>
+                                  <th className="px-4 py-2 font-black text-[9px] uppercase tracking-widest text-gray-500">Umur</th>
+                                  <th className="px-4 py-2 text-right font-black text-[9px] uppercase tracking-widest text-gray-500">Total Invoice</th>
+                                  <th className="px-4 py-2 text-right font-black text-[9px] uppercase tracking-widest text-gray-500">Outstanding</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100">
+                                {bucket.details.map((inv: any, idx: number) => (
+                                  <tr key={idx} className="hover:bg-white transition-colors">
+                                    <td className="px-4 py-2 whitespace-nowrap text-gray-600 font-medium">
+                                      {format(new Date(inv.invoiceDate), 'dd MMM yyyy', { locale: id })}
+                                    </td>
+                                    <td className="px-4 py-2">
+                                      <p className="font-bold text-gray-800">{inv.name}</p>
+                                      <p className="text-[9px] text-indigo-500 font-bold uppercase mt-0.5">{inv.type}</p>
+                                    </td>
+                                    <td className="px-4 py-2 text-gray-600 whitespace-nowrap">
+                                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${colorMap[bucket.color]} text-white`}>{inv.days} hari</span>
+                                    </td>
+                                    <td className="px-4 py-2 text-right font-bold text-gray-500">
+                                      {fmtRp(inv.total)}
+                                    </td>
+                                    <td className="px-4 py-2 text-right font-black text-rose-600">
+                                      {fmtRp(inv.outstanding)}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
                   </div>
                 )
               })}
