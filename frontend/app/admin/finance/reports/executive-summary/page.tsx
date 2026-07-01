@@ -187,23 +187,28 @@ export default function ExecutiveSummaryPage() {
   const [isClient, setIsClient] = useState(false)
   const [activeTab, setActiveTab] = useState<'profitability' | 'cash' | 'receivable' | 'doctor' | 'inventory' | 'kpi' | 'trend' | 'branch'>('profitability')
   const [selectedBucket, setSelectedBucket] = useState<any>(null)
+  
+  const currentMonthStr = format(new Date(), 'yyyy-MM')
+  const [doctorMonth, setDoctorMonth] = useState<string>(currentMonthStr)
+  const [kpiMonth, setKpiMonth] = useState<string>(currentMonthStr)
+  const [branchMonth, setBranchMonth] = useState<string>(currentMonthStr)
 
   useEffect(() => { setIsClient(true) }, [])
 
   const fetchData = useCallback(async () => {
     try {
       setRefreshing(true)
-      const res = await api.get('/executive/executive-summary')
+      const res = await api.get(`/executive/executive-summary?doctorMonth=${doctorMonth}&kpiMonth=${kpiMonth}&branchMonth=${branchMonth}`)
       setData(res.data)
     } catch (e) {
       console.error('Executive summary error', e)
     } finally {
-      setLoading(false)
       setRefreshing(false)
+      setLoading(false)
     }
-  }, [])
+  }, [doctorMonth, kpiMonth, branchMonth])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { fetchData() }, [fetchData, doctorMonth, kpiMonth, branchMonth])
 
   if (loading) {
     return (
@@ -251,7 +256,7 @@ export default function ExecutiveSummaryPage() {
             </div>
             <h1 className="text-2xl font-black text-white tracking-tight">Executive Summary</h1>
             <p className="text-sm text-white/50 mt-1">
-              {format(new Date(), "EEEE, dd MMMM yyyy", { locale: id })} · Data real-time dari semua sumber
+              Data real-time dari semua sumber
             </p>
           </div>
           <button onClick={fetchData}
@@ -638,7 +643,18 @@ export default function ExecutiveSummaryPage() {
       ══════════════════════════════════════════════════════ */}
       {activeTab === 'doctor' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-          <SectionHeader icon={FiUsers} title="Kinerja Finansial Dokter" subtitle="Revenue · Komisi · Net Kontribusi" badge={dp.period || ''} />
+          <div className="flex items-center justify-between mb-4">
+            <SectionHeader icon={FiUsers} title="Kinerja Finansial Dokter" subtitle="Revenue · Komisi · Net Kontribusi" />
+            <div className="flex items-center gap-3">
+              <span className="text-[9px] font-bold text-gray-400 uppercase">Periode:</span>
+              <input 
+                type="month" 
+                value={doctorMonth}
+                onChange={(e) => setDoctorMonth(e.target.value)}
+                className="px-2.5 py-1.5 bg-white border border-gray-200 hover:border-indigo-300 rounded-md text-gray-600 text-[10px] font-bold uppercase transition-all focus:outline-none focus:ring-2 focus:ring-indigo-100 cursor-pointer shadow-sm"
+              />
+            </div>
+          </div>
 
           <TabInfoBox
             emoji="👨‍⚕️"
@@ -820,7 +836,18 @@ export default function ExecutiveSummaryPage() {
       ══════════════════════════════════════════════════════ */}
       {activeTab === 'kpi' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-          <SectionHeader icon={FiActivity} title="KPI Scorecard Bisnis Klinik" subtitle="Metrik kunci performa operasional & finansial" badge="Bulan ini" />
+          <div className="flex items-center justify-between mb-4">
+            <SectionHeader icon={FiActivity} title="KPI Operasional & Bisnis" subtitle="Pasien · Konversi · Efisiensi" />
+            <div className="flex items-center gap-3">
+              <span className="text-[9px] font-bold text-gray-400 uppercase">Periode:</span>
+              <input 
+                type="month" 
+                value={kpiMonth}
+                onChange={(e) => setKpiMonth(e.target.value)}
+                className="px-2.5 py-1.5 bg-white border border-gray-200 hover:border-indigo-300 rounded-md text-gray-600 text-[10px] font-bold uppercase transition-all focus:outline-none focus:ring-2 focus:ring-indigo-100 cursor-pointer shadow-sm"
+              />
+            </div>
+          </div>
 
           <TabInfoBox
             emoji="🎯"
@@ -999,7 +1026,18 @@ export default function ExecutiveSummaryPage() {
       ══════════════════════════════════════════════════════ */}
       {activeTab === 'branch' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-          <SectionHeader icon={FiHome} title="Ranking Performa Antar Cabang" subtitle="Perbandingan revenue · profit · efisiensi" badge="Bulan ini" />
+          <div className="flex items-center justify-between mb-4">
+            <SectionHeader icon={FiHome} title="Ranking Performa Antar Cabang" subtitle="Perbandingan revenue · profit · efisiensi" />
+            <div className="flex items-center gap-3">
+              <span className="text-[9px] font-bold text-gray-400 uppercase">Periode:</span>
+              <input 
+                type="month" 
+                value={branchMonth}
+                onChange={(e) => setBranchMonth(e.target.value)}
+                className="px-2.5 py-1.5 bg-white border border-gray-200 hover:border-indigo-300 rounded-md text-gray-600 text-[10px] font-bold uppercase transition-all focus:outline-none focus:ring-2 focus:ring-indigo-100 cursor-pointer shadow-sm"
+              />
+            </div>
+          </div>
 
           <TabInfoBox
             emoji="🏢"

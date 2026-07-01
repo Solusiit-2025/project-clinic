@@ -9,20 +9,40 @@ export const getExecutiveSummary = async (req: Request, res: Response) => {
     const { getJakartaDateString } = require('../utils/date')
     const jakartaTodayStr = getJakartaDateString()
 
-    const today = new Date(`${jakartaTodayStr}T00:00:00+07:00`)
-    const todayEnd = new Date(`${jakartaTodayStr}T23:59:59+07:00`)
+    const actualToday = new Date(`${jakartaTodayStr}T00:00:00+07:00`)
+    const actualTodayEnd = new Date(`${jakartaTodayStr}T23:59:59+07:00`)
+
+    const getMonthRange = (queryMonth: any, defaultDate: Date) => {
+      let ref = defaultDate
+      if (queryMonth && typeof queryMonth === 'string' && /^\d{4}-\d{2}$/.test(queryMonth)) {
+        ref = new Date(`${queryMonth}-01T00:00:00+07:00`)
+      }
+      return { start: startOfMonth(ref), end: endOfMonth(ref), ref }
+    }
+
+    let referenceDate = actualToday
+    if (req.query.month && typeof req.query.month === 'string' && /^\d{4}-\d{2}$/.test(req.query.month)) {
+      referenceDate = new Date(`${req.query.month}-01T00:00:00+07:00`)
+    }
+
+    const { start: doctorStart, end: doctorEnd } = getMonthRange(req.query.doctorMonth, referenceDate)
+    const { start: kpiStart, end: kpiEnd, ref: kpiRef } = getMonthRange(req.query.kpiMonth, referenceDate)
+    const { start: branchStart, end: branchEnd } = getMonthRange(req.query.branchMonth, referenceDate)
+
+    const today = actualToday
+    const todayEnd = actualTodayEnd
 
     const clinicFilter = isAdminView ? {} : (clinicId ? { clinicId } : {})
     const branchFilter = isAdminView ? {} : (clinicId ? { branchId: clinicId } : {})
 
     // ── Period Helpers ───────────────────────────────────────────────────
-    const thisMonthStart = startOfMonth(today)
-    const thisMonthEnd = endOfMonth(today)
-    const lastMonthStart = startOfMonth(subMonths(today, 1))
-    const lastMonthEnd = endOfMonth(subMonths(today, 1))
-    const thisYearStart = startOfYear(today)
-    const lastYearStart = startOfYear(subYears(today, 1))
-    const lastYearEnd = endOfMonth(new Date(today.getFullYear() - 1, today.getMonth(), today.getDate()))
+    const thisMonthStart = startOfMonth(referenceDate)
+    const thisMonthEnd = endOfMonth(referenceDate)
+    const lastMonthStart = startOfMonth(subMonths(referenceDate, 1))
+    const lastMonthEnd = endOfMonth(subMonths(referenceDate, 1))
+    const thisYearStart = startOfYear(referenceDate)
+    const lastYearStart = startOfYear(subYears(referenceDate, 1))
+    const lastYearEnd = endOfMonth(new Date(referenceDate.getFullYear() - 1, referenceDate.getMonth(), referenceDate.getDate()))
 
     // ─────────────────────────────────────────────────────────────────────
     // 1. NET PROFIT & PROFITABILITY (Revenue, Expense, Margin)
@@ -215,13 +235,13 @@ export const getExecutiveSummary = async (req: Request, res: Response) => {
         prisma.registration.count({
           where: {
             doctorId: doc.id,
-            registrationDate: { gte: thisMonthStart, lte: thisMonthEnd },
+            registrationDate: { gte: doctorStart, lte: doctorEnd },
             ...(clinicId && !isAdminView ? { clinicId } : {}),
           },
         }),
         prisma.doctorCommission.aggregate({
           _sum: { amount: true },
-          where: { doctorId: doc.id, date: { gte: thisMonthStart, lte: thisMonthEnd } },
+          where: { doctorId: doc.id, date: { gte: doctorStart, lte: doctorEnd } },
         }),
       ])
       const commissionTotal = commissions._sum?.amount || 0
@@ -231,7 +251,7 @@ export const getExecutiveSummary = async (req: Request, res: Response) => {
         _sum: { total: true },
         where: {
           status: 'paid',
-          registration: { doctorId: doc.id, registrationDate: { gte: thisMonthStart, lte: thisMonthEnd } },
+          registration: { doctorId: doc.id, registrationDate: { gte: doctorStart, lte: doctorEnd } },
         },
       })
       const docRevenue = invoiceRevAgg._sum.total || 0
@@ -311,25 +331,28 @@ export const getExecutiveSummary = async (req: Request, res: Response) => {
     // ─────────────────────────────────────────────────────────────────────
     // 6. KPI BUSINESS METRICS
     // ─────────────────────────────────────────────────────────────────────
+    const kpiLastMonthStart = startOfMonth(subMonths(kpiRef, 1))
+    const kpiLastMonthEnd = endOfMonth(subMonths(kpiRef, 1))
+
     const [thisMonthPatients, lastMonthPatients, totalPatients, returnPatients, thisMonthAppointments, missedAppointments] =
       await Promise.all([
         prisma.registration.count({
-          where: { registrationDate: { gte: thisMonthStart, lte: thisMonthEnd }, ...(clinicId && !isAdminView ? { clinicId } : {}) },
+          where: { registrationDate: { gte: kpiStart, lte: kpiEnd }, ...(clinicId && !isAdminView ? { clinicId } : {}) },
         }),
         prisma.registration.count({
-          where: { registrationDate: { gte: lastMonthStart, lte: lastMonthEnd }, ...(clinicId && !isAdminView ? { clinicId } : {}) },
+          where: { registrationDate: { gte: kpiLastMonthStart, lte: kpiLastMonthEnd }, ...(clinicId && !isAdminView ? { clinicId } : {}) },
         }),
         prisma.patient.count(),
         // Return patients: those with more than 1 visit this month
         prisma.registration.groupBy({
           by: ['patientId'],
-          where: { registrationDate: { gte: thisMonthStart, lte: thisMonthEnd }, ...(clinicId && !isAdminView ? { clinicId } : {}) },
+          where: { registrationDate: { gte: kpiStart, lte: kpiEnd }, ...(clinicId && !isAdminView ? { clinicId } : {}) },
           having: { patientId: { _count: { gt: 1 } } },
         }),
         prisma.registration.count({
           where: {
             visitType: 'appointment',
-            registrationDate: { gte: thisMonthStart, lte: thisMonthEnd },
+            registrationDate: { gte: kpiStart, lte: kpiEnd },
             ...(clinicId && !isAdminView ? { clinicId } : {}),
           },
         }),
@@ -337,7 +360,7 @@ export const getExecutiveSummary = async (req: Request, res: Response) => {
           where: {
             visitType: 'appointment',
             status: 'cancelled',
-            registrationDate: { gte: thisMonthStart, lte: thisMonthEnd },
+            registrationDate: { gte: kpiStart, lte: kpiEnd },
             ...(clinicId && !isAdminView ? { clinicId } : {}),
           },
         }),
@@ -354,8 +377,8 @@ export const getExecutiveSummary = async (req: Request, res: Response) => {
     // ─────────────────────────────────────────────────────────────────────
     const monthlyTrend = []
     for (let i = 11; i >= 0; i--) {
-      const mStart = startOfMonth(subMonths(today, i))
-      const mEnd = endOfMonth(subMonths(today, i))
+      const mStart = startOfMonth(subMonths(referenceDate, i))
+      const mEnd = endOfMonth(subMonths(referenceDate, i))
       const [rAgg, eAgg, pCount] = await Promise.all([
         prisma.journalDetail.aggregate({
           _sum: { credit: true, debit: true },
@@ -393,14 +416,14 @@ export const getExecutiveSummary = async (req: Request, res: Response) => {
       const [brRev, brExp, brPatients, brStock] = await Promise.all([
         prisma.journalDetail.aggregate({
           _sum: { credit: true, debit: true },
-          where: { coa: { category: 'REVENUE' }, journalEntry: { clinicId: c.id, date: { gte: thisMonthStart, lte: thisMonthEnd } } },
+          where: { coa: { category: 'REVENUE' }, journalEntry: { clinicId: c.id, date: { gte: branchStart, lte: branchEnd } } },
         }),
         prisma.journalDetail.aggregate({
           _sum: { debit: true, credit: true },
-          where: { coa: { category: 'EXPENSE' }, journalEntry: { clinicId: c.id, date: { gte: thisMonthStart, lte: thisMonthEnd } } },
+          where: { coa: { category: 'EXPENSE' }, journalEntry: { clinicId: c.id, date: { gte: branchStart, lte: branchEnd } } },
         }),
         prisma.registration.count({
-          where: { clinicId: c.id, registrationDate: { gte: thisMonthStart, lte: thisMonthEnd } },
+          where: { clinicId: c.id, registrationDate: { gte: branchStart, lte: branchEnd } },
         }),
         prisma.inventoryStock.aggregate({
           _sum: { onHandQty: true },
@@ -479,7 +502,7 @@ export const getExecutiveSummary = async (req: Request, res: Response) => {
       // 4. Doctor Performance
       doctorPerformance: {
         data: doctorPerf,
-        period: `${new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(thisMonthStart)}`,
+        period: `${new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(doctorStart)}`,
       },
 
       // 5. Inventory Value
