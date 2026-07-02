@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '@/lib/api'
-import { FiBox, FiAlertCircle, FiUpload, FiX, FiCamera, FiTag, FiSearch, FiDollarSign } from 'react-icons/fi'
+import { FiBox, FiAlertCircle, FiUpload, FiX, FiCamera, FiTag, FiSearch, FiDollarSign, FiPlusCircle } from 'react-icons/fi'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import DataTable, { Column } from '@/components/admin/master/DataTable'
 import PageHeader from '@/components/admin/master/PageHeader'
@@ -11,6 +11,12 @@ import SearchableSelect from '@/components/admin/master/SearchableSelect'
 import { StatusBadge } from '@/components/admin/master/StatusBadge'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getLocalDateString } from '@/lib/utils/date'
+
+const getImageUrl = (path: string | null) => {
+  if (!path) return '';
+  const cleanPath = path.replace(/\\/g, '/');
+  return process.env.NEXT_PUBLIC_API_URL + (cleanPath.startsWith('/') ? '' : '/') + cleanPath;
+}
 
 const API = process.env.NEXT_PUBLIC_API_URL + '/api/master'
 const EMPTY = { 
@@ -67,6 +73,18 @@ export default function AssetsPage() {
   const [formImagePreview, setFormImagePreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Quick Add Master State
+  const [productCategories, setProductCategories] = useState<{id: string, categoryName: string}[]>([])
+  const [isAddingMaster, setIsAddingMaster] = useState(false)
+  const [quickMasterForm, setQuickMasterForm] = useState({
+    masterName: '',
+    masterCode: '',
+    categoryId: '',
+    productType: 'Alat Medis'
+  })
+  const [savingQuickMaster, setSavingQuickMaster] = useState(false)
+  const [quickMasterError, setQuickMasterError] = useState('')
+
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -108,11 +126,26 @@ export default function AssetsPage() {
     }
   }, [])
 
+  const fetchCategories = useCallback(async () => {
+    try {
+      const { data } = await api.get('/master/product-categories')
+      const excludeIds = [
+        'de1cf644-3b0c-453e-8982-ffdf28af8860',
+        'f83bc6a9-62ee-4d16-b1eb-daba37de3faa',
+        'd43ab4ce-82fa-47d6-b36c-ecb23d7b1897'
+      ]
+      setProductCategories(data.filter((c: any) => !excludeIds.includes(c.id)))
+    } catch (e) {
+      console.error('Failed to fetch product categories', e)
+    }
+  }, [])
+
   useEffect(() => { 
     fetchData()
     fetchClinics()
     fetchMasters()
-  }, [fetchData, fetchClinics, fetchMasters])
+    fetchCategories()
+  }, [fetchData, fetchClinics, fetchMasters, fetchCategories])
 
   useEffect(() => {
     if (!modalOpen) return;
@@ -177,8 +210,16 @@ export default function AssetsPage() {
       const formData = new FormData()
       Object.entries(form).forEach(([key, value]) => {
         if (key === 'image') {
-          if (value instanceof File) formData.append('image', value)
-          else if (value === null) formData.append('image', 'null')
+          if (value && typeof value === 'object' && 'name' in (value as any)) {
+            console.log("Appending File to formData:", value);
+            formData.append('image', value as Blob, (value as any).name || 'upload.webp')
+          } else if (typeof value === 'string') {
+            console.log("Appending string to formData:", value);
+            formData.append('image', value)
+          } else if (value === null) {
+            console.log("Appending null to formData");
+            formData.append('image', 'null')
+          }
         } else if (key === 'purchaseDate') {
           if (value) formData.append('purchaseDate', new Date(value as string).toISOString())
         } else if (value !== null && value !== undefined) {
@@ -194,44 +235,90 @@ export default function AssetsPage() {
     finally { setSaving(false) }
   }
 
+  const handleSaveQuickMaster = async () => {
+    if (!quickMasterForm.masterName || !quickMasterForm.masterCode || !quickMasterForm.categoryId) {
+      setQuickMasterError('Nama, Kode, dan Kategori wajib diisi')
+      return
+    }
+    setSavingQuickMaster(true)
+    setQuickMasterError('')
+    try {
+      const payload = {
+        masterName: quickMasterForm.masterName,
+        masterCode: quickMasterForm.masterCode,
+        categoryId: quickMasterForm.categoryId,
+        productType: quickMasterForm.productType,
+        isActive: true,
+        purchasePrice: 0,
+        sellingPrice: 0
+      }
+      const { data } = await api.post('/master/products', payload)
+      await fetchMasters()
+      
+      const typeMap: Record<string, string> = {
+        'Elektronik': 'computer',
+        'Alat Medis': 'clinical-device',
+        'Furniture': 'furniture',
+        'Kendaraan': 'vehicle'
+      }
+
+      setForm(p => ({
+        ...p,
+        masterProductId: data.id,
+        assetName: data.masterName,
+        assetCode: `${data.masterCode}-AST`,
+        assetType: typeMap[data.productType] || p.assetType
+      }))
+      
+      setIsAddingMaster(false)
+      setQuickMasterForm({ masterName: '', masterCode: '', categoryId: '', productType: 'Alat Medis' })
+    } catch (e: any) {
+      setQuickMasterError(e.response?.data?.message || 'Gagal menyimpan katalog baru')
+    } finally {
+      setSavingQuickMaster(false)
+    }
+  }
+
   const columns: Column<Asset>[] = [
-    { key: 'assetName', label: 'Item & Spesifikasi', render: (r) => (
+    { key: 'assetName', label: 'Item & Spesifikasi', className: 'max-w-[200px] lg:max-w-[250px]', render: (r) => {
+      const imgToUse = (r.image || (r as any).masterProduct?.image) as string | null | undefined;
+      return (
       <div className="py-2.5 flex items-start gap-4">
         {/* Photo Thumbnail */}
         <button 
-          onClick={() => r.image && setPreviewImage({ url: process.env.NEXT_PUBLIC_API_URL + r.image, name: r.assetName })}
-          className="w-16 h-16 rounded-2xl bg-gray-50 border border-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center relative group active:scale-95 transition-all shadow-sm"
+          onClick={() => imgToUse && setPreviewImage({ url: getImageUrl(imgToUse), name: r.assetName })}
+          className="w-12 h-12 rounded-xl bg-gray-50 border border-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center relative group active:scale-95 transition-all shadow-sm"
         >
-          {r.image ? (
+          {imgToUse ? (
             <img 
-              src={process.env.NEXT_PUBLIC_API_URL + r.image} 
+              src={getImageUrl(imgToUse)} 
               alt={r.assetName} 
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50">
-              <FiBox className="w-6 h-6 text-gray-300" />
-              <span className="text-[7px] font-black text-gray-400 mt-1 uppercase tracking-widest">No Image</span>
+              <FiBox className="w-4 h-4 text-gray-300" />
+              <span className="text-[6px] font-black text-gray-400 mt-0.5 uppercase tracking-widest">No Img</span>
             </div>
           )}
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-            {r.image && <FiCamera className="text-white opacity-0 group-hover:opacity-100 scale-50 group-hover:scale-100 transition-all pointer-events-none drop-shadow-lg" />}
+            {imgToUse && <FiCamera className="text-white opacity-0 group-hover:opacity-100 scale-50 group-hover:scale-100 transition-all pointer-events-none drop-shadow-lg" />}
           </div>
         </button>
 
         <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1.5 mt-0.5">
-                <span className="text-[9px] font-black bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-md tracking-widest uppercase border border-indigo-100">
+            <div className="flex items-start gap-2 mb-1.5 mt-0.5">
+                <span className="text-[9px] font-black bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-md tracking-widest uppercase border border-indigo-100 mt-0.5 whitespace-nowrap">
                     {r.assetCode}
                 </span>
-                <p className="text-sm font-black text-gray-900 leading-none tracking-tight truncate">{r.assetName}</p>
+                <p className="text-sm font-black text-gray-900 leading-tight tracking-tight">{r.assetName}</p>
             </div>
             
             <div className="space-y-1.5">
                 {(r.manufacturer || r.model) && (
                     <div className="flex items-center gap-2">
-                        <FiTag className="w-3 h-3 text-gray-400" />
-                        <p className="text-[11px] text-gray-500 font-bold uppercase tracking-tight truncate">
+                        <FiTag className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                        <p className="text-[11px] text-gray-500 font-bold uppercase tracking-tight leading-tight">
                             {r.manufacturer} {r.model && `• ${r.model}`}
                         </p>
                     </div>
@@ -245,7 +332,8 @@ export default function AssetsPage() {
             </div>
         </div>
       </div>
-    )},
+      )
+    }},
     { key: 'category', label: 'Kategori', render: (r) => (
       <span className="text-[10px] font-black text-gray-600 bg-gray-50 border border-gray-100 px-2.5 py-1.5 rounded-xl uppercase tracking-wider">
         {r.category}
@@ -299,12 +387,12 @@ export default function AssetsPage() {
 
   const inp = (label: string, key: string, type = 'text', placeholder = '') => (
     <div>
-      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">{label}</label>
+      <label className="block text-[11px] font-black text-gray-700 uppercase tracking-widest mb-1.5">{label}</label>
       <input 
         type={type} value={(form as any)[key]} 
         onChange={(e) => setForm(p => ({...p, [key]: e.target.value}))} 
         placeholder={placeholder}
-        className="w-full px-4 py-3 text-sm border border-gray-100 bg-gray-50/30 rounded-2xl focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-bold placeholder:text-gray-300 text-gray-700" 
+        className="w-full px-4 py-3 text-sm bg-white border-2 border-gray-300 rounded-2xl focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-bold placeholder:text-gray-300 text-gray-800 shadow-sm hover:border-gray-400" 
       />
     </div>
   )
@@ -369,7 +457,8 @@ export default function AssetsPage() {
             currentValue: r.currentValue || 0,
             image: r.image || null
           }); 
-          setFormImagePreview(r.image ? process.env.NEXT_PUBLIC_API_URL + r.image : null);
+          const editImg = r.image || (r as any).masterProduct?.image;
+          setFormImagePreview(editImg ? getImageUrl(editImg as string) : null);
           setError('');
           setModalOpen(true) 
         }}
@@ -377,7 +466,7 @@ export default function AssetsPage() {
       />
 
       <MasterModal isOpen={modalOpen} onClose={() => setModalOpen(false)}
-        title={editing ? 'Detail Inventaris Aset' : 'Registrasi Aset Baru'} size="lg">
+        title={editing ? 'Detail Inventaris Aset' : 'Registrasi Aset Baru'} size="4xl">
         <div className="space-y-6">
           {error && (
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-2xl text-xs font-bold text-red-600">
@@ -386,13 +475,13 @@ export default function AssetsPage() {
             </motion.div>
           )}
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Image Upload Section */}
-            <div className="md:col-span-2">
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Foto Fisik Aset (Opsional)</label>
+            <div className="md:col-span-2 lg:col-span-3">
+                <label className="block text-[11px] font-black text-gray-700 uppercase tracking-widest mb-3">Foto Fisik Aset (Opsional)</label>
                 <div className="flex flex-col sm:flex-row items-center gap-8">
                     <div className="relative group">
-                        <div className="w-40 h-40 rounded-[2.5rem] bg-gray-50 border-2 border-dashed border-gray-200 overflow-hidden flex items-center justify-center transition-all group-hover:border-primary/40 group-hover:bg-primary/[0.03]">
+                        <div className="w-40 h-40 rounded-[2.5rem] bg-gray-50 border-2 border-dashed border-gray-200 overflow-hidden flex items-center justify-center transition-all group-hover:border-primary/60 group-hover:bg-primary/[0.03]">
                             {formImagePreview ? (
                                 <img src={formImagePreview} alt="Aset Preview" className="w-full h-full object-cover" />
                             ) : (
@@ -429,9 +518,19 @@ export default function AssetsPage() {
                 </div>
             </div>
 
-            <div className="md:col-span-2">
+            <div className="md:col-span-2 lg:col-span-3">
+               <div className="flex items-center justify-between mb-2">
+                 <label className="text-[11px] font-black text-gray-700 uppercase tracking-widest">Pilih dari Katalog Master Produk</label>
+                 <button 
+                   type="button" 
+                   onClick={() => setIsAddingMaster(true)}
+                   className="flex items-center gap-2 px-4 py-2 bg-primary text-white border-2 border-primary hover:bg-blue-700 hover:border-blue-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md active:scale-95 shadow-primary/30"
+                 >
+                   <FiPlusCircle className="w-3.5 h-3.5" />
+                   Data Belum Terdaftar? Tambah Disini
+                 </button>
+               </div>
                <SearchableSelect 
-                label="Pilih dari Katalog Master Produk"
                 placeholder="Cari nama atau kode aset (ex: Alat Medis)..."
                 options={(Array.isArray(masters) ? masters : []).map(m => ({
                   id: m.id,
@@ -469,24 +568,24 @@ export default function AssetsPage() {
               />
             </div>
 
-            <div className="md:col-span-2">
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Identifikasi Nama Aset (Katalog)</label>
+            <div className="md:col-span-2 lg:col-span-2">
+              <label className="block text-[11px] font-black text-gray-700 uppercase tracking-widest mb-1.5">Identifikasi Nama Aset (Katalog)</label>
               <input 
                 type="text" value={form.assetName} 
                 readOnly={!!form.masterProductId}
                 onChange={(e) => setForm(p => ({...p, assetName: e.target.value}))} 
                 placeholder="Pilih dari master atau ketik manual..."
-                className={`w-full px-4 py-3 text-sm border border-gray-100 rounded-2xl focus:outline-none transition-all font-bold ${
-                  form.masterProductId ? 'bg-gray-100/50 text-gray-400 cursor-not-allowed uppercase' : 'bg-gray-50/30 border-gray-100 focus:border-primary text-gray-700'
+                className={`w-full px-4 py-3 text-sm bg-white border-2 rounded-2xl focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold shadow-sm ${
+                  form.masterProductId ? 'border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed uppercase' : 'border-gray-100 hover:border-gray-400 focus:border-primary text-gray-800'
                 }`}
               />
             </div>
             {inp('Kode Inventaris *', 'assetCode', 'text', 'cth: RAD-USG-2024-01')}
             
             <div>
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Klasifikasi Aset</label>
+              <label className="block text-[11px] font-black text-gray-700 uppercase tracking-widest mb-1.5">Klasifikasi Aset</label>
               <select value={form.assetType} onChange={(e) => setForm(p => ({...p, assetType: e.target.value}))}
-                className="w-full px-4 py-3 text-sm border border-gray-100 bg-gray-50/30 rounded-2xl focus:outline-none focus:border-primary bg-white font-black capitalize text-gray-700">
+                className="w-full px-4 py-3 text-sm bg-white border-2 border-gray-300 rounded-2xl focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 hover:border-gray-400 transition-all font-bold capitalize text-gray-800 shadow-sm">
                 {['equipment','furniture','vehicle','computer','clinical-device','other'].map(t => <option key={t} value={t} className="capitalize">{t.replace('-', ' ')}</option>)}
               </select>
             </div>
@@ -494,19 +593,29 @@ export default function AssetsPage() {
             {inp('Kategori Penempatan', 'category', 'text', 'cth: Ruang Radiologi')}
             {inp('Merk / Manufacturer', 'manufacturer', 'text', 'cth: Mindray Medical')}
             {inp('No. Seri / Model', 'model', 'text', 'cth: DC-30 SN-12345')}
-            {inp('Nilai Perolehan (Rp)', 'purchasePrice', 'number')}
+            <div>
+              <label className="block text-[11px] font-black text-gray-700 uppercase tracking-widest mb-1.5">Nilai Perolehan (Rp)</label>
+              <input 
+                type="number" value={form.purchasePrice} 
+                onChange={(e) => setForm(p => ({...p, purchasePrice: Number(e.target.value)}))} 
+                className="w-full px-4 py-3 text-sm bg-white border-2 border-gray-300 rounded-2xl focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-bold placeholder:text-gray-300 text-gray-800 shadow-sm hover:border-gray-400" 
+              />
+              <p className="text-[11px] font-black text-primary mt-1.5 pl-1">
+                {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(form.purchasePrice || 0)}
+              </p>
+            </div>
             
             <div>
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Kondisi Saat Ini</label>
+              <label className="block text-[11px] font-black text-gray-700 uppercase tracking-widest mb-1.5">Kondisi Saat Ini</label>
               <select value={form.condition} onChange={(e) => setForm(p => ({...p, condition: e.target.value}))}
-                className="w-full px-4 py-3 text-sm border border-gray-100 bg-gray-50/30 rounded-2xl focus:outline-none focus:border-primary bg-white font-black capitalize text-gray-700">
+                className="w-full px-4 py-3 text-sm bg-white border-2 border-gray-300 rounded-2xl focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 hover:border-gray-400 transition-all font-bold capitalize text-gray-800 shadow-sm">
                 {['excellent','good','fair','poor'].map(c => <option key={c} value={c} className="capitalize">{c}</option>)}
               </select>
             </div>
 
             {inp('Tanggal Pembelian', 'purchaseDate', 'date')}
 
-            <div className="md:col-span-2 p-6 bg-emerald-50/50 border-2 border-emerald-100/50 rounded-[2.5rem] mt-2">
+            <div className="md:col-span-2 lg:col-span-3 p-6 bg-emerald-50/50 border-2 border-emerald-300/50 rounded-[2.5rem] mt-2">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
                   <FiDollarSign className="w-5 h-5" />
@@ -519,11 +628,11 @@ export default function AssetsPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-[10px] font-black text-emerald-800/40 uppercase tracking-widest mb-1.5">Metode Penyusutan</label>
+                  <label className="block text-[11px] font-black text-emerald-800 uppercase tracking-widest mb-1.5">Metode Penyusutan</label>
                   <select 
                     value={form.depreciationMethod} 
                     onChange={(e) => setForm(p => ({...p, depreciationMethod: e.target.value}))}
-                    className="w-full px-4 py-3 text-sm border border-emerald-100 bg-white rounded-2xl focus:outline-none focus:border-emerald-500 font-black text-emerald-900 shadow-sm transition-all"
+                    className="w-full px-4 py-3 text-sm bg-white border-2 border-emerald-300 rounded-2xl focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 hover:border-emerald-400 transition-all font-bold text-emerald-900 shadow-sm"
                   >
                     <option value="STRAIGHT_LINE">STRAIGHT LINE (GARIS LURUS)</option>
                     <option value="DECLINING_BALANCE">DOUBLE DECLINING (SALDO MENURUN)</option>
@@ -532,7 +641,7 @@ export default function AssetsPage() {
 
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[10px] font-black text-emerald-800/40 uppercase tracking-widest">Akum. Penyusutan Saat Ini (Rp)</label>
+                    <label className="text-[11px] font-black text-emerald-800 uppercase tracking-widest">Akum. Penyusutan Saat Ini (Rp)</label>
                     <span className="text-[9px] text-emerald-600 bg-emerald-100/50 px-2 py-0.5 rounded font-black italic">
                       DIHITUNG OTOMATIS
                     </span>
@@ -547,39 +656,45 @@ export default function AssetsPage() {
                         currentValue: (p.purchasePrice || 0) - totalDep
                       }))
                     }} 
-                    className="w-full px-4 py-3 text-sm border border-emerald-100 bg-white rounded-2xl focus:outline-none focus:border-emerald-500 font-black text-emerald-900 shadow-sm transition-all" 
+                    className="w-full px-4 py-3 text-sm bg-white border-2 border-emerald-300 rounded-2xl focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 hover:border-emerald-400 transition-all font-bold text-emerald-900 shadow-sm" 
                     placeholder="Isi jika aset lama/go-live..."
+                  />
+                  <p className="text-[11px] font-black text-emerald-600 mt-1.5 pl-1">
+                    {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(form.totalDepreciated || 0)}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-black text-emerald-800 uppercase tracking-widest mb-1.5">Umur Ekonomis (Tahun)</label>
+                  <input 
+                    type="number" value={form.usefulLifeYears} 
+                    onChange={(e) => setForm(p => ({...p, usefulLifeYears: Number(e.target.value)}))} 
+                    className="w-full px-4 py-3 text-sm bg-white border-2 border-emerald-300 rounded-2xl focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 hover:border-emerald-400 transition-all font-bold text-emerald-900 shadow-sm" 
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black text-emerald-800/40 uppercase tracking-widest mb-1.5">Umur Ekonomis (Tahun)</label>
-                  <input 
-                    type="number" value={form.usefulLifeYears} 
-                    onChange={(e) => setForm(p => ({...p, usefulLifeYears: Number(e.target.value)}))} 
-                    className="w-full px-4 py-3 text-sm border border-emerald-100 bg-white rounded-2xl focus:outline-none focus:border-emerald-500 font-black text-emerald-900 shadow-sm transition-all" 
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-[10px] font-black text-emerald-800/40 uppercase tracking-widest mb-1.5">Nilai Residu / Sisa (Rp)</label>
+                  <label className="block text-[11px] font-black text-emerald-800 uppercase tracking-widest mb-1.5">Nilai Residu / Sisa (Rp)</label>
                   <input 
                     type="number" value={form.salvageValue} 
                     onChange={(e) => setForm(p => ({...p, salvageValue: Number(e.target.value)}))} 
                     placeholder="Nilai aset di akhir umur ekonomis..."
-                    className="w-full px-4 py-3 text-sm border border-emerald-100 bg-white rounded-2xl focus:outline-none focus:border-emerald-500 font-black text-emerald-900 shadow-sm transition-all" 
+                    className="w-full px-4 py-3 text-sm bg-white border-2 border-emerald-300 rounded-2xl focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 hover:border-emerald-400 transition-all font-bold text-emerald-900 shadow-sm" 
                   />
-                  <p className="text-[9px] text-emerald-500 font-bold mt-2 italic">* Sistem akan berhenti menyusutkan aset saat mencapai nilai residu ini.</p>
+                  <p className="text-[11px] font-black text-emerald-600 mt-1.5 pl-1">
+                    {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(form.salvageValue || 0)}
+                  </p>
+                  <p className="text-[9px] text-emerald-500 font-bold mt-1 italic pl-1">* Sistem akan berhenti menyusutkan aset saat mencapai nilai residu ini.</p>
                 </div>
               </div>
             </div>
 
             <div className="md:col-span-2 p-5 bg-primary/[0.03] border-2 border-primary/10 rounded-[2rem]">
-              <label className="block text-[9px] font-black text-primary uppercase tracking-[0.2em] mb-2.5">Unit Penanggung Jawab *</label>
+              <label className="block text-[11px] font-black text-primary uppercase tracking-widest mb-2.5">Unit Penanggung Jawab *</label>
               <select 
                 value={form.clinicId} 
                 onChange={(e) => setForm(p => ({...p, clinicId: e.target.value}))}
-                className="w-full px-4 py-3 text-sm border border-primary/10 rounded-2xl focus:outline-none focus:border-primary bg-white font-black text-primary shadow-sm"
+                className="w-full px-4 py-3 text-sm bg-white border-2 border-primary/40 rounded-2xl focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 hover:border-primary/60 font-black text-primary shadow-sm transition-all"
               >
                 <option value="">Pilih Cabang Destinasi...</option>
                 {clinics.map(c => (
@@ -590,12 +705,12 @@ export default function AssetsPage() {
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Catatan Tambahan</label>
+              <label className="block text-[11px] font-black text-gray-700 uppercase tracking-widest mb-1.5">Catatan Tambahan</label>
               <textarea 
                 value={form.description} 
                 onChange={(e) => setForm(p => ({...p, description: e.target.value}))} 
                 placeholder="Spesifikasi teknis singkat atau keterangan status garansi..."
-                className="w-full px-4 py-3 text-sm border border-gray-100 bg-gray-50/30 rounded-2xl focus:outline-none focus:border-primary font-bold placeholder:text-gray-300 text-gray-700 min-h-[100px] resize-none" 
+                className="w-full px-4 py-3 text-sm bg-white border-2 border-gray-300 rounded-2xl focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 hover:border-gray-400 transition-all font-bold placeholder:text-gray-300 text-gray-800 shadow-sm min-h-[100px] resize-none" 
               />
             </div>
           </div>
@@ -604,6 +719,62 @@ export default function AssetsPage() {
             <button onClick={() => setModalOpen(false)} className="flex-1 py-4 border border-gray-100 rounded-2xl text-[11px] font-black text-gray-400 tracking-widest uppercase hover:bg-gray-50 transition-all active:scale-95">Batal</button>
             <button onClick={handleSave} disabled={saving} className="flex-1 py-4 bg-primary text-white rounded-2xl text-[11px] font-black tracking-widest uppercase shadow-lg shadow-primary/20 disabled:opacity-60 transition-all active:scale-95">
                 {saving ? 'SEDANG MENULIS DATA...' : (editing ? 'PERBARUI DATA ASET' : 'REGISTRASI ASET')}
+            </button>
+          </div>
+        </div>
+      </MasterModal>
+
+      <MasterModal isOpen={isAddingMaster} onClose={() => setIsAddingMaster(false)} title="Registrasi Katalog Baru (Jalur Cepat)" size="sm">
+        <div className="space-y-4">
+          {quickMasterError && (
+            <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs font-bold text-red-600 flex items-center gap-2">
+              <FiAlertCircle className="flex-shrink-0" />
+              {quickMasterError}
+            </div>
+          )}
+          <div>
+            <label className="block text-[11px] font-black text-gray-700 uppercase tracking-widest mb-1.5">Nama Katalog Aset *</label>
+            <input 
+              type="text" value={quickMasterForm.masterName} 
+              onChange={e => setQuickMasterForm(p => ({ ...p, masterName: e.target.value }))}
+              placeholder="Cth: Bed Pasien Elektrik"
+              className="w-full px-4 py-3 text-sm bg-white border-2 border-gray-300 rounded-xl focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 hover:border-gray-400 transition-all font-bold text-gray-800 shadow-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-black text-gray-700 uppercase tracking-widest mb-1.5">Kode Produk *</label>
+            <input 
+              type="text" value={quickMasterForm.masterCode} 
+              onChange={e => setQuickMasterForm(p => ({ ...p, masterCode: e.target.value }))}
+              placeholder="Cth: BPE-001"
+              className="w-full px-4 py-3 text-sm bg-white border-2 border-gray-300 rounded-xl focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 hover:border-gray-400 transition-all font-bold text-gray-800 shadow-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-black text-gray-700 uppercase tracking-widest mb-1.5">Kategori Produk *</label>
+            <select 
+              value={quickMasterForm.categoryId} 
+              onChange={e => setQuickMasterForm(p => ({ ...p, categoryId: e.target.value }))}
+              className="w-full px-4 py-3 text-sm bg-white border-2 border-gray-300 rounded-xl focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 hover:border-gray-400 transition-all font-bold text-gray-800 shadow-sm"
+            >
+              <option value="">Pilih Kategori...</option>
+              {productCategories.map(c => <option key={c.id} value={c.id}>{c.categoryName}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-[11px] font-black text-gray-700 uppercase tracking-widest mb-1.5">Tipe (Untuk Pemetaan) *</label>
+            <select 
+              value={quickMasterForm.productType} 
+              onChange={e => setQuickMasterForm(p => ({ ...p, productType: e.target.value }))}
+              className="w-full px-4 py-3 text-sm bg-white border-2 border-gray-300 rounded-xl focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 hover:border-gray-400 transition-all font-bold text-gray-800 shadow-sm"
+            >
+              {['Elektronik', 'Alat Medis', 'Furniture', 'Kendaraan'].map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div className="flex gap-3 pt-4 border-t border-gray-100 mt-2">
+            <button onClick={() => setIsAddingMaster(false)} className="flex-1 py-3 text-xs font-bold text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl">Batal</button>
+            <button onClick={handleSaveQuickMaster} disabled={savingQuickMaster} className="flex-1 py-3 text-xs font-bold text-white bg-primary shadow-lg shadow-primary/20 rounded-xl hover:opacity-90 disabled:opacity-50">
+              {savingQuickMaster ? 'Menyimpan...' : 'Simpan & Gunakan'}
             </button>
           </div>
         </div>

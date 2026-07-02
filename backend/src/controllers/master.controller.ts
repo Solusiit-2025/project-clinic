@@ -1688,7 +1688,7 @@ export const getAssets = async (req: Request, res: Response) => {
           select: { name: true, code: true }
         },
         masterProduct: {
-          select: { id: true, masterName: true, masterCode: true, categoryId: true }
+          select: { id: true, masterName: true, masterCode: true, categoryId: true, image: true }
         },
         insurance: true
       },
@@ -1845,6 +1845,7 @@ export const updateAsset = async (req: Request, res: Response) => {
     
     let image: string | null | undefined = typeof req.body.image === 'string' ? req.body.image : undefined
     if (req.body.image === 'null' || req.body.image === '') image = null
+    console.log('[updateAsset] req.file:', req.file ? req.file.originalname : 'none', 'req.body.image:', req.body.image)
     if (req.file) {
       image = await processAssetPhoto(req.file)
     }

@@ -134,13 +134,13 @@ export default function DataTable<T extends Record<string, any>>({
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`px-3 py-2 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest ${col.className || ''}`}
+                  className={`px-2 py-2 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest ${col.className || ''}`}
                 >
                   {col.label}
                 </th>
               ))}
               {(onView || onEdit || onDuplicate || onDelete || onMerge) && (
-                <th className="px-3 py-2 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest w-20">OPSI</th>
+                <th className="px-2 py-2 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest w-1 whitespace-nowrap">OPSI</th>
               )}
             </tr>
           </thead>
@@ -202,57 +202,57 @@ export default function DataTable<T extends Record<string, any>>({
                         {columns.map((col) => (
                           <td
                             key={col.key}
-                            className={`px-3 py-1.5 text-gray-900 font-bold ${col.className || ''}`}
+                            className={`px-2 py-1.5 text-gray-900 font-bold ${col.className || ''}`}
                           >
                             {col.render ? col.render(row) : (row[col.key] ?? <span className="text-gray-200">—</span>)}
                           </td>
                         ))}
                         {(onView || onEdit || onDuplicate || onDelete || onMerge) && (
-                          <td className="px-3 py-1.5">
-                            <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <td className="px-2 py-1.5 w-1 whitespace-nowrap">
+                            <div className="flex justify-end gap-1 transition-opacity">
                               {onMerge && (
                                 <button
                                   onClick={() => onMerge(row)}
-                                  className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 transition-all"
+                                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 transition-all text-[10px] font-bold uppercase tracking-tight shadow-sm"
                                   title="Gabungkan Pasien"
                                 >
-                                  <FiGitMerge className="w-3 h-3" />
+                                  <FiGitMerge className="w-3.5 h-3.5" /> <span>Gabung</span>
                                 </button>
                               )}
                               {onDuplicate && (
                                 <button
                                   onClick={() => onDuplicate(row)}
-                                  className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-all"
+                                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-all text-[10px] font-bold uppercase tracking-tight shadow-sm"
                                   title="Salin/Duplikat"
                                 >
-                                  <FiCopy className="w-3 h-3" />
+                                  <FiCopy className="w-3.5 h-3.5" /> <span>Salin</span>
                                 </button>
                               )}
                               {onView && (
                                 <button
                                   onClick={() => onView(row)}
-                                  className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-all"
+                                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-all text-[10px] font-bold uppercase tracking-tight shadow-sm"
                                   title="Lihat Profil"
                                 >
-                                  <FiEye className="w-3 h-3" />
+                                  <FiEye className="w-3.5 h-3.5" /> <span>Lihat</span>
                                 </button>
                               )}
                               {onEdit && (
                                 <button
                                   onClick={() => onEdit(row)}
-                                  className="p-1.5 rounded-lg bg-primary/5 hover:bg-primary/10 text-primary transition-all"
+                                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-all text-[10px] font-bold uppercase tracking-tight shadow-sm"
                                   title="Edit"
                                 >
-                                  <FiEdit2 className="w-3 h-3" />
+                                  <FiEdit2 className="w-3.5 h-3.5" /> <span>Edit</span>
                                 </button>
                               )}
                               {onDelete && (
                                 <button
                                   onClick={() => onDelete(row)}
-                                  className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 transition-all"
+                                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 transition-all text-[10px] font-bold uppercase tracking-tight shadow-sm"
                                   title="Hapus"
                                 >
-                                  <FiTrash2 className="w-3 h-3" />
+                                  <FiTrash2 className="w-3.5 h-3.5" /> <span>Hapus</span>
                                 </button>
                               )}
                             </div>
@@ -357,28 +357,28 @@ export default function DataTable<T extends Record<string, any>>({
                       {(onView || onEdit || onDuplicate || onDelete || onMerge) && (
                         <div className="flex gap-1.5 sm:gap-2 mt-2 sm:mt-2.5 pt-2 sm:pt-2.5 border-t border-gray-100">
                           {onMerge && (
-                            <button onClick={() => onMerge(row)} className="flex-1 p-1.5 sm:p-2 rounded-lg sm:rounded-lg bg-emerald-50 text-emerald-600 active:bg-emerald-100 transition-all text-[9px] sm:text-xs font-bold uppercase tracking-tight">
-                              <FiGitMerge className="w-3 h-3 sm:w-3.5 sm:h-3.5 inline mr-0.5 sm:mr-1" /> <span className="hidden sm:inline">Gabung</span>
+                            <button onClick={() => onMerge(row)} className="flex-1 flex justify-center items-center gap-1.5 p-2 rounded-xl bg-emerald-50 text-emerald-600 active:bg-emerald-100 transition-all text-[10px] font-bold uppercase tracking-tight shadow-sm">
+                              <FiGitMerge className="w-3.5 h-3.5" /> <span>Gabung</span>
                             </button>
                           )}
                           {onView && (
-                            <button onClick={() => onView(row)} className="flex-1 p-1.5 sm:p-2 rounded-lg sm:rounded-lg bg-indigo-50 text-indigo-600 active:bg-indigo-100 transition-all text-[9px] sm:text-xs font-bold uppercase tracking-tight">
-                              <FiEye className="w-3 h-3 sm:w-3.5 sm:h-3.5 inline mr-0.5 sm:mr-1" /> <span className="hidden sm:inline">Lihat</span>
+                            <button onClick={() => onView(row)} className="flex-1 flex justify-center items-center gap-1.5 p-2 rounded-xl bg-indigo-50 text-indigo-600 active:bg-indigo-100 transition-all text-[10px] font-bold uppercase tracking-tight shadow-sm">
+                              <FiEye className="w-3.5 h-3.5" /> <span>Lihat</span>
                             </button>
                           )}
                           {onEdit && (
-                            <button onClick={() => onEdit(row)} className="flex-1 p-1.5 sm:p-2 rounded-lg sm:rounded-lg bg-primary/8 text-primary active:bg-primary/15 transition-all text-[9px] sm:text-xs font-bold uppercase tracking-tight">
-                              <FiEdit2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 inline mr-0.5 sm:mr-1" /> <span className="hidden sm:inline">Edit</span>
+                            <button onClick={() => onEdit(row)} className="flex-1 flex justify-center items-center gap-1.5 p-2 rounded-xl bg-primary/10 text-primary active:bg-primary/20 transition-all text-[10px] font-bold uppercase tracking-tight shadow-sm">
+                              <FiEdit2 className="w-3.5 h-3.5" /> <span>Edit</span>
                             </button>
                           )}
                           {onDuplicate && (
-                            <button onClick={() => onDuplicate(row)} className="flex-1 p-1.5 sm:p-2 rounded-lg sm:rounded-lg bg-indigo-50 text-indigo-600 active:bg-indigo-100 transition-all text-[9px] sm:text-xs font-bold uppercase tracking-tight">
-                              <FiCopy className="w-3 h-3 sm:w-3.5 sm:h-3.5 inline mr-0.5 sm:mr-1" /> <span className="hidden sm:inline">Salin</span>
+                            <button onClick={() => onDuplicate(row)} className="flex-1 flex justify-center items-center gap-1.5 p-2 rounded-xl bg-indigo-50 text-indigo-600 active:bg-indigo-100 transition-all text-[10px] font-bold uppercase tracking-tight shadow-sm">
+                              <FiCopy className="w-3.5 h-3.5" /> <span>Salin</span>
                             </button>
                           )}
                           {onDelete && (
-                            <button onClick={() => onDelete(row)} className="flex-1 p-1.5 sm:p-2 rounded-lg sm:rounded-lg bg-red-50 text-red-500 active:bg-red-100 transition-all text-[9px] sm:text-xs font-bold uppercase tracking-tight">
-                              <FiTrash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 inline mr-0.5 sm:mr-1" /> <span className="hidden sm:inline">Hapus</span>
+                            <button onClick={() => onDelete(row)} className="flex-1 flex justify-center items-center gap-1.5 p-2 rounded-xl bg-red-50 text-red-500 active:bg-red-100 transition-all text-[10px] font-bold uppercase tracking-tight shadow-sm">
+                              <FiTrash2 className="w-3.5 h-3.5" /> <span>Hapus</span>
                             </button>
                           )}
                         </div>
