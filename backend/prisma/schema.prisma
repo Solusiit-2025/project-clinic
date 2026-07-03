@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Clinic {
@@ -1741,24 +1742,24 @@ model DirectMedicinePurchaseItem {
 /// Menjadi "payung" utama yang mengikat semua Visit dan satu Invoice.
 /// Contoh: Perawatan Saluran Akar yang butuh 3 kunjungan.
 model TreatmentPlan {
-  id             String               @id @default(uuid())
-  patientId      String
-  description    String
-  totalAmount    Float                @default(0)
-  status         TreatmentPlanStatus  @default(ACTIVE)
-  doctorProfitSharePercent Float @default(40)
-  doctorProfitShareAmount  Float @default(0)
-  isProfitSharePosted      Boolean @default(false)
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
-  invoices       Invoice[]
-  medicalRecords MedicalRecord[]
-  items          TreatmentPlanItem[]
-  patient        Patient              @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  doctorId       String?
-  doctor         Doctor?              @relation(fields: [doctorId], references: [id])
-  visits         Visit[]
-  workOrders     DentalLabWorkOrder[]
+  id                       String               @id @default(uuid())
+  patientId                String
+  description              String
+  totalAmount              Float                @default(0)
+  status                   TreatmentPlanStatus  @default(ACTIVE)
+  doctorProfitSharePercent Float                @default(40)
+  doctorProfitShareAmount  Float                @default(0)
+  isProfitSharePosted      Boolean              @default(false)
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+  invoices                 Invoice[]
+  medicalRecords           MedicalRecord[]
+  items                    TreatmentPlanItem[]
+  patient                  Patient              @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId                 String?
+  doctor                   Doctor?              @relation(fields: [doctorId], references: [id])
+  visits                   Visit[]
+  workOrders               DentalLabWorkOrder[]
 
   @@index([patientId])
   @@index([status])
@@ -1982,9 +1983,9 @@ model DentalLabWorkOrder {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
-  treatmentPlan TreatmentPlan                  @relation(fields: [treatmentPlanId], references: [id], onDelete: Cascade)
-  patient       Patient                        @relation(fields: [patientId], references: [id])
-  doctor        Doctor?                        @relation(fields: [doctorId], references: [id])
+  treatmentPlan TreatmentPlan                   @relation(fields: [treatmentPlanId], references: [id], onDelete: Cascade)
+  patient       Patient                         @relation(fields: [patientId], references: [id])
+  doctor        Doctor?                         @relation(fields: [doctorId], references: [id])
   attachments   DentalLabWorkOrderAttachment[]
   invoiceItems  DentalLabWorkOrderInvoiceItem[]
 
@@ -2001,7 +2002,7 @@ model DentalLabWorkOrderInvoiceItem {
   amount      Float
   createdAt   DateTime @default(now())
 
-  workOrder   DentalLabWorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  workOrder DentalLabWorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([workOrderId])
   @@map("dental_lab_work_order_invoice_items")
