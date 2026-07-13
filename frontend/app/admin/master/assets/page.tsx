@@ -458,9 +458,10 @@ export default function AssetsPage() {
             </select>
           </div>
         }
-        onEdit={(r) => { 
-          setEditing(r); 
+        onEdit={(r) => {
+          setEditing(r);
           setForm({
+            ...EMPTY,
             ...r,
             description: r.description || '',
             manufacturer: r.manufacturer || '',
