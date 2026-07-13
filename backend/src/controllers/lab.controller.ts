@@ -15,7 +15,7 @@ export const getLabTestMasters = async (req: Request, res: Response) => {
 
     const tests = await prisma.labTestMaster.findMany({
       where,
-      include: { children: true, parents: true },
+      include: { children: true, parents: true } as any,
       orderBy: [
         { category: 'asc' },
         { code: 'asc' }
@@ -44,8 +44,8 @@ export const createLabTestMaster = async (req: Request, res: Response) => {
         maxNormal: maxNormal ? parseFloat(maxNormal) : null,
         price: parseFloat(price) || 0,
         isActive: true,
-        parents: parentIds && parentIds.length > 0 ? { connect: parentIds.map((id: string) => ({ id })) } : undefined,
-        children: childrenIds && childrenIds.length > 0 ? { connect: childrenIds.map((id: string) => ({ id })) } : undefined
+        parents: parentIds && parentIds.length > 0 ? { connect: parentIds.map((id: string) => ({ id })) } as any : undefined,
+        children: childrenIds && childrenIds.length > 0 ? { connect: childrenIds.map((id: string) => ({ id })) } as any : undefined
       }
     })
     res.status(201).json(test)
@@ -73,8 +73,8 @@ export const updateLabTestMaster = async (req: Request, res: Response) => {
         maxNormal: maxNormal ? parseFloat(maxNormal) : null,
         price: parseFloat(price) || 0,
         isActive,
-        parents: { set: parentIds ? parentIds.map((id: string) => ({ id })) : [] },
-        children: { set: childrenIds ? childrenIds.map((id: string) => ({ id })) : [] }
+        parents: { set: parentIds ? parentIds.map((id: string) => ({ id })) : [] } as any,
+        children: { set: childrenIds ? childrenIds.map((id: string) => ({ id })) : [] } as any
       }
     })
     res.json(test)
