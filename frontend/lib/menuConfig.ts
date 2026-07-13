@@ -71,7 +71,6 @@ export const FINANCE_GROUPS = [
     items: [
       { icon: FiFileText, label: 'Invoice & Bayar', href: '/admin/finance' },
       { icon: FiBriefcase, label: 'Tagihan Perusahaan (B2B)', href: '/admin/finance/corporate-billing' },
-      { icon: FiDollarSign, label: 'Pengeluaran Operasional', href: '/admin/finance/expenses' },
       { icon: FiRepeat, label: 'Transfer Antar Kas', href: '/admin/finance/cash-transfer' },
       { icon: FiDollarSign, label: 'Laporan Jasa Medik', href: '/admin/finance/reports/doctor-fees', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTING', 'STAFF', 'RECEPTIONIST'] },
       { icon: FiClock, label: 'Tutup Buku (Closing)', href: '/admin/finance/closing', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTING'] },
@@ -120,7 +119,6 @@ export const LOGISTIK_GROUPS = [
     icon: FiShoppingBag,
     moduleId: 'PROCUREMENT_LOGISTICS',
     items: [
-      { icon: FiShoppingBag, label: 'Procurement (PR/PO)', href: '/admin/inventory/procurement' },
       { icon: FiCreditCard, label: 'Bayar Hutang Supplier', href: '/admin/inventory/procurement/payables' },
       { icon: FiGlobe, label: 'Transfer Antar Cabang', href: '/admin/inventory/transfers' },
       { icon: FiPackage, label: 'Katalog Produk', href: '/admin/master/products', roles: ['SUPER_ADMIN', 'ADMIN'] },
@@ -190,8 +188,22 @@ export const MASTER_GROUPS = [
   }
 ]
 
+export const PURCHASING_GROUPS = [
+  {
+    label: 'Manajemen Pembelian',
+    icon: FiShoppingBag,
+    moduleId: 'PURCHASING',
+    items: [
+      { icon: FiDollarSign, label: 'Pengeluaran Operasional', href: '/admin/finance/expenses' },
+      { icon: FiShoppingBag, label: 'Pembelian Obat (PO)', href: '/admin/inventory/procurement' },
+      { icon: FiArchive, label: 'Pembelian Aset & Umum', href: '/admin/finance/asset-procurement', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTING'] },
+    ]
+  }
+]
+
 export const ALL_MENU_GROUPS = [
   { section: 'Layanan Utama', groups: LAYANAN_UTAMA_GROUPS },
+  { section: 'Pembelian / Purchasing', groups: PURCHASING_GROUPS },
   { section: 'Keuangan & Akuntansi', groups: FINANCE_GROUPS },
   { section: 'Logistik & Inventaris', groups: LOGISTIK_GROUPS },
   { section: 'Manajemen Aset', groups: ASSET_GROUPS },

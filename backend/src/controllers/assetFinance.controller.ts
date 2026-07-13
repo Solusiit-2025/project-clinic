@@ -231,6 +231,9 @@ export const depreciateAllAssets = async (req: Request, res: Response) => {
     const results = { synced: 0, skipped: 0, errors: [] as string[] }
 
     for (const asset of assets) {
+      const purchasePeriod = `${asset.purchaseDate.getFullYear()}-${String(asset.purchaseDate.getMonth() + 1).padStart(2, '0')}`
+      if (purchasePeriod > period) { results.skipped++; continue }
+
       const referenceNo = `DEP-${asset.assetCode}-${period}`
       const existing = await prisma.journalEntry.findFirst({ where: { referenceNo } })
       if (existing) { results.skipped++; continue }
@@ -456,12 +459,32 @@ export const disposeAsset = async (req: Request, res: Response) => {
  */
 export const getAssetRegister = async (req: Request, res: Response) => {
   try {
-    const { clinicId: queryClinicId, assetType, status } = req.query
+    const { clinicId: queryClinicId, assetType, status, period } = req.query
     const currentClinicId = (req as any).clinicId
     const isAdminView = (req as any).isAdminView
     const targetClinicId = queryClinicId
       ? String(queryClinicId)
       : !isAdminView ? currentClinicId : undefined
+
+    let depreciatedAssetCodes = new Set<string>()
+    if (period) {
+      const journals = await prisma.journalEntry.findMany({
+        where: {
+          referenceNo: { endsWith: `-${period}` },
+          entryType: 'SYSTEM'
+        },
+        select: { referenceNo: true }
+      })
+      
+      journals.forEach(j => {
+        if (j.referenceNo && j.referenceNo.startsWith('DEP-') && j.referenceNo.endsWith(`-${period}`)) {
+          // Extract assetCode from DEP-{assetCode}-{period}
+          const periodStr = String(period)
+          const code = j.referenceNo.substring(4, j.referenceNo.length - periodStr.length - 1)
+          depreciatedAssetCodes.add(code)
+        }
+      })
+    }
 
     const assets = await prisma.asset.findMany({
       where: {
@@ -506,6 +529,9 @@ export const getAssetRegister = async (req: Request, res: Response) => {
       grandTotalDepreciated += a.totalDepreciated
       grandTotalBookValue += bookValue
 
+      const purchasePeriod = `${a.purchaseDate.getFullYear()}-${String(a.purchaseDate.getMonth() + 1).padStart(2, '0')}`
+      const isFutureAsset = period ? purchasePeriod > period : false
+
       return {
         id: a.id,
         assetCode: a.assetCode,
@@ -518,6 +544,9 @@ export const getAssetRegister = async (req: Request, res: Response) => {
         usefulLifeYears: a.usefulLifeYears,
         totalDepreciated: a.totalDepreciated,
         bookValue,
+        isFullyDepreciated: bookValue <= a.salvageValue,
+        isFutureAsset,
+        isDepreciatedThisPeriod: depreciatedAssetCodes.has(a.assetCode),
         monthlyDepreciation: monthlyDep,
         remainingMonths,
         depreciationPercent: a.purchasePrice > 0

@@ -115,7 +115,7 @@ export default function AssetRegisterPage() {
       render: (r) => (
         <div className="flex flex-col">
           <span className="text-sm font-black text-gray-900">
-            Rp {r.purchasePrice.toLocaleString('id-ID')}
+            Rp {r.purchasePrice.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
           <span className="text-[10px] text-gray-400 font-bold mt-1 uppercase">
             {new Date(r.purchaseDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
@@ -130,7 +130,7 @@ export default function AssetRegisterPage() {
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
              <span className="text-sm font-black text-rose-600">
-               (Rp {r.totalDepreciated.toLocaleString('id-ID')})
+               (Rp {r.totalDepreciated.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
              </span>
              <span className="text-[9px] font-black bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded-full">
                {r.depreciationPercent}%
@@ -152,7 +152,7 @@ export default function AssetRegisterPage() {
         <div className="flex flex-col bg-emerald-50/50 p-2 rounded-xl border border-emerald-100/50">
           <span className="text-xs font-black text-emerald-700 uppercase tracking-widest mb-1">Current Value</span>
           <span className="text-sm font-black text-emerald-900 tracking-tight">
-            Rp {r.bookValue.toLocaleString('id-ID')}
+            Rp {r.bookValue.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         </div>
       )
@@ -164,7 +164,7 @@ export default function AssetRegisterPage() {
       render: (r) => (
         <div className="flex flex-col">
           <span className="text-xs font-black text-gray-700">
-            Rp {r.monthlyDepreciation.toLocaleString('id-ID')}
+            Rp {r.monthlyDepreciation.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
           <span className="text-[10px] text-gray-400 font-bold mt-1 uppercase">
             Sisa {r.remainingMonths} Bulan

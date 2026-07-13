@@ -32,6 +32,7 @@ import notificationRoutes from './routes/notification.routes';
 import dentalLabRoutes from './routes/dentalLab.routes';
 import odontogramRoutes from './routes/odontogram.routes';
 import executiveSummaryRoutes from './routes/executiveSummary.routes';
+import assetProcurementRoutes from './routes/assetProcurement.routes';
 
 import { apiLimiter } from './middleware/rateLimiter';
 
@@ -132,6 +133,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/dental-lab', dentalLabRoutes);
 app.use('/api/odontograms', odontogramRoutes);
 app.use('/api/executive', executiveSummaryRoutes);
+app.use('/api/finance/asset-procurement', assetProcurementRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

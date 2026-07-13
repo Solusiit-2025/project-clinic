@@ -38,7 +38,9 @@ const EMPTY = {
   masterProductId: '',
   totalDepreciated: 0,
   currentValue: 0,
-  image: null as File | string | null
+  image: null as File | string | null,
+  skipJournal: true,
+  paymentCoaId: ''
 }
 
 type Clinic = { id: string; name: string; code: string }
@@ -71,6 +73,7 @@ export default function AssetsPage() {
   const [error, setError] = useState('')
   const [previewImage, setPreviewImage] = useState<{ url: string, name: string } | null>(null)
   const [formImagePreview, setFormImagePreview] = useState<string | null>(null)
+  const [coaList, setCoaList] = useState<{id: string, name: string, code: string}[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Quick Add Master State
@@ -140,12 +143,24 @@ export default function AssetsPage() {
     }
   }, [])
 
+  const fetchCOAs = useCallback(async () => {
+    try {
+      const { data } = await api.get('/master/coa')
+      // Only keep Kas & Bank (typically starting with 1-11)
+      const kasBankAccounts = data.filter((coa: any) => coa.accountType === 'DETAIL' && coa.code.startsWith('1-11'))
+      setCoaList(kasBankAccounts)
+    } catch (e) {
+      console.error('Failed to fetch COAs', e)
+    }
+  }, [])
+
   useEffect(() => { 
     fetchData()
     fetchClinics()
     fetchMasters()
     fetchCategories()
-  }, [fetchData, fetchClinics, fetchMasters, fetchCategories])
+    fetchCOAs()
+  }, [fetchData, fetchClinics, fetchMasters, fetchCategories, fetchCOAs])
 
   useEffect(() => {
     if (!modalOpen) return;
@@ -205,6 +220,7 @@ export default function AssetsPage() {
   const handleSave = async () => {
     if (!form.assetCode || !form.assetName) { setError('Kode dan nama aset wajib diisi'); return }
     if (!form.masterProductId) { setError('Kategori Katalog Master Belum Ditentukan. Harap pilih dari katalog.'); return }
+    if (!form.skipJournal && !form.paymentCoaId) { setError('Sumber Dana (Akun Kas/Bank) wajib dipilih jika akan memotong Kas.'); return }
     setSaving(true); setError('')
     try {
       const formData = new FormData()
@@ -222,6 +238,8 @@ export default function AssetsPage() {
           }
         } else if (key === 'purchaseDate') {
           if (value) formData.append('purchaseDate', new Date(value as string).toISOString())
+        } else if (key === 'skipJournal') {
+          formData.append('skipJournal', String(value))
         } else if (value !== null && value !== undefined) {
           formData.append(key, String(value))
         }
@@ -343,7 +361,7 @@ export default function AssetsPage() {
       <div className="flex flex-col">
         <span className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] leading-none mb-1">Harga Perolehan</span>
         <span className="text-sm font-black text-gray-900 tracking-tight">
-          Rp {r.purchasePrice.toLocaleString('id-ID')}
+          Rp {r.purchasePrice.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </span>
       </div>
     )},
@@ -614,7 +632,70 @@ export default function AssetsPage() {
             </div>
 
             {inp('Tanggal Pembelian', 'purchaseDate', 'date')}
-
+              
+            <div className={`md:col-span-2 lg:col-span-3 p-6 border-2 rounded-3xl mt-2 transition-colors ${form.skipJournal ? 'bg-orange-50/80 border-orange-300/60' : 'bg-red-50/80 border-red-300/60'}`}>
+              <label className="flex items-start gap-4 cursor-pointer group">
+                <div className="relative flex items-center justify-center mt-1">
+                  <input 
+                    type="checkbox"
+                    checked={form.skipJournal}
+                    onChange={(e) => setForm(p => ({...p, skipJournal: e.target.checked}))}
+                    className={`w-7 h-7 rounded-xl border-2 focus:ring-offset-0 bg-white transition-all cursor-pointer peer appearance-none ${form.skipJournal ? 'border-orange-400 focus:ring-orange-500/30 checked:bg-orange-500 checked:border-orange-500' : 'border-red-400 focus:ring-red-500/30'}`}
+                  />
+                  {form.skipJournal && (
+                    <svg className="absolute w-5 h-5 text-white pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <span className={`block text-lg font-black mb-1.5 transition-colors ${form.skipJournal ? 'text-orange-900 group-hover:text-orange-700' : 'text-red-900 group-hover:text-red-700'}`}>
+                    {form.skipJournal 
+                      ? 'Checklist Hanya Mendaftarkan Fisik Asset (Jangan Buat Jurnal Kas)'
+                      : 'Aset Akan Dipotong Kas Secara Lunas 100% (Jurnal GL Dibuat Otomatis)'}
+                  </span>
+                  <p className={`text-sm leading-relaxed font-semibold ${form.skipJournal ? 'text-orange-800/80' : 'text-red-800/90'}`}>
+                    {form.skipJournal ? (
+                      <>
+                        Centang opsi ini jika aset dibeli di masa lalu, pembayarannya <span className="font-extrabold text-orange-900">dicicil/kredit</span>, 
+                        atau jika pengeluarannya dicatat terpisah di menu <span className="font-extrabold text-orange-900">Expenses</span>. 
+                        Jika dicentang, sistem <span className="font-extrabold text-red-600 underline">TIDAK AKAN</span> memotong saldo Kas.
+                      </>
+                    ) : (
+                      <div className="space-y-1.5 mt-1">
+                        <p>
+                          1. Sistem akan otomatis memotong Kas sebesar <span className="font-extrabold text-red-900">Nilai Perolehan</span> secara <span className="font-extrabold text-red-700 underline">LUNAS 100%</span>. 
+                        </p>
+                        <p>
+                          2. Jika pembelian aset ini dilakukan secara <span className="font-extrabold text-red-900">dicicil</span>, mohon <span className="font-extrabold text-red-700 underline">CENTANG KEMBALI</span> opsi ini. 
+                        </p>
+                        <p>
+                          3. Pastikan juga pengeluaran lunas ini belum dicatat di menu Expenses agar tidak terjadi pemotongan ganda (Double Deduction).
+                        </p>
+                      </div>
+                    )}
+                  </p>
+                  
+                  {!form.skipJournal && (
+                    <div className="mt-4 pt-4 border-t border-red-200">
+                      <label className="block text-[11px] font-black text-red-900 uppercase tracking-widest mb-1.5">
+                        Sumber Dana / Akun Pembayaran <span className="text-red-600">*</span>
+                      </label>
+                      <select 
+                        value={form.paymentCoaId}
+                        onChange={(e) => setForm(p => ({...p, paymentCoaId: e.target.value}))}
+                        className="w-full px-4 py-3 text-sm bg-white border-2 border-red-300 rounded-2xl focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/10 hover:border-red-400 transition-all font-bold text-gray-800 shadow-sm"
+                      >
+                        <option value="">-- Pilih Akun Kas/Bank --</option>
+                        {coaList.map(coa => (
+                          <option key={coa.id} value={coa.id}>{coa.code} - {coa.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </label>
+            </div>
             <div className="md:col-span-2 lg:col-span-3 p-6 bg-emerald-50/50 border-2 border-emerald-300/50 rounded-[2.5rem] mt-2">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">

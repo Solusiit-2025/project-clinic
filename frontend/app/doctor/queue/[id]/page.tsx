@@ -403,6 +403,35 @@ export default function DoctorConsultationPage() {
     return medicalRecord?.vitals?.[0] || null
   }, [medicalRecord])
 
+  const autoGeneratePlan = useMemo(() => {
+    const parts: string[] = []
+
+    if (prescriptionItems.length > 0) {
+      parts.push('Resep:')
+      prescriptionItems.forEach((p: any, i: number) => {
+        const ext = p.isExternal ? ' (Apotek Luar)' : ''
+        parts.push(`${i + 1}. ${p.name} ${p.dosage ? p.dosage + ' - ' : ''}${p.frequency || ''}${p.duration ? ` (${p.duration})` : ''}${ext}`)
+        if (p.instructions) parts.push(`   ${p.instructions}`)
+      })
+    }
+
+    if (serviceItems.length > 0) {
+      parts.push('Tindakan Medis:')
+      serviceItems.forEach((s: any, i: number) => {
+        parts.push(`${i + 1}. ${s.name} ${s.quantity > 1 ? `x${s.quantity}` : ''}`)
+      })
+    }
+
+    if (labItems.length > 0) {
+      parts.push('Pemeriksaan Lab:')
+      labItems.forEach((l: any, i: number) => {
+        parts.push(`${i + 1}. ${l.serviceName || l.name}`)
+      })
+    }
+
+    return parts.join('\n')
+  }, [prescriptionItems, serviceItems, labItems])
+
   const fetchData = useCallback(async () => {
     if (!user || !id) return
     const fetchKey = `${String(id)}-${user.id}`
@@ -924,7 +953,7 @@ export default function DoctorConsultationPage() {
         diagnosis,
         icd10Id,
         secondaryIcd10Ids,
-        treatmentPlan: soapPlanText,
+        treatmentPlan: soapPlanText + (autoGeneratePlan ? '\n\n---\n' + autoGeneratePlan : ''),
         labNotes,
         labResults,
         notes,
@@ -991,7 +1020,7 @@ export default function DoctorConsultationPage() {
         diagnosis,
         icd10Id,
         secondaryIcd10Ids,
-        treatmentPlan: soapPlanText,
+        treatmentPlan: soapPlanText + (autoGeneratePlan ? '\n\n---\n' + autoGeneratePlan : ''),
         labNotes,
         labResults,
         notes,
@@ -2781,7 +2810,14 @@ export default function DoctorConsultationPage() {
                         <div className="w-6 h-6 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center text-[10px] font-black shadow-md shadow-amber-500/20 transform group-hover:-rotate-6 transition-transform">P</div>
                         <label className="text-[9px] font-black text-amber-400 uppercase tracking-[0.2em] group-focus-within:text-amber-600 transition-colors">Plan (Terapi/Rencana)</label>
                       </div>
-                      <textarea disabled={isReadOnly} value={soapPlanText} onChange={(e) => setSoapPlanText(e.target.value)} className={`w-full p-3 border-2 border-amber-200 rounded-xl min-h-[90px] lg:min-h-[110px] text-xs font-medium leading-relaxed focus:bg-white focus:border-amber-400 focus:ring-4 focus:ring-amber-500/10 outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60' : 'bg-amber-50/10 hover:border-amber-300'}`} placeholder="Rencana pengobatan, edukasi..." />
+                      <textarea disabled={isReadOnly} value={soapPlanText} onChange={(e) => setSoapPlanText(e.target.value)} className={`w-full p-3 border-2 border-amber-200 rounded-xl min-h-[90px] lg:min-h-[110px] text-xs font-medium leading-relaxed focus:bg-white focus:border-amber-400 focus:ring-4 focus:ring-amber-500/10 outline-none transition-all shadow-inner ${isReadOnly ? 'bg-slate-50 opacity-60' : 'bg-amber-50/10 hover:border-amber-300'}`} placeholder="Rencana pengobatan, edukasi (bebas diisi dokter)..." />
+
+                      {autoGeneratePlan && (
+                        <div className="mt-2 p-3 bg-amber-50 border border-dashed border-amber-300 rounded-xl">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-amber-600 mb-1 flex items-center gap-1"><FiActivity /> Auto: Resep & Tindakan (ter-sync otomatis)</p>
+                          <div className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed font-medium">{autoGeneratePlan}</div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

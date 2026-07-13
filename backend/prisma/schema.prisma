@@ -51,6 +51,7 @@ model Clinic {
   journalEntries          JournalEntry[]
   medicalRecords          MedicalRecord[]
   medicines               Medicine[]
+  notifications           Notification[]
   openingBalances         OpeningBalance[]
   procurementPayments     ProcurementPayment[]
   procurements            Procurement[]
@@ -63,7 +64,6 @@ model Clinic {
   stockOpnames            StockOpnameSession[]
   systemAccounts          SystemAccount[]
   users                   UserClinic[]
-  notifications           Notification[]
 
   @@map("clinics")
 }
@@ -105,53 +105,51 @@ model User {
 }
 
 model Patient {
-  id                 String    @id @default(uuid())
-  medicalRecordNo    String    @unique
-  name               String
-  email              String?
-  phone              String
-  address            String?
-  city               String?
-  province           String?
-  zipCode            String?
-  dateOfBirth        DateTime?
-  gender             String?
-  bloodType          String?
-  identityType       String?
-  identityNumber     String?
-  emergencyContact   String?
-  emergencyPhone     String?
-  allergies          String?
-  isActive           Boolean   @default(true)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  bpjsNumber         String?
-  insuranceName      String?
-  age                Float?
-  familyHeadName     String?
-  oldMedicalRecordNo String?   @unique
-  patientType        String?   @default("Poli Umum")
-  corporatePartnerId String?
-
-  isDeceased   Boolean   @default(false)
-  dateOfDeath  DateTime?
-  deathPlace   String?
-  deathCause   String?
-  deathIcd10Id String?
-  deathIcd10   Icd10?    @relation("DeathIcd", fields: [deathIcd10Id], references: [id])
-
+  id                  String               @id @default(uuid())
+  medicalRecordNo     String               @unique
+  name                String
+  email               String?
+  phone               String
+  address             String?
+  city                String?
+  province            String?
+  zipCode             String?
+  dateOfBirth         DateTime?
+  gender              String?
+  bloodType           String?
+  identityType        String?
+  identityNumber      String?
+  emergencyContact    String?
+  emergencyPhone      String?
+  allergies           String?
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  bpjsNumber          String?
+  insuranceName       String?
+  age                 Float?
+  familyHeadName      String?
+  oldMedicalRecordNo  String?              @unique
+  patientType         String?              @default("Poli Umum")
+  corporatePartnerId  String?
+  dateOfDeath         DateTime?
+  deathCause          String?
+  deathIcd10Id        String?
+  deathPlace          String?
+  isDeceased          Boolean              @default(false)
   appointments        Appointment[]
+  birthRecords        BirthRecord[]
+  dentalLabWorkOrders DentalLabWorkOrder[]
   invoices            Invoice[]
   labOrders           LabOrder[]
   medicalRecords      MedicalRecord[]
-  birthRecords        BirthRecord[]
+  odontogram          Odontogram?
   corporatePartner    CorporatePartner?    @relation(fields: [corporatePartnerId], references: [id])
+  deathIcd10          Icd10?               @relation("DeathIcd", fields: [deathIcd10Id], references: [id])
   prescriptions       Prescription[]
   queueNumbers        QueueNumber[]
   registrations       Registration[]
   treatmentPlans      TreatmentPlan[]
-  dentalLabWorkOrders DentalLabWorkOrder[]
-  odontogram          Odontogram?
 
   @@index([medicalRecordNo])
   @@index([phone])
@@ -205,12 +203,12 @@ model Doctor {
   updatedAt           DateTime             @updatedAt
   queueCode           String?
   appointments        Appointment[]
+  dentalLabWorkOrders DentalLabWorkOrder[]
   managedDepartments  Department[]         @relation("DeptHead")
   commissions         DoctorCommission[]
   schedules           DoctorSchedule[]
   user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   labOrders           LabOrder[]
-  dentalLabWorkOrders DentalLabWorkOrder[]
   medicalRecords      MedicalRecord[]
   prescriptions       Prescription[]
   queueNumbers        QueueNumber[]        @relation("QueueDoctor")
@@ -403,6 +401,9 @@ model MedicalRecord {
   guestDoctorId      String?
   treatmentPlanId    String?
   visitId            String?
+  odontogramAfter    Json?
+  odontogramBefore   Json?
+  birthRecord        BirthRecord?
   labOrders          LabOrder[]
   attachments        MedicalRecordAttachment[]
   services           MedicalRecordService[]
@@ -412,18 +413,15 @@ model MedicalRecord {
   guestAssignment    GuestDoctorAssignment?    @relation(fields: [guestAssignmentId], references: [id])
   guestDoctor        GuestDoctorProfile?       @relation(fields: [guestDoctorId], references: [id])
   icd10              Icd10?                    @relation("PrimaryDiagnosis", fields: [icd10Id], references: [id])
-  secondaryIcd10s    Icd10[]                   @relation("MedicalRecordSecondaryIcd10s")
   patient            Patient                   @relation(fields: [patientId], references: [id], onDelete: Cascade)
   registration       Registration?             @relation(fields: [registrationId], references: [id])
   treatmentPlanRef   TreatmentPlan?            @relation(fields: [treatmentPlanId], references: [id])
+  odontogramsUpdated Odontogram[]              @relation("OdontogramLastUpdatedBy")
   prescriptions      Prescription[]
   radiologyOrders    RadiologyOrder[]
   referrals          Referral[]
   vitals             VitalSign[]
-  birthRecord        BirthRecord?
-  odontogramBefore   Json?
-  odontogramAfter    Json?
-  odontogramsUpdated Odontogram[]              @relation("OdontogramLastUpdatedBy")
+  secondaryIcd10s    Icd10[]                   @relation("MedicalRecordSecondaryIcd10s")
 
   @@index([patientId])
   @@index([doctorId])
@@ -667,11 +665,11 @@ model Service {
   appointmentServices   AppointmentService[]
   invoiceItems          InvoiceItem[]
   medicalRecordServices MedicalRecordService[]
-  visitServices         VisitService[]
   serviceCategory       ServiceCategory?       @relation(fields: [categoryId], references: [id])
   clinic                Clinic?                @relation(fields: [clinicId], references: [id])
   coa                   ChartOfAccount?        @relation(fields: [coaId], references: [id])
   department            Department?            @relation(fields: [departmentId], references: [id])
+  visitServices         VisitService[]
 
   @@index([serviceCode])
   @@index([categoryId])
@@ -708,37 +706,38 @@ model AppointmentService {
 }
 
 model ProductMaster {
-  id                 String           @id @default(uuid())
-  masterCode         String           @unique
-  masterName         String
-  description        String?
-  isActive           Boolean          @default(true)
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-  medicineId         String?          @unique
-  categoryId         String?
-  image              String?
-  brand              String?
-  defaultUnit        String?          @default("pcs")
-  manufacturer       String?
-  minStock           Int?             @default(0)
-  purchasePrice      Float?           @default(0)
-  reorderPoint       Int?             @default(0)
-  sellingPrice       Float?           @default(0)
-  purchaseUnit       String?          @default("box")
-  sku                String?          @unique
-  storageUnit        String?          @default("pcs")
-  supplier           String?
-  usedUnit           String?          @default("pcs")
-  compoundFormulaId  String?          @unique
-  productType        String?
-  qtyPerPurchaseUnit Float?           @default(1)
-  qtyPerStorageUnit  Float?           @default(1)
-  assets             Asset[]
-  productCategory    ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  compoundFormula    CompoundFormula? @relation(fields: [compoundFormulaId], references: [id])
-  medicine           Medicine?        @relation(fields: [medicineId], references: [id])
-  products           Product[]
+  id                    String                 @id @default(uuid())
+  masterCode            String                 @unique
+  masterName            String
+  description           String?
+  isActive              Boolean                @default(true)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  medicineId            String?                @unique
+  categoryId            String?
+  image                 String?
+  brand                 String?
+  defaultUnit           String?                @default("pcs")
+  manufacturer          String?
+  minStock              Int?                   @default(0)
+  purchasePrice         Float?                 @default(0)
+  reorderPoint          Int?                   @default(0)
+  sellingPrice          Float?                 @default(0)
+  purchaseUnit          String?                @default("box")
+  sku                   String?                @unique
+  storageUnit           String?                @default("pcs")
+  supplier              String?
+  usedUnit              String?                @default("pcs")
+  compoundFormulaId     String?                @unique
+  productType           String?
+  qtyPerPurchaseUnit    Float?                 @default(1)
+  qtyPerStorageUnit     Float?                 @default(1)
+  assetProcurementItems AssetProcurementItem[]
+  assets                Asset[]
+  productCategory       ProductCategory?       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  compoundFormula       CompoundFormula?       @relation(fields: [compoundFormulaId], references: [id])
+  medicine              Medicine?              @relation(fields: [medicineId], references: [id])
+  products              Product[]
 
   @@index([masterCode])
   @@index([categoryId])
@@ -967,13 +966,13 @@ model Invoice {
   clinicId                String?
   isPosted                Boolean            @default(false)
   postedAt                DateTime?
-  isLabDeposit            Boolean            @default(false)
-  depositReleasedAt       DateTime?
   bankId                  String?
   treatmentPlanId         String?
   corporateCoverageAmount Float              @default(0)
   corporateInvoiceId      String?
   personalAmount          Float              @default(0)
+  depositReleasedAt       DateTime?
+  isLabDeposit            Boolean            @default(false)
   commissions             DoctorCommission[]
   items                   InvoiceItem[]
   bank                    Bank?              @relation(fields: [bankId], references: [id])
@@ -1154,22 +1153,22 @@ model LabOrderAttachment {
 }
 
 model LabTestMaster {
-  id              String            @id @default(uuid())
-  code            String            @unique
-  name            String
-  category        String
-  unit            String?
-  normalRangeText String?
-  minNormal       Float?
-  maxNormal       Float?
-  price           Float
-  isActive        Boolean           @default(true)
-  parentId        String?
-  results         LabResultDetail[]
-  parent          LabTestMaster?    @relation("LegacyHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  legacyChildren  LabTestMaster[]   @relation("LegacyHierarchy")
-  parents         LabTestMaster[]   @relation("LabManyToMany")
-  children        LabTestMaster[]   @relation("LabManyToMany")
+  id                              String            @id @default(uuid())
+  code                            String            @unique
+  name                            String
+  category                        String
+  unit                            String?
+  normalRangeText                 String?
+  minNormal                       Float?
+  maxNormal                       Float?
+  price                           Float
+  isActive                        Boolean           @default(true)
+  parentId                        String?
+  results                         LabResultDetail[]
+  parent                          LabTestMaster?    @relation("LegacyHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  legacyChildren                  LabTestMaster[]   @relation("LegacyHierarchy")
+  lab_test_master_LabManyToMany_A LabTestMaster[]   @relation("LabManyToMany")
+  lab_test_master_LabManyToMany_B LabTestMaster[]   @relation("LabManyToMany")
 
   @@map("lab_test_master")
 }
@@ -1243,10 +1242,10 @@ model InventoryStock {
   onHandQty     Float           @default(0)
   reservedQty   Float           @default(0)
   minStockAlert Float           @default(0)
-  unitCost      Float           @default(0)
-  sellingPrice  Float           @default(0)
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
+  sellingPrice  Float           @default(0)
+  unitCost      Float           @default(0)
   batch         InventoryBatch? @relation(fields: [batchId], references: [id])
   branch        Clinic          @relation(fields: [branchId], references: [id], onDelete: Cascade)
   product       Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -1293,9 +1292,9 @@ model InventoryMutation {
   referenceId   String?
   notes         String?
   userId        String
-  unitCost      Float           @default(0)
-  sellingPrice  Float           @default(0)
   createdAt     DateTime        @default(now())
+  sellingPrice  Float           @default(0)
+  unitCost      Float           @default(0)
   batch         InventoryBatch? @relation(fields: [batchId], references: [id])
   branch        Clinic          @relation(fields: [branchId], references: [id], onDelete: Cascade)
   product       Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -1691,8 +1690,8 @@ model Icd10 {
   description        String?
   version            String?
   medicalRecords     MedicalRecord[] @relation("PrimaryDiagnosis")
-  secondaryInRecords MedicalRecord[] @relation("MedicalRecordSecondaryIcd10s")
   deathPatients      Patient[]       @relation("DeathIcd")
+  secondaryInRecords MedicalRecord[] @relation("MedicalRecordSecondaryIcd10s")
 
   @@index([code])
   @@index([nameEn])
@@ -1747,19 +1746,19 @@ model TreatmentPlan {
   description              String
   totalAmount              Float                @default(0)
   status                   TreatmentPlanStatus  @default(ACTIVE)
-  doctorProfitSharePercent Float                @default(40)
-  doctorProfitShareAmount  Float                @default(0)
-  isProfitSharePosted      Boolean              @default(false)
   createdAt                DateTime             @default(now())
   updatedAt                DateTime             @updatedAt
+  doctorId                 String?
+  doctorProfitShareAmount  Float                @default(0)
+  doctorProfitSharePercent Float                @default(40)
+  isProfitSharePosted      Boolean              @default(false)
+  workOrders               DentalLabWorkOrder[]
   invoices                 Invoice[]
   medicalRecords           MedicalRecord[]
   items                    TreatmentPlanItem[]
-  patient                  Patient              @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  doctorId                 String?
   doctor                   Doctor?              @relation(fields: [doctorId], references: [id])
+  patient                  Patient              @relation(fields: [patientId], references: [id], onDelete: Cascade)
   visits                   Visit[]
-  workOrders               DentalLabWorkOrder[]
 
   @@index([patientId])
   @@index([status])
@@ -1782,25 +1781,19 @@ model TreatmentPlanItem {
   @@map("treatment_plan_items")
 }
 
-enum VisitStatus {
-  BELUM
-  BERJALAN
-  SELESAI
-}
-
 /// Catatan setiap kedatangan pasien dalam rangkaian perawatan.
 model Visit {
   id              String           @id @default(uuid())
   treatmentPlanId String
   visitDate       DateTime?
-  status          VisitStatus      @default(BELUM)
-  order           Int              @default(1)
   notes           String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
-  treatmentPlan   TreatmentPlan    @relation(fields: [treatmentPlanId], references: [id], onDelete: Cascade)
+  order           Int              @default(1)
+  status          VisitStatus      @default(BELUM)
   services        VisitService[]
   statusLogs      VisitStatusLog[]
+  treatmentPlan   TreatmentPlan    @relation(fields: [treatmentPlanId], references: [id], onDelete: Cascade)
 
   @@index([treatmentPlanId])
   @@map("visits")
@@ -1817,9 +1810,8 @@ model VisitService {
   adjustmentReason String?
   adjustedBy       String?
   adjustedAt       DateTime?
-
-  visit   Visit   @relation(fields: [visitId], references: [id], onDelete: Cascade)
-  service Service @relation(fields: [serviceId], references: [id])
+  service          Service   @relation(fields: [serviceId], references: [id])
+  visit            Visit     @relation(fields: [visitId], references: [id], onDelete: Cascade)
 
   @@index([visitId])
   @@index([serviceId])
@@ -1833,8 +1825,7 @@ model VisitStatusLog {
   toStatus   VisitStatus
   changedBy  String
   changedAt  DateTime    @default(now())
-
-  visit Visit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  visit      Visit       @relation(fields: [visitId], references: [id], onDelete: Cascade)
 
   @@index([visitId])
   @@map("visit_status_logs")
@@ -1913,6 +1904,185 @@ model CorporatePayment {
   @@map("corporate_payments")
 }
 
+/// Surat Perintah Kerja (SPK) ke Dental Lab Eksternal.
+/// Dibuat oleh Dokter setelah pasien membayar DP.
+/// Berbeda dengan LabOrder (lab internal medis).
+model DentalLabWorkOrder {
+  id              String                          @id @default(uuid())
+  workOrderNo     String                          @unique
+  treatmentPlanId String
+  patientId       String
+  labName         String
+  labContact      String?
+  labAddress      String?
+  itemDescription String
+  jobType         String?
+  material        String?
+  stage           String?
+  doctorId        String?
+  shade           String?
+  size            String?
+  toothNumber     String?
+  estimatedDate   DateTime?
+  sentDate        DateTime?
+  receivedDate    DateTime?
+  fittedDate      DateTime?
+  status          WorkOrderStatus                 @default(DRAFT)
+  labFee          Float                           @default(0)
+  notes           String?
+  createdBy       String?
+  updatedBy       String?
+  createdAt       DateTime                        @default(now())
+  updatedAt       DateTime                        @updatedAt
+  attachments     DentalLabWorkOrderAttachment[]
+  invoiceItems    DentalLabWorkOrderInvoiceItem[]
+  doctor          Doctor?                         @relation(fields: [doctorId], references: [id])
+  patient         Patient                         @relation(fields: [patientId], references: [id])
+  treatmentPlan   TreatmentPlan                   @relation(fields: [treatmentPlanId], references: [id], onDelete: Cascade)
+
+  @@index([treatmentPlanId])
+  @@index([patientId])
+  @@index([status])
+  @@map("dental_lab_work_orders")
+}
+
+model DentalLabWorkOrderInvoiceItem {
+  id          String             @id @default(uuid())
+  workOrderId String
+  description String
+  amount      Float
+  createdAt   DateTime           @default(now())
+  workOrder   DentalLabWorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
+  @@map("dental_lab_work_order_invoice_items")
+}
+
+model DentalLabWorkOrderAttachment {
+  id          String             @id @default(uuid())
+  workOrderId String
+  fileUrl     String
+  fileName    String
+  fileType    String
+  createdAt   DateTime           @default(now())
+  workOrder   DentalLabWorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
+  @@map("dental_lab_work_order_attachments")
+}
+
+model BirthRecord {
+  id              String         @id @default(uuid())
+  medicalRecordId String?        @unique
+  patientId       String
+  babyName        String?
+  gender          String?
+  birthDate       DateTime
+  gestationalAge  Int?
+  weight          Float?
+  length          Float?
+  isNormalBirth   Boolean        @default(true)
+  imd             Boolean        @default(false)
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  medicalRecord   MedicalRecord? @relation(fields: [medicalRecordId], references: [id])
+  patient         Patient        @relation(fields: [patientId], references: [id])
+
+  @@index([patientId])
+  @@map("birth_records")
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  clinicId    String
+  targetRole  String?
+  title       String
+  message     String
+  isRead      Boolean  @default(false)
+  type        String
+  referenceId String?
+  createdAt   DateTime @default(now())
+  clinic      Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId, targetRole, isRead])
+  @@map("notifications")
+}
+
+model Odontogram {
+  id                    String         @id @default(uuid())
+  patientId             String         @unique
+  state                 Json
+  version               Int            @default(1)
+  lastUpdatedByRecordId String?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  lastUpdatedByRecord   MedicalRecord? @relation("OdontogramLastUpdatedBy", fields: [lastUpdatedByRecordId], references: [id])
+  patient               Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@map("odontograms")
+}
+
+model AssetProcurement {
+  id            String                 @id @default(uuid())
+  procurementNo String                 @unique
+  branchId      String
+  supplierId    String?
+  supplierName  String?
+  status        String                 @default("DRAFT")
+  paymentStatus String                 @default("UNPAID")
+  paymentType   String                 @default("CASH")
+  totalAmount   Float                  @default(0)
+  downPayment   Float                  @default(0)
+  totalInterest Float                  @default(0)
+  totalPaid     Float                  @default(0)
+  notes         String?
+  createdBy     String
+  approvedBy    String?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  schedules     AssetPaymentSchedule[]
+  items         AssetProcurementItem[]
+
+  @@map("asset_procurements")
+}
+
+model AssetProcurementItem {
+  id              String           @id @default(uuid())
+  procurementId   String
+  masterProductId String
+  requestedQty    Float
+  receivedQty     Float            @default(0)
+  unitPrice       Float
+  subtotal        Float
+  masterProduct   ProductMaster    @relation(fields: [masterProductId], references: [id])
+  procurement     AssetProcurement @relation(fields: [procurementId], references: [id], onDelete: Cascade)
+
+  @@map("asset_procurement_items")
+}
+
+model AssetPaymentSchedule {
+  id              String           @id @default(uuid())
+  procurementId   String
+  monthPeriod     String
+  dueDate         DateTime
+  principalAmount Float
+  interestAmount  Float            @default(0)
+  totalAmount     Float
+  status          String           @default("UNPAID")
+  paidAt          DateTime?
+  journalId       String?
+  procurement     AssetProcurement @relation(fields: [procurementId], references: [id], onDelete: Cascade)
+
+  @@map("asset_payment_schedules")
+}
+
+enum VisitStatus {
+  BELUM
+  BERJALAN
+  SELESAI
+}
+
 enum Role {
   SUPER_ADMIN
   ADMIN
@@ -1945,131 +2115,9 @@ enum TreatmentPlanStatus {
 
 enum WorkOrderStatus {
   DRAFT
-  PENDING_DP // Menunggu DP sebelum bisa dikirim ke lab
-  SENT_TO_LAB // Sudah dikirim ke lab
-  RECEIVED // Barang sudah diterima dari lab
-  FITTED // Sudah dipasang ke pasien
-  CANCELLED // Dibatalkan
-}
-
-/// Surat Perintah Kerja (SPK) ke Dental Lab Eksternal.
-/// Dibuat oleh Dokter setelah pasien membayar DP.
-/// Berbeda dengan LabOrder (lab internal medis).
-model DentalLabWorkOrder {
-  id              String          @id @default(uuid())
-  workOrderNo     String          @unique
-  treatmentPlanId String
-  patientId       String
-  labName         String // Nama Dental Lab Eksternal
-  labContact      String? // Nomor kontak lab
-  labAddress      String? // Alamat lab
-  itemDescription String // Deskripsi item (Crown Porselen, Gigi Palsu, dll)
-  jobType         String? // Crown, Bridge, Inlay, dll
-  material        String? // Zirconia, E-Max, dll
-  stage           String? // Try-in, Finish, dll
-  doctorId        String? // ID Dokter DPJP
-  shade           String? // Warna gigi (A1, A2, B1, dll)
-  size            String? // Ukuran / cetakan
-  toothNumber     String? // Nomor gigi yang dikerjakan
-  estimatedDate   DateTime? // Estimasi selesai dari lab
-  sentDate        DateTime? // Tanggal SPK dikirim ke lab
-  receivedDate    DateTime? // Tanggal barang diterima
-  fittedDate      DateTime? // Tanggal dipasang ke pasien
-  status          WorkOrderStatus @default(DRAFT)
-  labFee          Float           @default(0) // Biaya yang dibayar ke lab
-  notes           String? // Catatan tambahan dari dokter
-  createdBy       String? // userId dokter yang membuat
-  updatedBy       String? // userId yang terakhir update
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-
-  treatmentPlan TreatmentPlan                   @relation(fields: [treatmentPlanId], references: [id], onDelete: Cascade)
-  patient       Patient                         @relation(fields: [patientId], references: [id])
-  doctor        Doctor?                         @relation(fields: [doctorId], references: [id])
-  attachments   DentalLabWorkOrderAttachment[]
-  invoiceItems  DentalLabWorkOrderInvoiceItem[]
-
-  @@index([treatmentPlanId])
-  @@index([patientId])
-  @@index([status])
-  @@map("dental_lab_work_orders")
-}
-
-model DentalLabWorkOrderInvoiceItem {
-  id          String   @id @default(uuid())
-  workOrderId String
-  description String
-  amount      Float
-  createdAt   DateTime @default(now())
-
-  workOrder DentalLabWorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-
-  @@index([workOrderId])
-  @@map("dental_lab_work_order_invoice_items")
-}
-
-model DentalLabWorkOrderAttachment {
-  id          String             @id @default(uuid())
-  workOrderId String
-  fileUrl     String
-  fileName    String
-  fileType    String
-  createdAt   DateTime           @default(now())
-  workOrder   DentalLabWorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-
-  @@index([workOrderId])
-  @@map("dental_lab_work_order_attachments")
-}
-
-model BirthRecord {
-  id              String   @id @default(uuid())
-  medicalRecordId String?  @unique
-  patientId       String
-  babyName        String?
-  gender          String?
-  birthDate       DateTime
-  gestationalAge  Int?
-  weight          Float?
-  length          Float?
-  isNormalBirth   Boolean  @default(true)
-  imd             Boolean  @default(false)
-  notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  patient       Patient        @relation(fields: [patientId], references: [id])
-  medicalRecord MedicalRecord? @relation(fields: [medicalRecordId], references: [id])
-
-  @@index([patientId])
-  @@map("birth_records")
-}
-
-model Notification {
-  id          String   @id @default(uuid())
-  clinicId    String
-  targetRole  String? // e.g., "FARMASI", "LAB"
-  title       String
-  message     String
-  isRead      Boolean  @default(false)
-  type        String // e.g., "NEW_PRESCRIPTION", "NEW_LAB_ORDER"
-  referenceId String?
-  createdAt   DateTime @default(now())
-  clinic      Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-
-  @@index([clinicId, targetRole, isRead])
-  @@map("notifications")
-}
-
-model Odontogram {
-  id                    String         @id @default(uuid())
-  patientId             String         @unique
-  state                 Json // Menyimpan kondisi terbaru dari seluruh gigi
-  version               Int            @default(1)
-  lastUpdatedByRecordId String?
-  createdAt             DateTime       @default(now())
-  updatedAt             DateTime       @updatedAt
-  patient               Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  lastUpdatedByRecord   MedicalRecord? @relation("OdontogramLastUpdatedBy", fields: [lastUpdatedByRecordId], references: [id], onDelete: SetNull)
-
-  @@map("odontograms")
+  PENDING_DP
+  SENT_TO_LAB
+  RECEIVED
+  FITTED
+  CANCELLED
 }

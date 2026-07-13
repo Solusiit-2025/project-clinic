@@ -17,7 +17,7 @@ import ClinicSwitcher from './ClinicSwitcher'
 
 // --- Types & Constants ---
 import {
-  MAIN_MENU, LAYANAN_UTAMA_GROUPS, FINANCE_GROUPS, LOGISTIK_GROUPS, ASSET_GROUPS, MASTER_GROUPS
+  MAIN_MENU, LAYANAN_UTAMA_GROUPS, PURCHASING_GROUPS, FINANCE_GROUPS, LOGISTIK_GROUPS, ASSET_GROUPS, MASTER_GROUPS
 } from '@/lib/menuConfig'
 
 // --- Floating Menu Component ---
@@ -472,7 +472,7 @@ const SidebarContent = ({
             onClick={() => {
               const allGroups = [
                 ...MASTER_GROUPS, ...LAYANAN_UTAMA_GROUPS,
-                ...FINANCE_GROUPS, ...LOGISTIK_GROUPS, ...ASSET_GROUPS,
+                ...PURCHASING_GROUPS, ...FINANCE_GROUPS, ...LOGISTIK_GROUPS, ...ASSET_GROUPS,
               ].map(g => g.label)
               const areAllOpen = allGroups.every(g => openGroups.includes(g))
               if (areAllOpen) {
@@ -486,7 +486,7 @@ const SidebarContent = ({
           >
             {[
               ...MASTER_GROUPS, ...LAYANAN_UTAMA_GROUPS,
-              ...FINANCE_GROUPS, ...LOGISTIK_GROUPS, ...ASSET_GROUPS,
+              ...PURCHASING_GROUPS, ...FINANCE_GROUPS, ...LOGISTIK_GROUPS, ...ASSET_GROUPS,
             ].every(g => openGroups.includes(g.label)) ? 'Collapse All' : 'Expand All'}
           </button>
         )}
@@ -520,6 +520,30 @@ const SidebarContent = ({
               isMobile={isMobile}
               openGroups={openGroups}
               toggleGroup={toggleGroup}
+              accentColor="primary"
+              user={user}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Pembelian / Purchasing */}
+      {hasAccessToSection(PURCHASING_GROUPS) && (
+        <div className="flex flex-col gap-1 mt-2">
+          {(!isCollapsed || isMobile) && (
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] px-3 pb-2 pt-4" style={{ color: 'var(--text-faint)' }}>
+              Pembelian / Purchasing
+            </p>
+          )}
+          {PURCHASING_GROUPS.map((group) => (
+            <SidebarNavGroup
+              key={group.label}
+              group={group}
+              pathname={pathname}
+              isCollapsed={isCollapsed}
+              openGroups={openGroups}
+              toggleGroup={toggleGroup}
+              isMobile={isMobile}
               accentColor="primary"
               user={user}
             />
@@ -665,7 +689,7 @@ export default function Sidebar({
 
     const allGroups = [
       ...MASTER_GROUPS, ...LAYANAN_UTAMA_GROUPS,
-      ...FINANCE_GROUPS, ...LOGISTIK_GROUPS, ...ASSET_GROUPS,
+      ...PURCHASING_GROUPS, ...FINANCE_GROUPS, ...LOGISTIK_GROUPS, ...ASSET_GROUPS,
     ]
     const activeGroup = allGroups.find(g => g.items.some((i: any) => i.href === pathname))
     if (activeGroup) {
@@ -693,7 +717,7 @@ export default function Sidebar({
     if (label === '__EXPAND_ALL__') {
       const allLabels = [
         ...MASTER_GROUPS, ...LAYANAN_UTAMA_GROUPS,
-        ...FINANCE_GROUPS, ...LOGISTIK_GROUPS, ...ASSET_GROUPS,
+        ...PURCHASING_GROUPS, ...FINANCE_GROUPS, ...LOGISTIK_GROUPS, ...ASSET_GROUPS,
       ].map(g => g.label)
       setOpenGroups(allLabels)
       return

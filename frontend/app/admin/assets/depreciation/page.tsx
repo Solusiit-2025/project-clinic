@@ -41,7 +41,7 @@ export default function DepreciationPage() {
     try {
       // Reuse the register endpoint to get assets and their monthly depreciation
       const { data: resData } = await api.get('/master/assets/register', { 
-        params: { status: 'active', _t: Date.now() } 
+        params: { status: 'active', period, _t: Date.now() } 
       })
       setData(resData.assets || [])
     } catch (e) {
@@ -49,7 +49,7 @@ export default function DepreciationPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [period])
 
   useEffect(() => {
     fetchData()
@@ -90,7 +90,7 @@ export default function DepreciationPage() {
       label: 'NILAI BUKU SAAT INI',
       render: (r) => (
         <span className="text-sm font-bold text-gray-700">
-          Rp {r.bookValue.toLocaleString('id-ID')}
+          Rp {r.bookValue.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </span>
       )
     },
@@ -101,10 +101,26 @@ export default function DepreciationPage() {
         <div className="flex items-center gap-2">
           <FiTrendingDown className="text-rose-500 w-3 h-3" />
           <span className="text-sm font-black text-rose-600">
-            Rp {r.monthlyDepreciation.toLocaleString('id-ID')}
+            Rp {r.monthlyDepreciation.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         </div>
       )
+    },
+    {
+      key: 'status',
+      label: 'STATUS PENYUSUTAN',
+      render: (r: any) => {
+        if (r.isFutureAsset) {
+          return <span className="text-[10px] font-black bg-gray-50 text-gray-400 border border-gray-200 px-2 py-1 rounded-lg uppercase tracking-widest shadow-sm">BELUM DIBELI</span>
+        }
+        if (r.isFullyDepreciated) {
+          return <span className="text-[10px] font-black bg-rose-50 text-rose-600 border border-rose-200 px-2 py-1 rounded-lg uppercase tracking-widest shadow-sm">LUNAS / RESIDU</span>
+        }
+        if (r.isDepreciatedThisPeriod) {
+          return <span className="text-[10px] font-black bg-emerald-50 text-emerald-600 border border-emerald-200 px-2 py-1 rounded-lg uppercase tracking-widest shadow-sm">SUDAH PROSES</span>
+        }
+        return <span className="text-[10px] font-black bg-amber-50 text-amber-600 border border-amber-200 px-2 py-1 rounded-lg uppercase tracking-widest shadow-sm">BELUM PROSES</span>
+      }
     },
     {
       key: 'clinic',

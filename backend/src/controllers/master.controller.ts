@@ -1703,8 +1703,9 @@ export const getAssets = async (req: Request, res: Response) => {
 export const createAsset = async (req: Request, res: Response) => {
   try {
     const { purchasePrice, purchaseDate, currentValue, salvageValue, usefulLifeYears,
-            depreciationMethod, clinic, masterProduct, id, createdAt, updatedAt, ...otherData } = req.body
+            depreciationMethod, clinic, masterProduct, id, createdAt, updatedAt, skipJournal: reqSkipJournal, paymentCoaId, ...otherData } = req.body
     const clinicId = req.body.clinicId || (req as any).clinicId
+    const skipJournal = reqSkipJournal === 'true' || reqSkipJournal === true;
 
     let image = null
     if (req.file) {
@@ -1792,11 +1793,20 @@ export const createAsset = async (req: Request, res: Response) => {
             include: { coa: true },
             orderBy: { clinicId: 'desc' }
           })
-          const creditCoa = cashCoa?.coa || await tx.chartOfAccount.findFirst({
-            where: { code: '1-1101', OR: [{ clinicId }, { clinicId: null }] }
-          })
+          
+          let creditCoa = null;
+          if (paymentCoaId && paymentCoaId !== 'null' && paymentCoaId !== 'undefined') {
+            creditCoa = await tx.chartOfAccount.findUnique({
+              where: { id: paymentCoaId }
+            });
+          }
+          if (!creditCoa) {
+            creditCoa = cashCoa?.coa || await tx.chartOfAccount.findFirst({
+              where: { code: '1-1101', OR: [{ clinicId }, { clinicId: null }] }
+            });
+          }
   
-          if (creditCoa) {
+          if (!skipJournal && creditCoa) {
             await tx.journalEntry.create({
               data: {
                 date: asset.purchaseDate || new Date(),

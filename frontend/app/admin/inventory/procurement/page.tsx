@@ -81,7 +81,7 @@ export default function ProcurementListPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-[1400px] mx-auto min-h-screen pb-40">
+    <div className="p-4 md:p-8 w-full min-h-screen pb-40">
       {/* Dynamic Header - More Compact */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 pt-2">
         <div>
@@ -89,7 +89,7 @@ export default function ProcurementListPage() {
              <div className="w-1.5 h-1.5 rounded-full bg-primary" />
              <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Procurement System</p>
           </div>
-          <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tighter uppercase leading-none">Pengadaan</h1>
+          <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tighter uppercase leading-none">Pengadaan Obat dan Alkes</h1>
         </div>
         
         <button 
@@ -97,7 +97,7 @@ export default function ProcurementListPage() {
           className="px-6 py-3.5 bg-gray-900 text-white font-black rounded-2xl shadow-xl shadow-gray-200 hover:scale-[1.02] transition-all flex items-center justify-center gap-2 active:scale-95 text-[10px] uppercase tracking-widest"
         >
           <Plus className="w-4 h-4" />
-          BUAT PR BARU
+          BUAT PO BARU
         </button>
       </div>
 
