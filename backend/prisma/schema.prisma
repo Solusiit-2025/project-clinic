@@ -1167,8 +1167,8 @@ model LabTestMaster {
   results                         LabResultDetail[]
   parent                          LabTestMaster?    @relation("LegacyHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   legacyChildren                  LabTestMaster[]   @relation("LegacyHierarchy")
-  lab_test_master_LabManyToMany_A LabTestMaster[]   @relation("LabManyToMany")
-  lab_test_master_LabManyToMany_B LabTestMaster[]   @relation("LabManyToMany")
+  parents                         LabTestMaster[]   @relation("LabManyToMany")
+  children                        LabTestMaster[]   @relation("LabManyToMany")
 
   @@map("lab_test_master")
 }
