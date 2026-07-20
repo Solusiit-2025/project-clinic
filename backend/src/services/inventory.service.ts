@@ -129,7 +129,7 @@ export class InventoryService {
       if (pick.batchId) {
         const batch = await tx.inventoryBatch.findUnique({ where: { id: pick.batchId } });
         if (!batch || batch.currentQty < pick.quantity) {
-          throw new Error(`Kritikal: Batch ${pick.batchId} tidak memiliki sisa stok cukup saat eksekusi.`);
+          throw new Error(`Kritikal: Stok obat ${product?.productName || 'Tidak diketahui'} (Batch ${pick.batchId}) tidak cukup. Stok batch tersedia: ${batch?.currentQty || 0}.`);
         }
 
         await tx.inventoryBatch.update({
@@ -144,7 +144,7 @@ export class InventoryService {
       });
 
       if (!stock || stock.onHandQty < pick.quantity) {
-          throw new Error(`Kritikal: Record Stok untuk batch ${pick.batchId} tidak cukup.`);
+          throw new Error(`Kritikal: Record Stok obat ${product?.productName || 'Tidak diketahui'} (Batch ${pick.batchId || 'Tanpa Batch'}) tidak cukup. Stok tersedia: ${stock?.onHandQty || 0}.`);
       }
 
       await tx.inventoryStock.update({
