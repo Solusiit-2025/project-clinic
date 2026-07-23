@@ -706,13 +706,15 @@ export const getFinancialSummary = async (req: Request, res: Response) => {
         },
         _sum: { total: true }
       }),
-      prisma.invoice.count({
+      prisma.invoice.findMany({
         where: {
           amountPaid: { gt: 0 },
           isPosted: false,
           isLabDeposit: false,
           ...(!isAdminView ? { clinicId: currentClinicId } : {})
-        }
+        },
+        select: { id: true, invoiceNo: true, invoiceDate: true, total: true, patient: { select: { name: true } } },
+        orderBy: { invoiceDate: 'desc' }
       })
     ])
 
@@ -721,10 +723,18 @@ export const getFinancialSummary = async (req: Request, res: Response) => {
       totalUnpaid: totalUnpaid._sum.total
     })
 
+    const unpostedInvoicesList = unpostedInvoicesCount as any[]
     res.json({
       todayRevenue: revenueToday._sum.amount || 0,
       pendingRevenue: totalUnpaid._sum.total || 0,
-      unpostedPaidCount: unpostedInvoicesCount
+      unpostedPaidCount: unpostedInvoicesList.length,
+      unpostedInvoices: unpostedInvoicesList.map(inv => ({
+        id: inv.id,
+        invoiceNo: inv.invoiceNo,
+        invoiceDate: inv.invoiceDate,
+        total: inv.total,
+        patientName: inv.patient.name
+      }))
     })
   } catch (e) {
     res.status(500).json({ message: (e as Error).message })

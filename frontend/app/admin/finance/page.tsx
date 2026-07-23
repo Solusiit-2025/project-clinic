@@ -131,7 +131,7 @@ export default function FinanceDashboard() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [summary, setSummary] = useState({ todayRevenue: 0, pendingRevenue: 0, unpostedPaidCount: 0 })
+  const [summary, setSummary] = useState({ todayRevenue: 0, pendingRevenue: 0, unpostedPaidCount: 0, unpostedInvoices: [] as { id: string, invoiceNo: string, invoiceDate: string, total: number, patientName: string }[] })
   
   const cashBanks = useMemo(() => banks.filter(b => 
     b.bankName.toLowerCase().includes('cash') || 
@@ -491,36 +491,66 @@ export default function FinanceDashboard() {
 
       {/* Warning Banner for Unposted Invoices */}
       {summary.unpostedPaidCount > 0 && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-10 p-6 md:p-8 bg-rose-600 rounded-[3rem] shadow-2xl shadow-rose-200 border-4 border-white flex flex-col lg:flex-row items-center justify-between gap-6 overflow-hidden relative group"
+          className="mb-10 p-6 md:p-8 bg-rose-600 rounded-[3rem] shadow-2xl shadow-rose-200 border-4 border-white overflow-hidden relative group"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-rose-500 to-rose-700 opacity-60 group-hover:scale-110 transition-transform duration-700" />
-          
-          {/* Blinking Animation Layer */}
           <div className="absolute inset-0 bg-white/10 animate-pulse duration-[800ms]" />
 
-          <div className="relative flex items-center gap-6">
-            <div className="w-16 h-16 md:w-20 md:h-20 bg-white rounded-3xl flex items-center justify-center text-rose-600 shadow-xl shadow-rose-900/30 shrink-0 animate-bounce duration-[3000ms]">
-               <FiAlertTriangle className="w-8 h-8 md:w-10 md:h-10" />
+          <div className="relative flex flex-col lg:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-6">
+              <div className="w-16 h-16 md:w-20 md:h-20 bg-white rounded-3xl flex items-center justify-center text-rose-600 shadow-xl shadow-rose-900/30 shrink-0 animate-bounce duration-[3000ms]">
+                 <FiAlertTriangle className="w-8 h-8 md:w-10 md:h-10" />
+              </div>
+              <div>
+                 <h4 className="text-xl md:text-2xl font-black text-white uppercase tracking-tighter leading-none mb-2">Peringatan Akuntansi!</h4>
+                 <p className="text-[10px] md:text-xs font-bold text-rose-100 uppercase tracking-[0.2em] leading-relaxed max-w-xl">
+                   Terdapat <span className="text-white px-2.5 py-1 bg-rose-900/40 rounded-xl border border-rose-400/40 mx-1.5 shadow-inner">{summary.unpostedPaidCount} Invoice</span> yang sudah terbayar namun belum diposting ke Buku Besar (GL). Segera lakukan posting untuk sinkronisasi laporan keuangan.
+                 </p>
+              </div>
             </div>
-            <div>
-               <h4 className="text-xl md:text-2xl font-black text-white uppercase tracking-tighter leading-none mb-2">Peringatan Akuntansi!</h4>
-               <p className="text-[10px] md:text-xs font-bold text-rose-100 uppercase tracking-[0.2em] leading-relaxed max-w-xl">
-                 Terdapat <span className="text-white px-2.5 py-1 bg-rose-900/40 rounded-xl border border-rose-400/40 mx-1.5 shadow-inner">{summary.unpostedPaidCount} Invoice</span> yang sudah terbayar namun belum diposting ke Buku Besar (GL). Segera lakukan posting untuk sinkronisasi laporan keuangan.
-               </p>
+
+            <div className="flex items-center gap-4 shrink-0">
+               <button
+                  onClick={() => { setStatusFilter('paid'); setSearch(''); }}
+                  className="px-8 py-5 bg-gray-950 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-2xl shadow-rose-900/40 hover:bg-black hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+               >
+                  <FiFilter className="w-4 h-4" />
+                  <span>Filter Invoice</span>
+               </button>
             </div>
           </div>
 
-          <div className="relative flex items-center gap-4 shrink-0">
-             <button 
-                onClick={() => { setStatusFilter('paid'); setSearch(''); }}
-                className="px-8 py-5 bg-gray-950 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-2xl shadow-rose-900/40 hover:bg-black hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-             >
-                <FiFilter className="w-4 h-4" />
-                <span>Filter Invoice</span>
-             </button>
+          {/* Invoice Reference List */}
+          <div className="relative mt-6 bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/20">
+            <p className="text-[10px] font-black text-rose-100 uppercase tracking-widest mb-3">Daftar Invoice Belum Diposting:</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {summary.unpostedInvoices.map((inv) => (
+                <div key={inv.id} className="flex items-center justify-between bg-white/10 rounded-xl px-4 py-3 border border-white/10 hover:bg-white/20 transition-colors group/copy">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-white font-black text-xs uppercase tracking-wider truncate">{inv.invoiceNo}</span>
+                    </div>
+                    <p className="text-[9px] text-rose-200 font-bold truncate mt-0.5">{inv.patientName}</p>
+                  </div>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(inv.invoiceNo); toast.success('Tersalin: ' + inv.invoiceNo) }}
+                    className="ml-3 p-2 bg-white/20 hover:bg-white/30 rounded-lg text-white transition-all shrink-0 opacity-60 group-hover/copy:opacity-100"
+                    title="Salin No. Invoice"
+                  >
+                    <FiFileText className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => { navigator.clipboard.writeText(summary.unpostedInvoices.map(i => i.invoiceNo).join(', ')); toast.success('Semua no invoice tersalin!') }}
+              className="mt-3 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-[9px] font-black text-white uppercase tracking-widest transition-all border border-white/20"
+            >
+              Salin Semua Referensi
+            </button>
           </div>
         </motion.div>
       )}
