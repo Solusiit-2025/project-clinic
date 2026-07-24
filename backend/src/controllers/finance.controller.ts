@@ -889,7 +889,7 @@ export const getExpenses = async (req: Request, res: Response) => {
 export const createExpense = async (req: Request, res: Response) => {
   try {
     const {
-      expenseDate, categoryId, amount, paymentMethod,
+      expenseDate, categoryId, amount, paymentMethod, paymentCoaId,
       description, bankId, notes, attachmentUrl
     } = req.body
     const currentClinicId = (req as any).clinicId
@@ -899,7 +899,7 @@ export const createExpense = async (req: Request, res: Response) => {
       ? `/uploads/procurement/${req.file.filename}`
       : (attachmentUrl || null)
 
-    if (!categoryId || !amount || !paymentMethod || !expenseDate) {
+    if (!categoryId || !amount || !expenseDate) {
       return res.status(400).json({ message: 'Data pengeluaran tidak lengkap' })
     }
 
@@ -918,17 +918,43 @@ export const createExpense = async (req: Request, res: Response) => {
 
     // 2. Determine Credit COA (Cash/Bank)
     let creditCoaId: string | undefined
-    if (paymentMethod === 'cash') {
+    let resolvedPaymentMethod = paymentMethod || 'cash'
+
+    if (paymentCoaId) {
+      const coaAcc = await prisma.chartOfAccount.findUnique({ where: { id: paymentCoaId } })
+      if (!coaAcc) return res.status(404).json({ message: 'Akun Kas/Bank tidak ditemukan.' })
+      creditCoaId = coaAcc.id
+      resolvedPaymentMethod = coaAcc.name.toLowerCase().includes('bank') ? 'bank_transfer' : 'cash'
+    } else if (paymentMethod === 'cash') {
       const sysCash = await prisma.systemAccount.findFirst({
         where: { key: 'CASH_ACCOUNT', OR: [{ clinicId: currentClinicId }, { clinicId: null }] }
       })
       creditCoaId = sysCash?.coaId
       if (!creditCoaId) return res.status(400).json({ message: 'Konfigurasi Akun Kas Utama belum diatur.' })
     } else {
-      if (!bankId) return res.status(400).json({ message: 'Akun Bank harus dipilih untuk pembayaran non-tunai.' })
+      if (!bankId) return res.status(400).json({ message: 'Akun Bank / Kas harus dipilih.' })
       const bank = await prisma.bank.findUnique({ where: { id: bankId } })
       creditCoaId = bank?.coaId
       if (!creditCoaId) return res.status(400).json({ message: 'Akun Bank tujuan belum terhubung ke COA.' })
+    }
+
+    // Check balance sufficiency
+    const numericAmount = parseFloat(amount)
+    const aggregates = await prisma.journalDetail.aggregate({
+      where: {
+        coaId: creditCoaId,
+        journalEntry: { ...(currentClinicId ? { clinicId: currentClinicId } : {}) }
+      },
+      _sum: { debit: true, credit: true }
+    })
+    const coaTarget = await prisma.chartOfAccount.findUnique({ where: { id: creditCoaId } })
+    const netBalance = (aggregates._sum.debit || 0) - (aggregates._sum.credit || 0)
+    const currentBalance = (coaTarget?.openingBalance || 0) + netBalance
+
+    if (currentBalance < numericAmount) {
+      return res.status(400).json({
+        message: `Saldo ${coaTarget?.name || 'Kas/Bank'} saat ini (${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(currentBalance)}) tidak mencukupi untuk transaksi sejumlah ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(numericAmount)}. Silakan pilih akun Kas/Bank lain.`
+      })
     }
 
     // 3. ATOMIC TRANSACTION
@@ -944,12 +970,12 @@ export const createExpense = async (req: Request, res: Response) => {
           categoryId,
           // Kompensasi UTC+7: "2026-04-24" → jam 00:00 WIB
           expenseDate: new Date(`${expenseDate}T00:00:00+07:00`),
-          amount: parseFloat(amount),
-          paymentMethod,
+          amount: numericAmount,
+          paymentMethod: resolvedPaymentMethod,
           description,
           notes,
           attachmentUrl: finalAttachmentUrl,
-          bankId: paymentMethod !== 'cash' ? bankId : null,
+          bankId: bankId || null,
           clinicId: currentClinicId,
           status: 'approved'
         } as any,
@@ -966,8 +992,8 @@ export const createExpense = async (req: Request, res: Response) => {
           clinicId: currentClinicId,
           details: {
             create: [
-              { coaId: debitCoaId, debit: parseFloat(amount), credit: 0, description: `Biaya ${category.categoryName} - ${expenseNo}` },
-              { coaId: creditCoaId!, debit: 0, credit: parseFloat(amount), description: `Pembayaran via ${paymentMethod.toUpperCase()} - ${expenseNo}` }
+              { coaId: debitCoaId, debit: numericAmount, credit: 0, description: `Biaya ${category.categoryName} - ${expenseNo}` },
+              { coaId: creditCoaId!, debit: 0, credit: numericAmount, description: `Pembayaran via ${resolvedPaymentMethod.toUpperCase()} (${coaTarget?.name || ''}) - ${expenseNo}` }
             ]
           }
         }

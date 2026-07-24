@@ -119,7 +119,6 @@ export const LOGISTIK_GROUPS = [
     icon: FiShoppingBag,
     moduleId: 'PROCUREMENT_LOGISTICS',
     items: [
-      { icon: FiCreditCard, label: 'Bayar Hutang Supplier', href: '/admin/inventory/procurement/payables' },
       { icon: FiGlobe, label: 'Transfer Antar Cabang', href: '/admin/inventory/transfers' },
       { icon: FiPackage, label: 'Katalog Produk', href: '/admin/master/products', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { icon: FiList, label: 'Kategori Produk', href: '/admin/master/product-categories', roles: ['SUPER_ADMIN', 'ADMIN'] },
@@ -196,6 +195,7 @@ export const PURCHASING_GROUPS = [
     items: [
       { icon: FiDollarSign, label: 'Pengeluaran Operasional', href: '/admin/finance/expenses' },
       { icon: FiShoppingBag, label: 'Pembelian Obat (PO)', href: '/admin/inventory/procurement' },
+      { icon: FiCreditCard, label: 'Bayar Hutang Supplier', href: '/admin/inventory/procurement/payables' },
       { icon: FiArchive, label: 'Pembelian Aset & Umum', href: '/admin/finance/asset-procurement', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTING'] },
     ]
   }

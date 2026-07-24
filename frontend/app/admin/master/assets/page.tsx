@@ -441,7 +441,7 @@ export default function AssetsPage() {
               <select 
                 value={filterClinic} 
                 onChange={(e) => setFilterClinic(e.target.value)}
-                className="px-4 py-2 text-xs border border-gray-100 rounded-xl focus:outline-none focus:border-primary bg-white font-black text-gray-600 shadow-sm transition-all text-primary"
+                className="px-4 py-2 text-xs border border-gray-100 rounded-xl focus:outline-none focus:border-primary bg-white font-black shadow-sm transition-all text-primary"
               >
                 <option value="">Cabang Aktif (Sidebar)</option>
                 <option value="all">Seluruh Cabang</option>
