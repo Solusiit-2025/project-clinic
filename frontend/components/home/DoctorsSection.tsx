@@ -167,7 +167,7 @@ export default function DoctorsSection() {
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = getDefaultDoctorPhoto(doctor.name);
                           }}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700" 
+                          className="w-full h-full object-cover object-top group-hover:scale-105 transition-all duration-700" 
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80" />
                         <span className="absolute bottom-4 left-4 px-3 py-1 rounded-lg bg-primary/90 text-white font-black text-[10px] uppercase tracking-wider backdrop-blur-md shadow-md">
