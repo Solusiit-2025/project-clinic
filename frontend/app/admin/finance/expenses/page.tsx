@@ -7,7 +7,7 @@ import {
   FiDollarSign, FiSearch, FiFilter,
   FiClock, FiCheckCircle, FiMoreVertical,
   FiCalendar, FiPlus, FiX, FiActivity, FiTag, FiFileText, FiCreditCard, FiTrash2, FiImage,
-  FiArrowRight
+  FiArrowRight, FiAlertTriangle
 } from 'react-icons/fi'
 import { toast } from 'react-hot-toast'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -35,19 +35,30 @@ interface Expense {
   notes?: string
 }
 
-interface Bank {
+interface COA {
   id: string
-  bankName: string
-  accountNumber: string
+  code: string
+  name: string
+  accountType: string
+  category: string
 }
 
 export default function ExpensesPage() {
   const { activeClinicId } = useAuthStore()
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [categories, setCategories] = useState<ExpenseCategory[]>([])
-  const [banks, setBanks] = useState<Bank[]>([])
+  const [coas, setCoas] = useState<COA[]>([])
+  const [balances, setBalances] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Warning Modal State
+  const [warningModalData, setWarningModalData] = useState<{
+    isOpen: boolean
+    accountName: string
+    currentBalance: number
+    requiredAmount: number
+  }>({ isOpen: false, accountName: '', currentBalance: 0, requiredAmount: 0 })
 
   // Filters & Pagination
   const [search, setSearch] = useState('')
@@ -62,9 +73,8 @@ export default function ExpensesPage() {
     expenseDate: getLocalDateString(),
     categoryId: '',
     amount: '',
-    paymentMethod: 'cash',
+    paymentCoaId: '',
     description: '',
-    bankId: '',
     notes: ''
   })
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null)
@@ -77,7 +87,7 @@ export default function ExpensesPage() {
     try {
       setLoading(true)
 
-      const [expRes, catRes, bankRes] = await Promise.all([
+      const [expRes, catRes, coaRes, balRes] = await Promise.all([
         api.get('/finance/expenses', {
           params: {
             search: search || undefined,
@@ -87,14 +97,29 @@ export default function ExpensesPage() {
           }
         }),
         api.get('/master/expense-categories'),
-        api.get('/master/banks')
+        api.get('/master/coa', { params: { category: 'ASSET' } }),
+        api.get('/master/coa/balances')
       ])
 
       setExpenses(expRes.data?.data || [])
       setTotalPages(expRes.data?.meta?.totalPages || 1)
       setTotalItems(expRes.data?.meta?.total || 0)
       setCategories(catRes.data || [])
-      setBanks(bankRes.data || [])
+
+      const liquidCoas = (coaRes.data || []).filter((c: COA) =>
+        c.code.startsWith('1-11') && c.accountType === 'DETAIL'
+      )
+      setCoas(liquidCoas)
+
+      const balMap: Record<string, number> = {}
+      if (balRes.data && Array.isArray(balRes.data)) {
+        balRes.data.forEach((b: any) => { balMap[b.id] = b.balance })
+      }
+      setBalances(balMap)
+
+      if (liquidCoas.length > 0 && !formData.paymentCoaId) {
+        setFormData(p => ({ ...p, paymentCoaId: liquidCoas[0].id }))
+      }
     } catch (error) {
       console.error('Fetch Expenses Error:', error)
       toast.error('Gagal mengambil data pengeluaran')
@@ -109,8 +134,22 @@ export default function ExpensesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.categoryId || !formData.amount || !formData.expenseDate) {
-      toast.error('Mohon lengkapi data wajib')
+    if (!formData.categoryId || !formData.amount || !formData.expenseDate || !formData.paymentCoaId) {
+      toast.error('Mohon lengkapi data wajib (termasuk Sumber Pembayaran)')
+      return
+    }
+
+    const selectedCoa = coas.find(c => c.id === formData.paymentCoaId)
+    const currentBal = selectedCoa ? (balances[selectedCoa.id] ?? 0) : 0
+    const reqAmount = parseFloat(formData.amount || '0')
+
+    if (reqAmount > currentBal) {
+      setWarningModalData({
+        isOpen: true,
+        accountName: selectedCoa ? `${selectedCoa.name} (${selectedCoa.code})` : 'Akun Kas/Bank',
+        currentBalance: currentBal,
+        requiredAmount: reqAmount
+      })
       return
     }
 
@@ -129,8 +168,8 @@ export default function ExpensesPage() {
       setShowAddModal(false)
       setFormData({
         expenseDate: getLocalDateString(),
-        categoryId: '', amount: '', paymentMethod: 'cash',
-        description: '', bankId: '', notes: ''
+        categoryId: '', amount: '', paymentCoaId: coas[0]?.id || '',
+        description: '', notes: ''
       })
       setAttachmentFile(null)
       setAttachmentPreview(null)
@@ -292,7 +331,7 @@ export default function ExpensesPage() {
                   )}
                 </td>
                 <td className="px-4 md:px-10 py-4 md:py-6 text-center">
-                  <div className="flex items-center justify-center gap-1 md:gap-2 text-emerald-600 bg-emerald-50 px-2 md:px-3 py-1 md:py-1.5 rounded-full inline-flex border border-emerald-100">
+                  <div className="inline-flex items-center justify-center gap-1 md:gap-2 text-emerald-600 bg-emerald-50 px-2 md:px-3 py-1 md:py-1.5 rounded-full border border-emerald-100">
                     <FiCheckCircle className="w-3 h-3 md:w-3.5 md:h-3.5" />
                     <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest">Posted</span>
                   </div>
@@ -418,7 +457,7 @@ export default function ExpensesPage() {
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 30 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 30 }}
-              className="relative w-full max-w-lg bg-white rounded-xl sm:rounded-2xl md:rounded-[3.5rem] shadow-2xl overflow-hidden pointer-events-auto"
+              className="relative w-full max-w-2xl sm:max-w-3xl bg-white rounded-xl sm:rounded-2xl md:rounded-[3.5rem] shadow-2xl overflow-hidden pointer-events-auto"
             >
               <form onSubmit={handleSubmit} className="p-4 sm:p-8 md:p-12 space-y-4 sm:space-y-6 md:space-y-8 text-left">
                 <div className="flex justify-between items-center mb-2 sm:mb-4">
@@ -471,32 +510,36 @@ export default function ExpensesPage() {
                   </div>
 
                   <div className="space-y-1 sm:space-y-2 text-left">
-                    <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Metode Pembayaran</label>
-                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                      {['cash', 'bank_transfer'].map(m => (
-                        <button
-                          key={m} type="button"
-                          onClick={() => setFormData({ ...formData, paymentMethod: m })}
-                          className={`py-2 sm:py-3 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest border transition-all ${formData.paymentMethod === m ? 'bg-slate-900 text-white border-slate-900 shadow-xl' : 'bg-white text-slate-400 border-slate-100'}`}
-                        >
-                          {m === 'cash' ? 'Tunai (Kas)' : 'Bank / Transfer'}
-                        </button>
-                      ))}
+                    <div className="flex justify-between items-center ml-1">
+                      <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        Sumber Pembayaran (Akun Kas & Bank)
+                      </label>
+                      {formData.paymentCoaId && (
+                        <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${
+                          (balances[formData.paymentCoaId] ?? 0) >= (parseFloat(formData.amount || '0'))
+                            ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                            : 'bg-rose-100 text-rose-700 border border-rose-200 animate-pulse'
+                        }`}>
+                          Saldo: {formatCurrency(balances[formData.paymentCoaId] ?? 0)}
+                        </span>
+                      )}
                     </div>
+                    <select
+                      className="w-full px-3 sm:px-5 py-2 sm:py-4 bg-slate-50 border border-slate-200 rounded-lg sm:rounded-2xl font-black text-xs sm:text-sm text-slate-700 outline-none focus:ring-4 focus:ring-indigo-50"
+                      value={formData.paymentCoaId}
+                      onChange={(e) => setFormData({ ...formData, paymentCoaId: e.target.value })}
+                    >
+                      <option value="">-- Pilih Akun Kas / Bank --</option>
+                      {coas.map(c => {
+                        const bal = balances[c.id] ?? 0
+                        return (
+                          <option key={c.id} value={c.id}>
+                            [{c.code}] {c.name} — Saldo: {formatCurrency(bal)}
+                          </option>
+                        )
+                      })}
+                    </select>
                   </div>
-
-                  {formData.paymentMethod === 'bank_transfer' && (
-                    <div className="space-y-1 sm:space-y-2 text-left">
-                      <label className="text-[9px] sm:text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Pilih Rekening Bank</label>
-                      <select
-                        className="w-full px-3 sm:px-5 py-2 sm:py-4 bg-indigo-50 border border-indigo-100 rounded-lg sm:rounded-2xl font-black text-xs sm:text-sm text-indigo-700 outline-none"
-                        value={formData.bankId} onChange={(e) => setFormData({ ...formData, bankId: e.target.value })}
-                      >
-                        <option value="">-- Pilih Bank --</option>
-                        {banks.map(b => <option key={b.id} value={b.id}>{b.bankName} - {b.accountNumber}</option>)}
-                      </select>
-                    </div>
-                  )}
 
                   <div className="space-y-1 sm:space-y-2 text-left">
                     <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Catatan Tambahan (Optional)</label>
@@ -551,6 +594,48 @@ export default function ExpensesPage() {
                   )}
                 </button>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* WARNING SALDO TIDAK MENCUKUPI MODAL */}
+      <AnimatePresence>
+        {warningModalData.isOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setWarningModalData(p => ({ ...p, isOpen: false }))}
+              className="fixed inset-0 bg-slate-900/70 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-3xl p-6 sm:p-8 shadow-2xl overflow-hidden text-center z-10 space-y-5 border border-rose-100"
+            >
+              <div className="w-16 h-16 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-600 mx-auto animate-bounce">
+                <FiAlertTriangle className="w-8 h-8" />
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-xl font-black text-slate-900 tracking-tight uppercase">Saldo Tidak Mencukupi!</h3>
+                <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                  Saldo pada <span className="font-bold text-slate-800">{warningModalData.accountName}</span> saat ini adalah <span className="font-black text-rose-600">{formatCurrency(warningModalData.currentBalance)}</span>, tidak mencukupi untuk transaksi sebesar <span className="font-black text-slate-900">{formatCurrency(warningModalData.requiredAmount)}</span>.
+                </p>
+              </div>
+
+              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 text-left">
+                <p className="text-[11px] font-bold text-amber-800 flex items-center gap-2">
+                  <span>💡</span> Silakan pilih akun Kas / Bank lain yang memiliki saldo mencukupi.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setWarningModalData(p => ({ ...p, isOpen: false }))}
+                className="w-full py-3.5 bg-rose-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all"
+              >
+                Mengerti, Pilih Akun Lain
+              </button>
             </motion.div>
           </div>
         )}
