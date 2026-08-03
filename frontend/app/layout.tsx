@@ -5,8 +5,29 @@ import Script from 'next/script'
 import { Providers } from '@/components/Providers'
 
 export const metadata: Metadata = {
-  title: 'Klinik Yasfina - Website Klinik Profesional',
-  description: 'Sistem Manajemen Klinik Profesional - Antrian Online, Pendaftaran, Inventory, Keuangan',
+  title: 'Klinik Yasfina - Pelayanan Kesehatan & Rumah Sunat Modern',
+  description: 'Klinik Yasfina Pusat melayani Pengobatan Umum, Poli Gigi, dan Pusat Rumah Sunat Modern minim rasa sakit dengan fasilitas modern & tenaga medis berpengalaman.',
+  icons: {
+    icon: '/logo-yasfina_web.png',
+    shortcut: '/logo-yasfina_web.png',
+    apple: '/logo-yasfina_web.png',
+  },
+  openGraph: {
+    title: 'Klinik Yasfina - Pelayanan Kesehatan & Rumah Sunat Modern',
+    description: 'Layanan Pengobatan Umum, Poli Gigi, & Rumah Sunat Modern. Booking Online Tanpa Antre!',
+    url: 'http://localhost:3006',
+    siteName: 'Klinik Yasfina',
+    images: [
+      {
+        url: '/logo-yasfina_web.png',
+        width: 800,
+        height: 600,
+        alt: 'Klinik Yasfina Logo',
+      },
+    ],
+    locale: 'id_ID',
+    type: 'website',
+  },
 }
 
 export default function RootLayout({
@@ -40,7 +61,7 @@ export default function RootLayout({
           }}
         />
         {/* Anti-flicker: runs synchronously before paint to apply stored theme */}
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href="/logo-yasfina_web.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link

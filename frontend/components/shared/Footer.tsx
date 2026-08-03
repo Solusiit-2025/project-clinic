@@ -54,9 +54,9 @@ export default function Footer() {
             <h4 className="font-bold text-white mb-6 uppercase tracking-wider text-xs">Layanan & Bantuan</h4>
             <ul className="space-y-3 text-sm">
               <li><Link href="#contact" className="hover:text-primary transition-colors">Hubungi Kami</Link></li>
-              <li><Link href="#" className="hover:text-primary transition-colors">Pusat Bantuan (FAQ)</Link></li>
-              <li><Link href="#" className="hover:text-primary transition-colors">Kebijakan Privasi</Link></li>
-              <li><Link href="#" className="hover:text-primary transition-colors">Syarat & Ketentuan</Link></li>
+              <li><Link href="#faq" className="hover:text-primary transition-colors">Pusat Bantuan (FAQ)</Link></li>
+              <li><Link href="/privacy" className="hover:text-primary transition-colors">Kebijakan Privasi</Link></li>
+              <li><Link href="/terms" className="hover:text-primary transition-colors">Syarat & Ketentuan</Link></li>
             </ul>
           </div>
 
@@ -94,14 +94,17 @@ export default function Footer() {
             </p>
             <div className="flex items-center space-x-4">
               {[
-                { icon: FiFacebook, href: '#' },
-                { icon: FiTwitter, href: '#' },
-                { icon: FiInstagram, href: '#' },
-                { icon: FiLinkedin, href: '#' },
+                { icon: FiFacebook, href: 'https://wa.me/6289629353621', title: 'WhatsApp' },
+                { icon: FiTwitter, href: 'https://wa.me/6289629353621', title: 'Twitter / Contact' },
+                { icon: FiInstagram, href: '#contact', title: 'Instagram' },
+                { icon: FiLinkedin, href: '/register', title: 'Booking Online' },
               ].map((social, i) => (
                 <a 
                   key={i} 
                   href={social.href} 
+                  title={social.title}
+                  target={social.href.startsWith('http') ? '_blank' : '_self'}
+                  rel="noopener noreferrer"
                   className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:bg-primary hover:text-white transition-all transform hover:-translate-y-1"
                 >
                   <social.icon className="w-5 h-5" />

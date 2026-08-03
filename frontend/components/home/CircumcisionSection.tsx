@@ -113,9 +113,14 @@ export default function CircumcisionSection() {
                     <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] mb-1">Konsultasi Gratis</p>
                     <p className="text-sm font-bold">Tanya Dokter Sekarang</p>
                   </div>
-                  <button className="px-6 py-3 bg-amber-500 text-black font-black text-xs rounded-xl uppercase tracking-widest hover:bg-white transition-all active:scale-95">
+                  <a 
+                    href="https://wa.me/6289629353621?text=Halo%20Klinik%20Yasfina,%20saya%20ingin%20konsultasi%20mengenai%20layanan%20Rumah%20Sunat%20Modern." 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="px-6 py-3 bg-amber-500 text-black font-black text-xs rounded-xl uppercase tracking-widest hover:bg-white transition-all active:scale-95 inline-block"
+                  >
                     Hubungi Kami
-                  </button>
+                  </a>
                </div>
             </div>
 
@@ -193,15 +198,34 @@ export default function CircumcisionSection() {
                       </div>
                    </div>
 
-                   <div className="mt-10 flex items-center gap-4">
-                      <div className="flex -space-x-3">
-                         {[1,2,3].map(i => (
-                           <div key={i} className="w-8 h-8 rounded-full border-2 border-white dark:border-slate-900 bg-gray-200 overflow-hidden">
-                              <img src={`https://i.pravatar.cc/100?img=${i+10}`} alt="Patient" />
-                           </div>
-                         ))}
+                   <div className="mt-8 pt-6 border-t border-gray-100 dark:border-slate-800 space-y-4">
+                      {/* Guarantee badges */}
+                      <div className="flex flex-wrap items-center gap-2.5 text-[10px] font-extrabold uppercase tracking-wider">
+                          <span className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 px-3 py-1.5 rounded-lg border border-amber-200/50 dark:border-amber-900/30">
+                              <FiShield className="w-3.5 h-3.5 shrink-0" /> 100% Alat Sekali Pakai Steril
+                          </span>
+                          <span className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 px-3 py-1.5 rounded-lg border border-emerald-200/50 dark:border-emerald-900/30">
+                              <FiCheck className="w-3.5 h-3.5 shrink-0" /> Gratis Kontrol Sampai Sembuh
+                          </span>
                       </div>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Dipilih oleh <span className="text-gray-900 dark:text-white font-black">1.200+</span> Pasien</p>
+
+                      {/* Action Buttons */}
+                      <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                          <a 
+                              href={`https://wa.me/6289629353621?text=Halo%20Klinik%20Yasfina,%20saya%20ingin%20tanya%20detail%20harga%20dan%20pendaftaran%20untuk%20${encodeURIComponent(selectedMethod.name)}.`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 py-3.5 bg-amber-500 hover:bg-amber-600 text-black font-black text-xs rounded-xl uppercase tracking-wider text-center transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
+                          >
+                              Tanya Harga & WA
+                          </a>
+                          <a 
+                              href="/register"
+                              className="px-6 py-3.5 bg-gray-900 dark:bg-slate-800 text-white font-black text-xs rounded-xl uppercase tracking-wider text-center hover:bg-primary transition-all active:scale-95"
+                          >
+                              Booking Janji
+                          </a>
+                      </div>
                    </div>
                 </div>
               </div>

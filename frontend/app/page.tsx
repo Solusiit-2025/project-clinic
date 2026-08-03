@@ -7,11 +7,11 @@ import ServicesSection from '@/components/home/ServicesSection'
 import CircumcisionSection from '@/components/home/CircumcisionSection'
 import FacilitiesSection from '@/components/home/FacilitiesSection'
 import DoctorsSection from '@/components/home/DoctorsSection'
-import DoctorScheduleSection from '@/components/home/DoctorScheduleSection'
 import TestimonialsSection from '@/components/home/TestimonialsSection'
 import FAQSection from '@/components/home/FAQSection'
 import ContactSection from '@/components/home/ContactSection'
 import CTASection from '@/components/home/CTASection'
+import WhatsAppWidget from '@/components/shared/WhatsAppWidget'
 
 export default function HomePage() {
   return (
@@ -25,13 +25,13 @@ export default function HomePage() {
         <ServicesSection />
         <FacilitiesSection />
         <DoctorsSection />
-        <DoctorScheduleSection />
         <TestimonialsSection />
         <FAQSection />
         <ContactSection />
         <CTASection />
       </main>
       <Footer />
+      <WhatsAppWidget />
     </>
   )
 }

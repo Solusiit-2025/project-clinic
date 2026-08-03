@@ -9,8 +9,7 @@ export const siteConfig = {
     { label: 'Tentang Kami', href: '#about' },
     { label: 'Rumah Sunat', href: '#circumcision' },
     { label: 'Layanan', href: '#services' },
-    { label: 'Dokter', href: '#doctors' },
-    { label: 'Jadwal Dokter', href: '#schedule' },
+    { label: 'Dokter & Jadwal', href: '#doctors' },
     { label: 'Kontak', href: '#contact' },
   ],
   hero: {
@@ -118,7 +117,9 @@ export const siteConfig = {
     ]
   },
   contact: {
-    phone: '251-866-616-9',
+    phone: '(0251) 8666169',
+    whatsapp: '6289629353621',
+    whatsappFormatted: '0896-2935-3621',
     email: 'info@yasfina.com',
     address: 'Blok EE1, Jl. Villa Bogor Indah, RT.01/RW.14, Kedunghalang, Kec. Bogor Utara, Kota Bogor, Jawa Barat 16157',
     hours: 'Senin - Sabtu: 08:00 - 21:00',
@@ -140,9 +141,9 @@ export const siteConfig = {
   },
   facilities: [
     {
-      title: 'Ruang Rawat Inap Nyaman',
-      description: 'Fasilitas rawat inap yang dirancang khusus untuk kenyamanan dan pemulihan optimal.',
-      image: 'https://images.unsplash.com/photo-1512678080530-7760d81faba6?auto=format&fit=crop&q=80&w=1000'
+      title: 'Ruang Tindakan & Konsultasi',
+      description: 'Ruang konsultasi dokter dan tindakan medis yang steril, nyaman, dan ber-AC.',
+      image: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=1000'
     },
     {
       title: 'Peralatan Medis Modern',
