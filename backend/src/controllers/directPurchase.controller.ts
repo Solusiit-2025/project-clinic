@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { syncInventoryToLedger } from '../services/inventoryLedger.service';
+import { InventoryService } from '../services/inventory.service';
 
 /** Konversi ke tanggal WIB (UTC midnight) agar konsisten dengan semua jurnal */
 function toWIBDate(utcDate: Date = new Date()): Date {
@@ -214,51 +215,45 @@ export const postDirectPurchase = async (req: Request, res: Response) => {
         throw new Error('Gagal memproses jurnal: Akun Piutang atau Pendapatan tidak ditemukan. Mohon periksa konfigurasi System Accounts.');
       }
 
+      // Deduct stock FIFO across batches (handles stock split over multiple batches,
+      // incl. legacy null-batch records) and collect mutation IDs for GL sync
+      const deductedProductIds: string[] = [];
+      const createdMutationIds: string[] = [];
+
       for (const item of purchase.items) {
-        // Decrease stock
-        const stock = await tx.inventoryStock.findFirst({
-          where: { branchId: clinicId, productId: item.productId, batchId: item.batchId || undefined }
+        const picks = await InventoryService.deductStock(tx, {
+          productId: item.productId,
+          branchId: clinicId,
+          quantity: item.quantity,
+          userId: userId || 'system',
+          referenceType: 'DIRECT_PURCHASE',
+          referenceId: purchase.id,
+          notes: `Direct purchase by ${purchase.employeeName}`,
+          skipSync: true,
+          fromReserved: false
         });
 
-        if (!stock || stock.onHandQty < item.quantity) {
-          throw new Error(`Insufficient stock for product ID: ${item.productId}`);
-        }
+        deductedProductIds.push(item.productId);
 
-        await tx.inventoryStock.update({
-          where: { id: stock.id },
-          data: {
-            onHandQty: { decrement: item.quantity }
+        for (const pick of picks) {
+          if ((pick as any).mutationId) {
+            createdMutationIds.push((pick as any).mutationId);
           }
-        });
-
-        // Also decrease from InventoryBatch if applicable
-        if (item.batchId) {
-           await tx.inventoryBatch.update({
-             where: { id: item.batchId },
-             data: { currentQty: { decrement: item.quantity } }
-           });
         }
+      }
 
-        // Add mutation log
-        const mutation = await tx.inventoryMutation.create({
-          data: {
-            branchId: clinicId,
-            productId: item.productId,
-            batchId: item.batchId,
-            type: 'OUT',
-            quantity: item.quantity,
-            referenceType: 'DIRECT_PURCHASE',
-            referenceId: purchase.id,
-            notes: `Direct purchase by ${purchase.employeeName}`,
-            userId: userId || 'system'
-          }
-        });
+      // Resync total quantity back to Product table (bulk)
+      if (deductedProductIds.length > 0) {
+        const uniqueProductIds = [...new Set(deductedProductIds)];
+        await InventoryService.syncMultipleProductsQuantity(tx, uniqueProductIds, clinicId);
+      }
 
-        // Sync to General Ledger (COGS & Inventory)
+      // Sync to General Ledger (COGS & Inventory)
+      for (const mutationId of createdMutationIds) {
         try {
-          await syncInventoryToLedger(mutation.id, { tx: tx as any });
+          await syncInventoryToLedger(mutationId, { tx: tx as any });
         } catch (err: any) {
-          console.error(`[postDirectPurchase] GL Sync Failed for mutation ${mutation.id}:`, err.message);
+          console.error(`[postDirectPurchase] GL Sync Failed for mutation ${mutationId}:`, err.message);
         }
       }
 
