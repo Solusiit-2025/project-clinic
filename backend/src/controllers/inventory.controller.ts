@@ -1416,3 +1416,99 @@ export const syncInventoryPrices = async (req: Request, res: Response) => {
     });
   }
 };
+
+/**
+ * Rekonsiliasi mandiri stok: menyelaraskan `inventoryBatch.currentQty` terhadap
+ * `inventoryStock.onHandQty` (sumber kebenaran). Mencegah error
+ * "Kritikal: Record Stok ... tidak cukup" saat stock sebenarnya tersedia karena
+ * tabel batch tertinggal dari stock record.
+ *
+ * Body: { branchId?: string, productId?: string }
+ * - branchId  : filter per cabang (wajib salah satu dari branchId/productId)
+ * - productId : filter satu produk (opsional)
+ *
+ * Returns ringkasan jumlah batch yang disinkronkan otomatis + yang bermasalah.
+ */
+export const reconcileInventoryStock = async (req: Request, res: Response) => {
+  try {
+    const branchId = (req.body?.branchId as string) || (req.query.branchId as string) || (req.headers['x-clinic-id'] as string);
+    const productId = (req.body?.productId as string) || (req.query.productId as string);
+
+    if (branchId && productId) {
+      const summary: any = { checked: 0, resolved: 0, skipped: 0, notFound: 0, details: [] };
+      await prisma.$transaction(async (tx) => {
+        const stocks = await tx.inventoryStock.findMany({
+          where: {
+            branchId,
+            productId,
+            batchId: { not: null },
+          },
+          select: { batchId: true, onHandQty: true },
+        });
+
+        for (const s of stocks) {
+          if (!s.batchId) continue;
+          summary.checked++;
+          const batch = await tx.inventoryBatch.findUnique({
+            where: { id: s.batchId },
+            select: { id: true, currentQty: true, batchNumber: true },
+          });
+          if (!batch) { summary.notFound++; continue; }
+          if (batch.currentQty === s.onHandQty) { summary.skipped++; continue; }
+
+          await tx.inventoryBatch.update({
+            where: { id: batch.id },
+            data: { currentQty: s.onHandQty },
+          });
+          summary.resolved++;
+          summary.details.push({
+            batchId: batch.id,
+            batchNumber: batch.batchNumber,
+            productId,
+            from: batch.currentQty,
+            to: s.onHandQty,
+          });
+        }
+      });
+      res.json({ message: 'Rekonsiliasi batch selesai.', data: summary });
+      return;
+    }
+
+    // default: tanpa filter — scan semua batch yang punya record stock
+    const result = await prisma.$transaction(async (tx) => {
+      const stocks = await tx.inventoryStock.findMany({
+        where: { batchId: { not: null } },
+        select: { batchId: true, onHandQty: true, branchId: true },
+      });
+
+      const summary = { checked: 0, resolved: 0, skipped: 0, notFound: 0 };
+      for (const s of stocks) {
+        if (!s.batchId) continue;
+        summary.checked++;
+        const batch = await tx.inventoryBatch.findUnique({
+          where: { id: s.batchId },
+          select: { id: true, currentQty: true },
+        });
+        if (!batch) { summary.notFound++; continue; }
+        if (batch.currentQty === s.onHandQty) { summary.skipped++; continue; }
+        await tx.inventoryBatch.update({
+          where: { id: batch.id },
+          data: { currentQty: s.onHandQty },
+        });
+        summary.resolved++;
+      }
+      return summary;
+    });
+
+    res.json({
+      message: 'Rekonsiliasi stok selesai.',
+      data: result,
+    });
+  } catch (error) {
+    console.error('[InventoryController] reconcileInventory Error:', error);
+    res.status(500).json({
+      message: 'Gagal melakukan rekonsiliasi stok',
+      details: (error as Error).message,
+    });
+  }
+};

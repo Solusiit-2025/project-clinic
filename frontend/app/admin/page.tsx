@@ -72,7 +72,7 @@ function StatCard({ stat, index, isClient }: { stat: any; index: number; isClien
       {isClient && stat.breakdown && stat.breakdown.length > 0 && (
         <div className="pt-3 border-t border-gray-50">
           <div className="h-[90px] w-full relative mb-3">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={{ width: 200, height: 90 }}>
               <PieChart>
                 <Pie data={stat.breakdown} dataKey="quantity" nameKey="name"
                   cx="50%" cy="50%" innerRadius={28} outerRadius={42} paddingAngle={4} stroke="none">
@@ -794,7 +794,7 @@ export default function AdminDashboard() {
           </div>
           <div className="h-[240px] w-full">
             {isClient && data?.financialTrend ? (
-              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={{ width: 600, height: 240 }}>
                 <AreaChart data={data.financialTrend} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
                   <defs>
                     <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">

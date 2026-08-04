@@ -64,25 +64,36 @@ export class InventoryService {
     }
 
     // ── LANGKAH 2: Ambil dari batch (FEFO: expiryDate ASC) ──
+    // Sumber kebenaran stok adalah `inventoryStock.onHandQty` (product.quantity dihitung darinya).
+    // `inventoryBatch.currentQty` hanya referensi/denormalized dan bisa tertinggal, jadi JANGAN
+    // dipakai untuk menentukan jumlah penarikan — gunakan record inventoryStock per-batch agar
+    // tidak terjadi "Kritikal: Record Stok tidak cukup" padahal stok sebenarnya tersedia.
     if (remaining > 0) {
-      const batches = await client.inventoryBatch.findMany({
+      const batchStocks = await client.inventoryStock.findMany({
         where: {
           productId,
           branchId,
-          currentQty: { gt: 0 },
+          batchId: { not: null },
+          onHandQty: { gt: 0 },
         },
-        orderBy: {
-          expiryDate: 'asc',
-        },
+        include: { batch: true },
       });
 
-      for (const batch of batches) {
+      batchStocks.sort((a, b) => {
+        const ea = a.batch?.expiryDate || new Date(0);
+        const eb = b.batch?.expiryDate || new Date(0);
+        return ea.getTime() - eb.getTime();
+      });
+
+      for (const s of batchStocks) {
         if (remaining <= 0) break;
-        const take = Math.min(batch.currentQty, remaining);
+        const take = Math.min(s.onHandQty, remaining);
+        const batchCost = s.batch?.purchasePrice || 0;
+        const cost = s.unitCost > 0 ? s.unitCost : (batchCost > 0 ? batchCost : defaultPurchasePrice);
         picks.push({
-          batchId: batch.id,
+          batchId: s.batchId,
           quantity: take,
-          purchasePrice: batch.purchasePrice > 0 ? batch.purchasePrice : defaultPurchasePrice
+          purchasePrice: cost,
         });
         remaining -= take;
       }
@@ -126,15 +137,18 @@ export class InventoryService {
 
     for (const pick of picks) {
       // 1. Update Batch currentQty (Skip if global stock)
+      // `inventoryStock.onHandQty` adalah sumber kebenaran; `inventoryBatch.currentQty` adalah
+      // mirror yang bisa tertinggal. Jangan hard-fail saat mirror tertinggal — cukup kurangi
+      // (dibatasi >= 0) agar tetap sinkron dengan penarikan yang sudah dihitung dari inventoryStock.
       if (pick.batchId) {
         const batch = await tx.inventoryBatch.findUnique({ where: { id: pick.batchId } });
-        if (!batch || batch.currentQty < pick.quantity) {
-          throw new Error(`Kritikal: Stok obat ${product?.productName || 'Tidak diketahui'} (Batch ${pick.batchId}) tidak cukup. Stok batch tersedia: ${batch?.currentQty || 0}.`);
+        if (!batch) {
+          throw new Error(`Kritikal: Batch ${pick.batchId} tidak ditemukan.`);
         }
 
         await tx.inventoryBatch.update({
           where: { id: pick.batchId },
-          data: { currentQty: { decrement: pick.quantity } },
+          data: { currentQty: Math.max(0, batch.currentQty - pick.quantity) },
         });
       }
 

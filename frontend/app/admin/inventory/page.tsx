@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Package, AlertTriangle, ArrowUpRight, ArrowDownRight, 
   Search, Filter, RefreshCw, Layers, ShieldAlert,
-  History, Box, ChevronRight, EyeOff
+  History, Box, ChevronRight, EyeOff, Wrench, CheckCircle2
 } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -53,6 +53,25 @@ export default function InventoryDashboard() {
   // Mutation Dialog State
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null)
   const [isMutationDialogOpen, setIsMutationDialogOpen] = useState(false)
+  const [isReconciling, setIsReconciling] = useState(false)
+
+  const handleReconcile = async () => {
+    if (!activeClinicId) return
+    if (!confirm('Rekonsiliasi Stok akan menyelaraskan data batch (inventoryBatch.currentQty) dengan record stok (inventoryStock.onHandQty). Lanjutkan?')) return
+    setIsReconciling(true)
+    try {
+      const res = await api.post('/inventory/reconcile', { branchId: activeClinicId })
+      const d = res.data?.data || {}
+      const fixed = d.resolved ?? d.checked ?? 0
+      toast.success(`Rekonsiliasi selesai! ${fixed} batch disinkronkan.`, { duration: 4000 })
+      await fetchStocks()
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || e.message || 'Gagal melakukan rekonsiliasi stok')
+    } finally {
+      setIsReconciling(false)
+    }
+  }
+
 
   const openMutationHistory = (stock: Stock) => {
     setSelectedStock(stock)
@@ -148,6 +167,14 @@ export default function InventoryDashboard() {
                <span className="text-sm md:text-base font-black text-primary">Rp {(totalAssetValue || 0).toLocaleString('id-ID')}</span>
              )}
           </div>
+          <button 
+            onClick={handleReconcile}
+            disabled={isReconciling}
+            title="Rekonsiliasi Stok: selaraskan data batch dengan record stok"
+            className="p-3 bg-white border border-gray-100 rounded-2xl hover:bg-primary/5 hover:text-primary hover:border-primary/20 transition-all text-gray-400 active:scale-90 shadow-sm disabled:opacity-50"
+          >
+            <Wrench className={`w-5 h-5 ${isReconciling ? 'animate-spin' : ''}`} />
+          </button>
           <button 
             onClick={fetchStocks}
             className="p-3 bg-white border border-gray-100 rounded-2xl hover:bg-gray-50 transition-all text-gray-400 active:scale-90 shadow-sm"
