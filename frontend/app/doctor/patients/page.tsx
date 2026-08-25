@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import api from '@/lib/api'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -57,6 +57,8 @@ export default function DoctorPatients() {
   const [page, setPage] = useState(1)
   const [labFilter, setLabFilter] = useState<'all' | 'ever' | 'never' | 'critical'>('all')
   const [searchFocus, setSearchFocus] = useState(false)
+  const [debouncedBackendSearch, setDebouncedBackendSearch] = useState('')
+  const abortRef = useRef<AbortController | null>(null)
 
   const parsedSearch = useMemo(() => {
     const raw = searchTerm.trim().toLowerCase()
@@ -80,16 +82,31 @@ export default function DoctorPatients() {
 
   const effectiveLabFilter = parsedSearch.labKeyword ?? labFilter
 
+  // Debounce: tunggu user selesai mengetik sebelum nembak API.
+  // Tanpa ini tiap keystroke = 1 request dan respons bisa datang tidak berurutan
+  // (request "B" yang lambat menimpa hasil "Benny") sehingga search terlihat rusak.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedBackendSearch(parsedSearch.backendSearch)
+    }, 400)
+    return () => clearTimeout(t)
+  }, [parsedSearch.backendSearch])
+
   const fetchPatients = useCallback(async () => {
+    // Batalkan request sebelumnya biar hasil basi tidak menimpa hasil terbaru
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
     setLoading(true)
     try {
       const { data } = await api.get('master/patients', {
         params: {
-          search: parsedSearch.backendSearch || undefined,
+          search: debouncedBackendSearch || undefined,
           page: page,
           limit: 10,
           sort: 'recent'
-        }
+        },
+        signal: controller.signal
       })
       
       // Handle paginated response
@@ -100,21 +117,23 @@ export default function DoctorPatients() {
         setPatients(data)
         setMeta({ total: data.length, page: 1, limit: data.length, totalPages: 1 })
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.name === 'CanceledError' || e?.name === 'AbortError' || e?.code === 'ERR_CANCELED') return
       console.error('Failed to fetch patients', e)
     } finally {
-      setLoading(false)
+      if (!controller.signal.aborted) setLoading(false)
     }
-  }, [parsedSearch.backendSearch, page])
+  }, [debouncedBackendSearch, page])
 
   useEffect(() => {
     fetchPatients()
+    return () => abortRef.current?.abort()
   }, [fetchPatients])
 
-  // Reset page when search changes
+  // Reset ke halaman 1 setiap kata kunci pencarian yang sudah settle berubah
   useEffect(() => {
     setPage(1)
-  }, [searchTerm, parsedSearch.backendSearch])
+  }, [debouncedBackendSearch])
 
   const visiblePatients = useMemo(() => {
     if (effectiveLabFilter === 'all') return patients

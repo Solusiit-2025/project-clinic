@@ -1269,6 +1269,14 @@ export const getMedicalRecordsByPatient = async (req: Request, res: Response) =>
                 services: { 
                   include: { service: true } 
                 },
+                labOrders: {
+                    include: {
+                        results: {
+                            include: { testMaster: true }
+                        }
+                    },
+                    orderBy: { orderDate: 'desc' }
+                },
                 doctor: {
                   select: {
                     id: true,

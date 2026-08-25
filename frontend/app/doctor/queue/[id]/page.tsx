@@ -3969,6 +3969,59 @@ export default function DoctorConsultationPage() {
                             </div>
                           )}
 
+                          {/* Hasil Lab */}
+                          {(h.labNotes || h.labResults || (h.labOrders && h.labOrders.length > 0)) && (
+                            <div className="space-y-2">
+                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><HiOutlineBeaker className="w-3 h-3"/> Pemeriksaan Lab</p>
+                              <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm space-y-3">
+                                {h.labOrders && h.labOrders.length > 0 && (
+                                  <div className="space-y-2">
+                                    {h.labOrders.map((order: any) => (
+                                      <div key={order.id} className="bg-slate-50 rounded-xl border border-slate-100 overflow-hidden">
+                                        <div className="bg-slate-100/50 px-3 py-1.5 flex justify-between items-center border-b border-slate-100">
+                                          <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{order.orderNo} · {order.orderDate ? format(new Date(order.orderDate), 'd MMM yyyy HH:mm', { locale: idLocale }) : ''}</span>
+                                          <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-widest ${order.status === 'completed' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                                            {order.status}
+                                          </span>
+                                        </div>
+                                        {order.clinicalNotes && (
+                                          <p className="text-[11px] font-medium text-slate-600 px-3 pt-2 italic">Catatan klinis: {order.clinicalNotes}</p>
+                                        )}
+                                        {order.results?.length > 0 ? (
+                                          <div className="p-2 space-y-0.5 bg-white">
+                                            {order.results.map((res: any) => (
+                                              <div key={res.id} className="flex items-center justify-between py-1 border-b border-slate-50 last:border-0 px-1.5">
+                                                <p className="text-[10px] font-bold text-slate-700 uppercase flex-1">{res.testMaster?.name || 'Test Lab'}</p>
+                                                <p className={`text-[11px] font-black flex-1 text-center ${res.isCritical ? 'text-rose-500' : 'text-slate-900'}`}>
+                                                  {res.resultValue || '-'} <span className="text-[8px] font-medium text-slate-400 ml-0.5">{res.testMaster?.unit || ''}</span>
+                                                </p>
+                                                <p className="text-[9px] text-slate-400 flex-1 text-right">{res.testMaster?.normalRangeText || ''}</p>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <p className="text-[10px] font-bold text-amber-600 px-3 py-2 bg-amber-50/50">Menunggu hasil dari analis lab…</p>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                {h.labNotes && (
+                                  <div className="bg-rose-50/50 border border-rose-100 rounded-xl p-2.5">
+                                    <p className="text-[8px] font-black text-rose-500 uppercase tracking-widest mb-1">Catatan Lab</p>
+                                    <p className="text-xs font-medium text-slate-700 leading-relaxed italic">{h.labNotes}</p>
+                                  </div>
+                                )}
+                                {h.labResults && (
+                                  <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-2.5">
+                                    <p className="text-[8px] font-black text-indigo-500 uppercase tracking-widest mb-1">Hasil / Kesimpulan Lab</p>
+                                    <p className="text-xs font-medium text-slate-700 leading-relaxed">{h.labResults}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
                           {/* Resep Obat */}
                           {h.prescriptions && h.prescriptions.length > 0 && (
                             <div className="space-y-2">
@@ -4001,7 +4054,10 @@ export default function DoctorConsultationPage() {
                     {history.length === 0 && (
                       <div className="py-24 text-center border-2 border-dashed border-slate-100 rounded-[2.5rem] text-slate-300">
                         <FiRotateCcw className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                        <p className="text-xs font-black uppercase tracking-[0.4em]">Tidak Ada Riwayat Medis Sebelumnya</p>
+                        <p className="text-xs font-black uppercase tracking-[0.4em]">{medicalRecord ? 'Kunjungan Pertama — Belum Ada Riwayat Sebelumnya' : 'Tidak Ada Riwayat Medis Sebelumnya'}</p>
+                        {medicalRecord && (
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-3 max-w-md mx-auto leading-relaxed">Kunjungan yang sedang diperiksa tidak dihitung sebagai riwayat.<br />Data lab kunjungan ini bisa dilihat di tab Lab.</p>
+                        )}
                       </div>
                     )}
                   </div>
