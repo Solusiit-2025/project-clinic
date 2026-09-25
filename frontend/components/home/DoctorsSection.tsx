@@ -224,7 +224,7 @@ export default function DoctorsSection() {
                           Buat Janji
                         </Link>
                         <a 
-                          href={`https://wa.me/6289629353621?text=Halo%20Team%20Admin%20Klinik%20Yasfina,%20saya%20ingin%20tanya%20jadwal%20dan%20konsultasi%20mengenai%20${encodeURIComponent(doctor.name)}%20(${encodeURIComponent(doctor.specialization)}).`}
+                          href={`https://wa.me/6281299441313?text=Halo%20Team%20Admin%20Klinik%20Yasfina,%20saya%20ingin%20tanya%20jadwal%20dan%20konsultasi%20mengenai%20${encodeURIComponent(doctor.name)}%20(${encodeURIComponent(doctor.specialization)}).`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="px-4 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 font-black text-[10px] uppercase tracking-wider"

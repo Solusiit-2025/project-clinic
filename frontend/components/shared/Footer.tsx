@@ -94,8 +94,8 @@ export default function Footer() {
             </p>
             <div className="flex items-center space-x-4">
               {[
-                { icon: FiFacebook, href: 'https://wa.me/6289629353621', title: 'WhatsApp' },
-                { icon: FiTwitter, href: 'https://wa.me/6289629353621', title: 'Twitter / Contact' },
+                { icon: FiFacebook, href: 'https://wa.me/6281299441313', title: 'WhatsApp' },
+                { icon: FiTwitter, href: 'https://wa.me/6281299441313', title: 'Twitter / Contact' },
                 { icon: FiInstagram, href: '#contact', title: 'Instagram' },
                 { icon: FiLinkedin, href: '/register', title: 'Booking Online' },
               ].map((social, i) => (

@@ -72,57 +72,81 @@ export const siteConfig = {
     },
   ],
   circumcision: {
+    badge: 'Rumah Sunat Modern Yasfina',
+    title: 'Sunat Aman, Nyaman &',
+    highlight: 'Minim Trauma Anak',
+    description:
+      'Pusat khitan modern dengan pilihan metode medis terkini, dokter berpengalaman, ruangan khusus anak yang menyenangkan, dan harga transparan sudah termasuk obat + kontrol.',
     methods: [
-      { 
-        name: 'Sunat Konvensional', 
-        desc: 'Metode standar medis yang sudah teruji.', 
-        advantages: ['Sesuai Prosedur Medis', 'Biaya Terjangkau', 'Penyembuhan Alami'],
-        detail: 'Metode khitan tradisional menggunakan pisau/gunting bedah steril dengan teknik jahitan presisi untuk hasil yang aman.'
+      {
+        name: 'Laser Thermocauter',
+        short: 'Laser',
+        desc: 'Metode laser paling populer untuk anak & dewasa.',
+        detail:
+          'Metode yang dilakukan menggunakan alat laser, pada penyelesaiannya dilakukan penjahitan. Keunggulannya pendarahan sangat minimal, penyembuhan luka cepat dan tidak ada angkat jahitan.',
+        advantages: ['Pendarahan Sangat Minimal', 'Penyembuhan Cepat', 'Tanpa Angkat Jahitan'],
+        price: 'Mulai Rp 900.000',
+        priceNote: 'Anak 0–10 th: Rp 900rb – Rp 1,1 jt',
       },
-      { 
-        name: 'Sunat Cauter (Laser)', 
-        desc: 'Metode paling populer dengan teknologi panas.', 
-        advantages: ['Minim Perdarahan', 'Proses Cepat', 'Tanpa Luka Bakar'],
-        detail: 'Menggunakan alat cauter modern untuk memotong sekaligus menghentikan perdarahan secara instan. Sangat efektif dan efisien.'
+      {
+        name: 'Tekno Klamp',
+        short: 'Klamp',
+        desc: 'Tabung Smart Klemp single-use, boleh kena air.',
+        detail:
+          'Metode ini menggunakan tabung Smart Klemp dengan beberapa ukuran sesuai usia dan ukuran penis dan alat bersifat SINGLE USE ONLY. Penguncian klemp dilakukan selama 3–5 hari, setelah itu dilepas. Keunggulannya boleh terkena air.',
+        advantages: ['Single Use Only', 'Boleh Terkena Air', 'Dilepas 3–5 Hari'],
+        price: 'Konsultasi Dulu',
+        priceNote: 'Disesuaikan ukuran & usia',
       },
-      { 
-        name: 'Sunat Klamp', 
-        desc: 'Khitan tanpa jahitan, praktis & aman.', 
-        advantages: ['Tanpa Jahitan & Perban', 'Bisa Langsung Mandi', 'Bisa Langsung Sekolah'],
-        detail: 'Menggunakan alat klamp plastik sekali pakai yang dipasang pada organ. Tanpa jahitan, tanpa perban, dan anak bisa langsung beraktivitas.'
+      {
+        name: 'Pen Sealer (Lem)',
+        short: 'Lem',
+        desc: 'Inovasi lem kulit medis tanpa jahit.',
+        detail:
+          'Metode inovasi terbaru dengan menggunakan lem kulit yang sudah lazim digunakan untuk operasi-operasi besar. Setelah kulup dipotong kemudian dilakukan pemberian lem di sekitar potongan kulit tadi. Metode praktis tanpa jahit dan waktu singkat.',
+        advantages: ['Tanpa Jahit Sama Sekali', 'Waktu Tindakan Singkat', 'Lem Medis Steril'],
+        price: 'Rp 1.300.000',
+        priceNote: 'Flat, sudah termasuk obat + kontrol',
       },
-      { 
-        name: 'Sunat Bipolar', 
-        desc: 'Teknologi bedah rumah sakit untuk khitan.', 
-        advantages: ['Minim Trauma Jaringan', 'Sembuh Lebih Cepat', 'Hasil Sangat Rapi'],
-        detail: 'Menggunakan teknologi Bipolar Scissors yang memotong sekaligus mengkoagulasi jaringan tanpa merusak sel di sekitarnya.'
-      },
-      { 
-        name: 'Sunat Stapler', 
-        desc: 'Metode sekali pakai paling canggih.', 
-        advantages: ['Proses 5-10 Menit', 'Hasil Sangat Estetik', 'Alat Sekali Pakai'],
-        detail: 'Teknologi terbaru yang memotong dan memasang silicon ring/staple secara otomatis. Hasil paling rapi dan proses sangat singkat.'
-      },
-      { 
-        name: 'Sunat Fine Sealer', 
-        desc: 'Inovasi terbaru dengan lem medis.', 
-        advantages: ['Tanpa Jahitan Sama Sekali', 'Sangat Estetik', 'Penyembuhan Maksimal'],
-        detail: 'Metode khitan tanpa jahitan yang menggunakan cairan perekat (lem) khusus medis. Memberikan hasil akhir yang sangat mulus dan estetik.'
+      {
+        name: 'Stapler',
+        short: 'Stapler',
+        desc: 'Alat lonceng presisi, jahit otomatis.',
+        detail:
+          'Metode ini menggunakan alat yang berbentuk lonceng dengan 2 bagian, lonceng bagian dalam berfungsi melindungi kepala penis, dan bagian luar untuk memotong kulup. Staples digunakan untuk menjahit dan menghentikan pendarahan.',
+        advantages: ['Melindungi Kepala Penis', 'Potong + Jahit Otomatis', 'Pendarahan Minimal'],
+        price: 'Konsultasi Dulu',
+        priceNote: 'Disesuaikan usia & kondisi',
       },
     ],
+    pricingAnak: [
+      { label: 'Laser Thermocauter (0 s/d 10 th)', price: 'Rp 900.000 – Rp 1.100.000' },
+      { label: 'Metode Khusus Anak Gemuk', price: 'Rp 1.300.000 – Rp 1.600.000' },
+      { label: 'Metode Khusus Bayi', price: 'Rp 1.300.000' },
+      { label: 'Metode Pen Sealer (Lem)', price: 'Rp 1.300.000' },
+    ],
+    pricingDewasa: [
+      { label: 'Laser Thermocauter Dewasa', price: 'Rp 1.550.000 – Rp 2.050.000' },
+      { label: 'Laser Thermocauter Remaja 11–15 th', price: 'Rp 1.300.000' },
+    ],
+    included: ['Dokter', 'Perawatan', 'Celana Khitan', 'Obat-obatan', 'Kontrol 1x Setelah Khitan'],
+    facilityTitle: 'Ruangan Khusus Anak, Suasana Menyenangkan',
+    facilityDesc:
+      'Suasana yang menyenangkan, serta menyediakan ruangan khusus anak-anak agar tidak takut pada saat menunggu maupun saat proses khitan berlangsung.',
+    facilityPoints: ['Ruang tunggu ramah anak', 'Proses didampingi & edukatif', 'Privasi terjaga'],
     services: [
-      'Sunat Bayi', 'Sunat Anak', 'Sunat Dewasa', 'Sunat Berkebutuhan Khusus', 
-      'Sunat di Rumah', 'Sunat Revisi', 'Sunat Perempuan', 'Sunat Gemuk', 
+      'Sunat Bayi', 'Sunat Anak', 'Sunat Dewasa', 'Sunat Berkebutuhan Khusus',
+      'Sunat di Rumah', 'Sunat Revisi', 'Sunat Perempuan', 'Sunat Gemuk',
       'Kontrol Post Sunat', 'Sunatan Massal', 'Sunat Gratis'
     ]
   },
   contact: {
     phone: '(0251) 8666169',
-    whatsapp: '6289629353621',
-    whatsappFormatted: '0896-2935-3621',
+    whatsapp: '6281299441313',
+    whatsappFormatted: '+62 812-9944-1313',
     email: 'info@yasfina.com',
     address: 'Blok EE1, Jl. Villa Bogor Indah, RT.01/RW.14, Kedunghalang, Kec. Bogor Utara, Kota Bogor, Jawa Barat 16157',
-    hours: 'Senin - Sabtu: 08:00 - 21:00',
+    hours: 'Senin - Minggu : 08:00 - 21:00',
   },
   footerLinks: [
     { label: 'Beranda', href: '#home' },
@@ -167,7 +191,7 @@ export const siteConfig = {
     },
     {
       question: 'Apakah Klinik Yasfina buka pada hari libur?',
-      answer: 'Kami buka dari Senin hingga Sabtu, pukul 08:00 - 21:00. Untuk layanan gawat darurat, silakan langsung menuju fasilitas UGD terdekat.'
+      answer: 'Kami buka dari Senin hingga Minggu, pukul 08:00 - 21:00. Untuk layanan gawat darurat, silakan langsung menuju fasilitas UGD terdekat.'
     },
     {
       question: 'Apa saja layanan unggulan di Klinik Yasfina?',

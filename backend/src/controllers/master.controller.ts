@@ -2301,7 +2301,20 @@ export const getPatients = async (req: Request, res: Response) => {
               orderBy: { recordDate: 'desc' },
               take: 1,
               select: { recordDate: true }
-            }
+            },
+            _count: { select: { labOrders: true } },
+            labOrders: {
+              orderBy: { orderDate: 'desc' },
+              take: 20,
+              select: {
+                id: true,
+                orderNo: true,
+                orderDate: true,
+                status: true,
+                completedAt: true,
+                results: { where: { isCritical: true }, select: { id: true } },
+              },
+            },
           }
         })
       ])
@@ -2326,7 +2339,20 @@ export const getPatients = async (req: Request, res: Response) => {
           orderBy: { recordDate: 'desc' },
           take: 1,
           select: { recordDate: true }
-        }
+        },
+        _count: { select: { labOrders: true } },
+        labOrders: {
+          orderBy: { orderDate: 'desc' },
+          take: 20,
+          select: {
+            id: true,
+            orderNo: true,
+            orderDate: true,
+            status: true,
+            completedAt: true,
+            results: { where: { isCritical: true }, select: { id: true } },
+          },
+        },
       }
     })
     
@@ -3019,7 +3045,8 @@ export const getPatientHistory = async (req: Request, res: Response) => {
         orderBy: { orderDate: 'desc' },
         include: {
           doctor: { select: { name: true } },
-          results: true
+          results: { include: { testMaster: true } },
+          attachments: true,
         }
       })
     ])

@@ -22,7 +22,7 @@ export class SiteSettingService {
             phone: mainClinic.phone || '251-866-616-9',
             email: mainClinic.email || 'info@yasfina.com',
             address: mainClinic.address || '',
-            hours: 'Senin - Sabtu: 08:00 - 21:00'
+            hours: 'Senin - Minggu : 08:00 - 21:00'
           }
         };
 

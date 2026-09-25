@@ -233,7 +233,16 @@ export const saveDoctorConsultation = async (req: Request, res: Response) => {
           // Only update doctorId if we have a valid doctor account
           ...( (req as any).user.doctor?.id ? { doctorId: (req as any).user.doctor.id } : {} )
         },
-        include: { patient: true, services: true, icd10: true, secondaryIcd10s: true }
+        include: { patient: true, services: true,                 icd10: true,
+                secondaryIcd10s: true,
+                labOrders: {
+                  orderBy: { orderDate: 'desc' },
+                  include: {
+                    doctor: { select: { id: true, name: true } },
+                    results: { include: { testMaster: true } },
+                    attachments: true,
+                  },
+                }, }
       })
 
       // 1.0.1 Update Odontogram latest state if provided

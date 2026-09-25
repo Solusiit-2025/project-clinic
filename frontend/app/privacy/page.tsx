@@ -80,7 +80,7 @@ export default function PrivacyPage() {
               <section>
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-3">5. Kontak & Pertanyaan Privacy</h2>
                 <p className="text-gray-600 dark:text-gray-400">
-                  Jika Anda memiliki pertanyaan mengenai kebijakan privasi atau ingin memperbarui informasi kesehatan Anda, silakan hubungi tim kami melalui email <strong>info@yasfina.com</strong> atau telepon / WhatsApp <strong>0896-2935-3621</strong>.
+                  Jika Anda memiliki pertanyaan mengenai kebijakan privasi atau ingin memperbarui informasi kesehatan Anda, silakan hubungi tim kami melalui email <strong>info@yasfina.com</strong> atau telepon / WhatsApp <strong>+62 812-9944-1313</strong>.
                 </p>
               </section>
             </div>

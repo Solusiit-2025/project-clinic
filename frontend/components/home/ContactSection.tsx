@@ -75,7 +75,7 @@ export default function ContactSection() {
                     <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Telepon & WhatsApp</h4>
                     <p className="text-lg font-bold text-gray-900 dark:text-white">Telepon: {contact.phone || '(0251) 8666169'}</p>
                     <p className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">
-                      WhatsApp Admin: {contact.whatsappFormatted || '0896-2935-3621'}
+                      WhatsApp Admin: {contact.whatsappFormatted || '+62 812-9944-1313'}
                     </p>
                   </div>
                 </div>

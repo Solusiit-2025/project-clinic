@@ -6,7 +6,7 @@ import { useSettingsStore } from '@/lib/store/useSettingsStore'
 
 export default function WhatsAppWidget() {
   const { settings } = useSettingsStore()
-  const waNumber = settings?.contact?.whatsapp || '6289629353621'
+  const waNumber = settings?.contact?.whatsapp || '6281299441313'
   const whatsappUrl = `https://wa.me/${waNumber}?text=Halo%20Klinik%20Yasfina,%20saya%20ingin%20bertanya%20mengenai%20layanan%20kesehatan%20/%20pendaftaran%20pasien.`
 
   return (
