@@ -2392,8 +2392,8 @@ export const getNextMRNo = async (req: Request, res: Response) => {
 
 export const createPatient = async (req: Request, res: Response) => {
   try {
-    const { dateOfBirth, corporatePartnerId, ...rest } = req.body
-    
+    const { dateOfBirth, dateOfDeath, corporatePartnerId, deathIcd10Id, ...rest } = req.body
+
     // Safer date parsing to prevent Prisma errors
     let dob = null
     if (dateOfBirth && dateOfBirth !== '') {
@@ -2402,35 +2402,51 @@ export const createPatient = async (req: Request, res: Response) => {
         dob = parsedDate
       }
     }
+    let dod: Date | null = null
+    if (dateOfDeath && dateOfDeath !== '') {
+      const parsed = new Date(dateOfDeath)
+      if (!isNaN(parsed.getTime())) {
+        dod = parsed
+      }
+    }
 
-    // Strip out relational objects and non-updateable fields sent by frontend
-    delete rest.id;
-    delete rest.createdAt;
-    delete rest.updatedAt;
-    delete rest.corporatePartner;
-    delete rest.deathIcd10;
-    delete rest.medicalRecords;
-    delete rest.appointments;
-    delete rest.invoices;
-    delete rest.labOrders;
-    delete rest.birthRecords;
-    delete rest.prescriptions;
-    delete rest.queueNumbers;
-    delete rest.registrations;
-    delete rest.treatmentPlans;
+    // Whitelist only scalar Patient fields — drop relational objects,
+    // aggregates (_count) and any other junk sent by frontend (labOrders, etc.)
+    const {
+      medicalRecordNo, name, email, phone, address, city, province, zipCode,
+      gender, bloodType, identityType, identityNumber, emergencyContact, emergencyPhone,
+      allergies, isActive, bpjsNumber, insuranceName, age, familyHeadName,
+      oldMedicalRecordNo, patientType, deathCause, deathPlace, isDeceased,
+    } = rest as any
 
     const dataPayload: any = {
-      ...rest,
-      dateOfBirth: dob
+      medicalRecordNo, name, email, phone, address, city, province, zipCode,
+      gender, bloodType, identityType, identityNumber, emergencyContact, emergencyPhone,
+      allergies, isActive, bpjsNumber, insuranceName, age, familyHeadName,
+      oldMedicalRecordNo, patientType, deathCause, deathPlace, isDeceased,
+      dateOfBirth: dob,
+      dateOfDeath: dod,
     }
+    // Remove undefined keys so Prisma uses DB defaults
+    Object.keys(dataPayload).forEach((k) => {
+      if (dataPayload[k] === undefined) delete dataPayload[k]
+    })
 
     if (dataPayload.oldMedicalRecordNo === '') {
       dataPayload.oldMedicalRecordNo = null;
     }
+    if (dataPayload.deathCause === '') {
+      dataPayload.deathCause = null;
+    }
+    if (dataPayload.deathPlace === '') {
+      dataPayload.deathPlace = null;
+    }
     if (corporatePartnerId && corporatePartnerId !== '') {
-      dataPayload.corporatePartnerId = corporatePartnerId
-    } else {
-      dataPayload.corporatePartnerId = null
+      dataPayload.corporatePartner = { connect: { id: corporatePartnerId } }
+    }
+    // For create, omitting the relation = NULL, so don't set disconnect here
+    if (deathIcd10Id && deathIcd10Id !== '') {
+      dataPayload.deathIcd10 = { connect: { id: deathIcd10Id } }
     }
 
     const patient = await prisma.patient.create({
@@ -2446,7 +2462,7 @@ export const createPatient = async (req: Request, res: Response) => {
 export const updatePatient = async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { dateOfBirth, corporatePartnerId, ...rest } = req.body
+    const { dateOfBirth, dateOfDeath, corporatePartnerId, deathIcd10Id, ...rest } = req.body
 
     // Safer date parsing
     let dob = null
@@ -2456,35 +2472,54 @@ export const updatePatient = async (req: Request, res: Response) => {
         dob = parsedDate
       }
     }
+    let dod: Date | null = null
+    if (dateOfDeath && dateOfDeath !== '') {
+      const parsed = new Date(dateOfDeath)
+      if (!isNaN(parsed.getTime())) {
+        dod = parsed
+      }
+    }
 
-    // Strip out relational objects and non-updateable fields sent by frontend
-    delete rest.id;
-    delete rest.createdAt;
-    delete rest.updatedAt;
-    delete rest.corporatePartner;
-    delete rest.deathIcd10;
-    delete rest.medicalRecords;
-    delete rest.appointments;
-    delete rest.invoices;
-    delete rest.labOrders;
-    delete rest.birthRecords;
-    delete rest.prescriptions;
-    delete rest.queueNumbers;
-    delete rest.registrations;
-    delete rest.treatmentPlans;
+    // Whitelist only scalar Patient fields — drop relational objects,
+    // aggregates (_count) and any other junk sent by frontend (labOrders, etc.)
+    const {
+      medicalRecordNo, name, email, phone, address, city, province, zipCode,
+      gender, bloodType, identityType, identityNumber, emergencyContact, emergencyPhone,
+      allergies, isActive, bpjsNumber, insuranceName, age, familyHeadName,
+      oldMedicalRecordNo, patientType, deathCause, deathPlace, isDeceased,
+    } = rest as any
 
     const dataPayload: any = {
-      ...rest,
-      dateOfBirth: dob
+      medicalRecordNo, name, email, phone, address, city, province, zipCode,
+      gender, bloodType, identityType, identityNumber, emergencyContact, emergencyPhone,
+      allergies, isActive, bpjsNumber, insuranceName, age, familyHeadName,
+      oldMedicalRecordNo, patientType, deathCause, deathPlace, isDeceased,
+      dateOfBirth: dob,
+      dateOfDeath: dod,
     }
+    // Remove undefined keys so existing values are not overwritten with undefined
+    Object.keys(dataPayload).forEach((k) => {
+      if (dataPayload[k] === undefined) delete dataPayload[k]
+    })
 
     if (dataPayload.oldMedicalRecordNo === '') {
       dataPayload.oldMedicalRecordNo = null;
     }
+    if (dataPayload.deathCause === '') {
+      dataPayload.deathCause = null;
+    }
+    if (dataPayload.deathPlace === '') {
+      dataPayload.deathPlace = null;
+    }
     if (corporatePartnerId && corporatePartnerId !== '') {
-      dataPayload.corporatePartnerId = corporatePartnerId
+      dataPayload.corporatePartner = { connect: { id: corporatePartnerId } }
     } else {
-      dataPayload.corporatePartnerId = null
+      dataPayload.corporatePartner = { disconnect: true }
+    }
+    if (deathIcd10Id && deathIcd10Id !== '') {
+      dataPayload.deathIcd10 = { connect: { id: deathIcd10Id } }
+    } else {
+      dataPayload.deathIcd10 = { disconnect: true }
     }
 
     const patient = await prisma.patient.update({

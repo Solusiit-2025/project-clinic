@@ -60,7 +60,7 @@ export const markDeath = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { dateOfDeath, deathPlace, deathCause, deathIcd10Id } = req.body;
-    
+
     const updated = await prisma.patient.update({
       where: { id },
       data: {
@@ -68,8 +68,10 @@ export const markDeath = async (req: Request, res: Response) => {
         dateOfDeath: dateOfDeath ? new Date(dateOfDeath) : new Date(),
         deathPlace,
         deathCause,
-        deathIcd10Id
-      }
+        ...(deathIcd10Id && deathIcd10Id !== ''
+          ? { deathIcd10: { connect: { id: deathIcd10Id } } }
+          : { deathIcd10: { disconnect: true } }),
+      } as any
     })
     res.json(updated)
   } catch (e: any) {
@@ -87,8 +89,8 @@ export const unmarkDeath = async (req: Request, res: Response) => {
         dateOfDeath: null,
         deathPlace: null,
         deathCause: null,
-        deathIcd10Id: null
-      }
+        deathIcd10: { disconnect: true },
+      } as any
     })
     res.json(updated)
   } catch (e: any) {
